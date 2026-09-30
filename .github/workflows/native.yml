@@ -27,8 +27,8 @@ jobs:
       - name: Run native tests
         run: cargo nextest run --no-fail-fast
 
-      - name: Run native tests with the migrator
-        run: cargo nextest run --no-fail-fast --features migrator
+      - name: Run native tests with the migrator and the replay tooling
+        run: cargo nextest run --no-fail-fast --features replay
 
   msrv:
     name: MSRV (1.89)

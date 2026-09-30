@@ -28,6 +28,10 @@ name = "bundle_specs_npm"
 # The npm build ships the transforms and writes their data twin from the native crate
 required-features = ["migrator"]
 
+[[bin]]
+name = "replay_remap"
+required-features = ["replay"]
+
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
@@ -39,6 +43,8 @@ base32 = "0.5.1"
 base64 = "0.22.1"
 blake3 = "1.8.6"
 utoipa = { version = "5.5.0", optional = true }
+# Derives the replay's replica keys. The pubky crate has them too, but not on wasm32.
+ed25519-dalek = { version = "3.0.0", optional = true, default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.100"
@@ -60,6 +66,8 @@ openapi = ["utoipa"]
 # The v0 to v1 transforms. Off by default for the crate: only a client that runs the
 # migration needs them. The npm package is built with them, since it is that client.
 migrator = []
+# The replay tooling under tools/replay: the migrator plus the key derivation of the replica.
+replay = ["migrator", "dep:ed25519-dalek"]
 
 [profile.release]
 opt-level = "z"   # Requests maximum optimization for binary size (“z” stands for “size”), rather than speed.
