@@ -1,21 +1,24 @@
 //! The replay's oracle: what migrating each replica user has to leave on the testnet, derived
 //! from the replica on disk with the transforms alone, checked against what the testnet holds.
 //!
-//! `replay_verify --data <dir> [--reports <dir>] [--out <dir>] [--only <pk>]... [--resumed]
-//! [--sample <n>]`
+//! `replay_verify --data <dir> [--reports <dir>] [--actual <dir>] [--out <dir>] [--only <pk>]...
+//! [--resumed] [--sample <n>] [--compare-reports <dir> --compare-actual <dir>]`
 //!
 //! For every user of `<data>/replica/`, the engine's walk is replayed over the v0 tree: the
 //! passes in the engine's order, File objects first into a [`MigrationCtx`], every other object
 //! through it, a write folding onto a key an earlier object claimed counting `already_present`.
 //! That gives the v1 objects a run must write, the skips it must count and the flag it must
-//! leave. The testnet's side is `<data>/actual/<pk>.ndjson`, both roots as `run.mjs` dumped
-//! them, and the CLI's report is `<reports>/<pk>.json` (default `<data>/reports`); a dump or a
+//! leave. The testnet's side is `<actual>/<pk>.ndjson` (default `<data>/actual`), both roots as
+//! `run.mjs` dumped them, and the CLI's report is `<reports>/<pk>.json` (default
+//! `<data>/reports`); a browser pass keeps its own of both, in the same shapes. A dump or a
 //! report of another seed than `<data>/seed-state.json` names counts as absent. Report counts
 //! must equal the oracle's, unless `--resumed`: a run that found an earlier run's copies counts
 //! them `already_present`, so only `written` plus `already_present` is fixed. Writes
 //! `<out>/<pk>.json` and `<out>/summary.json` (default `<data>/verify`), and exits 1 on any
 //! mismatch. `--sample <n>` also writes up to n v0 objects per pass beside the v1 objects they
-//! become to `<out>/sample/`, for a reading by hand.
+//! become to `<out>/sample/`, for a reading by hand. `--compare-reports` and `--compare-actual`
+//! name another run of the same users from nothing, Node's when this one is a browser's: its
+//! report must equal this one, and its tree this one byte for byte but the flag's time.
 
 use pubky_social_specs::legacy_v0::{ParsedUri, PubkyAppObject, Resource};
 use pubky_social_specs::migrate::{MigrationCtx, Skip, TRANSFORM_REV};
@@ -42,6 +45,19 @@ const BUCKETS: [&str; 9] = [
     "bookmarks",
     "mutes",
 ];
+/// What two runs of one user from nothing report alike, on any host.
+const REPORT_KEYS: [&str; 10] = [
+    "status",
+    "mode",
+    "done",
+    "total",
+    "counts",
+    "dropped",
+    "droppedValues",
+    "skipped",
+    "notes",
+    "error",
+];
 /// Outcomes a run counts besides the transforms' own skips.
 const RUN_OUTCOMES: [&str; 5] = [
     "written",
@@ -62,7 +78,10 @@ type BlobIndex = BTreeMap<String, BTreeMap<String, bool>>;
 
 struct Options {
     reports: PathBuf,
+    actual: PathBuf,
     out: PathBuf,
+    /// Another run's reports and dumps.
+    compare: Option<(PathBuf, PathBuf)>,
     only: BTreeSet<String>,
     resumed: bool,
     sample: usize,
@@ -78,13 +97,24 @@ fn main() {
     };
     let Some(data) = arg("--data").map(PathBuf::from) else {
         eprintln!(
-            "usage: replay_verify --data <dir> [--reports <dir>] [--out <dir>] [--only <pk>]... \
-             [--resumed] [--sample <n>]"
+            "usage: replay_verify --data <dir> [--reports <dir>] [--actual <dir>] [--out <dir>] \
+             [--only <pk>]... [--resumed] [--sample <n>] \
+             [--compare-reports <dir> --compare-actual <dir>]"
         );
         std::process::exit(2);
     };
+    let compare = match (arg("--compare-reports"), arg("--compare-actual")) {
+        (Some(reports), Some(actual)) => Some((PathBuf::from(reports), PathBuf::from(actual))),
+        (None, None) => None,
+        _ => {
+            eprintln!("replay_verify: --compare-reports and --compare-actual go together");
+            std::process::exit(2);
+        }
+    };
     let options = Options {
         reports: arg("--reports").map_or_else(|| data.join("reports"), PathBuf::from),
+        actual: arg("--actual").map_or_else(|| data.join("actual"), PathBuf::from),
+        compare,
         out: arg("--out").map_or_else(|| data.join("verify"), PathBuf::from),
         only: args
             .windows(2)
@@ -149,9 +179,9 @@ fn run(data: &Path, options: &Options) -> io::Result<Value> {
     let mut sampler = Sampler::new(options.sample);
     for (i, pk) in users.iter().enumerate() {
         let tree = read_tree(&data.join("replica").join(pk))?;
-        let actual = read_actual(&data.join("actual").join(format!("{pk}.ndjson")), &epoch)?;
+        let actual = read_actual(&options.actual.join(format!("{pk}.ndjson")), &epoch)?;
         let report = read_report(&options.reports.join(format!("{pk}.json")), &epoch)?;
-        let verdict = verify_user(
+        let mut verdict = verify_user(
             pk,
             &tree,
             actual.as_ref(),
@@ -159,6 +189,15 @@ fn run(data: &Path, options: &Options) -> io::Result<Value> {
             blobs.get(pk),
             options.resumed,
         );
+        if let Some((reports, dumps)) = &options.compare {
+            let other_report = read_report(&reports.join(format!("{pk}.json")), &epoch)?;
+            let other_actual = read_actual(&dumps.join(format!("{pk}.ndjson")), &epoch)?;
+            compare_runs(
+                (report.as_ref(), actual.as_ref()),
+                (other_report.as_ref(), other_actual.as_ref()),
+                &mut verdict,
+            );
+        }
         fs::write(
             options.out.join(format!("{pk}.json")),
             serde_json::to_vec_pretty(&verdict.to_json(pk)).unwrap(),
@@ -689,6 +728,83 @@ fn compare_report(report: Option<&Value>, resumed: bool, verdict: &mut Verdict) 
     }
     if !differences.is_empty() {
         verdict.mismatch("report", "counts", differences.join("; "));
+    }
+}
+
+/// A report or flag with its path lists sorted, since two runs may finish objects in another
+/// order.
+fn sorted_lists(value: &Value) -> Value {
+    let mut value = value.clone();
+    for paths in value["skipped"]
+        .as_object_mut()
+        .into_iter()
+        .flat_map(|m| m.values_mut())
+    {
+        if let Some(paths) = paths.as_array_mut() {
+            paths.sort_by_key(Value::to_string);
+        }
+    }
+    if let Some(notes) = value.get_mut("notes").and_then(Value::as_array_mut) {
+        notes.sort_by_key(Value::to_string);
+    }
+    value
+}
+
+/// The flag as another run of the same walk writes it: everything but when.
+fn flag_content(row: &Row) -> Option<Value> {
+    let mut flag: Value = serde_json::from_str(row.text.as_deref()?).ok()?;
+    flag.as_object_mut()?.remove("migrated_at");
+    Some(sorted_lists(&flag))
+}
+
+fn short(value: &Value) -> String {
+    value.to_string().chars().take(200).collect()
+}
+
+/// How this run differs from another run of the same user from nothing: each is its report and
+/// its dump. Only the flag's `migrated_at` may differ.
+fn compare_runs(
+    (report, actual): (Option<&Value>, Option<&BTreeMap<String, Row>>),
+    (other_report, other_actual): (Option<&Value>, Option<&BTreeMap<String, Row>>),
+    verdict: &mut Verdict,
+) {
+    match (report.map(sorted_lists), other_report.map(sorted_lists)) {
+        (Some(a), Some(b)) => {
+            for key in REPORT_KEYS {
+                if a[key] != b[key] {
+                    let detail = format!("{} vs {}", short(&a[key]), short(&b[key]));
+                    verdict.mismatch("compare_report", key, detail);
+                }
+            }
+        }
+        (_, None) => verdict.mismatch("compare_report", "", "no report of this seed to compare"),
+        // Its absence is a report mismatch already
+        (None, Some(_)) => {}
+    }
+    let (Some(a), Some(b)) = (actual, other_actual) else {
+        if other_actual.is_none() {
+            verdict.mismatch("compare_dump", "", "no dump of this seed to compare");
+        }
+        return;
+    };
+    for path in a.keys().chain(b.keys()).collect::<BTreeSet<_>>() {
+        match (a.get(path), b.get(path)) {
+            (Some(_), None) => verdict.mismatch("compare_dump", path, "only in this run"),
+            (None, Some(_)) => verdict.mismatch("compare_dump", path, "only in the other run"),
+            (Some(x), Some(y)) if path == FLAG => {
+                if flag_content(x) != flag_content(y) {
+                    let detail = format!("{:?} vs {:?}", x.text, y.text);
+                    verdict.mismatch("compare_dump", path, detail);
+                }
+            }
+            (Some(x), Some(y)) => {
+                if x.blake3 != y.blake3 {
+                    let detail = format!("{} vs {}", x.blake3, y.blake3);
+                    verdict.mismatch("compare_dump", path, detail);
+                }
+            }
+            (None, None) => unreachable!("a path of either dump"),
+        }
     }
 }
 
@@ -1290,6 +1406,72 @@ mod tests {
         sampler.write(&dir).unwrap();
         assert!(dir.join("tags-01.json").exists());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn compare(
+        this: (&Value, &BTreeMap<String, Row>),
+        other: (&Value, &BTreeMap<String, Row>),
+    ) -> Vec<(&'static str, String)> {
+        let mut verdict = Verdict::default();
+        compare_runs(
+            (Some(this.0), Some(this.1)),
+            (Some(other.0), Some(other.1)),
+            &mut verdict,
+        );
+        kinds(&verdict)
+    }
+
+    #[test]
+    fn two_runs_from_nothing_differ_only_in_the_flag_time() {
+        let (owner, tree) = fixture();
+        let (actual, report) = perfect(&owner, &tree);
+        let mut other = actual.clone();
+        let mut flag: Value = serde_json::from_str(other[FLAG].text.as_ref().unwrap()).unwrap();
+        flag["migrated_at"] = json!(1_790_000_000_000_001u64);
+        other.insert(FLAG.into(), row(FLAG, flag.to_string().as_bytes()));
+        let mut other_report = report.clone();
+        for paths in other_report["skipped"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+        {
+            paths.as_array_mut().unwrap().reverse();
+        }
+        assert_eq!(compare((&report, &actual), (&other_report, &other)), vec![]);
+    }
+
+    #[test]
+    fn another_report_or_object_is_a_mismatch() {
+        let (owner, tree) = fixture();
+        let (actual, report) = perfect(&owner, &tree);
+        let mut other_report = report.clone();
+        other_report["counts"]["written"] = json!(0);
+        let mut other = actual.clone();
+        let changed = other
+            .keys()
+            .find(|p| p.starts_with("pub/social/v1/posts/"))
+            .unwrap()
+            .clone();
+        other.insert(changed.clone(), row(&changed, b"{}"));
+        let gone = other
+            .keys()
+            .find(|p| p.starts_with("pub/social/v1/tags/"))
+            .unwrap()
+            .clone();
+        other.remove(&gone);
+        let mut flag: Value = serde_json::from_str(other[FLAG].text.as_ref().unwrap()).unwrap();
+        flag["transform_rev"] = json!(0);
+        other.insert(FLAG.into(), row(FLAG, flag.to_string().as_bytes()));
+        let mut got = compare((&report, &actual), (&other_report, &other));
+        got.sort();
+        let mut want = vec![
+            ("compare_report", "counts".to_string()),
+            ("compare_dump", changed),
+            ("compare_dump", gone),
+            ("compare_dump", FLAG.to_string()),
+        ];
+        want.sort();
+        assert_eq!(got, want);
     }
 
     #[test]
