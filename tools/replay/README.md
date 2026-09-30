@@ -205,8 +205,9 @@ owner). `list_pages_derived` counts the LIST pages of a first run, since the CLI
 them: per user, the 0.x root in pages of 1000 plus the empty page that ends it, and one empty
 page for each 1.x root, `ceil(objects / 1000) + 1 + 2`.
 
-`replay.mjs` then runs every user again (all `already_migrated`, and the homeserver's event
-count unchanged), rescans 10 users (only the flags are written), and the operational cases on
+`replay.mjs` then migrates a sample again in a browser (see [Browser path](#browser-path)),
+runs every user again (all `already_migrated`, and the homeserver's event count unchanged),
+rescans 10 users (only the flags are written), and the operational cases on
 three users each, each user's 1.x tree deleted first:
 
 - kill: SIGTERM after 40% of the user's first run, then a rerun to `done`, then verify
@@ -261,9 +262,99 @@ skips what the 0.x reader refuses turns these into skips, and this group into ze
 Disk at the end, by `du -s`: `data/` 1.3 GB; the two volumes 0.9 GB by Docker's count, taken
 before they were removed.
 
+## Browser path
+
+The Node pass proves the engine and the SDK's Node build. A web app runs something else: the
+package's ESM build and its wasm loaded by a page, the SDK's browser build over the browser's
+`fetch` and CORS, Web Locks for the lock, and a tab's memory for the largest blobs. The browser
+path runs exactly that, in Chromium and in Firefox through Playwright.
+
+`browser/harness.html` loads `pkg/index.js`, the migration subpath and its SDK adapter from the
+built package, and `@synonymdev/pubky`'s browser build from `node_modules`, through an import
+map; `browser/serve.mjs` serves them on `127.0.0.1`, a secure context without TLS, so
+`navigator.locks` is there. `window.replay.run({secretHex, testnetHost, mode, rescan})` signs in
+with `Keypair.fromSecret` and `signin("pubky-social-migrate")`, runs `runMigration` over
+`sdkPort(session)` with the session's capabilities and `lock` over
+`navigator.locks.request(name, {ifAvailable: true}, fn)`, pushes every progress event to
+`window.replay.progress`, signs out, and resolves with the report, the timings and the memory
+peaks: `performance.memory.usedJSHeapSize` sampled every 200 ms (Chromium only; it counts
+ArrayBuffers, so a blob in flight shows), and the final size of each wasm's linear memory, which
+never shrinks.
+
+`browser.mjs` drives it, one browser at a time and a fresh one per user:
+
+```bash
+cd tools/replay
+npm install
+PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium      # into node_modules
+
+node browser.mjs --sample 2                   # data/reports-chromium/, data/actual-chromium/
+node browser.mjs --only <pk> --browser firefox
+```
+
+The secret reaches the page through `page.evaluate`, never in a URL. It writes
+`<reports>/<pk>.json` in `run.mjs`'s record shape plus the browser, timings and memory, with
+Chromium's renderer peak resident set (`VmHWM`) beside the heap, and dumps the tree after the
+run with the same code `run.mjs` uses, into `data/actual-<browser>/`. An error some code in the
+page logs or throws fails the user. Chromium also logs each 4xx answer as a console error, with
+the resource as its location; the migration expects those (a HEAD before each write answers 404),
+so only errors located in the page's own scripts count.
+
+`--sample <n>` takes a deterministic sample of the replica: the user with the most objects, the
+lightest other user past one LIST page (1000 objects), the owner of the largest blob, and n
+more spread evenly in key order.
+
+`replay.mjs`'s `browser` step checks, per browser, with the Node run already done:
+
+1. the sample migrated again in the browser, as from a second device: every user
+   `already_migrated`, and the homeserver's event count unchanged
+2. each sample user's 1.x tree deleted, then migrated from nothing in the browser
+3. `replay_verify --reports data/reports-<browser> --actual data/actual-<browser>` against the
+   oracle, and with `--compare-reports data/reports --compare-actual data/actual` against the
+   Node run of the same user: the same report (status, counts, `dropped` and its values,
+   `skipped`, `notes`, compared as sets where order is the walk's) and the same tree, byte for
+   byte, but the flag's `migrated_at`
+
+`node replay.mjs --sample 2 --to browser` replays the sample alone: seed, Node run, verify, then
+the browser step.
+
+### The first browser run (2026-09-30)
+
+Chromium 153 (Playwright's headless shell) on the same machine, over a fresh replica of the
+sample alone (`replay.mjs --sample 2 --to browser`), one browser at a time:
+
+| user | objects | Node | Chromium | JS heap peak | renderer peak |
+|---|---|---|---|---|---|
+| heaviest | 9,111 | 628 s | 733 s | 121 MB | 658 MB |
+| past one LIST page | 1,071 | 78 s | 86 s | 17 MB | 173 MB |
+| largest blob (100 MB) | 38 | 7 s | renderer killed after 10 s | | 1.53 GB at the kill |
+| two small users | 3 and 2 | 3 s | 1 s | 13 MB | 129 MB |
+
+The second device check passed for all five (`already_migrated`, 0 writes). The four users that
+finished verify against the oracle and equal the Node run: the same report and the same tree
+byte for byte but the flag's time. The writes are bound by the homeserver's fsync, as in Node.
+
+The largest blob's owner did not finish here. With one 100 MB blob in flight the renderer grew
+to 1.5 to 1.6 GB, of which the package's wasm memory held 302 MB, the SDK's 102 MB and the JS
+heap about 311 MB at the last sample; this machine's `earlyoom` killed it when free memory fell
+to its 8% floor. The Node CLI peaks at 1.09 GB on the same user. So a blob costs about three
+copies of itself inside the package's wasm besides the JS and SDK copies, and a wasm memory never
+shrinks, so the tab keeps that size for the rest of the run.
+
+### The nightly job
+
+`.github/workflows/replay.yml` (`replay-browser`, nightly and on demand) builds the package,
+installs Chromium and Firefox, and runs `replay.mjs --sample 2 --to browser` in both browsers,
+the testnet and its Postgres in Docker as here. With the secret `REPLAY_CORPUS_URL` set, it
+restores the corpus from that URL, a tarball of `replica/`, `keys.json`, `map.json` and
+`manifest.json`. That has to be a presigned URL into a private bucket: `map.json` links every
+replica key to its production key, and a workflow artifact is readable by anyone who can read the
+repository. Without it, `fixture.mjs` writes two users whose tree is the semantic vectors' 0.x
+tree (38 objects each), so the browser path runs every night regardless.
+
 ## Next
 
-- Browser harness: the same migration in Chromium and Firefox through Playwright, which must
-  give the same result as Node for the same user.
-- Nightly: a CI workflow over a cached subset of the corpus, and the checklist the full replay
-  has to pass before the migration is switched on.
+- The corpus in a private bucket for the nightly job, and the checklist the full replay has to
+  pass before the migration is switched on.
+- The largest blob in a browser: the tab's memory for one 100 MB blob, and a run of that user
+  where the memory allows it (the nightly job with the corpus).

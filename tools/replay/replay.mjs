@@ -1,21 +1,25 @@
 // The whole replay on this machine: seed the replica, migrate every user, verify against the
-// oracle, run everyone again, rescan a few, then the operational cases on three users each.
+// oracle, migrate a sample again in a browser, run everyone again, rescan a few, then the
+// operational cases on three users each.
 //
-//   node replay.mjs [--data data] [--parallel 4] [--from <step>] [--to <step>] [--no-docker] [--down]
+//   node replay.mjs [--data data] [--parallel 4] [--from <step>] [--to <step>] [--sample <n>]
+//                   [--browser chromium|firefox]... [--no-docker] [--down]
 //
-// Steps: seed, run, verify, second, rescan, kill, quota, rate, metrics. Every step is resumable
-// on its own; `--from` and `--to` bound the steps run. The numbers land in `data/metrics.json`,
-// and `--from metrics` rebuilds them from the reports on disk. `--down` removes the containers
-// and their volumes once everything passed.
+// Steps: seed, run, verify, browser, second, rescan, kill, quota, rate, metrics. Every step is
+// resumable on its own; `--from` and `--to` bound the steps run. `--sample <n>` replays only the
+// sample `sampleUsers` picks, which the browser step takes in any case (n is 2 by default), in
+// each `--browser` (chromium by default). The numbers land in `data/metrics.json`, and
+// `--from metrics` rebuilds them from the reports on disk. `--down` removes the containers and
+// their volumes once everything passed.
 
 import { spawnSync, execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { admin, config, down, keypairOf, pubky, replicaUsers, resetV1, restart, seedEpoch, summarizeReports, up, volumeBytes, walk, writeConfig } from "./testnet.mjs";
+import { admin, config, down, keypairOf, pubky, replicaUsers, resetV1, restart, sampleUsers, seedEpoch, summarizeReports, up, volumeBytes, walk, writeConfig } from "./testnet.mjs";
 
-const STEPS = ["seed", "run", "verify", "second", "rescan", "kill", "quota", "rate", "metrics"];
+const STEPS = ["seed", "run", "verify", "browser", "second", "rescan", "kill", "quota", "rate", "metrics"];
 const { values: args } = parseArgs({
   options: {
     data: { type: "string", default: "data" },
@@ -24,6 +28,8 @@ const { values: args } = parseArgs({
     to: { type: "string", default: "metrics" },
     docker: { type: "boolean", default: true },
     down: { type: "boolean", default: false },
+    sample: { type: "string" },
+    browser: { type: "string", multiple: true, default: ["chromium"] },
   },
   allowNegative: true,
 });
@@ -36,7 +42,10 @@ const metricsPath = path.join(data, "metrics.json");
 const metrics = existsSync(metricsPath) ? JSON.parse(readFileSync(metricsPath, "utf8")) : {};
 const save = () => writeFileSync(metricsPath, JSON.stringify(metrics, null, 2));
 const json = (file) => JSON.parse(readFileSync(path.join(data, file), "utf8"));
-const users = () => replicaUsers(data);
+const sample = () => sampleUsers(data, Number(args.sample ?? 2));
+const users = () => (args.sample === undefined ? replicaUsers(data) : sample());
+// Every user, or the sample alone
+const population = () => (args.sample === undefined ? [] : users());
 const failures = [];
 const check = (ok, message) => {
   if (!ok) failures.push(message);
@@ -51,6 +60,7 @@ const node = (script, ...argv) => {
 };
 const run = (reports, ...argv) => node("run.mjs", "--parallel", args.parallel, "--reports", path.join(data, reports), ...argv);
 const only = (list) => list.flatMap((u) => ["--only", u.pk]);
+const browserPass = (name, reports, ...argv) => node("browser.mjs", "--browser", name, "--reports", path.join(data, reports), ...argv);
 // What the last invocation of run.mjs did, out of the pass it adds to
 const session = (summary) => summary.sessions.at(-1);
 // A case's reports hold that case alone, so its wall time is not added to an earlier one's
@@ -86,19 +96,43 @@ const verified = (summary) => ({ users: summary.users, mismatchedUsers: summary.
 const steps = {
   async seed() {
     const argv = args.docker ? [] : ["--no-docker"];
-    const seed = node("seed.mjs", ...argv);
+    const seed = node("seed.mjs", ...argv, ...only(population()));
     metrics.seed = seed;
     check(seed.refused === 0 && seed.differences === 0, `seed: ${seed.users} users, ${seed.objects} objects, the testnet holds exactly the replica`);
   },
   async run() {
-    const summary = run("reports");
+    const summary = run("reports", ...only(population()));
     metrics.run = summary;
     check(summary.status.done === summary.users, `run: ${summary.status.done ?? 0} of ${summary.users} users done`);
   },
   async verify() {
-    const summary = verify("reports", "verify", [], "--sample", "5");
+    const summary = verify("reports", "verify", population(), "--sample", "5");
     metrics.verify = summary;
     check(summary.mismatched_users === 0, `verify: ${summary.users - summary.mismatched_users} of ${summary.users} users match the oracle`);
+  },
+  // Per browser: the sample, which the run migrated, migrated again from the browser as from a
+  // second device, which must find nothing to do; then each user's 1.x tree deleted and
+  // migrated from nothing in the browser, verified, and compared with what Node left
+  async browser() {
+    const list = sample();
+    metrics.browser = {};
+    for (const name of args.browser) {
+      fresh(`reports-${name}-second`);
+      const before = events();
+      const second = browserPass(name, `reports-${name}-second`, "--no-dump", ...only(list));
+      const writes = events() - before;
+      for (const u of list) await resetV1(u);
+      fresh(`reports-${name}`, `actual-${name}`);
+      const pass = browserPass(name, `reports-${name}`, "--actual", path.join(data, `actual-${name}`), ...only(list));
+      const v = verify(`reports-${name}`, `verify-${name}`, list, "--actual", path.join(data, `actual-${name}`),
+        "--compare-reports", path.join(data, "reports"), "--compare-actual", path.join(data, "actual"));
+      const errors = session(pass).pageErrors.length + session(second).pageErrors.length;
+      metrics.browser[name] = { second: { status: second.status, writes }, ...brief(pass), peaks: session(pass).peaks, pageErrors: errors, verify: verified(v) };
+      check(second.status.already_migrated === list.length && writes === 0,
+        `${name} second device: ${second.status.already_migrated ?? 0} of ${list.length} already_migrated, ${writes} writes`);
+      check(pass.status.done === list.length && errors === 0 && v.mismatched_users === 0,
+        `${name}: ${pass.status.done ?? 0} of ${list.length} done from nothing, ${errors} page errors, verify and the comparison with Node ${v.mismatched_users === 0 ? "pass" : "fail"}`);
+    }
   },
   async second() {
     fresh("reports-second");
@@ -277,6 +311,7 @@ const summarize = () => {
     kill: metrics.kill,
     quota: metrics.quota,
     rate: metrics.rate,
+    browser: metrics.browser && Object.fromEntries(Object.entries(metrics.browser).map(([name, b]) => [name, { second: b.second, status: b.status, perUserMs: b.perUserMs, peaks: b.peaks, pageErrors: b.pageErrors, mismatchedUsers: b.verify.mismatchedUsers }])),
     disk: metrics.disk,
   };
 };
