@@ -13,5 +13,8 @@
   "dependencies": {
     "@noble/hashes": "^2.0.0",
     "@synonymdev/pubky": "^0.14.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

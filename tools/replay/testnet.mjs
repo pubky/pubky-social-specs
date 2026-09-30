@@ -6,9 +6,11 @@
 // rate limit case needs to load another config. The DHT and the pkarr relay do not survive
 // one, so every start publishes again the record of every user the seed signed up.
 
+import { blake3 } from "@noble/hashes/blake3.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { Keypair, Pubky, PublicKey } from "@synonymdev/pubky";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 // The testnet's fixed homeserver key; the testnet derives it from a zero secret
@@ -198,7 +200,14 @@ export const listAll = async (storage, prefix) => {
   let cursor = null;
   let pages = 0;
   for (;;) {
-    const urls = await storage.list(prefix, cursor, false, 1000, false);
+    let urls;
+    try {
+      urls = await storage.list(prefix, cursor, false, 1000, false);
+    } catch (error) {
+      // The homeserver answers a LIST of a directory holding nothing with 404
+      if (statusOf(error) !== 404) throw error;
+      urls = [];
+    }
     pages++;
     if (urls.length === 0) return { paths, pages };
     for (const url of urls) paths.push(decodeURIComponent(url.slice(url.indexOf("/", "pubky://".length) + 1)));
@@ -308,6 +317,74 @@ export const resetV1 = async ({ secret }) => {
       }
     }
     return deleted;
+  } finally {
+    await session.signout().catch(() => {});
+  }
+};
+
+/**
+ * A deterministic sample of the replica: the user with the most objects, the lightest other
+ * one past a LIST page (1000), the owner of the largest blob, and `n` more spread evenly in key
+ * order.
+ */
+export const sampleUsers = (dataDir, n) => {
+  const users = replicaUsers(dataDir).map((u) => {
+    const tree = path.join(dataDir, "replica", u.pk);
+    const blobs = path.join(tree, "pub/pubky.app/blobs");
+    const largestBlob = Math.max(0, ...walk(blobs).map((b) => statSync(path.join(blobs, b)).size));
+    return { ...u, objects: walk(tree).length, largestBlob };
+  });
+  const picked = new Map();
+  const pick = (u) => u && picked.set(u.pk, u);
+  const byObjects = [...users].sort((a, b) => a.objects - b.objects);
+  pick(byObjects.at(-1));
+  pick(byObjects.find((u) => u.objects > 1000 && !picked.has(u.pk)));
+  pick([...users].filter((u) => u.largestBlob > 0).sort((a, b) => b.largestBlob - a.largestBlob)[0]);
+  const rest = users.filter((u) => !picked.has(u.pk));
+  for (let i = 0; i < Math.min(n, rest.length); i++) pick(rest[Math.floor((i * rest.length) / n)]);
+  return [...picked.values()].sort((a, b) => (a.pk < b.pk ? -1 : 1)).map(({ pk, secret }) => ({ pk, secret }));
+};
+
+export const atomicWrite = (file, text) => {
+  writeFileSync(`${file}.tmp`, text);
+  renameSync(`${file}.tmp`, file);
+};
+
+const dumpSlot = slots(8);
+const decoder = new TextDecoder("utf-8", { fatal: true });
+
+/**
+ * Writes the user's whole tree, both roots, as the server holds it now, to `file`: a first line
+ * naming the seed, then a line per object with its size and blake3, and the text of every 1.x
+ * object but media, which is what `replay_verify` reads. Resolves with the object count.
+ */
+export const dumpTree = async ({ pk, secret }, file, epoch) => {
+  const session = await retrying(() => pubky().signer(keypairOf(secret)).signin("pubky-social-replay"));
+  try {
+    const lines = [];
+    for (const root of ["/pub/", "/priv/"]) {
+      const { paths } = await retrying(() => listAll(session.storage, root));
+      const rows = await Promise.all(
+        paths.map((p) =>
+          dumpSlot(async () => {
+            const bytes = await retrying(() => session.storage.getBytes(`/${p}`));
+            const row = { path: p, size: bytes.length, blake3: bytesToHex(blake3(bytes)) };
+            if (p.includes("/social/v1/") && !p.startsWith("pub/social/v1/files/")) {
+              try {
+                row.text = decoder.decode(bytes);
+              } catch {
+                row.utf8 = false;
+              }
+            }
+            return row;
+          }),
+        ),
+      );
+      lines.push(...rows.map((row) => JSON.stringify(row)));
+    }
+    mkdirSync(path.dirname(file), { recursive: true });
+    atomicWrite(file, [JSON.stringify({ seed_epoch: epoch }), ...lines].join("\n") + "\n");
+    return lines.length;
   } finally {
     await session.signout().catch(() => {});
   }

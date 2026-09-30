@@ -13,14 +13,12 @@
 // `--kill-after` sends the CLI a SIGTERM after that many seconds, to interrupt it mid-run.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { blake3 } from "@noble/hashes/blake3.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
-import { HOST, pubky, keypairOf, replicaUsers, listAll, pool, slots, retrying, seedEpoch, summarizeReports, tally } from "./testnet.mjs";
+import { HOST, atomicWrite, dumpTree, keypairOf, replicaUsers, pool, seedEpoch, summarizeReports, tally } from "./testnet.mjs";
 
 const { values: args } = parseArgs({
   options: {
@@ -48,8 +46,6 @@ const FINAL = new Set(["done", "already_migrated"]);
 const reportsDir = args.reports ?? path.join(args.data, "reports");
 const actualDir = path.join(args.data, "actual");
 const killAfter = args["kill-after"] === undefined ? undefined : Number(args["kill-after"]) * 1000;
-const dumpSlot = slots(8);
-const decoder = new TextDecoder("utf-8", { fatal: true });
 const epoch = seedEpoch(args.data);
 if (epoch === null) throw new Error(`no seed epoch in ${args.data}/seed-state.json: seed first`);
 
@@ -58,11 +54,6 @@ const dumpEpoch = (pk) => {
   if (!existsSync(file)) return null;
   const first = readFileSync(file, "utf8").split("\n", 1)[0];
   return JSON.parse(first).seed_epoch ?? null;
-};
-
-const atomicWrite = (file, text) => {
-  writeFileSync(`${file}.tmp`, text);
-  renameSync(`${file}.tmp`, file);
 };
 
 const cli = (recovery) =>
@@ -81,40 +72,6 @@ const cli = (recovery) =>
       resolve({ exit, signal, stdout, stderr });
     });
   });
-
-/** The user's whole tree, both roots, as the server holds it now. */
-const dump = async ({ pk, secret }) => {
-  const session = await retrying(() => pubky().signer(keypairOf(secret)).signin("pubky-social-replay"));
-  try {
-    const lines = [];
-    for (const root of ["/pub/", "/priv/"]) {
-      const { paths } = await retrying(() => listAll(session.storage, root));
-      const rows = await Promise.all(
-        paths.map((p) =>
-          dumpSlot(async () => {
-            const bytes = await retrying(() => session.storage.getBytes(`/${p}`));
-            const row = { path: p, size: bytes.length, blake3: bytesToHex(blake3(bytes)) };
-            if (p.includes("/social/v1/") && !p.startsWith("pub/social/v1/files/")) {
-              try {
-                row.text = decoder.decode(bytes);
-              } catch {
-                row.utf8 = false;
-              }
-            }
-            return row;
-          }),
-        ),
-      );
-      lines.push(...rows.map((row) => JSON.stringify(row)));
-    }
-    mkdirSync(actualDir, { recursive: true });
-    const header = JSON.stringify({ seed_epoch: epoch });
-    atomicWrite(path.join(actualDir, `${pk}.ndjson`), [header, ...lines].join("\n") + "\n");
-    return lines.length;
-  } finally {
-    await session.signout().catch(() => {});
-  }
-};
 
 const results = [];
 const migrateUser = async (user, recoveryDir) => {
@@ -155,7 +112,7 @@ const migrateUser = async (user, recoveryDir) => {
   };
   if (args.dump && args.mode === "run" && report) {
     const t1 = Date.now();
-    result.dumped = await dump(user);
+    result.dumped = await dumpTree(user, path.join(actualDir, `${user.pk}.ndjson`), epoch);
     result.dumpMs = Date.now() - t1;
   }
   atomicWrite(file, JSON.stringify(result, null, 1));
