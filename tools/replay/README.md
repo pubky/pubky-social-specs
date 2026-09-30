@@ -52,9 +52,9 @@ cargo run --features replay --bin replay_remap -- \
   --corpus tools/replay/data/corpus --out tools/replay/data --salt-env REPLAY_SALT
 ```
 
-The remap builds behind the `replay` feature, which adds the key derivation to `migrator`; the
-package's `migrator` alone does not pull the crypto crate. Its tests run with
-`cargo nextest run --features replay -E 'binary(replay_remap)'`.
+The two Rust bins build behind the `replay` feature, which adds the key derivation to
+`migrator`; the package's `migrator` alone does not pull the crypto crate. Their tests run with
+`cargo nextest run --features replay -E 'binary(replay_verify) | binary(replay_remap)'`.
 
 `crawl.mjs` takes `--users <file>`, `--out <dir>` (default `data`), `--only <pk>` (repeatable)
 and `--no-resume`. A rerun resumes from the manifest: a user whose tree was copied whole is not
@@ -123,13 +123,146 @@ hex) and `data/remap_report.json`:
 No article in the 2026-09-30 corpus carries a `cover_image` (140 articles), so the article cover
 rewrite changes nothing in that replica.
 
+## Seed, run and verify
+
+The replica runs on a pubky testnet (`synonymsoft/homeserver-testnet:v0.14.0`) in `persist`
+mode, so its file store sits on disk in the `replay-hs` Docker volume and survives a restart,
+with Postgres in `replay-pg`. The in-memory default would hold every blob in RAM. A restart
+loses the testnet's DHT and pkarr relay, and with them every user's record, so every start
+publishes again the record of each user the seed signed up; `--from <step>` works after one. The
+CLI needs the package built: `cd pkg && npm install && npm run build`.
+
+```bash
+cd tools/replay
+
+# Everything below in one go, resumable per step (--from <step>, --to <step>); --down removes
+# the containers and volumes once every check passed
+node replay.mjs
+
+# Or step by step
+node seed.mjs                         # data/seed-report.json, data/seed-state.json
+node run.mjs                          # data/reports/<pk>.json, data/actual/<pk>.ndjson
+cd ../.. && cargo run --features replay --bin replay_verify -- --data tools/replay/data
+
+# The numbers again, from the reports on disk
+node replay.mjs --from metrics --no-docker
+```
+
+`seed.mjs` starts Postgres and the testnet (or expects them up with `--no-docker`), waits for
+the homeserver's record on the pkarr relay, signs every replica key up and PUTs its tree with
+`putBytes`, JSON included, so the testnet holds production's bytes exactly: `putJson` would
+store the SDK's serialization, with sorted keys and without the objects that do not parse. It
+keeps 4 users and 8 requests in flight, resumes from `seed-state.json`, and at the end lists
+every user's tree and reports any path on one side only, and every PUT the homeserver refused.
+`seed-state.json` names the seed with an epoch; `--no-resume` starts a new one.
+
+`run.mjs` migrates each user with `pubky-social-migrate --testnet localhost --json`, from a
+recovery file it writes to a temporary directory, 4 users at a time (`--parallel`). `--only`,
+`--mode dry|run`, `--rescan`, `--reports <dir>` and `--force` (run a user whose report is
+already final) shape a pass, and `--kill-after <s>` interrupts the CLI with a SIGTERM. After a
+run it dumps the user's two roots through its own session into `data/actual/<pk>.ndjson`: a
+first line naming the seed, then size and blake3 of every object, and the text of every 1.x
+object but media. Every record and dump carries the seed's epoch, and one of another seed counts
+as absent, so a reseed never verifies against stale data. A CLI whose output starts with
+`Sign-in failed:` runs again, up to three times: the testnet's pkarr relay has answered the
+homeserver's record without an HTTPS endpoint. Any other failure before a report is kept in the
+user's record and fails the pass. `<reports>/summary.json` keeps every session that added to the
+pass, so a pass that resumed reports the wall time of all its sessions.
+
+`replay_verify` is the oracle. It never reads the engine: it replays the engine's walk over the
+replica tree on disk with `MigrationCtx` and the transforms (File objects first, then the passes
+in order, a write whose key an earlier object claimed counting `already_present`, anything no
+pass takes `not_migrated`), and checks the dump and the report against it:
+
+- every expected 1.x object is on the testnet, JSON equal by meaning (an absent member equals a
+  `null` one), media equal by hash; of two objects folding onto one key, either may have landed
+- every 1.x object on the testnet reads through the 1.x reader (`PubkySocialObject::from_uri`)
+- no 1.x object the oracle does not expect, and nothing outside the v0 tree and the 1.x roots
+- `_migrated.json` present, `transform_rev` 1, its `skipped` equal to the oracle's
+- the report: every count, skipped path and dropped value equal, `done` equal to `total`. With
+  `--resumed`, for a run that found an earlier run's copies (the kill, quota and rescan cases),
+  only `written` plus `already_present` is fixed
+- the v0 tree byte for byte as the replica holds it
+
+The oracle runs the crate's own transforms, so 0 mismatches proves what the engine adds around
+them: the walk and its order, the writes it makes and the ones it must not, the bookkeeping of
+the report and the flag, and the untouched v0 tree. It says nothing on whether a transform
+turns a v0 object into the right 1.x object; the semantic vectors check that, and so does a
+reading by hand of sampled pairs: `--sample <n>` writes n v0 objects per pass beside the 1.x
+objects they became to `data/verify/sample/`, chosen by a hash of owner and path.
+
+It writes `data/verify/<pk>.json` and `data/verify/summary.json` with the skip histogram and
+findings in both directions against the frozen 0.x reader:
+
+- `skipped_though_real`: every `invalid`, `malformed`, `shape` and `unsafe_integer` skip, which
+  real data should not produce, grouped by what the 0.x reader says of the object
+- `migrated_though_refused`: every object the transforms took (a File read into the run, or an
+  object that gave writes) although the 0.x reader refuses it, grouped the same way
+
+and the media references left dangling, split into `not_sampled` (production holds the blob,
+the crawl did not fetch it) and `absent_in_production` (production lists no such blob for the
+owner). `list_pages_derived` counts the LIST pages of a first run, since the CLI does not count
+them: per user, the 0.x root in pages of 1000 plus the empty page that ends it, and one empty
+page for each 1.x root, `ceil(objects / 1000) + 1 + 2`.
+
+`replay.mjs` then runs every user again (all `already_migrated`, and the homeserver's event
+count unchanged), rescans 10 users (only the flags are written), and the operational cases on
+three users each, each user's 1.x tree deleted first:
+
+- kill: SIGTERM after 40% of the user's first run, then a rerun to `done`, then verify
+- quota: the admin API sets the user's storage quota to its v0 tree plus about 1 MB, the run
+  must pause with `QUOTA`, and `needBytes` must equal the size the Files declare for the
+  owner's blobs not on the testnet at the pause (dumped then); after the quota is lifted the
+  run resumes to `done`
+- rate limit: the homeserver restarts with PUT limited to 30 a minute per user (burst 5), a
+  probe checks it answers 429, and the run must still end `done` through the engine's backoff
+
+The numbers land in `data/metrics.json`, rebuilt by the last step from the reports on disk.
+
+### The first full replay (2026-09-30)
+
+One machine, 9 GB of RAM and a spinning disk, the testnet and Postgres in Docker, 4 users at a
+time. The homeserver fsyncs every write, so writes ran at about 40 a second throughout.
+
+| step | result |
+|---|---|
+| seed | 849 users, 114,214 objects, 348 MB, 55 min, nothing refused, every tree equal to the replica |
+| run | 849 users `done` in 59 min over two sessions (3,561.7 s, then 1.8 s for the one user whose sign-in failed); per user p50 1.8 s, p90 13 s, max 14 min |
+| heaviest user | 9,111 objects in 846 s, about 11 objects a second with the engine's two in flight |
+| largest blob | the 100 MB blob's owner, 38 objects, 16 s |
+| verify | 849 of 849 users equal to the oracle, report counts exact, every 1.x object read back, no mismatch of any kind |
+| second run | 849 `already_migrated`, 0 writes on the homeserver, 4.7 min |
+| rescan | 10 users `done`, 0 objects written, 10 writes (the flags), verify passes |
+| kill | 3 users of 2,944 to 3,837 objects killed after 90 to 158 s, rerun to `done` (1,068 to 1,282 written, the rest found present), verify passes |
+| quota | 3 users of 6.7 to 42.5 MB paused with `QUOTA` and `done` once the quota was lifted, verify passes; `needBytes` was the size of the blob the walk had not reached (6,676,469, 14,238,086 and 42,311,682 bytes). This run predates the dump at the pause, so the equality was read from the LIST order, not checked |
+| rate limit | a probe met a 429 after the burst; 3 users of about 100 objects took 220 s instead of 7 to 10, all `done`, verify passes |
+
+The run read 333 MB of v0 objects and wrote 331 MB of 1.x objects, over 3,460 LIST pages
+(derived). Skips: 1,669 `not_migrated` (`settings.json`, `last_read` and other apps' paths),
+102 `invalid`, 9 `shape`, 8 `malformed`; no `tombstone`, `empty_title`, `unknown_post_kind` or
+`unsafe_integer`. 4,696 media references in 464 users dangle: 4,679 to blobs production holds and
+the crawl did not sample (it fetched 28 of about 5,000), 17 to blobs production never listed.
+
+Skipped though real, 119: every one is an object the frozen 0.x reader refuses too, except two
+probe posts whose `parent` names a host that is not a key
+(`pubky://global848185000.../posts/DRILLGLOBAL84`), which the 0.x reader never checked. The rest:
+tag labels with `,` or `:` (`pubky:annotation`, `bitcoin,`), post ids outside the timestamp range
+or not Crockford, tags whose target spells the host `pubky<key>` or `test`, feeds with more than
+5 tags or a `cards` layout, `attachments` stored as the string `"[]"`, posts without `content`
+or that do not parse, a tag stored as a JSON string, and two blobs stored under `files/`.
+
+Migrated though refused, 56, as the transforms stood on 2026-09-30: 36 File objects the run read
+for their blob and name although their id is before October 2024, too long or not Crockford;
+16 tags and 2 bookmarks whose id is not the one their target derives (the remap keeps such ids,
+so they stay as invalid as they were in production); one collection whose first item is not a
+canonical post URI; one profile with an empty image, which migrates without it. A transform that
+skips what the 0.x reader refuses turns these into skips, and this group into zero.
+
+Disk at the end, by `du -s`: `data/` 1.3 GB; the two volumes 0.9 GB by Docker's count, taken
+before they were removed.
+
 ## Next
 
-- Seed: start a testnet homeserver, sign every replica key up, PUT the replica tree and check by
-  LIST that it equals the manifest.
-- Run and verify: migrate every user from Node, then check the result against an independent
-  run of the transforms over the same tree: every expected path present and equal, no
-  unexpected path, the skips named and counted, the v0 tree untouched, a second run a no-op.
 - Browser harness: the same migration in Chromium and Firefox through Playwright, which must
   give the same result as Node for the same user.
 - Nightly: a CI workflow over a cached subset of the corpus, and the checklist the full replay

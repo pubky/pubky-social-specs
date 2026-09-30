@@ -5,7 +5,10 @@
   "description": "Replays a copy of production on a testnet replica before real users migrate",
   "scripts": {
     "users": "node users.mjs",
-    "crawl": "node crawl.mjs"
+    "crawl": "node crawl.mjs",
+    "seed": "node seed.mjs",
+    "migrate": "node run.mjs",
+    "replay": "node replay.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0",
