@@ -460,7 +460,7 @@ fn label(rng: &mut Rng) -> String {
 
 fn gen_tag(rng: &mut Rng, fx: &Fixture) -> (String, Vec<u8>) {
     let body = json!({"uri": url(rng, fx), "label": label(rng), "created_at": created_at(rng, fx)});
-    let id = match serde_json::from_value::<legacy_v0::V0Tag>(body.clone()) {
+    let id = match serde_json::from_value::<legacy_v0::PubkyAppTag>(body.clone()) {
         Ok(tag) if rng.chance(95) => {
             let tag = tag.sanitize();
             legacy_v0::tag_id(&tag.uri, &tag.label)
@@ -498,7 +498,7 @@ fn gen_follow(rng: &mut Rng, fx: &Fixture, segment: &str) -> (String, Vec<u8>) {
 
 fn gen_bookmark(rng: &mut Rng, fx: &Fixture) -> (String, Vec<u8>) {
     let uri = url(rng, fx);
-    let bookmark = legacy_v0::V0Bookmark {
+    let bookmark = legacy_v0::PubkyAppBookmark {
         uri: uri.clone(),
         created_at: 0,
     };
@@ -536,7 +536,7 @@ fn gen_feed(rng: &mut Rng, fx: &Fixture) -> (String, Vec<u8>) {
             _ => text(rng, &[10]),
         });
     }
-    let id = match serde_json::from_value::<legacy_v0::V0Feed>(body.clone()) {
+    let id = match serde_json::from_value::<legacy_v0::PubkyAppFeed>(body.clone()) {
         Ok(feed) => V0HashId::create_id(&feed.sanitize()),
         Err(_) => legacy_v0::tag_id("x", "y"),
     };

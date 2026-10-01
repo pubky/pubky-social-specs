@@ -377,7 +377,7 @@ fn expect(owner: &PubkyId, tree: &BTreeMap<String, Vec<u8>>) -> Expected {
             let migrated = match ctx.migrate(path, bytes) {
                 Ok(migrated) => migrated,
                 Err(skip) => {
-                    count(&mut expected, skip.as_str(), path);
+                    count(&mut expected, skip.skip.as_str(), path);
                     continue;
                 }
             };
@@ -1110,8 +1110,16 @@ mod tests {
             tree.entry(input["path"].as_str().unwrap().to_string())
                 .or_insert_with(|| bytes_of(input));
         }
-        let twin = tree[&format!("{LEGACY}tags/0034A0X7NJ536")].clone();
-        tree.insert(format!("{LEGACY}tags/0034A0X7NJ5ZZ"), twin);
+        // A second tag on the same media through its blob spelling: a distinct 0.x id the
+        // reader accepts, and the same 1.x tag once the target is dereferenced
+        let uri = format!("pubky://{owner}/{LEGACY}blobs/AKSZ57W2RFKHV1EHK007FQQ8TW");
+        let hash = blake3::hash(format!("{uri}:pic").as_bytes());
+        let twin_id = base32::encode(base32::Alphabet::Crockford, &hash.as_bytes()[..16]);
+        let twin = json!({ "uri": uri, "label": "pic", "created_at": 1727740800000000u64 });
+        tree.insert(
+            format!("{LEGACY}tags/{twin_id}"),
+            serde_json::to_vec(&twin).unwrap(),
+        );
         tree.insert(format!("{LEGACY}settings.json"), b"{}".to_vec());
         (owner, tree)
     }
@@ -1182,7 +1190,10 @@ mod tests {
         assert!(expected.skipped["not_migrated"].contains(&format!("{LEGACY}settings.json")));
         assert!(expected.skipped["not_migrated"].contains(&format!("{LEGACY}last_read")));
         assert_eq!(c("empty_title"), 1);
-        assert_eq!(c("unknown_post_kind"), 1);
+        // An unknown post kind is what the 0.x reader refuses: invalid, with the reader's note
+        assert!(expected.skipped["invalid"]
+            .iter()
+            .any(|path| path.ends_with("posts/0034A0X7NJ52Y")));
         assert!(expected
             .writes
             .contains_key("pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"));
@@ -1349,7 +1360,8 @@ mod tests {
     #[test]
     fn findings_run_both_ways_against_the_reader() {
         let (owner, mut tree) = fixture();
-        // A File id from before October 2024: the 0.x reader refuses it, the run still reads it
+        // A File id from before October 2024: the 0.x reader refuses it, and so do the
+        // transforms, which read through that reader; the run counts it as its own skip
         let early = format!("{LEGACY}files/001I1L5E4G50G");
         let file = tree[&format!("{LEGACY}files/0033000000000")].clone();
         tree.insert(early.clone(), file);
@@ -1361,8 +1373,8 @@ mod tests {
         findings(&owner_id, &tree, &mut verdict);
         let categories: BTreeSet<&str> = verdict.findings.iter().map(|f| f.0.as_str()).collect();
         assert_eq!(categories, BTreeSet::from(["invalid"]));
-        let reverse: Vec<&String> = verdict.reverse.iter().map(|(_, path, _)| path).collect();
-        assert!(reverse.contains(&&early), "{:?}", verdict.reverse);
+        assert!(verdict.reverse.is_empty(), "{:?}", verdict.reverse);
+        assert!(verdict.expected.skipped["invalid"].contains(&early));
         assert_eq!(fold("expected value at line 3 column 14"), "expected value");
         assert_eq!(
             fold("Invalid ID: expected XAG9KCJR0WMN4JXY44V9PHAKS4, found ba4320656bdee6d5"),
