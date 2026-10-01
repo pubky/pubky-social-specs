@@ -365,7 +365,9 @@ class Run {
         throw new Stop({ code: "IO_ERROR", message: `listing ${prefix} returned ${stray}` });
       }
       urls.push(...page.urls);
-      if (!page.next || page.next === cursor) return urls;
+      // A LIST is ascending: an empty page or a cursor that does not move past the last one
+      // ends the walk, since a port answering that way forever would never let it end
+      if (!page.next || page.urls.length === 0 || (cursor !== undefined && page.next <= cursor)) return urls;
       cursor = page.next;
     }
   }
