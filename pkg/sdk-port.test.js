@@ -232,6 +232,18 @@ describe("pubky SDK port", () => {
     assert.deepStrictEqual(storage.store.get(url("pub/social/v1/a")), encoder.encode('{"b":1}'));
   });
 
+  it("a call that never answers counts network once the deadline passes, and the run goes on", async () => {
+    const storage = fakeStorage();
+    const stalled = { ...storage, getBytes: () => new Promise(() => {}) };
+    const port = sdkPort(sessionOver(stalled), { deadlineMs: 20 });
+    await assert.rejects(port.get(url("pub/pubky.app/profile.json")), (e) => e.kind === "network" && /20 ms/.test(e.message));
+    // The deadline is per call: a quick one after a stalled one answers
+    assert.strictEqual(await port.head(url("pub/pubky.app/nothing")), false);
+    for (const deadlineMs of [0, -1, NaN, Infinity]) {
+      assert.throws(() => sdkPort(sessionOver(storage), { deadlineMs }), RangeError);
+    }
+  });
+
   it("takes a page size from 1 to 1000", () => {
     for (const pageSize of [0, 1001, 2.5, NaN]) {
       assert.throws(() => sdkPort(sessionOver(fakeStorage()), { pageSize }), RangeError);

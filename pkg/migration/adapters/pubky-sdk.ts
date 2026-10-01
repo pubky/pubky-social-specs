@@ -11,9 +11,16 @@ import type { MigrationPort, PortErrorKind, PutOptions } from "../port.js";
 export interface SdkPortOptions {
   /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
   pageSize?: number;
+  /**
+   * Milliseconds a call may wait for its answer before it counts as `network`, 60000 by
+   * default. The SDK takes no signal, so the call itself runs on; the engine's retry does not
+   * wait for it.
+   */
+  deadlineMs?: number;
 }
 
 const MAX_PAGE = 1000;
+const DEFAULT_DEADLINE_MS = 60_000;
 
 // What a homeserver without the private root answers a request under `/priv/`. A current one
 // names both roots in the same refusal, for paths outside them, which the engine never asks.
@@ -33,6 +40,8 @@ const statusOf = (error: unknown): number | undefined => {
 };
 
 const portError = (error: unknown): MigrationPortError => {
+  // Already mapped once, by the deadline or an inner call
+  if (error instanceof MigrationPortError) return error;
   const message = error instanceof Error ? error.message : String(error);
   const status = statusOf(error);
   if (status === undefined) {
@@ -49,15 +58,21 @@ class SdkPort implements MigrationPort {
   readonly #storage: Session["storage"];
   readonly #ownerPrefix: string;
   readonly #pageSize: number;
+  readonly #deadlineMs: number;
 
   constructor(session: Session, options: SdkPortOptions = {}) {
     const pageSize = options.pageSize ?? MAX_PAGE;
     if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE) {
       throw new RangeError(`sdkPort: pageSize must be an integer from 1 to ${MAX_PAGE}, not ${pageSize}`);
     }
+    const deadlineMs = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
+    if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
+      throw new RangeError(`sdkPort: deadlineMs must be a positive number, not ${deadlineMs}`);
+    }
     this.#storage = session.storage;
     this.#ownerPrefix = `pubky://${session.info.publicKey.z32()}/`;
     this.#pageSize = pageSize;
+    this.#deadlineMs = deadlineMs;
   }
 
   async list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }> {
@@ -68,7 +83,7 @@ class SdkPort implements MigrationPort {
     }
     let urls: string[];
     try {
-      urls = await this.#storage.list(path, cursor ?? null, false, this.#pageSize, false);
+      urls = await this.#call(() => this.#storage.list(path, cursor ?? null, false, this.#pageSize, false));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return { urls: [] };
@@ -81,7 +96,7 @@ class SdkPort implements MigrationPort {
   async get(url: string): Promise<Uint8Array | null> {
     const path = this.#path(url);
     try {
-      return await this.#storage.getBytes(path);
+      return await this.#call(() => this.#storage.getBytes(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return null;
@@ -92,14 +107,14 @@ class SdkPort implements MigrationPort {
   async head(url: string): Promise<boolean> {
     const path = this.#path(url);
     try {
-      return await this.#storage.exists(path);
+      return await this.#call(() => this.#storage.exists(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.status !== 403) throw failure;
       // A HEAD carries no body, so the reason of the refusal is read from a GET, whose body is
       // dropped unread when it succeeds
       try {
-        const response = await this.#storage.get(path);
+        const response = await this.#call(() => this.#storage.get(path));
         await response.body?.cancel();
         return true;
       } catch (retry) {
@@ -140,11 +155,23 @@ class SdkPort implements MigrationPort {
     }
   }
 
+  /** Every SDK call under the deadline: an answer that never comes is a `network` failure. */
   async #call<T>(call: () => Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)),
+        this.#deadlineMs,
+      );
+      // Node must not stay alive for a deadline nothing waits on
+      (timer as { unref?: () => void }).unref?.();
+    });
     try {
-      return await call();
+      return await Promise.race([call(), deadline]);
     } catch (error) {
       throw portError(error);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
