@@ -49,6 +49,35 @@ const memory = () => ({
 });
 
 /**
+ * The port with every call timed: count and summed latency per call, and the time no call was in
+ * flight, which is the engine's own work, the wasm included.
+ */
+const timed = (port) => {
+  const calls = {};
+  let inFlight = 0;
+  let idleSince = performance.now();
+  let idleMs = 0;
+  const wrap = (name, fn) => async (...args) => {
+    if (inFlight++ === 0) idleMs += performance.now() - idleSince;
+    const t0 = performance.now();
+    try {
+      return await fn(...args);
+    } finally {
+      const c = (calls[name] ??= { n: 0, ms: 0 });
+      c.n++;
+      c.ms += performance.now() - t0;
+      if (--inFlight === 0) idleSince = performance.now();
+    }
+  };
+  const wrapped = Object.fromEntries(["list", "get", "head", "putJson", "putBytes", "delete"].map((name) => [name, wrap(name, port[name].bind(port))]));
+  const summary = () => ({
+    idleMs: Math.round(idleMs + (inFlight === 0 ? performance.now() - idleSince : 0)),
+    calls: Object.fromEntries(Object.entries(calls).map(([name, c]) => [name, { n: c.n, ms: Math.round(c.ms) }])),
+  });
+  return { port: wrapped, summary };
+};
+
+/**
  * Signs in with the secret, migrates the account's tree on the testnet at `testnetHost`, signs
  * out, and resolves with the report, the timings and the memory peaks.
  */
@@ -65,10 +94,11 @@ const run = async ({ secretHex, testnetHost = "localhost", mode = "run", rescan 
   }
   const t1 = performance.now();
   const timer = setInterval(sample, HEAP_EVERY_MS);
+  const port = timed(sdkPort(session));
   try {
     const report = await runMigration({
       owner: session.info.publicKey.z32(),
-      port: sdkPort(session),
+      port: port.port,
       caps: session.info.capabilities,
       mode,
       rescan,
@@ -82,7 +112,7 @@ const run = async ({ secretHex, testnetHost = "localhost", mode = "run", rescan 
     sample();
     return {
       report,
-      timings: { signinMs: Math.round(t1 - t0), migrateMs: Math.round(t2 - t1) },
+      timings: { signinMs: Math.round(t1 - t0), migrateMs: Math.round(t2 - t1), port: port.summary() },
       memory: memory(),
     };
   } finally {
