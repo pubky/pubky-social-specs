@@ -1,8 +1,9 @@
 //! Seeded fuzz of the v0 to v1 transforms over reader-shaped v0 objects with hostile content.
 //!
 //! Per case: no panic, the same result twice, every write reads back through the v1 reader and
-//! re-serializes to the same bytes, a skip carries a published category, a success writes what
-//! its kind writes, and no output reference keeps a v0 spelling of a profile or a follow.
+//! re-serializes to the same bytes, a skip carries a published category (an `invalid` one with
+//! the refusal as its note), a success writes what its kind writes, and no output reference
+//! keeps a v0 spelling of a profile or a follow.
 //!
 //! `QA_FUZZ_CASES` sets the cases per kind (200 by default), `QA_FUZZ_SEED` the base seed and
 //! `QA_FUZZ_OUT` a file for the tallies. Run the campaign in release:
@@ -746,6 +747,7 @@ fn check_case(
                 fail(format!("skip {skip} outside Skip::ALL"));
             }
             if *skip == Skip::Invalid && note.is_none() {
+                fail("invalid without a note".into());
                 tally.invalid_without_note += 1;
                 if tally.invalid_without_note_examples.len() < 8 {
                     tally
