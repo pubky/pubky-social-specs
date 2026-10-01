@@ -53,14 +53,15 @@ function wellFormed(text) {
 const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 // The glue allocates what `length` reports and copies what the view holds, so a subclass whose
 // getter lies would write past its allocation: the view's own length has to agree with it
-const intrinsicLength = Object.getOwnPropertyDescriptor(
-  Object.getPrototypeOf(Uint8Array.prototype),
-  "length",
-).get;
+const TypedArray = Object.getPrototypeOf(Uint8Array.prototype);
+const intrinsicLength = Object.getOwnPropertyDescriptor(TypedArray, "length").get;
+const intrinsicBuffer = Object.getOwnPropertyDescriptor(TypedArray, "buffer").get;
 // Any realm's Uint8Array (or a Buffer): a view of single bytes
 const isBytes = (v) => {
   if (!ArrayBuffer.isView(v) || v.BYTES_PER_ELEMENT !== 1) return false;
   try {
+    // A detached buffer reads as empty but fails the glue's copy; a view over it throws here
+    new Uint8Array(intrinsicBuffer.call(v), 0, 0);
     return intrinsicLength.call(v) === v.length;
   } catch {
     return false; // a DataView has no intrinsic length
@@ -104,6 +105,14 @@ function wrap(name, ...slots) {
     }
     slots.forEach((slot, i) => {
       const [accepts, what] = KINDS[slot];
+      // The glue reads an array again after the check, so it gets the copy that was checked
+      if (slot === "strings" && Array.isArray(args[i])) {
+        try {
+          args[i] = Array.from(args[i]);
+        } catch {
+          throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
+        }
+      }
       if (!accepts(args[i])) {
         throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
       }
