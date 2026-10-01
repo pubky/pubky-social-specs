@@ -13,14 +13,18 @@ export interface SdkPortOptions {
   pageSize?: number;
   /**
    * Milliseconds a call may wait for its answer before it counts as `network`, 60000 by
-   * default. The SDK takes no signal, so the call itself runs on; the engine's retry does not
-   * wait for it.
+   * default. It covers the calls whose cost does not grow with a body: LIST, HEAD, the GET of a
+   * JSON object, `putJson` and DELETE. A blob's GET and `putBytes` take as long as the link
+   * allows. The SDK takes no signal, so a call past its deadline runs on; a write that lands
+   * late is the lost-answer case the engine already handles.
    */
   deadlineMs?: number;
 }
 
 const MAX_PAGE = 1000;
 const DEFAULT_DEADLINE_MS = 60_000;
+// The two media directories of the trees the engine reads and writes
+const isBlobPath = (path: string): boolean => path.startsWith("/pub/pubky.app/blobs/") || path.startsWith("/pub/social/v1/files/");
 
 // What a homeserver without the private root answers a request under `/priv/`. A current one
 // names both roots in the same refusal, for paths outside them, which the engine never asks.
@@ -96,7 +100,9 @@ class SdkPort implements MigrationPort {
   async get(url: string): Promise<Uint8Array | null> {
     const path = this.#path(url);
     try {
-      return await this.#call(() => this.#storage.getBytes(path));
+      // A blob's download grows with its size and the SDK gives no progress, so only an
+      // object's GET has the deadline
+      return await this.#call(() => this.#storage.getBytes(path), !isBlobPath(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return null;
@@ -141,7 +147,7 @@ class SdkPort implements MigrationPort {
   async putBytes(url: string, bytes: Uint8Array, options?: PutOptions): Promise<void> {
     const path = this.#path(url);
     await this.#absent(url, options);
-    await this.#call(() => this.#storage.putBytes(path, bytes));
+    await this.#call(() => this.#storage.putBytes(path, bytes), false);
   }
 
   async delete(url: string): Promise<void> {
@@ -155,16 +161,25 @@ class SdkPort implements MigrationPort {
     }
   }
 
-  /** Every SDK call under the deadline: an answer that never comes is a `network` failure. */
-  async #call<T>(call: () => Promise<T>): Promise<T> {
+  /**
+   * An SDK call, under the deadline unless `bounded` is false: an answer that never comes is a
+   * `network` failure. The timer stays referenced while the race is pending, so a process
+   * waiting on it does not exit before it fires; it is cleared as soon as the call settles.
+   */
+  async #call<T>(call: () => Promise<T>, bounded = true): Promise<T> {
+    if (!bounded) {
+      try {
+        return await call();
+      } catch (error) {
+        throw portError(error);
+      }
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(
         () => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)),
         this.#deadlineMs,
       );
-      // Node must not stay alive for a deadline nothing waits on
-      (timer as { unref?: () => void }).unref?.();
     });
     try {
       return await Promise.race([call(), deadline]);
