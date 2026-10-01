@@ -659,6 +659,21 @@ describe("migration engine", () => {
       assert.match(report.error.message, /returned \/pub\/pubky\.app\//);
     });
 
+    it("a LIST whose cursor does not advance ends the walk instead of spinning", async () => {
+      let lists = 0;
+      const port = legacyPort();
+      const cycling = delegate(port, {
+        list: async (_prefix, cursor) => {
+          lists++;
+          return { urls: [], next: cursor === "a" ? "b" : "a" };
+        },
+      });
+      const report = await runMigration({ owner, port: cycling });
+      assert.strictEqual(report.status, "done");
+      assert.strictEqual(report.total, 0);
+      assert.strictEqual(lists, 3, "one empty page per prefix");
+    });
+
     it("keeps at most two objects in flight", async () => {
       let active = 0;
       let most = 0;
