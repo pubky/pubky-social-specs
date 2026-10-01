@@ -94,6 +94,14 @@ function wellFormedArgument(slot, value) {
   return slot !== "strings" || value.every(wellFormed);
 }
 
+// The longest string any object holds is a post's content, so a longer argument can only be
+// refused; refusing it here keeps it out of linear memory, which never shrinks
+const STRING_CAP = validationLimits.postMaxBytes;
+function withinCap(slot, value) {
+  if (typeof value === "string") return value.length <= STRING_CAP;
+  return slot !== "strings" || value.every((s) => s.length <= STRING_CAP);
+}
+
 function wrap(name, ...slots) {
   const inner = glue[name];
   if (typeof inner !== "function") throw new Error(`pubky-social-specs: the build lacks ${name}`);
@@ -116,6 +124,9 @@ function wrap(name, ...slots) {
       }
       if (!accepts(args[i])) {
         throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
+      }
+      if (!withinCap(slot, args[i])) {
+        throw new Error(`Validation Error: ${name}() argument ${i + 1} is over ${STRING_CAP} characters`);
       }
       if (!wellFormedArgument(slot, args[i])) throw new Error(MALFORMED);
     });
