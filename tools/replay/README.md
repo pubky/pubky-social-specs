@@ -350,7 +350,7 @@ restores the corpus from that URL, a tarball of `replica/`, `keys.json`, `map.js
 `manifest.json`. That has to be a presigned URL into a private bucket: `map.json` links every
 replica key to its production key, and a workflow artifact is readable by anyone who can read the
 repository. Without it, `fixture.mjs` writes two users whose tree is the semantic vectors' 0.x
-tree (38 objects each), so the browser path runs every night regardless.
+tree (38 objects each), so the browser path runs every night regardless. GitHub registers an `on: schedule` only from the workflow file on the default branch, `main`; while this file lives on `v1` only `workflow_dispatch` runs it, by hand, and the nightly starts once it reaches `main`.
 
 ## Next
 

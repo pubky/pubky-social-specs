@@ -333,6 +333,8 @@ struct Expected {
     skipped: BTreeMap<String, BTreeSet<String>>,
     counts: BTreeMap<String, u64>,
     dropped: u64,
+    /// Legacy path to what the transform dropped inside its object, as the engine reports it.
+    dropped_values: BTreeMap<String, Vec<String>>,
     total: u64,
     /// Bytes of the v0 objects the walk reads.
     read_bytes: u64,
@@ -398,6 +400,12 @@ fn expect(owner: &PubkyId, tree: &BTreeMap<String, Vec<u8>>) -> Expected {
             }
             if claimed {
                 expected.dropped += migrated.dropped.len() as u64;
+                if !migrated.dropped.is_empty() {
+                    expected.dropped_values.insert(
+                        path.to_string(),
+                        migrated.dropped.iter().map(|d| d.to_string()).collect(),
+                    );
+                }
                 count(&mut expected, "written", path);
             } else {
                 count(&mut expected, "already_present", path);
@@ -720,11 +728,22 @@ fn compare_report(report: Option<&Value>, resumed: bool, verdict: &mut Verdict) 
         ));
     }
     // A resumed run reports only the values dropped in the objects it wrote itself
-    if !resumed && report["dropped"].as_u64() != Some(verdict.expected.dropped) {
-        differences.push(format!(
-            "dropped {} vs {}",
-            report["dropped"], verdict.expected.dropped
-        ));
+    if !resumed {
+        if report["dropped"].as_u64() != Some(verdict.expected.dropped) {
+            differences.push(format!(
+                "dropped {} vs {}",
+                report["dropped"], verdict.expected.dropped
+            ));
+        }
+        // Every dropped value, under the path it was dropped from
+        let want = serde_json::to_value(&verdict.expected.dropped_values).unwrap_or_default();
+        let got = report
+            .get("droppedValues")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        if got != want {
+            differences.push(format!("droppedValues {got} vs {want}"));
+        }
     }
     if !differences.is_empty() {
         verdict.mismatch("report", "counts", differences.join("; "));
@@ -1105,10 +1124,19 @@ mod tests {
             let path = format!("{LEGACY}files/{}", file["tsid"].as_str().unwrap());
             tree.insert(path, bytes_of(file));
         }
+        // The first row of each path wins, except that the profile is the row that drops
+        // values, so the per-path dropped map is exercised
         for vector in corpus["vectors"].as_array().unwrap() {
             let input = &vector["input"];
-            tree.entry(input["path"].as_str().unwrap().to_string())
-                .or_insert_with(|| bytes_of(input));
+            let path = input["path"].as_str().unwrap().to_string();
+            let drops = vector["expected"]["dropped"]
+                .as_array()
+                .is_some_and(|d| !d.is_empty());
+            if drops {
+                tree.insert(path, bytes_of(input));
+            } else {
+                tree.entry(path).or_insert_with(|| bytes_of(input));
+            }
         }
         // A second tag on the same media through its blob spelling: a distinct 0.x id the
         // reader accepts, and the same 1.x tag once the target is dereferenced
@@ -1154,6 +1182,7 @@ mod tests {
             "done": expected.total,
             "counts": expected.counts,
             "dropped": expected.dropped,
+            "droppedValues": expected.dropped_values,
             "skipped": expected.skipped,
         });
         (actual, report)
@@ -1456,8 +1485,21 @@ mod tests {
     fn another_report_or_object_is_a_mismatch() {
         let (owner, tree) = fixture();
         let (actual, report) = perfect(&owner, &tree);
+        // The fixture's profile drops values, so the per-path map is exercised
+        assert!(!report["droppedValues"].as_object().unwrap().is_empty());
         let mut other_report = report.clone();
         other_report["counts"]["written"] = json!(0);
+        // The same total of dropped values under another path is a mismatch too
+        let mut moved = report.clone();
+        let values = moved["droppedValues"].take();
+        moved["droppedValues"] = json!({ "pub/pubky.app/posts/0032SSN7Q4EVG": values.as_object().unwrap().values().next().unwrap() });
+        let kinds_moved = kinds(&check(&owner, &tree, &actual, &moved));
+        assert!(
+            kinds_moved
+                .iter()
+                .any(|(k, p)| *k == "report" && p == "counts"),
+            "{kinds_moved:?}"
+        );
         let mut other = actual.clone();
         let changed = other
             .keys()

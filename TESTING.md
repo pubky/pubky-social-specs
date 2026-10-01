@@ -24,8 +24,9 @@ frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.rs`.
 under a disk budget) on a local testnet homeserver under fresh keys, then verifies every user's
 1.x tree against an independent Rust oracle (`src/bin/replay_verify.rs`, behind the `replay`
 feature). `tools/replay/README.md` is the manual: privacy rules, the disk budget, the crawl, the
-remap, seed, run, verify, the browser path through Playwright, the nightly workflow
-(`.github/workflows/replay.yml`), and the results of each campaign.
+remap, seed, run, verify, the browser path through Playwright, the browser replay workflow
+(`.github/workflows/replay.yml`, on demand from `v1`, nightly once the file is on the default
+branch), and the results of each campaign.
 
 ## The QA campaign of 2026-10-01
 

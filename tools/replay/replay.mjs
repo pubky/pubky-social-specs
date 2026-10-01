@@ -137,7 +137,7 @@ const steps = {
   async second() {
     fresh("reports-second");
     const before = events();
-    const summary = run("reports-second", "--force", "--no-dump");
+    const summary = run("reports-second", "--force", "--no-dump", ...only(population()));
     const writes = events() - before;
     metrics.second = { ...brief(summary), writes };
     check(summary.status.already_migrated === summary.users && writes === 0 && Object.values(nonzero(summary.counts)).length === 0,
@@ -197,6 +197,11 @@ const steps = {
   },
   async rate() {
     const three = firstRun().filter((u) => u.objects >= 100 && u.objects <= 200).sort((a, b) => a.objects - b.objects).slice(0, 3);
+    if (three.length === 0) {
+      metrics.rate = { skipped: "no user with 100 to 200 objects in this population" };
+      console.log("rate limit: skipped, no user with 100 to 200 objects in this population");
+      return;
+    }
     const limits = `
 [[drive.rate_limits]]
 path = "/**"
