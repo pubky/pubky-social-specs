@@ -146,11 +146,8 @@ const main = async (argv, env) => {
   try {
     session = await pubky.signer(keypair).signin(CLIENT_ID);
   } catch (error) {
-    // Grant sign-in shipped in the same homeserver release as /priv/
-    console.error(
-      `Sign-in failed: ${error instanceof Error ? error.message : String(error)}\n` +
-        "If the homeserver answered, it is probably older than /priv/, which the migration needs.",
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Sign-in failed: ${message}\n${signinHint(message)}`);
     return 1;
   }
   // The session holds a root grant, which must not outlive the run
@@ -158,9 +155,10 @@ const main = async (argv, env) => {
     const owner = session.info.publicKey.z32();
     console.error(`Migrating pubky${owner}${args.dryRun ? " (dry run)" : ""}`);
 
-    // The first Ctrl-C stops the run after the objects in flight; a second one kills it
+    // The first Ctrl-C, or a SIGTERM, stops the run after the objects in flight and reaches
+    // the sign-out below; a second Ctrl-C kills it
     const controller = new AbortController();
-    process.once("SIGINT", () => controller.abort());
+    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => controller.abort());
     const report = await runMigration({
       owner,
       port: sdkPort(session),
@@ -173,12 +171,22 @@ const main = async (argv, env) => {
     console.log(args.json ? JSON.stringify(report, null, 2) : reportText(report));
     return exitCode(report);
   } finally {
-    // The run's grant is root; a failed revocation is worth a line, and the grant
-    // still expires on its own or can be revoked from Ring
+    // The run's grant is root and lives for years unless revoked here or from Ring, so a
+    // failed revocation is worth a line
     await session.signout().catch((error) => {
       console.error(`warning: could not sign out, the grant stays active until it expires: ${error?.message ?? error}`);
     });
   }
+};
+
+// Grant sign-in shipped in the same homeserver release as /priv/, so a refusal of the route
+// points at an older homeserver; a clock or a resolution failure never reached it
+const signinHint = (message) => {
+  if (/PoP timestamp/i.test(message)) return "The homeserver refused this device's clock: check the time on this machine.";
+  if (/could not resolve|resolve query|no responses/i.test(message)) {
+    return "The homeserver record did not resolve: check the network, or --testnet for a local one.";
+  }
+  return "If the homeserver answered, it is probably older than /priv/, which the migration needs.";
 };
 
 const invoked = process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
