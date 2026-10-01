@@ -154,7 +154,7 @@ const sameObject = (u, a, b) => {
 
 const PROFILES = {
   // Faults a homeserver or the network between can give for the call that gets them
-  main: { network: 4, outage: 1, rate_limited: 2, hang: 1, truncate: 2, reorder: 2, delete_source: 1, concurrent_writer: 1, quota: 0.3, rejected: 1, unauthorized: 0.15, lost_response: 2, not_found_delete: 1 },
+  main: { network: 4, outage: 1, rate_limited: 2, hang: 1, truncate: 2, reorder: 2, delete_source: 1, concurrent_writer: 1, delete_during_copy: 1, quota: 0.3, rejected: 1, unauthorized: 0.15, lost_response: 2, not_found_delete: 1 },
   "quota-rate": { quota: 1, rate_limited: 6 },
   "lost-response": { lost_response: 1 },
   // Any kind on any call, statuses included, whether or not a homeserver would answer it there
@@ -190,6 +190,7 @@ const applies = (fault, op, u) => {
       return (op === "get" || op === "head") && legacy && !u.startsWith(url("pub/pubky.app/files/"));
     case "phantom_404":
       return op === "get" && legacy && !u.startsWith(url("pub/pubky.app/files/"));
+    case "delete_during_copy":
     case "concurrent_writer":
     case "quota":
     case "rejected":
@@ -204,12 +205,15 @@ const applies = (fault, op, u) => {
   }
 };
 
+const THEIRS = encoder.encode(JSON.stringify({ written: "elsewhere" }));
+
 class ChaosPort {
   /**
    * `schedule`: a Map of call key to fault, replayed exactly (for minimizing); otherwise the
    * seed draws one per call and `trace` records what it drew.
    */
-  constructor(store, { seed, profile, rate, schedule }) {
+  constructor(store, { seed, profile, rate, schedule, sourcesOfUrl }) {
+    this.sourcesOfUrl = sourcesOfUrl ?? new Map();
     this.inner = new MemoryPort();
     this.inner.store = store;
     this.store = store;
@@ -305,7 +309,7 @@ class ChaosPort {
         return { phantom: true };
       case "concurrent_writer":
         if (!this.store.has(u)) {
-          this.store.set(u, encoder.encode(JSON.stringify({ written: "elsewhere" })));
+          this.store.set(u, THEIRS);
           this.harnessWritten.add(u);
         }
         return null;
@@ -361,6 +365,14 @@ class ChaosPort {
     const had = this.store.has(u);
     await call();
     if (!had || u === FLAG) this.#recordWrite(u, bytes);
+    if (r?.fault === "delete_during_copy") {
+      // The owner deletes the 0.x object while its copy is being written
+      for (const path of this.sourcesOfUrl.get(u) ?? []) {
+        if (path.startsWith("pub/pubky.app/files/") || !this.store.delete(url(path))) continue;
+        this.deleted.add(path);
+        this.deletedAtRecheck.add(path);
+      }
+    }
     if (r?.fault === "lost_response") {
       this.lostAnswers.add(u);
       // The write landed; the answer did not
@@ -420,11 +432,11 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   const tree = buildTree(seed);
   const store = new Map();
   for (const [path, bytes] of tree) store.set(url(path), bytes);
-  const port = new ChaosPort(store, { seed, profile, rate, schedule });
-  const violations = port.violations;
   const original = expectedWrites(tree);
   const sourcesOfUrl = new Map();
   for (const [p, r] of original) for (const w of r.writes ?? []) sourcesOfUrl.set(w.url, [...(sourcesOfUrl.get(w.url) ?? []), p]);
+  const port = new ChaosPort(store, { seed, profile, rate, schedule, sourcesOfUrl });
+  const violations = port.violations;
   const runs = [];
   let finalReport;
   for (let i = 0; i < MAX_RUNS; i++) {
@@ -506,6 +518,12 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
 
   // Nothing in the 1.x tree that a fault-free run would not write, or another writer put there
   const v1 = v1Of(store);
+  for (const u of port.harnessWritten) {
+    // What another writer put there stays as they wrote it
+    if (!store.has(u) || Buffer.compare(Buffer.from(store.get(u)), Buffer.from(THEIRS)) !== 0) {
+      violations.push({ invariant: "theirs-untouched", detail: `${u} written elsewhere was overwritten or deleted` });
+    }
+  }
   for (const [u, bytes] of v1) {
     if (port.harnessWritten.has(u)) continue;
     if (!allowed.has(u)) violations.push({ invariant: "tree-subset", detail: `unexpected ${u}` });
