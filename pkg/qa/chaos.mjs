@@ -225,6 +225,11 @@ class ChaosPort {
     this.deleted = new Set();
     this.violations = [];
     this.phantom = new Set();
+    // 0.x paths deleted at their re-check in this run, and copies whose PUT lost its answer
+    this.deletedAtRecheck = new Set();
+    this.lostAnswers = new Set();
+    this.deleteAttempts = new Set();
+    this.orphans = [];
   }
 
   #key(op, u) {
@@ -290,7 +295,10 @@ class ChaosPort {
       case "any":
         throw new MigrationPortError(fault.kind, `${fault.kind} injected`, fault.status);
       case "delete_source":
-        if (this.store.delete(u)) this.deleted.add(rel(u));
+        if (this.store.delete(u)) {
+          this.deleted.add(rel(u));
+          if (op === "head") this.deletedAtRecheck.add(rel(u));
+        }
         return null;
       case "phantom_404":
         this.phantom.add(rel(u));
@@ -302,6 +310,8 @@ class ChaosPort {
         }
         return null;
       case "not_found_delete":
+        // Someone else deleted it a moment before
+        this.store.delete(u);
         throw new MigrationPortError("not_found", "Not Found", 404);
       default:
         return fault; // list shaping and lost responses act after the call
@@ -352,6 +362,7 @@ class ChaosPort {
     await call();
     if (!had || u === FLAG) this.#recordWrite(u, bytes);
     if (r?.fault === "lost_response") {
+      this.lostAnswers.add(u);
       // The write landed; the answer did not
       if (r.kind === "rate_limited") throw new MigrationPortError("rate_limited", "Too Many Requests", 429);
       throw new TypeError("fetch failed");
@@ -369,6 +380,7 @@ class ChaosPort {
   }
 
   async delete(u) {
+    this.deleteAttempts.add(u);
     await this.#enter("delete", u);
     if (u.startsWith(LEGACY)) this.violations.push({ invariant: "legacy-untouched", detail: `DELETE ${u}` });
     return this.inner.delete(u);
@@ -410,10 +422,17 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   for (const [path, bytes] of tree) store.set(url(path), bytes);
   const port = new ChaosPort(store, { seed, profile, rate, schedule });
   const violations = port.violations;
+  const original = expectedWrites(tree);
+  const sourcesOfUrl = new Map();
+  for (const [p, r] of original) for (const w of r.writes ?? []) sourcesOfUrl.set(w.url, [...(sourcesOfUrl.get(w.url) ?? []), p]);
   const runs = [];
   let finalReport;
   for (let i = 0; i < MAX_RUNS; i++) {
     const flagBefore = store.get(FLAG);
+    const keysBefore = new Set(store.keys());
+    port.deletedAtRecheck.clear();
+    port.lostAnswers.clear();
+    port.deleteAttempts.clear();
     port.flagPuts = 0;
     const events = [];
     let report;
@@ -430,6 +449,17 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
     if (report.error && !KNOWN_CODES.has(report.error.code)) violations.push({ invariant: "known-code", run: i, detail: report.error.code });
     if (report.error && report.status !== (STATUS_FOR[report.error.code] ?? "aborted")) {
       violations.push({ invariant: "status-matches-code", run: i, detail: `${report.status} with ${report.error.code}` });
+    }
+    // A source deleted at its re-check takes the copies this run made for it
+    for (const path of port.deletedAtRecheck) {
+      for (const w of original.get(path)?.writes ?? []) {
+        if (!store.has(w.url) || keysBefore.has(w.url) || port.harnessWritten.has(w.url) || port.lostAnswers.has(w.url)) continue;
+        const others = (sourcesOfUrl.get(w.url) ?? []).filter((p) => p !== path && store.has(url(p)));
+        if (others.length > 0) continue;
+        // A cleanup DELETE that failed leaves the copy, and no later run lists its source again
+        if (port.deleteAttempts.has(w.url)) port.orphans.push({ run: i, path, url: w.url });
+        else violations.push({ invariant: "race-guard", run: i, detail: `${path} deleted at its re-check, ${w.url} stays` });
+      }
     }
     const flagAfter = store.get(FLAG);
     const flagWritten = flagAfter !== flagBefore;
@@ -468,7 +498,6 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   const skipped = flag.skipped ?? {};
   if (skipped.io_error?.length) violations.push({ invariant: "no-flag-after-io_error", detail: "flag lists io_error" });
 
-  const original = expectedWrites(tree);
   const finalTree = new Map([...tree].filter(([p]) => !port.deleted.has(p)));
   const now = expectedWrites(finalTree);
   const allowed = new Map();
@@ -525,6 +554,7 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
     faults: port.trace.length,
     deleted: port.deleted.size,
     phantomLost: lost,
+    orphans: port.orphans,
     trace: port.trace,
   };
 };
@@ -589,6 +619,7 @@ const summary = {
   faultKinds: {},
   deletedSources: 0,
   phantomLost: 0,
+  orphanedCopies: [],
   violations: [],
   rateScaleChanges: [],
   ms: 0,
@@ -609,6 +640,7 @@ for (let seed = from; seed < from + seeds; seed++) {
   for (const t of r.trace) summary.faultKinds[t.fault] = (summary.faultKinds[t.fault] ?? 0) + 1;
   summary.deletedSources += r.deleted ?? 0;
   summary.phantomLost += r.phantomLost?.length ?? 0;
+  for (const o of r.orphans ?? []) summary.orphanedCopies.push({ seed, rate: +rate.toFixed(4), ...o });
   summary.runsHistogram[r.runs.length] = (summary.runsHistogram[r.runs.length] ?? 0) + 1;
   for (const run of r.runs) {
     const k = run.code ? `${run.status}:${run.code}` : run.status;
@@ -619,7 +651,7 @@ for (let seed = from; seed < from + seeds; seed++) {
   if (r.violations.length) {
     const invariant = r.violations[0].invariant;
     const entry = { seed, rate: +rate.toFixed(4), violations: r.violations.slice(0, 10), faults: r.faults };
-    if (summary.violations.length < 20 && invariant !== "never-throws") {
+    if (!args["no-minimize"] && summary.violations.length < 20 && invariant !== "never-throws") {
       const min = await minimize(seed, { profile, rate }, r.trace, invariant);
       entry.minimalTrace = min;
     }
@@ -638,4 +670,4 @@ if (out) {
   const fs = await import("node:fs");
   fs.writeFileSync(out, JSON.stringify(summary, null, 1));
 }
-console.log(JSON.stringify({ ...summary, violations: summary.violations.length, unfinished: summary.unfinished.length }, null, 1));
+console.log(JSON.stringify({ ...summary, violations: summary.violations.length, unfinished: summary.unfinished.length, orphanedCopies: summary.orphanedCopies.length }, null, 1));
