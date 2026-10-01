@@ -50,7 +50,8 @@ function wellFormed(text) {
 
 // What each argument slot takes. A value of another type never reaches the wasm, where a
 // non-string in a string slot reads memory it does not own.
-const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+// A typed array or a DataView is an object too, and its JSON form is one member per byte
+const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v) && !ArrayBuffer.isView(v);
 // The glue allocates what `length` reports and copies what the view holds, so a subclass whose
 // getter lies would write past its allocation: the view's own length has to agree with it
 const TypedArray = Object.getPrototypeOf(Uint8Array.prototype);

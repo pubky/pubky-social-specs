@@ -12,6 +12,7 @@
 
 use crate::canonicalize::canonicalize_pubky_uri;
 use crate::constants::PROTOCOL;
+use crate::limits::VALIDATION_LIMITS;
 use crate::models::deletion;
 use crate::traits::{HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx, PUB_CTX};
 use crate::{
@@ -49,9 +50,18 @@ fn json_of(value: &JsValue) -> Result<String, JsError> {
     if value.is_undefined() {
         return Ok("null".to_string());
     }
-    js_sys::JSON::stringify(value)
+    let json = js_sys::JSON::stringify(value)
         .ok()
-        .and_then(|json| json.as_string())
+        .ok_or_else(|| fail("Validation Error: the value has no JSON form"))?;
+    // Escaping expands a byte to six at most, so text past this bound holds no object under
+    // the largest cap. Refusing it here keeps it out of linear memory, which never shrinks
+    if json.length() as usize > 6 * VALIDATION_LIMITS.post_max_bytes {
+        return Err(fail(format!(
+            "Validation Error: the value's JSON form is over {} bytes",
+            6 * VALIDATION_LIMITS.post_max_bytes
+        )));
+    }
+    json.as_string()
         .ok_or_else(|| fail("Validation Error: the value has no JSON form"))
 }
 
