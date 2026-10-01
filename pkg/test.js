@@ -607,6 +607,30 @@ describe("pubky-social-specs", () => {
       rejects(() => migrate({}, "pub/pubky.app/profile.json", stored({})), "Validation Error: migrate() argument 1 must be a Migration handle");
     });
 
+    it("a view of a detached buffer, or an array that changes after the check, never reaches the wasm", () => {
+      const buffer = new ArrayBuffer(4);
+      const view = new Uint8Array(buffer);
+      structuredClone(buffer, { transfer: [buffer] });
+      rejects(() => readObject(userUriBuilder(OTTO), view), "Validation Error: readObject() argument 2 must be a Uint8Array");
+      rejects(() => createFile(OTTO, view, "image/png"), "Validation Error: createFile() argument 2 must be a Uint8Array");
+      let reads = 0;
+      const shifting = new Proxy([postUriBuilder(OTTO, "0032SSN7Q4EVG")], {
+        get: (target, key, receiver) => (key === "0" && ++reads > 1 ? 42 : Reflect.get(target, key, receiver)),
+      });
+      // The glue gets the checked copy: whatever the planner says, it says it as a Validation Error
+      try {
+        planUnpublish("0032SSN7Q4EVG", shifting, []);
+      } catch (e) {
+        assert.match(e.message, /^Validation Error:/);
+      }
+      const throwing = new Proxy([], {
+        get: () => {
+          throw new Error("trap");
+        },
+      });
+      rejects(() => planUnpublish("0032SSN7Q4EVG", throwing, []), "Validation Error: planUnpublish() argument 2 must be an array of strings");
+    });
+
     it("a byte view whose length lies never reaches the wasm", () => {
       class Lying extends Uint8Array {
         get length() {
