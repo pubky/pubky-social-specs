@@ -598,6 +598,8 @@ describe("pubky-social-specs", () => {
     it("a value of the wrong type never reaches the wasm", () => {
       rejects(() => parseUri(42), "Validation Error: parseUri() argument 1 must be a string");
       rejects(() => createUser(OTTO, "Alice"), "Validation Error: createUser() argument 2 must be an object");
+      // A typed array is an object whose JSON form is one member per byte
+      rejects(() => createVersion(OTTO, new Uint8Array(1 << 20), { root: "private" }), "Validation Error: createVersion() argument 2 must be an object");
       rejects(() => readObject(userUriBuilder(OTTO), [1, 2]), "Validation Error: readObject() argument 2 must be a Uint8Array");
       rejects(() => createTag(OTTO, userUriBuilder(OTTO)), "Validation Error: createTag() argument 3 must be a string");
       rejects(() => feedPaths("a", "b"), "Validation Error: feedPaths() takes at most 1 arguments");
@@ -661,6 +663,9 @@ describe("pubky-social-specs", () => {
       const cyclic = { name: "Alice" };
       cyclic.self = cyclic;
       rejects(() => validate(userUriBuilder(OTTO), cyclic), "Validation Error: the value has no JSON form");
+      // The JSON text is refused by its length before it is copied into the wasm
+      const over = 6 * validationLimits.postMaxBytes;
+      rejects(() => createVersion(OTTO, { kind: "note", content: "x".repeat(over) }, { root: "private" }), `Validation Error: the value's JSON form is over ${over} bytes`);
       const shared = { level: 1 };
       validate(userUriBuilder(OTTO), { name: "Alice", ext: { a: shared, b: shared } });
     });
