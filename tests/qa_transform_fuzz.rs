@@ -636,10 +636,16 @@ fn preview(path: &str, bytes: &[u8]) -> String {
     format!("{path} {cut}")
 }
 
-fn check_case(
+/// One generated case: its kind, its number within the kind, and the seed that regenerates it.
+#[derive(Clone, Copy)]
+struct Case {
     kind: &'static str,
     case: u64,
     seed: u64,
+}
+
+fn check_case(
+    Case { kind, case, seed }: Case,
     path: &str,
     bytes: &[u8],
     ctx: &MigrationCtx,
@@ -844,9 +850,7 @@ fn transforms_survive_hostile_v0_objects() {
             let mut rng = Rng::new(seed);
             let (path, bytes) = gen(&mut rng, &fx);
             check_case(
-                kind,
-                case,
-                seed,
+                Case { kind, case, seed },
                 &path,
                 &bytes,
                 &ctx,
