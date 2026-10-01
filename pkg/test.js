@@ -598,6 +598,8 @@ describe("pubky-social-specs", () => {
     it("a value of the wrong type never reaches the wasm", () => {
       rejects(() => parseUri(42), "Validation Error: parseUri() argument 1 must be a string");
       rejects(() => createUser(OTTO, "Alice"), "Validation Error: createUser() argument 2 must be an object");
+      rejects(() => parseUri("x".repeat(validationLimits.postMaxBytes + 1)), `Validation Error: parseUri() argument 1 is over ${validationLimits.postMaxBytes} characters`);
+      rejects(() => planUnpublish("0032SSN7Q4EVG", ["x".repeat(validationLimits.postMaxBytes + 1)], []), `Validation Error: planUnpublish() argument 2 is over ${validationLimits.postMaxBytes} characters`);
       // A typed array is an object whose JSON form is one member per byte
       rejects(() => createVersion(OTTO, new Uint8Array(1 << 20), { root: "private" }), "Validation Error: createVersion() argument 2 must be an object");
       rejects(() => readObject(userUriBuilder(OTTO), [1, 2]), "Validation Error: readObject() argument 2 must be a Uint8Array");
