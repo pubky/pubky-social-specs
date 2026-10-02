@@ -156,7 +156,8 @@ const main = async (argv, env) => {
     console.error(`Migrating pubky${owner}${args.dryRun ? " (dry run)" : ""}`);
 
     // The first Ctrl-C, or a SIGTERM, stops the run after the objects in flight and reaches
-    // the sign-out below; a second Ctrl-C kills it
+    // the sign-out below, best effort: a supervisor that kills the process during that wait
+    // leaves the grant active. A second Ctrl-C kills it
     const controller = new AbortController();
     for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => controller.abort());
     const report = await runMigration({

@@ -12,11 +12,11 @@ export interface SdkPortOptions {
   /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
   pageSize?: number;
   /**
-   * Milliseconds a call may wait for its answer before it counts as `network`, 60000 by
-   * default. It covers the calls whose cost does not grow with a body: LIST, HEAD, the GET of a
-   * JSON object, `putJson` and DELETE. A blob's GET and `putBytes` take as long as the link
-   * allows. The SDK takes no signal, so a call past its deadline runs on; a write that lands
-   * late is the lost-answer case the engine already handles.
+   * Milliseconds a read may wait for its answer before it counts as `network`, 60000 by
+   * default: LIST, HEAD and the GET of a JSON object. A blob's GET grows with its size, and a
+   * write (`putJson`, `putBytes`, DELETE) stays pending until the SDK settles it: the SDK takes
+   * no signal, and a write abandoned at a deadline could still land after a later run cleaned
+   * up behind it.
    */
   deadlineMs?: number;
 }
@@ -140,7 +140,7 @@ class SdkPort implements MigrationPort {
   async putJson(url: string, object: unknown, options?: PutOptions): Promise<void> {
     const path = this.#path(url);
     await this.#absent(url, options);
-    await this.#call(() => this.#storage.putJson(path, object));
+    await this.#call(() => this.#storage.putJson(path, object), false);
   }
 
   /** `ifAbsent` as `putJson` does it. */
@@ -152,7 +152,7 @@ class SdkPort implements MigrationPort {
 
   async delete(url: string): Promise<void> {
     const path = this.#path(url);
-    await this.#call(() => this.#storage.delete(path));
+    await this.#call(() => this.#storage.delete(path), false);
   }
 
   async #absent(url: string, options?: PutOptions): Promise<void> {
@@ -163,8 +163,10 @@ class SdkPort implements MigrationPort {
 
   /**
    * An SDK call, under the deadline unless `bounded` is false: an answer that never comes is a
-   * `network` failure. The timer stays referenced while the race is pending, so a process
-   * waiting on it does not exit before it fires; it is cleared as soon as the call settles.
+   * `network` failure. Only reads are bounded; a write abandoned by the caller could still
+   * commit after the engine's retry and cleanup, so it stays pending until the SDK settles it.
+   * The timer stays referenced while the race is pending, so a process waiting on it does not
+   * exit before it fires; it is cleared as soon as the call settles.
    */
   async #call<T>(call: () => Promise<T>, bounded = true): Promise<T> {
     if (!bounded) {

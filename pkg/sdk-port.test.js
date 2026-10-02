@@ -239,11 +239,14 @@ describe("pubky SDK port", () => {
     await assert.rejects(port.get(url("pub/pubky.app/profile.json")), (e) => e.kind === "network" && /20 ms/.test(e.message));
     // The deadline is per call: a quick one after a stalled one answers
     assert.strictEqual(await port.head(url("pub/pubky.app/nothing")), false);
-    // A blob's GET and putBytes take as long as the link allows: a stall there is not a deadline
-    const slow = { ...storage, getBytes: () => new Promise((r) => setTimeout(() => r(new Uint8Array([1])), 60)), putBytes: () => new Promise((r) => setTimeout(r, 60)) };
+    // A blob's GET grows with its size and a write must settle, so none of them has the deadline
+    const later = (value) => () => new Promise((r) => setTimeout(() => r(value), 60));
+    const slow = { ...storage, getBytes: later(new Uint8Array([1])), putBytes: later(), putJson: later(), delete: later() };
     const patient = sdkPort(sessionOver(slow), { deadlineMs: 20 });
     assert.deepStrictEqual(await patient.get(url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78")), new Uint8Array([1]));
     await patient.putBytes(url("pub/social/v1/files/VJAHM32NETJ12EWAAM11BQVX78.bin"), new Uint8Array([1]));
+    await patient.putJson(url("pub/social/v1/follows/x.json"), {});
+    await patient.delete(url("pub/social/v1/follows/x.json"));
     await assert.rejects(patient.get(url("pub/pubky.app/profile.json")), (e) => e.kind === "network");
     for (const deadlineMs of [0, -1, NaN, Infinity]) {
       assert.throws(() => sdkPort(sessionOver(storage), { deadlineMs }), RangeError);
