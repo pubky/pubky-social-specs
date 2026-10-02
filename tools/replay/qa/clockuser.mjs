@@ -52,7 +52,6 @@ const attaching = tsid(now - 2 * H);
 put(`posts/${attaching}`, JSON.stringify({ content: "attaches the +1h file", kind: "image", parent: null, embed: null, attachments: [`pubky://${pk}/pub/pubky.app/files/${fileId}`] }));
 put("profile.json", JSON.stringify({ name: "clock", bio: null, image: null, links: null, status: null }));
 writeFileSync(path.join(args.out, "keys.json"), JSON.stringify({ [pk]: Buffer.from(secret).toString("hex") }), { mode: 0o600 });
-writeFileSync(path.join(args.out, "map.json"), "{}\n", { mode: 0o600 });
-writeFileSync(path.join(args.out, "manifest.json"), JSON.stringify({ users: {} }) + "\n");
+writeFileSync(path.join(args.out, "inventory.json"), "{}\n");
 writeFileSync(path.join(args.out, "ids.json"), JSON.stringify({ pk: pk.slice(0, 10), generatedAt: new Date(now / 1000).toISOString(), posts: ids, file: fileId, attaching }, null, 1));
 console.log(JSON.stringify({ pk: pk.slice(0, 10), ids, file: fileId, attaching }));

@@ -142,20 +142,17 @@ fn read_json(file: &Path) -> io::Result<Value> {
     serde_json::from_slice(&fs::read(file)?).map_err(io::Error::other)
 }
 
-/// The blobs of the crawl's manifest, under the replica keys the remap gave their owners.
+/// Each replica user's blobs and whether the crawl fetched them, as the remap wrote them under
+/// replica keys (`inventory.json`), so no production key is needed here.
 fn blob_index(data: &Path) -> io::Result<BlobIndex> {
-    let map = read_json(&data.join("map.json"))?;
-    let manifest = read_json(&data.join("manifest.json"))?;
+    let inventory = read_json(&data.join("inventory.json"))?;
     let mut index = BlobIndex::new();
-    for (prod, user) in manifest["users"].as_object().into_iter().flatten() {
-        let Some(replica) = map[prod].as_str() else {
-            continue;
-        };
-        let blobs = user["blobs"].as_object().into_iter().flatten();
+    for (replica, blobs) in inventory.as_object().into_iter().flatten() {
+        let blobs = blobs.as_object().into_iter().flatten();
         index.insert(
             replica.to_string(),
             blobs
-                .map(|(hash, blob)| (hash.clone(), blob["fetched"] == Value::Bool(true)))
+                .map(|(hash, fetched)| (hash.clone(), *fetched == Value::Bool(true)))
                 .collect(),
         );
     }

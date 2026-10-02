@@ -43,9 +43,10 @@ jobs:
         npm ci
         PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium firefox
 
-    # The corpus is production's public data under replica keys, with the map back to
-    # production keys, so it comes from a private bucket through a presigned URL and never
-    # from a workflow artifact, which anyone who can read the repository can download
+    # The corpus is production's public data under replica keys plus the replica secrets
+    # (replica/, keys.json, inventory.json; never map.json or manifest.json), so it comes from a
+    # private bucket through a presigned URL and never from a workflow artifact, which anyone
+    # who can read the repository can download
     - name: Restore the corpus, or write the fixture replica
       env:
         REPLAY_CORPUS_URL: ${{ secrets.REPLAY_CORPUS_URL }}

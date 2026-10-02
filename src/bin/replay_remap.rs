@@ -6,7 +6,8 @@
 //! references between users are rewritten under that map, the content-addressed v0 tag and
 //! bookmark ids are derived again over the rewritten targets, follows and mutes are renamed,
 //! and every other byte is kept. Writes `<out>/replica/<new pk>/<path>`, `map.json`,
-//! `keys.json` (the secrets, never to be committed) and `remap_report.json`. A user the crawl's
+//! `keys.json` (the secrets, never to be committed), `inventory.json` (each replica user's blobs
+//! and whether the crawl fetched them, under replica keys) and `remap_report.json`. A user the crawl's
 //! manifest (default `<corpus>/../manifest.json`) marks `complete: false` is remapped as far as
 //! it was copied and listed under `incomplete_users`.
 
@@ -46,14 +47,14 @@ fn main() {
         || Path::new(&corpus).join("..").join("manifest.json"),
         PathBuf::from,
     );
-    let incomplete = match incomplete_users(&manifest) {
-        Ok(incomplete) => incomplete,
+    let manifest = match read_manifest(&manifest) {
+        Ok(manifest) => manifest,
         Err(e) => {
             eprintln!("replay_remap: {}: {e}", manifest.display());
             std::process::exit(1);
         }
     };
-    match remap(Path::new(&corpus), Path::new(&out), &salt, &incomplete) {
+    match remap(Path::new(&corpus), Path::new(&out), &salt, &manifest) {
         Ok(report) => println!("{}", serde_json::to_string_pretty(&report).unwrap()),
         Err(e) => {
             eprintln!("replay_remap: {e}");
@@ -62,21 +63,36 @@ fn main() {
     }
 }
 
-/// The users the crawl could not copy whole; no manifest means none are known.
-fn incomplete_users(manifest: &Path) -> io::Result<BTreeSet<String>> {
+/// What the remap takes from the crawl's manifest: the users the crawl could not copy whole,
+/// and each user's blobs with whether the crawl fetched them. No manifest means neither is known.
+#[derive(Default)]
+struct Manifest {
+    incomplete: BTreeSet<String>,
+    blobs: BTreeMap<String, BTreeMap<String, bool>>,
+}
+
+fn read_manifest(manifest: &Path) -> io::Result<Manifest> {
     let bytes = match fs::read(manifest) {
         Ok(bytes) => bytes,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(BTreeSet::new()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Manifest::default()),
         Err(e) => return Err(e),
     };
     let manifest: Value = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
-    Ok(manifest["users"]
-        .as_object()
-        .into_iter()
-        .flatten()
-        .filter(|(_, user)| user["complete"] != Value::Bool(true))
-        .map(|(pk, _)| pk.clone())
-        .collect())
+    let users = manifest["users"].as_object().into_iter().flatten();
+    let mut out = Manifest::default();
+    for (pk, user) in users {
+        if user["complete"] != Value::Bool(true) {
+            out.incomplete.insert(pk.clone());
+        }
+        let blobs = user["blobs"].as_object().into_iter().flatten();
+        out.blobs.insert(
+            pk.clone(),
+            blobs
+                .map(|(hash, blob)| (hash.clone(), blob["fetched"] == Value::Bool(true)))
+                .collect(),
+        );
+    }
+    Ok(out)
 }
 
 /// Only the owner can read it: the file holds secrets or links replica keys to production.
@@ -169,12 +185,8 @@ impl Report {
     }
 }
 
-fn remap(
-    corpus: &Path,
-    out: &Path,
-    salt: &str,
-    incomplete: &BTreeSet<String>,
-) -> io::Result<Value> {
+fn remap(corpus: &Path, out: &Path, salt: &str, manifest: &Manifest) -> io::Result<Value> {
+    let incomplete = &manifest.incomplete;
     let mut prod_pks: Vec<String> = fs::read_dir(corpus)?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().is_dir())
@@ -245,6 +257,16 @@ fn remap(
         &serde_json::to_vec_pretty(&map_json)?,
     )?;
     write_private(&out.join("keys.json"), &serde_json::to_vec_pretty(&keys)?)?;
+    // The blob inventory under replica keys, so the verifier and a CI corpus need neither the
+    // map nor the production-keyed manifest
+    let inventory: BTreeMap<&String, &BTreeMap<String, bool>> = prod_pks
+        .iter()
+        .filter_map(|pk| Some((map.get(pk)?, manifest.blobs.get(pk)?)))
+        .collect();
+    fs::write(
+        out.join("inventory.json"),
+        serde_json::to_vec_pretty(&inventory)?,
+    )?;
     let report = report.to_json();
     fs::write(
         out.join("remap_report.json"),
@@ -796,7 +818,11 @@ mod tests {
 
         let out = dir.join("out");
         let incomplete = BTreeSet::from([b.clone()]);
-        let report = remap(&corpus, &out, SALT, &incomplete).unwrap();
+        let manifest = Manifest {
+            incomplete,
+            blobs: BTreeMap::new(),
+        };
+        let report = remap(&corpus, &out, SALT, &manifest).unwrap();
         let map: BTreeMap<String, String> =
             serde_json::from_slice(&fs::read(out.join("map.json")).unwrap()).unwrap();
         assert_eq!(map.len(), 2);

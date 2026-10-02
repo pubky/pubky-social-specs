@@ -83,8 +83,7 @@ user("posts50k", function* () {
 });
 
 writeFileSync(path.join(args.out, "keys.json"), JSON.stringify(keys, null, 1), { mode: 0o600 });
-writeFileSync(path.join(args.out, "map.json"), "{}\n", { mode: 0o600 });
-writeFileSync(path.join(args.out, "manifest.json"), JSON.stringify({ users: {} }) + "\n");
+writeFileSync(path.join(args.out, "inventory.json"), "{}\n");
 // Names to replica keys, for the report; these keys are synthetic, not production's
 writeFileSync(path.join(args.out, "users.json"), JSON.stringify(users, null, 1));
 console.log(Object.entries(users).map(([n, pk]) => `${n} ${pk.slice(0, 10)}`).join("\n"));

@@ -12,14 +12,20 @@ This directory holds the tooling. Nothing it produces is committed: `data/` is i
 Only public data is read: `pub/pubky.app/` is readable by anyone, so the crawl uses anonymous
 LIST and GET and never a session. Production is never written to.
 
-The replica does not carry production keys. `replay_remap` derives each user's replica key from
-a secret salt and the production key, and rewrites the references between users under that map,
-so a third party without the salt cannot link a replica key back to its user. The salt is read
-from the environment only (`REPLAY_SALT`, or the variable `--salt-env` names); no tool reads or
-writes it anywhere else, so keep it where your other secrets live. The corpus, the replica,
-`map.json` and `keys.json` stay on the machine that ran the replay, and the remap writes the two
-key files readable by their owner only (mode 0600). Text is copied as written, so a post that
-mentions someone still names them; the remap report counts those.
+The replica carries no production key. `replay_remap` derives each user's replica key from a
+secret salt and the production key, and rewrites the references between users under that map.
+That is key remapping, not anonymity: the salt stops anyone from deriving a replica key from a
+production key, but the profiles, posts, tags and references are copied as written, so whoever
+holds the replica can match its content against public production data and name the user. The
+corpus and the replica are private material and are handled as such: they stay on the machine
+that ran the replay or go to a private bucket, never to a public place or a workflow artifact.
+The salt is read from the environment only (`REPLAY_SALT`, or the variable `--salt-env` names);
+no tool reads or writes it anywhere else, so keep it where your other secrets live. `map.json`
+(replica key to production key) and `keys.json` (the replica secrets) are written readable by
+their owner only (mode 0600); `map.json` never leaves the machine. What the verifier needs
+from the crawl, each replica user's blobs and whether they were fetched, the remap writes under
+replica keys to `inventory.json`, so neither `map.json` nor the production-keyed
+`manifest.json` is needed past the remap. The remap report counts the posts that name someone.
 
 ## Disk budget
 
@@ -346,10 +352,11 @@ shrinks, so the tab keeps that size for the rest of the run.
 `.github/workflows/replay.yml` (`replay-browser`, nightly and on demand) builds the package,
 installs Chromium and Firefox, and runs `replay.mjs --sample 2 --to browser` in both browsers,
 the testnet and its Postgres in Docker as here. With the secret `REPLAY_CORPUS_URL` set, it
-restores the corpus from that URL, a tarball of `replica/`, `keys.json`, `map.json` and
-`manifest.json`. That has to be a presigned URL into a private bucket: `map.json` links every
-replica key to its production key, and a workflow artifact is readable by anyone who can read the
-repository. Without it, `fixture.mjs` writes two users whose tree is the semantic vectors' 0.x
+restores the corpus from that URL, a tarball of `replica/`, `keys.json` and `inventory.json`:
+the replica trees, the secrets the seed and the migration sign in with, and the blob inventory
+under replica keys. Neither `map.json` nor `manifest.json` goes in it. That has to be a presigned
+URL into a private bucket: the replica is production content under other keys and `keys.json`
+is credentials, and a workflow artifact is readable by anyone who can read the repository. Without it, `fixture.mjs` writes two users whose tree is the semantic vectors' 0.x
 tree (38 objects each), so the browser path runs every night regardless. GitHub registers an `on: schedule` only from the workflow file on the default branch, `main`; while this file lives on `v1` only `workflow_dispatch` runs it, by hand, and the nightly starts once it reaches `main`.
 
 ## Next

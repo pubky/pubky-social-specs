@@ -3,8 +3,8 @@
 //
 //   node fixture.mjs [--out data]
 //
-// Writes what the remap would: `replica/<pk>/<path>`, `keys.json`, and an empty `map.json` and
-// `manifest.json`, since no user comes from production. Keys derive from a fixed label, so the
+// Writes what the remap would: `replica/<pk>/<path>`, `keys.json`, and an empty
+// `inventory.json`, since no user comes from production and no blob was crawled. Keys derive from a fixed label, so the
 // same replica comes out every time.
 
 import { blake3 } from "@noble/hashes/blake3.js";
@@ -30,6 +30,5 @@ for (let i = 0; i < USERS; i++) {
   }
 }
 writeFileSync(path.join(args.out, "keys.json"), JSON.stringify(keys, null, 1), { mode: 0o600 });
-writeFileSync(path.join(args.out, "map.json"), "{}\n");
-writeFileSync(path.join(args.out, "manifest.json"), JSON.stringify({ users: {} }) + "\n");
+writeFileSync(path.join(args.out, "inventory.json"), "{}\n");
 console.log(`${USERS} users written to ${args.out}/replica`);

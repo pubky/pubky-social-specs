@@ -7,7 +7,7 @@ how to run each again. Every command runs from the repository root unless it say
 
 | what | command | covers |
 |---|---|---|
-| Rust unit and integration tests | `cargo nextest run --features migrator` (or `cargo test --features migrator`) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, and the semantic vectors in `vectors/` |
+| Rust unit and integration tests | `cargo nextest run --features replay` (or `cargo test --features replay`; `replay` adds the migrator and the two replay binaries, whose tests only build with it) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the semantic vectors in `vectors/`, and the replay's remap and verifier |
 | wasm tests | `wasm-pack test --headless --firefox -- --features migrator` | the JS boundary as the browser build sees it |
 | the npm package | `cd pkg && npm install && npm run build && npm test` | the typed surface (`tsc`), the entry's argument checks, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI |
 | live e2e | `cd pkg && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-binding.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
