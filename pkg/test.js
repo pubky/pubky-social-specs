@@ -499,6 +499,9 @@ describe("pubky-social-specs", () => {
       ];
       const plan = planDelete(OTTO, version.id, [], copies, [draft]);
       assert.deepStrictEqual(plan.deletes, [publish.destPath, version.path, edit.path], "oldest first, pub before priv");
+      // A history has no size of its own: 135 versions near the post cap plan like one
+      const heavy = Array.from({ length: 135 }, () => ({ ...draft, content: "y".repeat(500_000) }));
+      assert.deepStrictEqual(planDelete(OTTO, version.id, [], copies, heavy).deletes, plan.deletes);
       assert.deepStrictEqual(plan.mediaGcCandidates, [
         "/priv/social/v1/files/PZBQ010FF079VVZPQG1RNFN6DR.png",
       ]);
@@ -599,7 +602,7 @@ describe("pubky-social-specs", () => {
       rejects(() => parseUri(42), "Validation Error: parseUri() argument 1 must be a string");
       rejects(() => createUser(OTTO, "Alice"), "Validation Error: createUser() argument 2 must be an object");
       rejects(() => parseUri("x".repeat(validationLimits.postMaxBytes + 1)), `Validation Error: parseUri() argument 1 is over ${validationLimits.postMaxBytes} characters`);
-      rejects(() => planUnpublish("0032SSN7Q4EVG", ["x".repeat(validationLimits.postMaxBytes + 1)], []), `Validation Error: planUnpublish() argument 2 is over ${validationLimits.postMaxBytes} characters`);
+      rejects(() => planUnpublish("0032SSN7Q4EVG", ["x".repeat(validationLimits.referenceUriMaxLength + 1)], []), `Validation Error: planUnpublish() argument 2 has an entry over ${validationLimits.referenceUriMaxLength} characters`);
       // A typed array is an object whose JSON form is one member per byte
       rejects(() => createVersion(OTTO, new Uint8Array(1 << 20), { root: "private" }), "Validation Error: createVersion() argument 2 must be an object");
       rejects(() => readObject(userUriBuilder(OTTO), [1, 2]), "Validation Error: readObject() argument 2 must be a Uint8Array");
@@ -665,6 +668,9 @@ describe("pubky-social-specs", () => {
       const cyclic = { name: "Alice" };
       cyclic.self = cyclic;
       rejects(() => validate(userUriBuilder(OTTO), cyclic), "Validation Error: the value has no JSON form");
+      // JSON.stringify answers undefined for this without throwing; the instance must stay usable
+      for (let i = 0; i < 3; i++) rejects(() => validate(userUriBuilder(OTTO), { toJSON: () => undefined }), "Validation Error: the value has no JSON form");
+      assert.doesNotThrow(() => validate(userUriBuilder(OTTO), createUser(OTTO, { name: "Otto" }).object));
       // The JSON text is refused by its length before it is copied into the wasm
       const over = 6 * validationLimits.postMaxBytes;
       rejects(() => createVersion(OTTO, { kind: "note", content: "x".repeat(over) }, { root: "private" }), `Validation Error: the value's JSON form is over ${over} bytes`);
