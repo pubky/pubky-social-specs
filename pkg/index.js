@@ -95,11 +95,14 @@ function wellFormedArgument(slot, value) {
 }
 
 // The longest string any object holds is a post's content, so a longer argument can only be
-// refused; refusing it here keeps it out of linear memory, which never shrinks
+// refused; refusing it here keeps it out of linear memory, which never shrinks. A `strings`
+// slot lists paths or URIs, so each entry is bounded like a reference
 const STRING_CAP = validationLimits.postMaxBytes;
-function withinCap(slot, value) {
-  if (typeof value === "string") return value.length <= STRING_CAP;
-  return slot !== "strings" || value.every((s) => s.length <= STRING_CAP);
+const ENTRY_CAP = validationLimits.referenceUriMaxLength;
+function overCap(slot, value) {
+  if (typeof value === "string") return value.length > STRING_CAP ? `is over ${STRING_CAP} characters` : undefined;
+  if (slot !== "strings") return undefined;
+  return value.some((s) => s.length > ENTRY_CAP) ? `has an entry over ${ENTRY_CAP} characters` : undefined;
 }
 
 function wrap(name, ...slots) {
@@ -125,9 +128,8 @@ function wrap(name, ...slots) {
       if (!accepts(args[i])) {
         throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
       }
-      if (!withinCap(slot, args[i])) {
-        throw new Error(`Validation Error: ${name}() argument ${i + 1} is over ${STRING_CAP} characters`);
-      }
+      const over = overCap(slot, args[i]);
+      if (over !== undefined) throw new Error(`Validation Error: ${name}() argument ${i + 1} ${over}`);
       if (!wellFormedArgument(slot, args[i])) throw new Error(MALFORMED);
     });
     return inner(...args);
