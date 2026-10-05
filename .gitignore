@@ -1,1 +1,5 @@
 /target
+
+# Replay corpus, replica and keys: production data, never committed
+/tools/replay/data/
+/tools/replay/node_modules/

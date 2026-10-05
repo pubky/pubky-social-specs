@@ -1794,6 +1794,7 @@ dependencies = [
  "base32",
  "base64",
  "blake3",
+ "ed25519-dalek",
  "js-sys",
  "mime",
  "pubky",

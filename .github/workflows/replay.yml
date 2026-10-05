@@ -1,0 +1,77 @@
+name: Replay
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"
+
+jobs:
+  replay-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Cache Rust build artifacts
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-targets: "wasm32-unknown-unknown"
+
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.13.0'
+
+    - name: Build the package
+      run: |
+        cd ./pkg
+        npm install
+        npm run build
+
+    - name: Install the replay tooling and its browsers
+      run: |
+        cd ./tools/replay
+        npm ci
+        PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium firefox
+
+    # The corpus is production's public data under replica keys plus the replica secrets
+    # (replica/, keys.json, inventory.json; never map.json or manifest.json), so it comes from a
+    # private bucket through a presigned URL and never from a workflow artifact, which anyone
+    # who can read the repository can download
+    - name: Restore the corpus, or write the fixture replica
+      env:
+        REPLAY_CORPUS_URL: ${{ secrets.REPLAY_CORPUS_URL }}
+      run: |
+        cd ./tools/replay
+        mkdir -p data
+        if [ -n "$REPLAY_CORPUS_URL" ]; then
+          curl -fsSL "$REPLAY_CORPUS_URL" | tar -xz -C data
+        else
+          node fixture.mjs --out data
+        fi
+
+    - name: Seed, migrate from Node, verify, then migrate again in Chromium and Firefox
+      run: |
+        cd ./tools/replay
+        node replay.mjs --sample 2 --to browser --browser chromium --browser firefox
+
+    - name: Numbers
+      if: always()
+      run: |
+        cd ./tools/replay
+        if [ -f data/metrics.json ]; then
+          node -e 'const m = require("./data/metrics.json"); console.log(JSON.stringify({ run: m.run?.perUserMs, verify: m.verify?.mismatched_users, browser: m.browser }, null, 2))'
+        fi
+
+    - name: Testnet logs
+      if: failure()
+      run: docker logs --tail 200 replay-testnet || true
