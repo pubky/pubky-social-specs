@@ -206,10 +206,16 @@ fn mint_from(now: i64, last_minted: &AtomicI64) -> i64 {
             last + 1
         }
     };
-    let prev = last_minted
-        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |last| Some(bump(last)))
-        .expect("closure always returns Some");
-    bump(prev)
+    // A compare-exchange loop rather than the standard helper, whose name moves between
+    // toolchains while this crate holds an MSRV
+    let mut last = last_minted.load(Ordering::SeqCst);
+    loop {
+        let next = bump(last);
+        match last_minted.compare_exchange(last, next, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(_) => return next,
+            Err(seen) => last = seen,
+        }
+    }
 }
 
 /// 2^53 - 1: the largest integer JSON round-trips identically through a JS
