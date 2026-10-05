@@ -11,9 +11,20 @@ import type { MigrationPort, PortErrorKind, PutOptions } from "../port.js";
 export interface SdkPortOptions {
   /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
   pageSize?: number;
+  /**
+   * Milliseconds a read may wait for its answer before it counts as `network`, 60000 by
+   * default: LIST, HEAD and the GET of a JSON object. A blob's GET grows with its size, and a
+   * write (`putJson`, `putBytes`, DELETE) stays pending until the SDK settles it: the SDK takes
+   * no signal, and a write abandoned at a deadline could still land after a later run cleaned
+   * up behind it.
+   */
+  deadlineMs?: number;
 }
 
 const MAX_PAGE = 1000;
+const DEFAULT_DEADLINE_MS = 60_000;
+// The two media directories of the trees the engine reads and writes
+const isBlobPath = (path: string): boolean => path.startsWith("/pub/pubky.app/blobs/") || path.startsWith("/pub/social/v1/files/");
 
 // What a homeserver without the private root answers a request under `/priv/`. A current one
 // names both roots in the same refusal, for paths outside them, which the engine never asks.
@@ -33,6 +44,8 @@ const statusOf = (error: unknown): number | undefined => {
 };
 
 const portError = (error: unknown): MigrationPortError => {
+  // Already mapped once, by the deadline or an inner call
+  if (error instanceof MigrationPortError) return error;
   const message = error instanceof Error ? error.message : String(error);
   const status = statusOf(error);
   if (status === undefined) {
@@ -49,15 +62,21 @@ class SdkPort implements MigrationPort {
   readonly #storage: Session["storage"];
   readonly #ownerPrefix: string;
   readonly #pageSize: number;
+  readonly #deadlineMs: number;
 
   constructor(session: Session, options: SdkPortOptions = {}) {
     const pageSize = options.pageSize ?? MAX_PAGE;
     if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE) {
       throw new RangeError(`sdkPort: pageSize must be an integer from 1 to ${MAX_PAGE}, not ${pageSize}`);
     }
+    const deadlineMs = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
+    if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
+      throw new RangeError(`sdkPort: deadlineMs must be a positive number, not ${deadlineMs}`);
+    }
     this.#storage = session.storage;
     this.#ownerPrefix = `pubky://${session.info.publicKey.z32()}/`;
     this.#pageSize = pageSize;
+    this.#deadlineMs = deadlineMs;
   }
 
   async list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }> {
@@ -68,7 +87,7 @@ class SdkPort implements MigrationPort {
     }
     let urls: string[];
     try {
-      urls = await this.#storage.list(path, cursor ?? null, false, this.#pageSize, false);
+      urls = await this.#call(() => this.#storage.list(path, cursor ?? null, false, this.#pageSize, false));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return { urls: [] };
@@ -81,7 +100,9 @@ class SdkPort implements MigrationPort {
   async get(url: string): Promise<Uint8Array | null> {
     const path = this.#path(url);
     try {
-      return await this.#storage.getBytes(path);
+      // A blob's download grows with its size and the SDK gives no progress, so only an
+      // object's GET has the deadline
+      return await this.#call(() => this.#storage.getBytes(path), !isBlobPath(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return null;
@@ -92,14 +113,14 @@ class SdkPort implements MigrationPort {
   async head(url: string): Promise<boolean> {
     const path = this.#path(url);
     try {
-      return await this.#storage.exists(path);
+      return await this.#call(() => this.#storage.exists(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.status !== 403) throw failure;
       // A HEAD carries no body, so the reason of the refusal is read from a GET, whose body is
       // dropped unread when it succeeds
       try {
-        const response = await this.#storage.get(path);
+        const response = await this.#call(() => this.#storage.get(path));
         await response.body?.cancel();
         return true;
       } catch (retry) {
@@ -119,19 +140,19 @@ class SdkPort implements MigrationPort {
   async putJson(url: string, object: unknown, options?: PutOptions): Promise<void> {
     const path = this.#path(url);
     await this.#absent(url, options);
-    await this.#call(() => this.#storage.putJson(path, object));
+    await this.#call(() => this.#storage.putJson(path, object), false);
   }
 
   /** `ifAbsent` as `putJson` does it. */
   async putBytes(url: string, bytes: Uint8Array, options?: PutOptions): Promise<void> {
     const path = this.#path(url);
     await this.#absent(url, options);
-    await this.#call(() => this.#storage.putBytes(path, bytes));
+    await this.#call(() => this.#storage.putBytes(path, bytes), false);
   }
 
   async delete(url: string): Promise<void> {
     const path = this.#path(url);
-    await this.#call(() => this.#storage.delete(path));
+    await this.#call(() => this.#storage.delete(path), false);
   }
 
   async #absent(url: string, options?: PutOptions): Promise<void> {
@@ -140,11 +161,34 @@ class SdkPort implements MigrationPort {
     }
   }
 
-  async #call<T>(call: () => Promise<T>): Promise<T> {
+  /**
+   * An SDK call, under the deadline unless `bounded` is false: an answer that never comes is a
+   * `network` failure. Only reads are bounded; a write abandoned by the caller could still
+   * commit after the engine's retry and cleanup, so it stays pending until the SDK settles it.
+   * The timer stays referenced while the race is pending, so a process waiting on it does not
+   * exit before it fires; it is cleared as soon as the call settles.
+   */
+  async #call<T>(call: () => Promise<T>, bounded = true): Promise<T> {
+    if (!bounded) {
+      try {
+        return await call();
+      } catch (error) {
+        throw portError(error);
+      }
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)),
+        this.#deadlineMs,
+      );
+    });
     try {
-      return await call();
+      return await Promise.race([call(), deadline]);
     } catch (error) {
       throw portError(error);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
