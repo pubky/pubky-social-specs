@@ -50,17 +50,19 @@ function wellFormed(text) {
 
 // What each argument slot takes. A value of another type never reaches the wasm, where a
 // non-string in a string slot reads memory it does not own.
-const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+// A typed array or a DataView is an object too, and its JSON form is one member per byte
+const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v) && !ArrayBuffer.isView(v);
 // The glue allocates what `length` reports and copies what the view holds, so a subclass whose
 // getter lies would write past its allocation: the view's own length has to agree with it
-const intrinsicLength = Object.getOwnPropertyDescriptor(
-  Object.getPrototypeOf(Uint8Array.prototype),
-  "length",
-).get;
+const TypedArray = Object.getPrototypeOf(Uint8Array.prototype);
+const intrinsicLength = Object.getOwnPropertyDescriptor(TypedArray, "length").get;
+const intrinsicBuffer = Object.getOwnPropertyDescriptor(TypedArray, "buffer").get;
 // Any realm's Uint8Array (or a Buffer): a view of single bytes
 const isBytes = (v) => {
   if (!ArrayBuffer.isView(v) || v.BYTES_PER_ELEMENT !== 1) return false;
   try {
+    // A detached buffer reads as empty but fails the glue's copy; a view over it throws here
+    new Uint8Array(intrinsicBuffer.call(v), 0, 0);
     return intrinsicLength.call(v) === v.length;
   } catch {
     return false; // a DataView has no intrinsic length
@@ -92,6 +94,17 @@ function wellFormedArgument(slot, value) {
   return slot !== "strings" || value.every(wellFormed);
 }
 
+// The longest string any object holds is a post's content, so a longer argument can only be
+// refused; refusing it here keeps it out of linear memory, which never shrinks. A `strings`
+// slot lists paths or URIs, so each entry is bounded like a reference
+const STRING_CAP = validationLimits.postMaxBytes;
+const ENTRY_CAP = validationLimits.referenceUriMaxLength;
+function overCap(slot, value) {
+  if (typeof value === "string") return value.length > STRING_CAP ? `is over ${STRING_CAP} characters` : undefined;
+  if (slot !== "strings") return undefined;
+  return value.some((s) => s.length > ENTRY_CAP) ? `has an entry over ${ENTRY_CAP} characters` : undefined;
+}
+
 function wrap(name, ...slots) {
   const inner = glue[name];
   if (typeof inner !== "function") throw new Error(`pubky-social-specs: the build lacks ${name}`);
@@ -104,9 +117,21 @@ function wrap(name, ...slots) {
     }
     slots.forEach((slot, i) => {
       const [accepts, what] = KINDS[slot];
+      // The wasm reads an array again after the check, element by element, so it gets a plain
+      // copy made here: a throwing iterator or getter is this slot's error, never an exception
+      // unwinding through the wasm
+      if ((slot === "strings" || slot === "array") && Array.isArray(args[i])) {
+        try {
+          args[i] = Array.from(args[i]);
+        } catch {
+          throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
+        }
+      }
       if (!accepts(args[i])) {
         throw new Error(`Validation Error: ${name}() argument ${i + 1} must be ${what}`);
       }
+      const over = overCap(slot, args[i]);
+      if (over !== undefined) throw new Error(`Validation Error: ${name}() argument ${i + 1} ${over}`);
       if (!wellFormedArgument(slot, args[i])) throw new Error(MALFORMED);
     });
     return inner(...args);
@@ -150,7 +175,24 @@ const hasherFinish = wrap("hasherFinish", "hasher");
 const mimeToExt = wrap("mimeToExt", "string");
 const essence = wrap("essence", "string");
 // Deletion, prefixes and URIs
-const deletionPaths = wrap("deletionPaths", "object");
+const deletionPathsPlain = wrap("deletionPaths", "object");
+// The wasm reads `listings` one copy at a time and the rest as JSON, so the input is made plain
+// here first: `toJSON` applies to the whole value, as JSON.stringify would, and `listings` is
+// copied; anything that throws on the way is the argument's error, not an exception inside the
+// wasm
+const deletionPaths = (input, ...rest) => {
+  let plain = input;
+  try {
+    if (isObject(plain) && typeof plain.toJSON === "function") plain = plain.toJSON("");
+    if (isObject(plain)) {
+      plain = { ...plain };
+      if (Array.isArray(plain.listings)) plain.listings = Array.from(plain.listings);
+    }
+  } catch {
+    throw new Error("Validation Error: deletionPaths() argument 1 must be an object");
+  }
+  return deletionPathsPlain(plain, ...rest);
+};
 const listPrefix = wrap("listPrefix", "string", "string");
 const legacyListPrefix = wrap("legacyListPrefix", "string");
 const userUriBuilder = wrap("userUriBuilder", "string");

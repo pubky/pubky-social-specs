@@ -504,6 +504,26 @@ describe("pubky-social-specs", () => {
       ]);
       const listings = copies.map((c) => c.path);
       assert.deepStrictEqual(deletionPaths({ kind: "post", id: version.id, listings }), plan.deletes);
+      // toJSON applies to the whole input, listings included, as it does for every other input
+      assert.deepStrictEqual(deletionPaths({ toJSON: () => ({ kind: "post", id: version.id, listings }) }), plan.deletes);
+      // A throwing iterator or getter is the argument's error, repeated, and the instance goes on
+      const throwing = new Proxy([], { get: (t, k) => (k === Symbol.iterator ? () => { throw new Error("iter"); } : Reflect.get(t, k)) });
+      for (let i = 0; i < 3; i++) {
+        rejects(() => planDelete(OTTO, version.id, [], throwing, [draft]), "Validation Error: planDelete() argument 4 must be an array");
+        rejects(() => deletionPaths({ kind: "post", id: version.id, listings: throwing }), "Validation Error: deletionPaths() argument 1 must be an object");
+        rejects(() => deletionPaths({ get kind() { throw new Error("getter"); } }), "Validation Error: deletionPaths() argument 1 must be an object");
+      }
+      assert.deepStrictEqual(planDelete(OTTO, version.id, [], copies, [draft]).deletes, plan.deletes);
+      assert.deepStrictEqual(deletionPaths({ kind: "post", id: version.id, listings }), plan.deletes);
+    });
+
+    it("a history has no size of its own: 135 versions near the post cap plan like one", function () {
+      this.timeout(30_000);
+      const { object, meta } = createPost(OTTO, { content: "x" });
+      const copies = [{ root: "public", path: meta.path }];
+      const one = planDelete(OTTO, meta.id, [], copies, [object]);
+      const heavy = Array.from({ length: 135 }, () => ({ ...object, content: "y".repeat(500_000) }));
+      assert.deepStrictEqual(planDelete(OTTO, meta.id, [], copies, heavy).deletes, one.deletes);
     });
 
     it("refuses a head older than the post", () => {
@@ -598,6 +618,10 @@ describe("pubky-social-specs", () => {
     it("a value of the wrong type never reaches the wasm", () => {
       rejects(() => parseUri(42), "Validation Error: parseUri() argument 1 must be a string");
       rejects(() => createUser(OTTO, "Alice"), "Validation Error: createUser() argument 2 must be an object");
+      rejects(() => parseUri("x".repeat(validationLimits.postMaxBytes + 1)), `Validation Error: parseUri() argument 1 is over ${validationLimits.postMaxBytes} characters`);
+      rejects(() => planUnpublish("0032SSN7Q4EVG", ["x".repeat(validationLimits.referenceUriMaxLength + 1)], []), `Validation Error: planUnpublish() argument 2 has an entry over ${validationLimits.referenceUriMaxLength} characters`);
+      // A typed array is an object whose JSON form is one member per byte
+      rejects(() => createVersion(OTTO, new Uint8Array(1 << 20), { root: "private" }), "Validation Error: createVersion() argument 2 must be an object");
       rejects(() => readObject(userUriBuilder(OTTO), [1, 2]), "Validation Error: readObject() argument 2 must be a Uint8Array");
       rejects(() => createTag(OTTO, userUriBuilder(OTTO)), "Validation Error: createTag() argument 3 must be a string");
       rejects(() => feedPaths("a", "b"), "Validation Error: feedPaths() takes at most 1 arguments");
@@ -605,6 +629,30 @@ describe("pubky-social-specs", () => {
       rejects(() => readObject(userUriBuilder(OTTO), new DataView(new ArrayBuffer(2))), /must be a Uint8Array/);
       rejects(() => readObject(userUriBuilder(OTTO), new Uint16Array(2)), /must be a Uint8Array/);
       rejects(() => migrate({}, "pub/pubky.app/profile.json", stored({})), "Validation Error: migrate() argument 1 must be a Migration handle");
+    });
+
+    it("a view of a detached buffer, or an array that changes after the check, never reaches the wasm", () => {
+      const buffer = new ArrayBuffer(4);
+      const view = new Uint8Array(buffer);
+      structuredClone(buffer, { transfer: [buffer] });
+      rejects(() => readObject(userUriBuilder(OTTO), view), "Validation Error: readObject() argument 2 must be a Uint8Array");
+      rejects(() => createFile(OTTO, view, "image/png"), "Validation Error: createFile() argument 2 must be a Uint8Array");
+      let reads = 0;
+      const shifting = new Proxy([postUriBuilder(OTTO, "0032SSN7Q4EVG")], {
+        get: (target, key, receiver) => (key === "0" && ++reads > 1 ? 42 : Reflect.get(target, key, receiver)),
+      });
+      // The glue gets the checked copy: whatever the planner says, it says it as a Validation Error
+      try {
+        planUnpublish("0032SSN7Q4EVG", shifting, []);
+      } catch (e) {
+        assert.match(e.message, /^Validation Error:/);
+      }
+      const throwing = new Proxy([], {
+        get: () => {
+          throw new Error("trap");
+        },
+      });
+      rejects(() => planUnpublish("0032SSN7Q4EVG", throwing, []), "Validation Error: planUnpublish() argument 2 must be an array of strings");
     });
 
     it("a byte view whose length lies never reaches the wasm", () => {
@@ -637,6 +685,12 @@ describe("pubky-social-specs", () => {
       const cyclic = { name: "Alice" };
       cyclic.self = cyclic;
       rejects(() => validate(userUriBuilder(OTTO), cyclic), "Validation Error: the value has no JSON form");
+      // JSON.stringify answers undefined for this without throwing; the instance must stay usable
+      for (let i = 0; i < 3; i++) rejects(() => validate(userUriBuilder(OTTO), { toJSON: () => undefined }), "Validation Error: the value has no JSON form");
+      assert.doesNotThrow(() => validate(userUriBuilder(OTTO), createUser(OTTO, { name: "Otto" }).object));
+      // The JSON text is refused by its length before it is copied into the wasm
+      const over = 6 * validationLimits.postMaxBytes;
+      rejects(() => createVersion(OTTO, { kind: "note", content: "x".repeat(over) }, { root: "private" }), `Validation Error: the value's JSON form is over ${over} bytes`);
       const shared = { level: 1 };
       validate(userUriBuilder(OTTO), { name: "Alice", ext: { a: shared, b: shared } });
     });

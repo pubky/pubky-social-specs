@@ -12,6 +12,7 @@
 
 use crate::canonicalize::canonicalize_pubky_uri;
 use crate::constants::PROTOCOL;
+use crate::limits::VALIDATION_LIMITS;
 use crate::models::deletion;
 use crate::traits::{HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx, PUB_CTX};
 use crate::{
@@ -45,20 +46,48 @@ fn to_js<T: Serialize + ?Sized>(value: &T) -> Result<JsValue, JsError> {
 /// The bytes a PUT of `value` would send: `JSON.stringify` decides what JS stores (a
 /// `toJSON`, a dropped `undefined`, an integer past 2^53), so it decides what is checked.
 /// `undefined` stands for an absent argument and reads as `null`.
-fn json_of(value: &JsValue) -> Result<String, JsError> {
+fn json_of(value: &JsValue, cap: usize) -> Result<String, JsError> {
     if value.is_undefined() {
         return Ok("null".to_string());
     }
-    js_sys::JSON::stringify(value)
+    // `JSON.stringify` answers `undefined` without throwing for a `toJSON` that gives nothing,
+    // and the binding still wraps that as a string; reading its length would trap
+    let json: JsValue = js_sys::JSON::stringify(value)
         .ok()
-        .and_then(|json| json.as_string())
+        .filter(|json| json.is_string())
+        .ok_or_else(|| fail("Validation Error: the value has no JSON form"))?
+        .into();
+    // Refused by length before it is copied into linear memory, which never shrinks
+    if js_sys::JsString::from(json.clone()).length() as usize > cap {
+        return Err(fail(format!(
+            "Validation Error: the value's JSON form is over {cap} bytes"
+        )));
+    }
+    json.as_string()
         .ok_or_else(|| fail("Validation Error: the value has no JSON form"))
 }
+
+/// Escaping expands a byte to six at most, so JSON text past this bound holds no single object
+/// under the largest cap.
+const OBJECT_JSON_CAP: usize = 6 * VALIDATION_LIMITS.post_max_bytes;
 
 /// Parses the JSON form, so an unknown member of an input is an error: a deserializer walking
 /// the JS object only asks it for the fields it expects.
 fn from_js<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
-    serde_json::from_str(&json_of(&value)?).map_err(|e| fail(format!("Validation Error: {e}")))
+    serde_json::from_str(&json_of(&value, OBJECT_JSON_CAP)?)
+        .map_err(|e| fail(format!("Validation Error: {e}")))
+}
+
+/// A list of objects, each under the object bound: a history has no size of its own, so no
+/// bound sits on the whole, and no element's text is held past its parse.
+fn vec_from_js<T: DeserializeOwned>(value: JsValue) -> Result<Vec<T>, JsError> {
+    if !js_sys::Array::is_array(&value) {
+        return Err(fail("Validation Error: expected an array"));
+    }
+    js_sys::Array::from(&value)
+        .iter()
+        .map(from_js::<T>)
+        .collect()
 }
 
 fn owner_of(owner: &str) -> Result<PubkyId, JsError> {
@@ -298,7 +327,7 @@ pub fn validate(uri: &str, object: JsValue) -> Result<(), JsError> {
             // Copied through the constructor, which reads the view's own length rather than
             // a `length` a subclass reports, so the copy cannot outrun its allocation
             .map(|b| js_sys::Uint8Array::new(&b).to_vec())?,
-        _ => json_of(&object)?.into_bytes(),
+        _ => json_of(&object, OBJECT_JSON_CAP)?.into_bytes(),
     };
     PubkySocialObject::from_uri_owned(uri, bytes).map_err(fail)?;
     Ok(())
@@ -649,9 +678,9 @@ pub fn plan_delete(
     versions: JsValue,
 ) -> Result<JsValue, JsError> {
     let owner = owner_of(owner)?;
-    let copies: Vec<StoredCopy> = from_js(copies)?;
+    let copies: Vec<StoredCopy> = vec_from_js(copies)?;
     let copies: Vec<(Root, String)> = copies.into_iter().map(|c| (c.root, c.path)).collect();
-    let versions: Vec<PubkySocialPost> = from_js(versions)?;
+    let versions: Vec<PubkySocialPost> = vec_from_js(versions)?;
     let plan =
         crate::plan_delete(post_id, &legacy_paths, &copies, &versions, &owner).map_err(fail)?;
     to_js(&plan)
@@ -791,7 +820,7 @@ pub fn bookmark_target(filename: &str, content: JsValue) -> Result<String, JsErr
         let ctx = ValidationCtx {
             root: <PubkySocialBookmark as HasIdPath>::ROOT,
         };
-        let bytes = json_of(&content)?.into_bytes();
+        let bytes = json_of(&content, OBJECT_JSON_CAP)?.into_bytes();
         <PubkySocialBookmark as Validatable>::try_from(&bytes, filename, &ctx).map_err(fail)?
     };
     crate::bookmark_target(filename, &bookmark).map_err(fail)
@@ -904,8 +933,18 @@ pub struct DeletionInput {
 /// Every stored copy of one object across epochs and roots, legacy first.
 #[wasm_bindgen(js_name = deletionPaths)]
 pub fn deletion_paths(input: JsValue) -> Result<Vec<String>, JsError> {
-    let input: DeletionInput = from_js(input)?;
-    let listings = input.listings.unwrap_or_default();
+    // The listings are a list of copies with no size of their own; they are parsed one by one
+    // and the rest of the input under the object bound
+    let key = JsValue::from_str("listings");
+    let listed = js_sys::Reflect::get(&input, &key).unwrap_or(JsValue::UNDEFINED);
+    let listings: Vec<Listing> = if listed.is_undefined() || listed.is_null() {
+        Vec::new()
+    } else {
+        vec_from_js(listed)?
+    };
+    let rest = js_sys::Object::assign(&js_sys::Object::new(), &js_sys::Object::from(input));
+    let _ = js_sys::Reflect::delete_property(&rest, &key);
+    let input: DeletionInput = from_js(rest.into())?;
     deletion::deletion_paths(input.kind, &input.id, &listings).map_err(fail)
 }
 

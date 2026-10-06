@@ -56,6 +56,8 @@ const IN_FLIGHT = 2;
 const NETWORK_RETRIES = 3;
 const FIRST_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
+// Empty pages a LIST may answer in a row before the walk is called broken
+const MAX_EMPTY_PAGES = 100;
 const VALIDATION_ERROR = "Validation Error:";
 // Blobs are hashed in chunks of this size, so the wasm holds a chunk and never a blob
 const HASH_CHUNK = 4 * 1024 * 1024;
@@ -353,6 +355,8 @@ class Run {
   async #listAll(prefix: string): Promise<string[]> {
     const urls: string[] = [];
     let cursor: string | undefined;
+    const seen = new Set<string>();
+    let emptyPages = 0;
     for (;;) {
       this.#checkAbort();
       const page = await this.#attempt(() => this.#port.list(prefix, cursor));
@@ -365,7 +369,14 @@ class Run {
         throw new Stop({ code: "IO_ERROR", message: `listing ${prefix} returned ${stray}` });
       }
       urls.push(...page.urls);
-      if (!page.next || page.next === cursor) return urls;
+      if (!page.next) return urls;
+      // A cursor is opaque, so only a repeat, or empty pages without end, tell a walk that
+      // would never finish; either is the port's fault and the run must not record a flag
+      emptyPages = page.urls.length === 0 ? emptyPages + 1 : 0;
+      if (seen.has(page.next) || emptyPages > MAX_EMPTY_PAGES) {
+        throw new Stop({ code: "IO_ERROR", message: `listing ${prefix}: the cursor ${page.next} does not advance` });
+      }
+      seen.add(page.next);
       cursor = page.next;
     }
   }

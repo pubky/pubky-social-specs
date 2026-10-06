@@ -659,6 +659,36 @@ describe("migration engine", () => {
       assert.match(report.error.message, /returned \/pub\/pubky\.app\//);
     });
 
+    it("a LIST whose cursor repeats, or answers empty pages without end, aborts instead of spinning", async () => {
+      let lists = 0;
+      const port = legacyPort();
+      const cycling = delegate(port, {
+        list: async (_prefix, cursor) => {
+          lists++;
+          return { urls: [], next: cursor === "a" ? "b" : "a" };
+        },
+      });
+      const report = await runMigration({ owner, port: cycling });
+      assert.strictEqual(report.status, "aborted");
+      assert.strictEqual(report.error.code, "IO_ERROR");
+      assert.match(report.error.message, /does not advance/);
+      assert.strictEqual(lists, 3, "a, b, then a again");
+      assert.ok(!v1Urls(port).some((u) => u.endsWith("_migrated.json")));
+      let n = 0;
+      const endless = delegate(port, { list: async () => ({ urls: [], next: `c${n++}` }) });
+      const report2 = await runMigration({ owner, port: endless });
+      assert.strictEqual(report2.error.code, "IO_ERROR");
+      assert.ok(n < 200, `${n} LIST calls`);
+      // Opaque cursors that do not sort are fine as long as they move
+      const opaque = delegate(port, {
+        list: async (prefix, cursor) => {
+          const page = await port.list(prefix, cursor === undefined ? undefined : cursor.slice(2));
+          return page.next ? { urls: page.urls, next: `9:${page.next}` } : page;
+        },
+      });
+      assert.strictEqual((await runMigration({ owner, port: opaque, rescan: true })).status, "done");
+    });
+
     it("keeps at most two objects in flight", async () => {
       let active = 0;
       let most = 0;
