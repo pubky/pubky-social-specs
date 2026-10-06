@@ -499,14 +499,31 @@ describe("pubky-social-specs", () => {
       ];
       const plan = planDelete(OTTO, version.id, [], copies, [draft]);
       assert.deepStrictEqual(plan.deletes, [publish.destPath, version.path, edit.path], "oldest first, pub before priv");
-      // A history has no size of its own: 135 versions near the post cap plan like one
-      const heavy = Array.from({ length: 135 }, () => ({ ...draft, content: "y".repeat(500_000) }));
-      assert.deepStrictEqual(planDelete(OTTO, version.id, [], copies, heavy).deletes, plan.deletes);
       assert.deepStrictEqual(plan.mediaGcCandidates, [
         "/priv/social/v1/files/PZBQ010FF079VVZPQG1RNFN6DR.png",
       ]);
       const listings = copies.map((c) => c.path);
       assert.deepStrictEqual(deletionPaths({ kind: "post", id: version.id, listings }), plan.deletes);
+      // toJSON applies to the whole input, listings included, as it does for every other input
+      assert.deepStrictEqual(deletionPaths({ toJSON: () => ({ kind: "post", id: version.id, listings }) }), plan.deletes);
+      // A throwing iterator or getter is the argument's error, repeated, and the instance goes on
+      const throwing = new Proxy([], { get: (t, k) => (k === Symbol.iterator ? () => { throw new Error("iter"); } : Reflect.get(t, k)) });
+      for (let i = 0; i < 3; i++) {
+        rejects(() => planDelete(OTTO, version.id, [], throwing, [draft]), "Validation Error: planDelete() argument 4 must be an array");
+        rejects(() => deletionPaths({ kind: "post", id: version.id, listings: throwing }), "Validation Error: deletionPaths() argument 1 must be an object");
+        rejects(() => deletionPaths({ get kind() { throw new Error("getter"); } }), "Validation Error: deletionPaths() argument 1 must be an object");
+      }
+      assert.deepStrictEqual(planDelete(OTTO, version.id, [], copies, [draft]).deletes, plan.deletes);
+      assert.deepStrictEqual(deletionPaths({ kind: "post", id: version.id, listings }), plan.deletes);
+    });
+
+    it("a history has no size of its own: 135 versions near the post cap plan like one", function () {
+      this.timeout(30_000);
+      const { object, meta } = createPost(OTTO, { content: "x" });
+      const copies = [{ root: "public", path: meta.path }];
+      const one = planDelete(OTTO, meta.id, [], copies, [object]);
+      const heavy = Array.from({ length: 135 }, () => ({ ...object, content: "y".repeat(500_000) }));
+      assert.deepStrictEqual(planDelete(OTTO, meta.id, [], copies, heavy).deletes, one.deletes);
     });
 
     it("refuses a head older than the post", () => {
