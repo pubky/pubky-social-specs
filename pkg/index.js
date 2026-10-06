@@ -117,8 +117,10 @@ function wrap(name, ...slots) {
     }
     slots.forEach((slot, i) => {
       const [accepts, what] = KINDS[slot];
-      // The glue reads an array again after the check, so it gets the copy that was checked
-      if (slot === "strings" && Array.isArray(args[i])) {
+      // The wasm reads an array again after the check, element by element, so it gets a plain
+      // copy made here: a throwing iterator or getter is this slot's error, never an exception
+      // unwinding through the wasm
+      if ((slot === "strings" || slot === "array") && Array.isArray(args[i])) {
         try {
           args[i] = Array.from(args[i]);
         } catch {
@@ -173,7 +175,24 @@ const hasherFinish = wrap("hasherFinish", "hasher");
 const mimeToExt = wrap("mimeToExt", "string");
 const essence = wrap("essence", "string");
 // Deletion, prefixes and URIs
-const deletionPaths = wrap("deletionPaths", "object");
+const deletionPathsPlain = wrap("deletionPaths", "object");
+// The wasm reads `listings` one copy at a time and the rest as JSON, so the input is made plain
+// here first: `toJSON` applies to the whole value, as JSON.stringify would, and `listings` is
+// copied; anything that throws on the way is the argument's error, not an exception inside the
+// wasm
+const deletionPaths = (input, ...rest) => {
+  let plain = input;
+  try {
+    if (isObject(plain) && typeof plain.toJSON === "function") plain = plain.toJSON("");
+    if (isObject(plain)) {
+      plain = { ...plain };
+      if (Array.isArray(plain.listings)) plain.listings = Array.from(plain.listings);
+    }
+  } catch {
+    throw new Error("Validation Error: deletionPaths() argument 1 must be an object");
+  }
+  return deletionPathsPlain(plain, ...rest);
+};
 const listPrefix = wrap("listPrefix", "string", "string");
 const legacyListPrefix = wrap("legacyListPrefix", "string");
 const userUriBuilder = wrap("userUriBuilder", "string");
