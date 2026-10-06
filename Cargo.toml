@@ -45,7 +45,7 @@ tsify-next = { version = "0.5.6", default-features = false, features = ["js"] }
 wasm-bindgen-test = "0.3.68"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pubky = "0.10.0"
+pubky = "0.14.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1.52.3", features = ["full"] }
