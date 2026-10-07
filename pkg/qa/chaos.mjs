@@ -236,6 +236,8 @@ class ChaosPort {
     this.deletedAtRecheck = new Set();
     this.lostAnswers = new Set();
     this.deleteAttempts = new Set();
+    // Copies the race guard read back before deleting, to delete only its own
+    this.cleanupReads = new Set();
     this.orphans = [];
   }
 
@@ -352,6 +354,7 @@ class ChaosPort {
   }
 
   async get(u) {
+    if (!u.startsWith(LEGACY) && u !== FLAG) this.cleanupReads.add(u);
     const r = await this.#enter("get", u);
     if (r?.phantom) return null;
     return this.inner.get(u);
@@ -448,6 +451,7 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
     port.deletedAtRecheck.clear();
     port.lostAnswers.clear();
     port.deleteAttempts.clear();
+    port.cleanupReads.clear();
     port.flagPuts = 0;
     const events = [];
     let report;
@@ -471,8 +475,9 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
         if (!store.has(w.url) || keysBefore.has(w.url) || port.harnessWritten.has(w.url) || port.lostAnswers.has(w.url)) continue;
         const others = (sourcesOfUrl.get(w.url) ?? []).filter((p) => p !== path && store.has(url(p)));
         if (others.length > 0) continue;
-        // A cleanup DELETE that failed leaves the copy, and no later run lists its source again
-        if (port.deleteAttempts.has(w.url)) port.orphans.push({ run: i, path, url: w.url });
+        // A cleanup that failed, at its read-back or at its DELETE, leaves the copy, and no later
+        // run lists its source again
+        if (port.deleteAttempts.has(w.url) || port.cleanupReads.has(w.url)) port.orphans.push({ run: i, path, url: w.url });
         else violations.push({ invariant: "race-guard", run: i, detail: `${path} deleted at its re-check, ${w.url} stays` });
       }
     }
