@@ -83,6 +83,8 @@ const calls = {
   parseUri: [post.url],
   buildUri: [OWNER, "post", post.id],
   listPrefix: [OWNER, "public"],
+  toPath: [post.url],
+  hashMedia: [new Blob([file])],
 };
 
 const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError");
@@ -112,7 +114,8 @@ for (const name of functions) {
     report.calls++;
     const started = performance.now();
     try {
-      const result = api[name](...args);
+      // Awaited, so a rejection of an async export is judged as a throw is
+      const result = await api[name](...args);
       if (name === "createMediaHasher") {
         // The object it returns takes arguments too
         try {
