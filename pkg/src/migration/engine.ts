@@ -1,4 +1,5 @@
 import { limits, skipReasons, transformRev } from "../data.js";
+import { viewBytes } from "../bytes.js";
 import { ValidationError } from "../errors.js";
 import { legacyMediaKey, listPrefix, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
@@ -40,6 +41,7 @@ const FIRST_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
 // Empty pages a LIST may answer in a row before the walk is called broken
 const MAX_EMPTY_PAGES = 100;
+const OUTCOMES: readonly string[] = [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"];
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
   PRIV_UNSUPPORTED:
@@ -94,6 +96,31 @@ const covers = (granted: string | string[], required: string): boolean => {
         [...need.actions].every((action) => cap.actions.includes(action)),
     ),
   );
+};
+
+/** What a finished run recorded, or rev 0 and nothing for a flag this build cannot read. */
+const readFlag = (bytes: Uint8Array): Flag => {
+  const unread: Flag = { transformRev: 0, skipped: {}, migrated: new Set() };
+  const strings = (value: unknown): value is string[] =>
+    Array.isArray(value) && value.every((item) => typeof item === "string");
+  let flag: unknown;
+  try {
+    flag = JSON.parse(decoder.decode(bytes));
+  } catch {
+    return unread;
+  }
+  if (typeof flag !== "object" || flag === null || Array.isArray(flag)) return unread;
+  const own = (key: string): unknown => (Object.hasOwn(flag, key) ? (flag as Record<string, unknown>)[key] : undefined);
+  const rev = own("transform_rev");
+  const skipped = own("skipped") ?? {};
+  const migrated = own("migrated") ?? [];
+  if (typeof skipped !== "object" || skipped === null || Array.isArray(skipped) || !strings(migrated)) return unread;
+  const kept: Partial<Record<Outcome, string[]>> = {};
+  for (const [outcome, paths] of Object.entries(skipped)) {
+    if (!OUTCOMES.includes(outcome) || !strings(paths)) return unread;
+    kept[outcome as Outcome] = paths;
+  }
+  return { transformRev: Number.isSafeInteger(rev) ? (rev as number) : 0, skipped: kept, migrated: new Set(migrated) };
 };
 
 /** Resolves after `ms`, or as soon as `signal` aborts. */
@@ -160,6 +187,13 @@ const blobResult = (result: MigrateBlobResult, bytes: Uint8Array): MigrateResult
 
 const LANDED = Promise.resolve(true);
 
+interface Flag {
+  transformRev: number;
+  skipped: Partial<Record<Outcome, string[]>>;
+  /** The 0.x paths an earlier run copied or found present. */
+  migrated: Set<string>;
+}
+
 /** A claim this object holds on a key: settle it once, with whether its copy exists. */
 interface Claim {
   write: MigratedWrite;
@@ -185,6 +219,12 @@ class Run {
     ),
   ) as Counts;
   #skipped: Partial<Record<Outcome, string[]>> = {};
+  /**
+   * The 0.x paths a finished run copied or found present. A later walk leaves them alone: a
+   * copy missing now was deleted by its owner, and a delete leaves some 0.x copies in place.
+   */
+  #before: Set<string> = new Set();
+  readonly #migrated: string[] = [];
   readonly #notes: { path: string; message: string }[] = [];
   readonly #droppedValues: Record<string, Dropped[]> = {};
   /**
@@ -228,6 +268,7 @@ class Run {
         this.#skipped = flag.skipped;
         return this.#finish("already_migrated");
       }
+      if (flag) this.#before = flag.migrated;
 
       this.#phase = "listing";
       this.#emit();
@@ -271,6 +312,7 @@ class Run {
           migrated_at: Date.now() * 1000,
           transform_rev: transformRev,
           skipped: this.#skippedSorted(),
+          migrated: [...this.#migrated].sort(),
         };
         const put = await this.#attempt(() => this.#port.putJson(flagUrl, flagObject));
         if (isFailure(put)) {
@@ -292,7 +334,7 @@ class Run {
   }
 
   /** The flag, when this homeserver has a private root and a run has finished before. */
-  async #probe(flagUrl: string): Promise<{ transformRev: number; skipped: Record<string, string[]> } | null> {
+  async #probe(flagUrl: string): Promise<Flag | null> {
     const exists = await this.#attempt(() => this.#port.head(flagUrl));
     if (isFailure(exists)) {
       if (exists.failed === "not_found") return null;
@@ -309,17 +351,8 @@ class Run {
     }
     if (bytes === null) return null;
     // A flag this build cannot read is treated as older, so the tree is walked again
-    try {
-      const flag = JSON.parse(decoder.decode(bytes));
-      const rev = flag?.transform_rev;
-      const skipped = flag?.skipped;
-      return {
-        transformRev: Number.isSafeInteger(rev) ? rev : 0,
-        skipped: typeof skipped === "object" && skipped !== null ? skipped : {},
-      };
-    } catch {
-      return { transformRev: 0, skipped: {} };
-    }
+    const view = viewBytes(bytes);
+    return view === null ? readFlag(new Uint8Array()) : readFlag(view);
   }
 
   async #listAll(prefix: string): Promise<string[]> {
@@ -364,25 +397,22 @@ class Run {
     // A File object writes nothing and feeds the run, so it is read on every walk. A blob's
     // destination carries the extension its File declares, so only its write can tell whether
     // a copy is present.
+    if (bucket !== "files" && this.#before.has(path)) return this.#count("already_present", path);
     const present = bucket !== "files" && bucket !== "blobs" && (await this.#landed(keyOf(path)));
     if (present) return this.#count("already_present", path);
-    const bytes = await this.#attempt(() => this.#port.get(url));
-    if (isFailure(bytes) && bytes.failed !== "not_found") {
+    const got = await this.#attempt(() => this.#port.get(url));
+    if (isFailure(got) && got.failed !== "not_found") {
       // Every later blob and post reads the Files; migrating them without one would bake a
       // wrong extension or media URL into copies no later run rewrites
       if (bucket === "files") {
-        throw new Stop({ code: "IO_ERROR", message: `reading ${path}: ${bytes.message}` });
+        throw new Stop({ code: "IO_ERROR", message: `reading ${path}: ${got.message}` });
       }
-      return this.#count("io_error", path, bytes.message);
+      return this.#count("io_error", path, got.message);
     }
-    if (bytes === null || isFailure(bytes)) return this.#count("deleted_mid_run", path);
-    // A blob is sliced here before the wasm sees it, so the entry's byte check comes first
-    if (bucket === "blobs" && !(ArrayBuffer.isView(bytes) && bytes.BYTES_PER_ELEMENT === 1)) {
-      throw new TypeError(`pubky-social-specs/migration: the port's get() gave no Uint8Array for ${url}`);
-    }
-    if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) {
-      return this.#count("oversize", path);
-    }
+    if (got === null || isFailure(got)) return this.#count("deleted_mid_run", path);
+    const bytes = viewBytes(got);
+    if (bytes === null) throw new TypeError(`pubky-social-specs/migration: the port's get() gave no Uint8Array for ${url}`);
+    if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) return this.#count("oversize", path);
 
     let result: MigrateResult;
     try {
@@ -578,6 +608,7 @@ class Run {
 
   #count(outcome: Outcome, path: string, note?: string): Outcome {
     this.#counts[outcome]++;
+    if (outcome === "written" || outcome === "already_present") this.#migrated.push(path);
     if (outcome !== "written" && outcome !== "already_present") {
       (this.#skipped[outcome] ??= []).push(path);
     }

@@ -837,6 +837,53 @@ describe("migration engine", () => {
       }
     });
 
+    it("an object deleted after its copy stays deleted through a revision bump and a rescan", async () => {
+      const port = legacyPort();
+      await runMigration({ owner, port });
+      // The deletes leave the 0.x copies of these kinds in place
+      const deleted = v1Urls(port).filter((u) => /\/(mutes|bookmarks|feeds)\//.test(u));
+      assert.ok(deleted.some((u) => u.includes("/mutes/")) && deleted.some((u) => u.includes("/bookmarks/")) && deleted.some((u) => u.includes("/feeds/")));
+      for (const u of deleted) port.store.delete(u);
+      const flag = flagOf(port);
+      assert.ok(flag.migrated.some((p) => p.includes("/mutes/")));
+      await port.putJson(FLAG, { ...flag, transform_rev: transformRev - 1 });
+      const bumped = await runMigration({ owner, port });
+      assert.strictEqual(bumped.status, "done");
+      assert.strictEqual(bumped.counts.written, 0);
+      const rescanned = await runMigration({ owner, port, rescan: true });
+      assert.strictEqual(rescanned.counts.written, 0);
+      for (const u of deleted) assert.ok(!port.store.has(u), `${u} came back`);
+      // What an earlier run skipped is still walked again
+      assert.deepStrictEqual(rescanned.skipped, (await runMigration({ owner, port: legacyPort() })).skipped);
+    });
+
+    it("a flag it cannot read is a flag of revision 0, and the run still resolves", async () => {
+      for (const flag of [
+        { transform_rev: 1e9, skipped: { invalid: 5 } },
+        { transform_rev: 1e9, skipped: { invalid: [1] } },
+        { transform_rev: 1e9, skipped: { nonsense: [] } },
+        { transform_rev: 1e9, skipped: [] },
+        { transform_rev: 1e9, skipped: {}, migrated: "all" },
+        [1],
+        "text",
+      ]) {
+        const port = legacyPort();
+        port.store.set(FLAG, encoder.encode(JSON.stringify(flag)));
+        const report = await runMigration({ owner, port });
+        assert.strictEqual(report.status, "done", JSON.stringify(flag));
+        assert.strictEqual(flagOf(port).transform_rev, transformRev);
+      }
+      // An inherited member is no member of the flag
+      Object.prototype.skipped = { invalid: 5 };
+      try {
+        const port = legacyPort();
+        port.store.set(FLAG, encoder.encode(JSON.stringify({ transform_rev: 1e9 })));
+        assert.strictEqual((await runMigration({ owner, port })).status, "already_migrated");
+      } finally {
+        delete Object.prototype.skipped;
+      }
+    });
+
     it("refuses a mode it does not know", async () => {
       await assert.rejects(runMigration({ owner, port: legacyPort(), mode: "Dry" }), /mode must be "run" or "dry"/);
     });
