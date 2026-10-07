@@ -1,9 +1,10 @@
 // Type tests: this file only has to compile. `@ts-expect-error` marks what must not.
 
 import {
-  buildFile, buildPost, buildUri, buildUser, decodeContent, decodeObject, editPost, encodeObject, feedReaches, limits, parseUri, planPublish, ValidationError,
-  type Built, type BuiltPost, type Bytes, type Decoded, type FeedReach, type KnownFeedReach, type NewPost, type ParsedUri, type Post, type User,
+  buildFile, buildPost, buildUri, buildUser, decodeContent, decodeObject, deletionPaths, editPost, encodeObject, feedReaches, limits, parseUri, planPublish, planUnpublish, toPath, ValidationError,
+  type Built, type BuiltFile, type BuiltPost, type Bytes, type Decoded, type Feed, type FeedReach, type KnownFeedReach, type KnownPostKind, type NewPost, type OwnerPath, type ParsedUri, type Post, type PubkyUrl, type User,
 } from "pubky-social-specs";
+import { setClock } from "pubky-social-specs/testing";
 import { runMigration, type MigrationPort, type MigrationReport } from "pubky-social-specs/migration";
 import { sdkPort } from "pubky-social-specs/migration/pubky-sdk";
 
@@ -52,10 +53,33 @@ if (decoded.kind === "post") {
   decoded.object.created_at satisfies number;
 }
 
+// The kind expected narrows the result, and a stored kind is never "unknown"
+const expected: Post = decodeObject(built.url, bytes, "post");
+expected.kind satisfies KnownPostKind;
+decodeObject(built.url, bytes, "file") satisfies Bytes;
+decodeObject(built.url, new ArrayBuffer(0), "feed") satisfies Feed;
+declare const feed: Feed;
+// @ts-expect-error a feed whose reach is unknown is refused on read
+feed.feed.reach = "unknown";
+feed.feed.content = "unknown";
+
+// A URL and a path are told apart at compile time
+const path: OwnerPath = built.path;
+const at: PubkyUrl = built.url;
+// @ts-expect-error a path is no URL
+decodeObject(path, bytes);
+// @ts-expect-error a URL is no path
+planUnpublish({ id: built.id, publicPaths: [at] });
+declare const listed: string[];
+deletionPaths({ kind: "post", id: built.id, listings: listed.map(toPath) }) satisfies OwnerPath[];
+const media: BuiltFile = buildFile(owner, { bytes: new ArrayBuffer(1), type: "image/png" });
+void [media, setClock];
+
 // A parsed URI narrows by kind
 const parsed: ParsedUri = parseUri(built.url);
 if (parsed.kind === "post") parsed.editId satisfies string | undefined;
 if (parsed.kind === "bookmark") parsed.target satisfies string | undefined;
+if (parsed.kind === "file") buildUri(owner, "file", parsed.filename);
 // @ts-expect-error the profile has no id
 if (parsed.kind === "user") parsed.id;
 buildUri(owner, "user");

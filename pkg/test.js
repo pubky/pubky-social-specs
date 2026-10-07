@@ -11,7 +11,7 @@ const {
   ValidationError, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
   decodeObject, encodeObject, decodeContent, encodeContent,
   buildUser, buildPost, editPost, buildFeed, feedId, buildTag, buildBookmark, buildFollow, buildMute, buildFile, createMediaHasher,
-  planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix,
+  planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix, toPath,
 } = specs;
 
 const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
@@ -41,7 +41,7 @@ describe("pubky-social-specs", () => {
         "ValidationError", "buildBookmark", "buildFeed", "buildFile", "buildFollow", "buildMute", "buildPost", "buildTag", "buildUri", "buildUser",
         "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
         "feedId", "feedLayouts", "feedReaches", "feedSorts", "limits", "listPrefix", "parseUri", "planDelete", "planPublish", "planUnpublish",
-        "postKinds", "validMimeTypes",
+        "postKinds", "toPath", "validMimeTypes",
       ]);
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
     });
@@ -291,6 +291,26 @@ describe("pubky-social-specs", () => {
         assert.deepStrictEqual(encodeObject(built.url, built.object), built.body, kind);
         assert.deepStrictEqual(encodeObject({ kind, root: parseUri(built.url).root }, built.object), built.body, kind);
       }
+    });
+
+    it("decodeObject with the kind expected gives the object, and refuses a URL naming another kind before reading", () => {
+      const follow = buildFollow(OTTO, RIO);
+      assert.deepStrictEqual(decodeObject(follow.url, follow.body, "follow"), follow.object);
+      const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
+      assert.deepStrictEqual(decodeObject(media.url, utf8("hi"), "file"), utf8("hi"));
+      assert.throws(() => decodeObject(follow.url, new Uint8Array(), "post"), (e) => e instanceof ValidationError && e.field === "uri" && /names a follow, not a post/.test(e.reason));
+      misuse(() => decodeObject(follow.url, follow.body, "posts"), /kind must be an object kind/);
+    });
+
+    it("a path passed where a URL goes is named as one, and toPath gives the path of a URL", () => {
+      const follow = buildFollow(OTTO, RIO);
+      misuse(() => decodeObject(follow.path, follow.body), /uri must be a pubky:\/\/ URL, not the path \/pub\/social\/v1\/follows/);
+      misuse(() => encodeObject(follow.path, follow.object), /at must be a pubky:\/\/ URL/);
+      misuse(() => editPost(follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
+      assert.strictEqual(toPath(follow.url), follow.path);
+      assert.strictEqual(toPath(`pubky://${OTTO}/pub/pubky.app/follows/${RIO}`), `/pub/pubky.app/follows/${RIO}`);
+      refuses(() => toPath(`pubky://${OTTO}`), /not the URL of a stored object/);
+      refuses(() => toPath(`pubky://${OTTO}/pub/../x`), /Not a canonical pubky URI/);
     });
 
     it("members a newer writer added travel in $unknown and are written back untouched", () => {

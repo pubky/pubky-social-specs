@@ -10,7 +10,7 @@ import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
 import { defaulted, type Extra, inputOf, list, object, omitted, option, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
-import { isSlug, type Root, socialPath } from "../uri.js";
+import { isSlug, type OwnerPath, type Root, socialPath } from "../uri.js";
 import { checkExtra, type Model, parse, validate } from "./common.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
@@ -181,7 +181,7 @@ export const post: Model<Post> = {
 export interface Minted {
   id: string;
   editId: string;
-  path: string;
+  path: OwnerPath;
   value: Post;
   body: string;
 }

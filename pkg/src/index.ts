@@ -35,8 +35,6 @@ export { limits, validMimeTypes } from "./data.js";
 export { ValidationError } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
-export type { Copy, StoredCopy } from "./lifecycle.js";
-export type { Listing } from "./deletion.js";
 export type * from "./types.js";
 
 // A Rust string cannot hold a lone surrogate, so no rule of the model has an answer for one
@@ -44,6 +42,13 @@ function text(value: unknown, name: string): string {
   if (typeof value !== "string") misuse(name, "a string");
   if (!isWellFormed(value)) fail("text must be well-formed UTF-16", name.includes(".") ? undefined : name);
   return value;
+}
+
+/** A URL argument. A path passed for one is the commonest first mistake, so it is named as such. */
+function url(value: unknown, name: string): string {
+  const given = text(value, name);
+  if (given.startsWith("/")) misuse(name, `a pubky:// URL, not the path ${given}: pass the url of a builder result`);
+  return given;
 }
 
 /** A public key argument: refused under its own name, which the reference text does not carry. */
@@ -64,7 +69,7 @@ const rootOf = (value: unknown, name: string): uris.Root => {
   return value;
 };
 
-type Made<V> = { id: string; path: string; value: V; body: string };
+type Made<V> = { id: string; path: T.OwnerPath; value: V; body: string };
 
 function built<P, V>(owner: string, codec: Codec<V>, made: Made<V>): T.Built<P> {
   return { id: made.id, path: made.path, url: `pubky://${owner}${made.path}`, object: codec.plain(made.value) as P, body: utf8(made.body) };
@@ -81,10 +86,21 @@ const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...buil
  * be anything, so decode it inside a try. A post of a kind this version does not know is
  * refused too: it has rules this version cannot check.
  */
-export function decodeObject(uri: string, bytes: Uint8Array): T.Decoded {
-  const read = objects.read(text(uri, "uri"), bytesOf(bytes, "bytes"));
-  if (read.kind === "file") return { kind: "file", bytes: read.body };
-  return { kind: read.kind, object: objects.models[read.kind].codec.plain(read.value) } as T.Decoded;
+export function decodeObject<K extends keyof T.Stored>(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
+export function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
+export function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer): T.Decoded;
+export function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind?: T.ObjectKind): T.Decoded | T.Stored[keyof T.Stored] | T.Bytes {
+  const at = url(uri, "uri");
+  if (kind !== undefined) {
+    if (typeof kind !== "string" || !uris.isObjectKind(kind)) misuse("kind", "an object kind");
+    // Before the bytes are read: the URL alone says what is stored there
+    const named = uris.parse(at).kind;
+    if (named !== kind) fail(`${at} names ${uris.isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
+  }
+  const read = objects.read(at, bytesOf(bytes, "bytes"));
+  if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.body } : read.body;
+  const object = objects.models[read.kind].codec.plain(read.value) as T.Stored[keyof T.Stored];
+  return kind === undefined ? ({ kind: read.kind, object } as T.Decoded) : object;
 }
 
 /**
@@ -95,11 +111,11 @@ export function decodeObject(uri: string, bytes: Uint8Array): T.Decoded {
  * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
  * need no path, for bytes bound somewhere the data model does not name.
  */
-export function encodeObject(at: string | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array): T.Bytes {
-  object = plainBytes(object) ?? object;
-  if (typeof at === "string") return objects.write(text(at, "at"), object);
+export function encodeObject(at: T.PubkyUrl | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes {
+  const media = plainBytes(object);
+  if (typeof at === "string") return objects.write(url(at, "at"), media ?? object);
   const where = inputOf(at, "at", ["kind", "root"]);
-  return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, object);
+  return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, media ?? object);
 }
 
 /**
@@ -160,8 +176,8 @@ export function buildPost(owner: string, input: T.NewPost): T.BuiltPost {
  * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
  * slug is not carried over from the head.
  */
-export function editPost(headUri: string, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
-  const head = uris.parse(text(headUri, "headUri"));
+export function editPost(headUri: T.PubkyUrl, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
+  const head = uris.parse(url(headUri, "headUri"));
   if (head.kind !== "post" || head.editId === undefined) return fail(`not the URI of a stored post version: ${headUri}`);
   const given = options === undefined || options === null ? {} : inputOf(options, "options", ["root", "slug"]);
   const root = given.root === undefined || given.root === null ? head.root : rootOf(given.root, "options.root");
@@ -216,7 +232,7 @@ export function buildMute(owner: string, mutee: string): T.Built<T.Mute> {
  * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
  * the size is the caller's to check.
  */
-export function buildFile(owner: string, input: T.NewFile): { id: string; path: string; url: string } {
+export function buildFile(owner: string, input: T.NewFile): T.BuiltFile {
   const given = inputOf(input, "input", ["bytes", "id", "type", "root"]);
   if ((given.bytes === undefined) === (given.id === undefined)) misuse("input", "given either bytes or an id");
   const source = given.bytes !== undefined ? { bytes: bytesOf(given.bytes, "input.bytes") } : { id: text(given.id, "input.id") };
@@ -237,11 +253,11 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): st
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
  * path in a plan is owner-relative.
  */
-export function planPublish(owner: string, version: { id: string; editId: string; post: T.Post }): { copies: lifecycle.Copy[]; put: T.BuiltPost } {
+export function planPublish(owner: string, version: { id: string; editId: string; post: T.Post }): { copies: T.Copy[]; put: T.BuiltPost } {
   const given = inputOf(version, "version", ["id", "editId", "post"]);
   const value = posts.post.codec.parse(given.post, "version.post");
   const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value);
-  return { copies: plan.copies, put: builtPost(owner, plan.put) };
+  return { copies: plan.copies as T.Copy[], put: builtPost(owner, plan.put) };
 }
 
 /**
@@ -249,10 +265,10 @@ export function planPublish(owner: string, version: { id: string; editId: string
  * `publicPaths` are the paths of the post's public versions as a LIST gave them, `privateHead`
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
  */
-export function planUnpublish(post: { id: string; publicPaths: string[]; legacyPaths?: string[] | null; privateHead?: string | null }): { copies: lifecycle.Copy[]; deletes: string[] } {
+export function planUnpublish(post: { id: string; publicPaths: T.OwnerPath[]; legacyPaths?: T.OwnerPath[] | null; privateHead?: T.OwnerPath | null }): { copies: T.Copy[]; deletes: T.OwnerPath[] } {
   const given = inputOf(post, "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
   const head = given.privateHead === undefined || given.privateHead === null ? null : text(given.privateHead, "post.privateHead");
-  return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head);
+  return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head) as { copies: T.Copy[]; deletes: T.OwnerPath[] };
 }
 
 /**
@@ -261,14 +277,14 @@ export function planUnpublish(post: { id: string; publicPaths: string[]; legacyP
  * that could be read. A media candidate is deleted only once nothing else references it, which
  * only the caller can know.
  */
-export function planDelete(owner: string, post: { id: string; legacyPaths?: string[] | null; copies?: lifecycle.StoredCopy[] | null; versions?: T.Post[] | null }): { deletes: string[]; mediaGcCandidates: string[] } {
+export function planDelete(owner: string, post: { id: string; legacyPaths?: T.OwnerPath[] | null; copies?: T.StoredCopy[] | null; versions?: T.Post[] | null }): { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] } {
   const given = inputOf(post, "post", ["id", "legacyPaths", "copies", "versions"]);
   const copies = arrayOf(given.copies ?? [], "post.copies").map((copy, index) => {
     const given = inputOf(copy, `post.copies[${index}]`, ["root", "path"]);
     return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
   });
   const versions = arrayOf(given.versions ?? [], "post.versions").map((version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
-  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions);
+  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions) as { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] };
 }
 
 /**
@@ -277,9 +293,9 @@ export function planDelete(owner: string, post: { id: string; legacyPaths?: stri
  * other copies come from `listings`, the owner-relative paths found by LIST (and for a 0.x
  * File object or tag, what proves it belongs to this one); a post with no listings gives none.
  */
-export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: deletion.Listing[] | null }): string[] {
+export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: T.Listing[] | null }): T.OwnerPath[] {
   const given = inputOf(target, "target", ["kind", "id", "listings"]);
-  return deletion.deletionPaths(text(given.kind, "target.kind") as T.ObjectKind, text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings"));
+  return deletion.deletionPaths(text(given.kind, "target.kind") as T.ObjectKind, text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings")) as T.OwnerPath[];
 }
 
 /**
@@ -309,13 +325,22 @@ export function parseUri(uri: string): T.ParsedUri {
  * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
  * comes out.
  */
-export function buildUri(owner: string, kind: "user"): string;
-export function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;
-export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string {
+export function buildUri(owner: string, kind: "user"): T.PubkyUrl;
+export function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): T.PubkyUrl;
+export function buildUri(owner: string, kind: T.ObjectKind, id?: string): T.PubkyUrl {
   return uris.buildChecked(key(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
 }
 
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */
-export function listPrefix(owner: string, tree: T.Root | "legacy"): string {
+export function listPrefix(owner: string, tree: T.Root | "legacy"): T.PubkyUrl {
   return uris.listPrefix(key(owner, "owner"), tree);
+}
+
+/**
+ * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
+ * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ */
+export function toPath(uri: string): T.OwnerPath {
+  const parsed = uris.parse(text(uri, "uri"));
+  return parsed.path === "" ? fail(`not the URL of a stored object: ${uri}`, "uri") : parsed.path;
 }

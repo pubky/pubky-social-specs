@@ -1,13 +1,19 @@
 // Paths and URIs: the parser, the builders, and the keys that join the two epochs of a tree.
 
 import { canonicalPubky, isCanonicalSegment } from "./canonicalize.js";
-import { limits, STRIP_SET } from "./data.js";
+import { limits } from "./data.js";
 import { fail, misuse } from "./errors.js";
 import { checkPublicKey, hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
+import { MEDIA_EXTENSIONS } from "./mime.js";
 import { trimWhere, utf8 } from "./text.js";
 
 export type Root = "public" | "private";
-export type ObjectKind = "user" | "post" | "follow" | "mute" | "bookmark" | "tag" | "file" | "feed";
+
+/** An owner-relative path: what the SDK's storage calls and every plan take. */
+export type OwnerPath = `/pub/${string}` | `/priv/${string}`;
+export const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
+export type ObjectKind = (typeof OBJECT_KINDS)[number];
+export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS as readonly string[]).includes(kind);
 
 export type Resource =
   | { kind: "user" }
@@ -17,7 +23,7 @@ export type Resource =
   | { kind: "unsupportedVersion"; version: string }
   | { kind: "unknown" };
 
-export type Located = { root: Root; path: string } & Resource;
+export type Located = { root: Root; path: OwnerPath | "" } & Resource;
 
 const isTimestampId = (id: string) => timestampIdFault(id) === null;
 const isHashId = (id: string) => hashIdFault(id) === null;
@@ -32,7 +38,7 @@ export function isSlug(slug: string): boolean {
 /** The id of a media filename: one rightmost extension stripped, only when it is a known one. */
 export function mediaStem(filename: string): string | null {
   const dot = filename.lastIndexOf(".");
-  return dot >= 0 && STRIP_SET.includes(filename.slice(dot + 1)) ? filename.slice(0, dot) : null;
+  return dot >= 0 && MEDIA_EXTENSIONS.has(filename.slice(dot + 1)) ? filename.slice(0, dot) : null;
 }
 
 // 187 bytes of target are 250 characters of unpadded base64url
@@ -94,7 +100,7 @@ export function parsePath(path: string | null): Located | null {
   } else if (epoch === "v1") resource = dispatch(root, segments.slice(3));
   else if (epoch !== undefined && isEpoch(epoch)) resource = { kind: "unsupportedVersion", version: epoch };
   else resource = { kind: "unknown" };
-  return { root, path: `/${path}`, ...resource };
+  return { root, path: `/${path}` as OwnerPath, ...resource };
 }
 
 export type Parsed = { owner: string } & Located;
@@ -113,7 +119,7 @@ export function parse(uri: string): Parsed {
 const SEGMENT = { private: "priv", public: "pub" } as const;
 
 /** `/{root}/social/v1/{leaf}`, the one place a path is assembled. */
-export function socialPath(root: Root, leaf: string): string {
+export function socialPath(root: Root, leaf: string): OwnerPath {
   return `/${SEGMENT[root]}/social/v1/${leaf}`;
 }
 
@@ -131,7 +137,7 @@ const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
 };
 
 /** Where an object of `kind` lives under `owner`. The owner key is checked, the id is spelled as given. */
-export function build(owner: string, kind: ObjectKind, id = ""): string {
+export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
   checkPublicKey(owner);
   if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
   const [root, leaf] = LEAF[kind](id);
@@ -139,7 +145,7 @@ export function build(owner: string, kind: ObjectKind, id = ""): string {
 }
 
 /** `build`, and only for an id the parser reads back as that object: no other path comes out. */
-export function buildChecked(owner: string, kind: ObjectKind, id = ""): string {
+export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
   const uri = build(owner, kind, id);
   const canonical = canonicalPubky(uri);
   const located = canonical === null ? null : parsePath(canonical.slice(`pubky://${owner}/`.length));
@@ -153,7 +159,7 @@ export function buildChecked(owner: string, kind: ObjectKind, id = ""): string {
 }
 
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */
-export function listPrefix(owner: string, tree: Root | "legacy"): string {
+export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${string}` {
   checkPublicKey(owner);
   if (tree === "legacy") return `pubky://${owner}/pub/pubky.app/`;
   if (tree !== "public" && tree !== "private") misuse("tree", '"public", "private" or "legacy"');
