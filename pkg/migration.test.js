@@ -606,34 +606,27 @@ describe("migration engine", () => {
       assert.ok(!v1Urls(port).some((u) => u.includes("VJAHM32NETJ12EWAAM11BQVX78")));
     });
 
-    it("bytes the package refuses count invalid with the message", async () => {
+    it("a port whose GET gives no Uint8Array rejects the run as a fault, and records nothing", async () => {
       const follow = url([...rows.keys()].find((p) => p.includes("/follows/")));
-      const port = legacyPort();
-      const odd = delegate(port, {
-        get: async (target) => (target === follow ? [1, 2] : port.get(target)),
-      });
-      const report = await runMigration({ owner, port: odd });
-      assert.strictEqual(report.status, "done");
-      assert.strictEqual(report.counts.invalid, expectedCounts().invalid + 1);
-      assert.ok(report.skipped.invalid.includes(follow.slice(`pubky://${owner}/`.length)));
-      assert.match(report.notes.at(-1).message, /^Validation Error: migrate\(\) argument 3 must be a Uint8Array/);
+      const blob = url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78");
+      for (const [target, odd] of [[follow, [1, 2]], [follow, "{}"], [blob, "orphan bytes"], [blob, new ArrayBuffer(4)]]) {
+        const port = legacyPort();
+        const faulty = delegate(port, { get: async (u) => (u === target ? odd : port.get(u)) });
+        await assert.rejects(runMigration({ owner, port: faulty }), (e) => e instanceof TypeError && /gave no Uint8Array|must be a Uint8Array/.test(e.message));
+        assert.ok(!port.store.has(FLAG), "a fault is never frozen into the flag");
+      }
     });
 
-    it("a blob GET that gives no Uint8Array counts invalid with a note, and the run goes on", async () => {
-      const blob = url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78");
-      for (const odd of ["orphan bytes", [1, 2]]) {
-        const port = legacyPort();
-        const report = await runMigration({
-          owner,
-          port: delegate(port, { get: async (target) => (target === blob ? odd : port.get(target)) }),
-        });
-        assert.strictEqual(report.status, "done");
-        assert.strictEqual(report.counts.invalid, (expectedCounts().invalid ?? 0) + 1);
-        assert.ok(report.skipped.invalid.includes("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78"));
-        assert.deepStrictEqual(notesOf(report, "pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78"), [
-          "Validation Error: the port's GET gave no Uint8Array",
-        ]);
-        assert.strictEqual(report.counts.written, expectedCounts().written - 1);
+    it("a fault inside a transform rejects with the error it threw, not a copy of its message", async () => {
+      const real = transforms.migrate;
+      const boom = new RangeError("boom");
+      transforms.migrate = () => {
+        throw boom;
+      };
+      try {
+        await assert.rejects(runMigration({ owner, port: legacyPort() }), (e) => e === boom);
+      } finally {
+        transforms.migrate = real;
       }
     });
 

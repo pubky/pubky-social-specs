@@ -2,7 +2,9 @@
 // through its frozen reader, whose URL and MIME parsing no JS engine reproduces. Nothing
 // outside this subpath loads a wasm.
 
+import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
+import { fail, ValidationError } from "../errors.js";
 import { isWellFormed } from "../text.js";
 import type { ObjectKind } from "../uri.js";
 import * as glue from "./glue.js";
@@ -45,38 +47,22 @@ export function init(): Promise<void> {
 // type in a string slot reads memory it does not own, and whatever is copied into linear
 // memory stays allocated for the rest of the run. So each argument is checked here first.
 
-const TypedArray = Object.getPrototypeOf(Uint8Array.prototype) as object;
-const intrinsic = (name: string) => Object.getOwnPropertyDescriptor(TypedArray, name)?.get as (this: unknown) => unknown;
-const intrinsicLength = intrinsic("length");
-const intrinsicBuffer = intrinsic("buffer");
-
-// Any realm's Uint8Array: a view of single bytes whose own length agrees with what it reports
-// (a subclass that lies would have the glue write past its allocation), over a live buffer
-function isBytes(value: unknown): value is Uint8Array {
-  const view = value as Uint8Array;
-  if (!ArrayBuffer.isView(view) || view.BYTES_PER_ELEMENT !== 1) return false;
-  try {
-    new Uint8Array(intrinsicBuffer.call(view) as ArrayBuffer, 0, 0);
-    return intrinsicLength.call(view) === view.length;
-  } catch {
-    return false;
-  }
-}
-
+// A value of the wrong type is a fault of the port or of the engine, never of the data
 function refuse(call: string, slot: number, what: string): never {
-  throw new Error(`Validation Error: ${call}() argument ${slot} ${what}`);
+  throw new TypeError(`pubky-social-specs/migration: ${call}() argument ${slot} ${what}`);
 }
 
 function text(call: string, slot: number, value: unknown): string {
   if (typeof value !== "string") refuse(call, slot, "must be a string");
-  if (!isWellFormed(value)) throw new Error("Validation Error: text must be well-formed UTF-16");
+  if (!isWellFormed(value)) fail("text must be well-formed UTF-16");
   // No path or id is longer than the largest object
   if (value.length > limits.postMaxBytes) refuse(call, slot, `is over ${limits.postMaxBytes} characters`);
   return value;
 }
 
+// A plain view: a subclass that lies about its length would have the glue copy past its memory
 function bytes(call: string, slot: number, value: unknown): Uint8Array {
-  return isBytes(value) ? value : refuse(call, slot, "must be a Uint8Array");
+  return viewBytes(value) ?? refuse(call, slot, "must be a Uint8Array");
 }
 
 // A freed handle holds no pointer
@@ -86,26 +72,38 @@ function live(call: string, value: unknown): Migration {
 }
 
 const HASH_CHUNK = 4 * 1024 * 1024;
+const PREFIX = "Validation Error: ";
+
+// The crate words a refusal of its rules with the prefix; the glue throws it as a plain Error
+function refused<T>(call: () => T): T {
+  try {
+    return call();
+  } catch (e) {
+    if (e instanceof Error && !(e instanceof ValidationError) && e.message.startsWith(PREFIX)) {
+      throw new ValidationError(e.message.slice(PREFIX.length), undefined, { cause: e });
+    }
+    throw e;
+  }
+}
 
 /**
  * The transforms as the engine calls them. One object, so a test of the engine can stand a
  * transform of its own in for one of them.
  */
 export const transforms = {
-  createMigration: (owner: string): Migration => glue.createMigration(text("createMigration", 1, owner)),
+  createMigration: (owner: string): Migration => refused(() => glue.createMigration(text("createMigration", 1, owner))),
   /** One 0.x object by its path or its URL: the 1.x writes it becomes, or why it becomes none. */
   migrate: (run: Migration, v0Path: string, data: Uint8Array): MigrateResult =>
-    glue.migrate(live("migrate", run), text("migrate", 2, v0Path), bytes("migrate", 3, data)) as MigrateResult,
+    refused(() => glue.migrate(live("migrate", run), text("migrate", 2, v0Path), bytes("migrate", 3, data)) as MigrateResult),
   /** A 0.x blob by its path, size and media id, so its bytes are never copied into the wasm. */
   migrateBlob(run: Migration, v0Path: string, size: number, hash: string): MigrateBlobResult {
     live("migrateBlob", run);
     if (!Number.isSafeInteger(size) || size < 0) refuse("migrateBlob", 3, "must be a non-negative integer");
-    return glue.migrateBlob(run, text("migrateBlob", 2, v0Path), size, text("migrateBlob", 4, hash)) as MigrateBlobResult;
+    return refused(() => glue.migrateBlob(run, text("migrateBlob", 2, v0Path), size, text("migrateBlob", 4, hash)) as MigrateBlobResult);
   },
   /** The media id of `data`, fed to the wasm a view at a time: far faster than hashing in JS. */
   mediaId(data: Uint8Array): string {
-    // A plain view of the same memory, so every chunk handed over is one this module made
-    const view = new Uint8Array(bytes("mediaId", 1, data).buffer, data.byteOffset, data.byteLength);
+    const view = bytes("mediaId", 1, data);
     const hasher = glue.hasherNew();
     try {
       for (let at = 0; at < view.length; at += HASH_CHUNK) glue.hasherUpdate(hasher, view.subarray(at, at + HASH_CHUNK));

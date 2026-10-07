@@ -1,4 +1,5 @@
 import { limits, skipReasons, transformRev } from "../data.js";
+import { ValidationError } from "../errors.js";
 import { legacyMediaKey, listPrefix, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
 import type { Dropped, MigrateBlobResult, MigrateResult, MigratedWrite, Migration } from "./wasm.js";
@@ -39,9 +40,6 @@ const FIRST_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
 // Empty pages a LIST may answer in a row before the walk is called broken
 const MAX_EMPTY_PAGES = 100;
-const VALIDATION_ERROR = "Validation Error:";
-// Blobs are hashed in chunks of this size, so the wasm holds a chunk and never a blob
-
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
   PRIV_UNSUPPORTED:
@@ -380,7 +378,7 @@ class Run {
     if (bytes === null || isFailure(bytes)) return this.#count("deleted_mid_run", path);
     // A blob is sliced here before the wasm sees it, so the entry's byte check comes first
     if (bucket === "blobs" && !(ArrayBuffer.isView(bytes) && bytes.BYTES_PER_ELEMENT === 1)) {
-      return this.#count("invalid", path, `${VALIDATION_ERROR} the port's GET gave no Uint8Array`);
+      throw new TypeError(`pubky-social-specs/migration: the port's get() gave no Uint8Array for ${url}`);
     }
     if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) {
       return this.#count("oversize", path);
@@ -394,10 +392,9 @@ class Run {
           ? blobResult(transforms.migrateBlob(this.#handle!, url, bytes.length, transforms.mediaId(bytes)), bytes)
           : transforms.migrate(this.#handle!, url, bytes);
     } catch (error) {
-      const message = messageOf(error);
-      // The rules refused the object; anything else is a fault in this package
-      if (!message.startsWith(VALIDATION_ERROR)) throw new Error(message);
-      return this.#count("invalid", path, message);
+      // The rules refused the object; anything else is a fault of the port or of this package
+      if (!(error instanceof ValidationError)) throw error;
+      return this.#count("invalid", path, error.message);
     }
     if ("skip" in result) return this.#count(result.skip, path, result.note);
     // The port can write the whole tree, the 0.x one included, which the run must never touch

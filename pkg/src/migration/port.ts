@@ -31,15 +31,23 @@ export type PortErrorKind =
  * than 507 is `network` too, never `rejected`: the server failed and the same call may succeed
  * later, while a refusal is recorded as final. `refusal(status)` maps a status this way.
  */
+const BRAND = Symbol.for("pubky-social-specs.MigrationPortError");
+
 class MigrationPortError extends Error {
+  override name = "MigrationPortError";
   readonly kind: PortErrorKind;
   readonly status?: number;
+  readonly [BRAND] = true;
 
   constructor(kind: PortErrorKind, message?: string, status?: number) {
     super(message ?? (status === undefined ? kind : `${kind} (${status})`));
-    this.name = "MigrationPortError";
     this.kind = kind;
     if (status !== undefined) this.status = status;
+  }
+
+  // An adapter built against another installed copy of the package throws that copy's class
+  static override [Symbol.hasInstance](value: unknown): boolean {
+    return typeof value === "object" && value !== null && Object.hasOwn(value, BRAND);
   }
 }
 
@@ -66,36 +74,23 @@ export interface MigrationPort {
   delete(url: string): Promise<void>;
 }
 
+const MAPPED: Partial<Record<number, PortErrorKind>> = {
+  401: "unauthorized",
+  403: "unauthorized",
+  404: "not_found",
+  412: "exists",
+  429: "rate_limited",
+  507: "quota",
+};
+
 /**
  * The error for a homeserver answer `status`, mapped as the kinds above say. A 400 or 405 that
  * means the root does not exist is `unsupported` only where the adapter knows that; here it
  * is `rejected`.
  */
-const refusal = (status: number, message?: string): MigrationPortError => {
-  const kind: PortErrorKind =
-    status === 507
-      ? "quota"
-      : status === 429
-        ? "rate_limited"
-        : status === 401 || status === 403
-          ? "unauthorized"
-          : status === 404
-            ? "not_found"
-            : status === 412
-              ? "exists"
-              : status >= 500
-                ? "network"
-                : "rejected";
-  return new MigrationPortError(kind, message, status);
-};
+const refusal = (status: number, message?: string): MigrationPortError =>
+  new MigrationPortError(MAPPED[status] ?? (status >= 500 ? "network" : "rejected"), message, status);
 
-// By name, not by prototype: the ESM and CommonJS builds each have their own class
-const portErrorKind = (error: unknown): PortErrorKind => {
-  const candidate = error as { name?: unknown; kind?: unknown } | null;
-  if (candidate?.name === "MigrationPortError" && typeof candidate.kind === "string") {
-    return candidate.kind as PortErrorKind;
-  }
-  return "network";
-};
+const portErrorKind = (error: unknown): PortErrorKind => (error instanceof MigrationPortError ? error.kind : "network");
 
 export { MigrationPortError, portErrorKind, refusal };

@@ -3,7 +3,7 @@
 
 import assert from "assert";
 import { createRequire } from "node:module";
-import { buildUri, decodeObject, encodeObject, feedId, limits as validationLimits } from "./dist/index.js";
+import { buildUri, decodeObject, encodeObject, feedId, limits as validationLimits, ValidationError } from "./dist/index.js";
 
 const fileUriBuilder = (owner, filename) => buildUri(owner, "file", filename);
 import { skipReasons } from "./dist/migration/index.js";
@@ -135,9 +135,9 @@ describe("migration", () => {
     assert.deepStrictEqual(migrateBlob(run, path, bytes.length, hashOf(new Uint8Array([1]))), unhashed);
     assert.deepStrictEqual(migrateBlob(run, path, 0, hash), unhashed);
     assert.deepStrictEqual(migrateBlob(run, "pub/pubky.app/files/0033000000000", bytes.length, hash), { skip: "not_migrated" });
-    rejects(() => migrateBlob(run, path, 1.5, hash), "Validation Error: migrateBlob() argument 3 must be a non-negative integer");
-    rejects(() => migrateBlob(run, path, -1, hash), "Validation Error: migrateBlob() argument 3 must be a non-negative integer");
-    rejects(() => migrateBlob(run, path, `${bytes.length}`, hash), "Validation Error: migrateBlob() argument 3 must be a non-negative integer");
+    rejects(() => migrateBlob(run, path, 1.5, hash), "pubky-social-specs/migration: migrateBlob() argument 3 must be a non-negative integer");
+    rejects(() => migrateBlob(run, path, -1, hash), "pubky-social-specs/migration: migrateBlob() argument 3 must be a non-negative integer");
+    rejects(() => migrateBlob(run, path, `${bytes.length}`, hash), "pubky-social-specs/migration: migrateBlob() argument 3 must be a non-negative integer");
   });
 
   it("a tag, a bookmark and a feed re-derive their ids; the bookmark and the feed go private", () => {
@@ -186,10 +186,13 @@ describe("migration", () => {
 
   it("a freed handle is refused, an owner that is not a pubky too", () => {
     rejects(() => createMigration("nope"), /52 ASCII characters/);
+    assert.throws(() => createMigration("nope"), (e) => e instanceof ValidationError && e.reason === "the string is not 52 ASCII characters");
+    // A wrong type is the caller's fault, never a refusal the engine would record as invalid data
+    assert.throws(() => migrate(createMigration(owner), "pub/pubky.app/profile.json", "{}"), (e) => e instanceof TypeError && !(e instanceof ValidationError));
     const spent = createMigration(owner);
     spent.free();
-    rejects(() => migrate(spent, "pub/pubky.app/profile.json", stored({ name: "Alice" })), "Validation Error: migrate() argument 1 must be a Migration handle");
-    rejects(() => migrateBlob(spent, "pub/pubky.app/blobs/AKSZ57W2RFKHV1EHK007FQQ8TW", 1, "x"), "Validation Error: migrateBlob() argument 1 must be a Migration handle");
+    rejects(() => migrate(spent, "pub/pubky.app/profile.json", stored({ name: "Alice" })), "pubky-social-specs/migration: migrate() argument 1 must be a Migration handle");
+    rejects(() => migrateBlob(spent, "pub/pubky.app/blobs/AKSZ57W2RFKHV1EHK007FQQ8TW", 1, "x"), "pubky-social-specs/migration: migrateBlob() argument 1 must be a Migration handle");
   });
 });
 
