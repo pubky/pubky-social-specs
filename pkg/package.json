@@ -44,7 +44,7 @@
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --features migrator --bin bundle_specs_npm",
     "build:ts": "tsc -p .",
     "pretest": "tsc -p .",
-    "test": "mocha test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/score.mjs --fuzz 0 && node qa/data.mjs --check",
+    "test": "mocha test.js property.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/score.mjs --fuzz 0 && node qa/data.mjs --check",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "node --max-old-space-size=1536 qa/score.mjs",
@@ -58,6 +58,7 @@
   "devDependencies": {
     "@synonymdev/pubky": "^0.14.0",
     "esbuild": "^0.25.0",
+    "fast-check": "^4.10.2",
     "mocha": "^12.0.3",
     "typescript": "^7.0.2"
   },
