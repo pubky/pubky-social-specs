@@ -4,10 +4,11 @@
 
 import fs from "node:fs";
 import * as api from "../dist/index.js";
+import { setClock } from "../dist/testing.js";
 
 const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
 const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
-api.setClock(() => 1_790_000_000_000);
+setClock(() => 1_790_000_000_000);
 
 const note = api.buildPost(OWNER, { content: "A note of ordinary length, with a reference.", parent: api.buildUri(OTHER, "post", "0034A0X7NJ52G") });
 const article = api.buildPost(OWNER, { kind: "article", title: "A title", body: "word ".repeat(2000), cover_image: "https://example.com/c.png" });

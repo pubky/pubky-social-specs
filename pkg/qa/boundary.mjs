@@ -8,10 +8,11 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import * as api from "../dist/index.js";
+import { setClock } from "../dist/testing.js";
 
 const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
 const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
-api.setClock(() => 1_790_000_000_000);
+setClock(() => 1_790_000_000_000);
 
 class Mine extends Error {}
 const mine = () => {
@@ -60,7 +61,6 @@ const fileAt = api.buildFile(OWNER, { bytes: file, type: "image/png" });
 const hash = fileAt.id;
 
 const calls = {
-  setClock: [() => 1_790_000_000_000],
   decodeObject: [user.url, user.body],
   encodeObject: [user.url, user.object],
   decodeContent: [article.object],
@@ -132,7 +132,7 @@ for (const name of functions) {
     const ms = performance.now() - started;
     if (ms > report.slowest.ms) report.slowest = { ms: Math.round(ms), name, slot };
     if (ms > 5000) report.violations.push({ name, slot, error: `took ${Math.round(ms)} ms` });
-    api.setClock(() => 1_790_000_000_000);
+    setClock(() => 1_790_000_000_000);
   }
 }
 

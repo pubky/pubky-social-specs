@@ -5,9 +5,10 @@
 import assert from "assert";
 import vm from "node:vm";
 import * as specs from "./dist/index.js";
+import { setClock } from "./dist/testing.js";
 
 const {
-  ValidationError, setClock, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
+  ValidationError, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
   decodeObject, encodeObject, decodeContent, encodeContent,
   buildUser, buildPost, editPost, buildFeed, feedId, buildTag, buildBookmark, buildFollow, buildMute, buildFile, createMediaHasher,
   planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix,
@@ -40,7 +41,7 @@ describe("pubky-social-specs", () => {
         "ValidationError", "buildBookmark", "buildFeed", "buildFile", "buildFollow", "buildMute", "buildPost", "buildTag", "buildUri", "buildUser",
         "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
         "feedId", "feedLayouts", "feedReaches", "feedSorts", "limits", "listPrefix", "parseUri", "planDelete", "planPublish", "planUnpublish",
-        "postKinds", "setClock", "validMimeTypes",
+        "postKinds", "validMimeTypes",
       ]);
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
     });
@@ -195,6 +196,14 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(buildFollow(OTTO, RIO).object.created_at, T0 * 1000);
       setClock(() => T0);
       assert.strictEqual(buildPost(OTTO, { content: "a" }).id, a.id, "setClock starts the guard over");
+    });
+
+    it("the default clock reads microseconds, so ids from two copies in one millisecond rarely meet", () => {
+      setClock();
+      const micros = Array.from({ length: 50 }, () => buildFollow(OTTO, RIO).object.created_at % 1000);
+      assert.ok(new Set(micros).size > 1, "every created_at sat on a millisecond");
+      const wall = Date.now() * 1000;
+      assert.ok(Math.abs(buildFollow(OTTO, RIO).object.created_at - wall) < 5_000_000);
     });
 
     it("a post built after an edit in the same instant never takes an earlier post's id", () => {
