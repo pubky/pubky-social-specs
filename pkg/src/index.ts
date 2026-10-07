@@ -304,6 +304,8 @@ export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings
  */
 export function parseUri(uri: string): T.ParsedUri {
   const parsed = uris.parse(text(uri, "uri"));
+  // What `buildUri` takes back: a file is named by its hash and spelled with its extension
+  if (parsed.kind === "file") return { ...parsed, filename: parsed.path.slice(parsed.path.lastIndexOf("/") + 1) };
   if (parsed.kind !== "bookmark" || parsed.id.startsWith("~")) return parsed;
   try {
     return { ...parsed, target: graph.targetOf(parsed.id, { created_at: 0n, target: null, extra: new Map() }) };
@@ -316,13 +318,15 @@ export function parseUri(uri: string): T.ParsedUri {
 
 /**
  * Where an object of `kind` lives under `owner`. A post URI is versionless, the form a
- * reference takes; a file takes its full `{hash}.{ext}` name; a feed gets its private path.
- * The owner key is checked; the id is spelled as given and not validated.
+ * reference takes; a file takes its full `{hash}.{ext}` name, the `filename` of `parseUri`; a
+ * feed gets its private path. The owner and the id are checked: an id the kind cannot have,
+ * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
+ * comes out.
  */
 export function buildUri(owner: string, kind: "user"): string;
 export function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;
 export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string {
-  return uris.build(key(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
+  return uris.buildChecked(key(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
 }
 
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */

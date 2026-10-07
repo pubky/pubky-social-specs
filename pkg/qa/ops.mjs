@@ -1,6 +1,8 @@
 // Each oracle operation as the package answers it, in the oracle's own shape: stored bytes as
 // base64, a refusal as its message. Wherever the public entry has the function, that is what
-// is called, so the scoreboard measures what a caller gets.
+// is called, so the scoreboard measures what a caller gets. The URI builders are the one
+// exception: the reference spells any id, and the public `buildUri` refuses one its parser
+// would not read back, so the spelling is scored on the package's own unchecked builder.
 
 import * as api from "../dist/index.js";
 import * as text from "../dist/text.js";
@@ -55,7 +57,8 @@ const ops = {
     return { kind: read.kind, body: b64(read.body) };
   },
   encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.models[kind.s].codec, stored))),
-  parseUri: plain(api.parseUri),
+  // `filename` is the package's addition, so `buildUri` takes back what this gives
+  parseUri: (a) => (({ filename: _, ...parsed }) => parsed)(api.parseUri(a.s)),
 
   createUser: (a, input) => built(api.buildUser(a.s, JSON.parse(input.j))),
   createPost: (a, input) => built(api.buildPost(a.s, JSON.parse(input.j))),
@@ -95,13 +98,13 @@ const ops = {
 
   listPrefix: (a, tree) => api.listPrefix(a.s, JSON.parse(tree.j)),
   userUri: (a) => api.buildUri(a.s, "user"),
-  postUri: (a, b) => api.buildUri(a.s, "post", b.s),
-  followUri: (a, b) => api.buildUri(a.s, "follow", b.s),
-  muteUri: (a, b) => api.buildUri(a.s, "mute", b.s),
-  bookmarkUri: (a, b) => api.buildUri(a.s, "bookmark", b.s),
-  tagUri: (a, b) => api.buildUri(a.s, "tag", b.s),
-  fileUri: (a, b) => api.buildUri(a.s, "file", b.s),
-  feedUri: (a, b) => api.buildUri(a.s, "feed", b.s),
+  postUri: (a, b) => uri.build(a.s, "post", b.s),
+  followUri: (a, b) => uri.build(a.s, "follow", b.s),
+  muteUri: (a, b) => uri.build(a.s, "mute", b.s),
+  bookmarkUri: (a, b) => uri.build(a.s, "bookmark", b.s),
+  tagUri: (a, b) => uri.build(a.s, "tag", b.s),
+  fileUri: (a, b) => uri.build(a.s, "file", b.s),
+  feedUri: (a, b) => uri.build(a.s, "feed", b.s),
 };
 
 /** `{ok, last}` or `{err, last}`, as the oracle answers the same request. */

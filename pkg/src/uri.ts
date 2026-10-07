@@ -12,7 +12,7 @@ export type ObjectKind = "user" | "post" | "follow" | "mute" | "bookmark" | "tag
 export type Resource =
   | { kind: "user" }
   | { kind: "post"; id: string; editId?: string; slug?: string }
-  | { kind: "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"; id: string }
+  | { [K in "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]: { kind: K; id: string } }["follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]
   | { kind: "foreign"; namespace: string; version?: string; rest: string[] }
   | { kind: "unsupportedVersion"; version: string }
   | { kind: "unknown" };
@@ -136,6 +136,20 @@ export function build(owner: string, kind: ObjectKind, id = ""): string {
   if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
   const [root, leaf] = LEAF[kind](id);
   return `pubky://${owner}${socialPath(root, leaf)}`;
+}
+
+/** `build`, and only for an id the parser reads back as that object: no other path comes out. */
+export function buildChecked(owner: string, kind: ObjectKind, id = ""): string {
+  const uri = build(owner, kind, id);
+  const canonical = canonicalPubky(uri);
+  const located = canonical === null ? null : parsePath(canonical.slice(`pubky://${owner}/`.length));
+  const named =
+    located !== null &&
+    located.kind === kind &&
+    (located.kind === "user" ||
+      located.kind === "file" ||
+      (located.kind === "post" ? located.editId === undefined && located.id === id : "id" in located && located.id === id));
+  return named ? uri : fail(`not ${kind === "file" ? "a media file name" : `the id of a ${kind}`}: ${id}`, "id");
 }
 
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */

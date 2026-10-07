@@ -195,7 +195,9 @@ export type NewFile = ({ bytes: Uint8Array } | { id: string }) & {
 
 export type ParsedUri = { owner: string; root: Root; path: string } & (
   | Exclude<Resource, { kind: "follow" | "mute" | "bookmark" | "tag" | "file" | "feed" }>
-  | { kind: "follow" | "mute" | "tag" | "file" | "feed"; id: string }
+  | { kind: "follow" | "mute" | "tag" | "feed"; id: string }
+  /** `id` is the hash; `filename` adds the extension, the name `buildUri` takes. */
+  | { kind: "file"; id: string; filename: string }
   /** `target` when the id carries one: the long form keeps it in the stored object. */
   | { kind: "bookmark"; id: string; target?: string }
 );

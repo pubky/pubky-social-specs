@@ -419,6 +419,28 @@ describe("pubky-social-specs", () => {
       refuses(() => buildUri("nope", "user"), /not 52 ASCII/);
     });
 
+    it("buildUri refuses an id its kind cannot have, and a file round trips through its filename", () => {
+      for (const [kind, id] of [
+        ["post", "../../priv/x"],
+        ["post", "0034A0X7NJ52G/0034A0X7NJ52J"],
+        ["post", "not-an-id"],
+        ["feed", "a/b"],
+        ["tag", "0000000000000000000000000g"],
+        ["follow", "nope"],
+        ["mute", `${RIO}/x`],
+        ["bookmark", "a\r\nb"],
+        ["file", "../../../../priv/app.pubky/v1/x"],
+        ["file", "0000000000000000000000000G"],
+        ["file", "0000000000000000000000000G.exe"],
+      ]) {
+        assert.throws(() => buildUri(OTTO, kind, id), (e) => e instanceof ValidationError && e.field === "id", `${kind} ${id}`);
+      }
+      const media = buildFile(OTTO, { bytes: utf8("hello"), type: "image/png" });
+      const parsed = parseUri(media.url);
+      assert.strictEqual(parsed.filename, `${media.id}.png`);
+      assert.strictEqual(buildUri(OTTO, "file", parsed.filename), media.url);
+    });
+
     it("classifies what is no social object as a kind, never an error", () => {
       assert.deepStrictEqual(parseUri(`pubky://${OTTO}/pub/other.app/v2/a/b`), { owner: OTTO, root: "public", path: "/pub/other.app/v2/a/b", kind: "foreign", namespace: "other.app", version: "v2", rest: ["a", "b"] });
       assert.strictEqual(parseUri(`pubky://${OTTO}/pub/social/v9/x`).kind, "unsupportedVersion");
