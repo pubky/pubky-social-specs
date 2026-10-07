@@ -1,5 +1,5 @@
 import assert from "assert";
-import { parseArgs, exitCode, progress, sdkSupported, UsageError } from "./bin/migrate.js";
+import { parseArgs, exitCode, progress, sdkSupported, UsageError, reportText, jsonText, main } from "./bin/migrate.js";
 
 describe("pubky-social-migrate arguments", () => {
   const defaults = { passphraseEnv: "PUBKY_PASSPHRASE", dryRun: false, rescan: false, json: false, help: false };
@@ -69,5 +69,27 @@ describe("pubky-social-migrate arguments", () => {
       "flag: 120/120",
       "done: 120/120",
     ]);
+  });
+
+  it("prints what the homeserver sent with every control character escaped, in text and in JSON", () => {
+    const report = {
+      status: "already_migrated", mode: "run", done: 0, total: 0, counts: { written: 0 }, dropped: 0, droppedValues: {},
+      skipped: { "\u001b]0;x\u0007": ["\u001b[2J", "a\u009bb\u007f"] },
+      notes: [{ path: "p\u0085", message: "m\u001b[31m" }],
+      error: { code: "IO_ERROR", message: "e\r\n\u001b" },
+    };
+    for (const out of [reportText(report), jsonText(report)]) {
+      assert.ok(!/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/.test(out), JSON.stringify(out));
+    }
+    assert.deepStrictEqual(JSON.parse(jsonText(report)), report);
+    assert.match(reportText(report), /\\u001b\[2J/);
+  });
+
+  it("takes the passphrase out of the environment before anything else runs", async () => {
+    const env = { PUBKY_PASSPHRASE: "secret", OTHER: "kept" };
+    const code = await main(["--recovery", "/nonexistent/recovery.pkarr"], env).catch(() => 1);
+    assert.strictEqual(code, 1);
+    assert.ok(!("PUBKY_PASSPHRASE" in env));
+    assert.strictEqual(env.OTHER, "kept");
   });
 });

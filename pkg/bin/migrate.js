@@ -91,17 +91,24 @@ const progress = (write) => {
   };
 };
 
+// Paths, flag contents and error messages come from the homeserver, so no control character
+// reaches the terminal as one: C0, DEL and C1 are printed as escapes
+const visible = (text) => String(text).replace(/\p{Cc}/gu, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+
+// JSON.stringify escapes C0 but writes DEL and C1 raw
+const jsonText = (value) => JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+
 const reportText = (report) => {
   const lines = [`${report.status} (${report.mode}): ${report.done}/${report.total} objects`];
-  for (const [outcome, n] of Object.entries(report.counts)) if (n > 0) lines.push(`  ${outcome}: ${n}`);
+  for (const [outcome, n] of Object.entries(report.counts)) if (n > 0) lines.push(`  ${visible(outcome)}: ${n}`);
   if (report.dropped > 0) lines.push(`  values left out: ${report.dropped}`);
   for (const [outcome, paths] of Object.entries(report.skipped)) {
-    lines.push(`${outcome}:`, ...paths.map((p) => `  ${p}`));
+    lines.push(`${visible(outcome)}:`, ...paths.map((p) => `  ${visible(p)}`));
   }
-  if (report.notes.length > 0) lines.push("notes:", ...report.notes.map((n) => `  ${n.path}: ${n.message}`));
+  if (report.notes.length > 0) lines.push("notes:", ...report.notes.map((n) => `  ${visible(n.path)}: ${visible(n.message)}`));
   if (report.error) {
     const need = report.error.needBytes === undefined ? "" : ` About ${report.error.needBytes} more bytes are needed.`;
-    lines.push(`${report.error.code}: ${report.error.message}${need}`);
+    lines.push(`${report.error.code}: ${visible(report.error.message)}${need}`);
   }
   return lines.join("\n");
 };
@@ -120,6 +127,8 @@ const main = async (argv, env) => {
     return 0;
   }
   const passphrase = env[args.passphraseEnv];
+  // Not left for anything this process starts or prints its environment from
+  delete env[args.passphraseEnv];
   if (passphrase === undefined) {
     console.error(`Put the recovery passphrase in the environment variable ${args.passphraseEnv}.`);
     return 1;
@@ -140,14 +149,20 @@ const main = async (argv, env) => {
   const { runMigration } = await import("../dist/migration/index.js");
   const { sdkPort } = await import("../dist/migration/adapters/pubky-sdk.js");
 
-  const keypair = sdk.Keypair.fromRecoveryFile(readFileSync(args.recovery), passphrase);
+  const recovery = readFileSync(args.recovery);
+  let keypair;
+  try {
+    keypair = sdk.Keypair.fromRecoveryFile(recovery, passphrase);
+  } finally {
+    recovery.fill(0);
+  }
   const pubky = args.testnet === undefined ? new sdk.Pubky() : sdk.Pubky.testnet(args.testnet);
   let session;
   try {
     session = await pubky.signer(keypair).signin(CLIENT_ID);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Sign-in failed: ${message}\n${signinHint(message)}`);
+    console.error(`Sign-in failed: ${visible(message)}\n${signinHint(message)}`);
     return 1;
   }
   // The session holds a root grant, which must not outlive the run
@@ -155,11 +170,11 @@ const main = async (argv, env) => {
     const owner = session.info.publicKey.z32();
     console.error(`Migrating pubky${owner}${args.dryRun ? " (dry run)" : ""}`);
 
-    // The first Ctrl-C, or a SIGTERM, stops the run after the objects in flight and reaches
-    // the sign-out below, best effort: a supervisor that kills the process during that wait
-    // leaves the grant active. A second Ctrl-C kills it
+    // The first Ctrl-C, a SIGTERM or a closed terminal stops the run after the objects in
+    // flight and reaches the sign-out below, best effort: a supervisor that kills the process
+    // during that wait leaves the grant active. A second Ctrl-C kills it
     const controller = new AbortController();
-    for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => controller.abort());
+    for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.once(signal, () => controller.abort());
     const report = await runMigration({
       owner,
       port: sdkPort(session),
@@ -169,13 +184,13 @@ const main = async (argv, env) => {
       signal: controller.signal,
       onProgress: progress((line) => console.error(line)),
     });
-    console.log(args.json ? JSON.stringify(report, null, 2) : reportText(report));
+    console.log(args.json ? jsonText(report) : reportText(report));
     return exitCode(report);
   } finally {
     // The run's grant is root and lives for years unless revoked here or from Ring, so a
     // failed revocation is worth a line
     await session.signout().catch((error) => {
-      console.error(`warning: could not sign out, the grant stays active until it expires: ${error?.message ?? error}`);
+      console.error(`warning: could not sign out, the grant stays active until it expires: ${visible(error?.message ?? error)}`);
     });
   }
 };
@@ -193,9 +208,9 @@ const signinHint = (message) => {
 const invoked = process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
 if (invoked) {
   process.exitCode = await main(process.argv.slice(2), process.env).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
+    console.error(visible(error instanceof Error ? error.message : String(error)));
     return 1;
   });
 }
 
-export { parseArgs, exitCode, progress, sdkSupported, UsageError, USAGE };
+export { parseArgs, exitCode, progress, sdkSupported, UsageError, USAGE, reportText, jsonText, main };
