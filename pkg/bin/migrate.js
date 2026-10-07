@@ -137,8 +137,8 @@ const main = async (argv, env) => {
     return 1;
   }
   const sdk = await import("@synonymdev/pubky");
-  const { runMigration } = await import("../migration/index.js");
-  const { sdkPort } = await import("../migration/adapters/pubky-sdk.js");
+  const { runMigration } = await import("../dist/migration/index.js");
+  const { sdkPort } = await import("../dist/migration/adapters/pubky-sdk.js");
 
   const keypair = sdk.Keypair.fromRecoveryFile(readFileSync(args.recovery), passphrase);
   const pubky = args.testnet === undefined ? new sdk.Pubky() : sdk.Pubky.testnet(args.testnet);

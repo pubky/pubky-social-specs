@@ -10,8 +10,6 @@ use crate::uri::is_valid_label;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 pub mod content;
 pub mod lifecycle;
@@ -30,7 +28,6 @@ const POSTS_SEGMENT: &str = "posts/";
 /// Represents the type of pubky-app posted data
 /// Used primarily to best display the content in UI
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]

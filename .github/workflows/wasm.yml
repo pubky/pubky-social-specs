@@ -11,14 +11,17 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The wasm is the migrator alone; its behaviour is tested through the npm package, which
+  # loads it (js-binding.yml). Here it only has to build clean for its target.
   wasm-tests:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install Wasm-Pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install Firefox
-        uses: browser-actions/setup-firefox@v1
-      - name: Run Wasm-Pack Tests
-        run: wasm-pack test --headless --firefox -- --features migrator
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Lint the migrator for wasm32
+        run: cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings

@@ -13,15 +13,12 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::str::FromStr;
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
 /// Enum representing the reach of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
@@ -59,7 +56,6 @@ impl PubkySocialFeedReach {
 
 /// Enum representing the layout of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
@@ -92,7 +88,6 @@ impl PubkySocialFeedLayout {
 
 /// Enum representing the sort order of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
@@ -360,7 +355,6 @@ impl PubkySocialFeed {
 /// publishing is a plain byte copy, and because the id is derived from the config alone the
 /// two copies can never disagree about what the feed filters.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub struct FeedPaths {
     /// Where the builder writes.
     pub private: String,

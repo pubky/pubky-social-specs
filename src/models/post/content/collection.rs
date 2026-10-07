@@ -3,9 +3,6 @@ use crate::limits::VALIDATION_LIMITS;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
-
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
@@ -17,7 +14,6 @@ use super::super::PubkySocialPost;
 /// invalidate the whole post (same policy as `PubkySocialPostKind`).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PubkySocialCollectionLayout {

@@ -13,8 +13,6 @@ use crate::traits::{HasIdPath, Root, TimestampId, Validatable, ValidationCtx};
 use crate::types::PubkyId;
 use crate::uri::parse_version_leaf;
 use serde::Serialize;
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Publish: media copies first, then the post PUT. Skip-if-exists on a copy is the caller's,
 /// since existence proves completion. The public leaf carries no slug: the slug is private
@@ -33,7 +31,6 @@ pub struct PublishPlan {
 /// Unpublish: copy-backs first, then deletes, each list in order. Public media is deliberately
 /// absent: removing it needs a whole-tree referencer check only the caller can run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct UnpublishPlan {
     /// `(public path, private path)` pairs, oldest first.
@@ -46,7 +43,6 @@ pub struct UnpublishPlan {
 /// post keeps resolving to its newest surviving version until the last DELETE. Media GC runs
 /// only after that, and expanding each candidate to its every-epoch spelling is the caller's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct DeletePlan {
     pub deletes: Vec<String>,

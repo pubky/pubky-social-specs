@@ -6,9 +6,10 @@
 // the wrong JS shape throws a `TypeError`.
 
 import * as clock from "./clock.js";
+import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
 import { fail, misuse } from "./errors.js";
-import type { Codec } from "./json/schema.js";
+import { arrayOf, type Codec, inputOf } from "./json/schema.js";
 import * as lifecycle from "./lifecycle.js";
 import { parse as parseText } from "./models/common.js";
 import * as feeds from "./models/feed.js";
@@ -23,7 +24,6 @@ import * as uris from "./uri.js";
 
 export { limits, validMimeTypes } from "./data.js";
 export { ValidationError } from "./errors.js";
-export { createMediaHasher } from "./ids.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type { Copy, StoredCopy } from "./lifecycle.js";
@@ -41,13 +41,11 @@ function bytesOf(value: unknown, name: string): Uint8Array {
   // By shape, not `instanceof`: bytes from another realm are bytes too
   const view = value as Uint8Array | null;
   if (!ArrayBuffer.isView(view) || view.BYTES_PER_ELEMENT !== 1 || view instanceof DataView) misuse(name, "a Uint8Array");
-  return view;
+  // A plain view of the same memory: a subclass may report a length it does not have
+  return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 }
 
-const strings = (value: unknown, name: string): string[] => {
-  if (!Array.isArray(value)) misuse(name, "an array of strings");
-  return Array.from(value, (item, index) => text(item, `${name}[${index}]`));
-};
+const strings = (value: unknown, name: string): string[] => arrayOf(value, name).map((item, index) => text(item, `${name}[${index}]`));
 
 const rootOf = (value: unknown, name: string): uris.Root => {
   if (value === undefined || value === null) return "public";
@@ -176,6 +174,15 @@ export function buildFile(owner: string, input: T.NewFile): { id: string; path: 
   return { ...made, url: `pubky://${owner}${made.path}` };
 }
 
+/**
+ * A media id fed a chunk at a time, for bytes too large to hold at once or hashed off the main
+ * thread. `id()` is what `buildFile` gives for the same bytes, and may be read at any point.
+ */
+export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): string } {
+  const hasher = ids.createMediaHasher();
+  return { update: (chunk) => hasher.update(bytesOf(chunk, "chunk")), id: hasher.id };
+}
+
 /** Publishing one private version: the media copies to run first, then the post to PUT. */
 export function planPublish(owner: string, version: { id: string; editId: string; post: T.Post }): { copies: lifecycle.Copy[]; put: T.BuiltPost } {
   if (typeof version !== "object" || version === null) misuse("version", "an object");
@@ -194,10 +201,11 @@ export function planUnpublish(post: { id: string; publicPaths: string[]; legacyP
 /** Deleting a post everywhere: the deletes in order, then the media to consider collecting. */
 export function planDelete(owner: string, post: { id: string; legacyPaths?: string[] | null; copies?: lifecycle.StoredCopy[] | null; versions?: T.Post[] | null }): { deletes: string[]; mediaGcCandidates: string[] } {
   if (typeof post !== "object" || post === null) misuse("post", "an object");
-  if (post.copies != null && !Array.isArray(post.copies)) misuse("post.copies", "an array");
-  if (post.versions != null && !Array.isArray(post.versions)) misuse("post.versions", "an array");
-  const copies = Array.from(post.copies ?? [], (copy, index) => ({ root: rootOf(copy?.root, `post.copies[${index}].root`), path: text(copy?.path, `post.copies[${index}].path`) }));
-  const versions = Array.from(post.versions ?? [], (version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
+  const copies = arrayOf(post.copies ?? [], "post.copies").map((copy, index) => {
+    const given = inputOf(copy, `post.copies[${index}]`, ["root", "path"]);
+    return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
+  });
+  const versions = arrayOf(post.versions ?? [], "post.versions").map((version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
   return lifecycle.planDelete(text(owner, "owner"), text(post.id, "post.id"), strings(post.legacyPaths ?? [], "post.legacyPaths"), copies, versions);
 }
 
@@ -207,8 +215,7 @@ export function planDelete(owner: string, post: { id: string; legacyPaths?: stri
  */
 export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: deletion.Listing[] | null }): string[] {
   if (typeof target !== "object" || target === null) misuse("target", "an object");
-  if (target.listings != null && !Array.isArray(target.listings)) misuse("target.listings", "an array");
-  return deletion.deletionPaths(target.kind, text(target.id, "target.id"), Array.from(target.listings ?? []));
+  return deletion.deletionPaths(text(target.kind, "target.kind") as T.ObjectKind, text(target.id, "target.id"), arrayOf(target.listings ?? [], "target.listings"));
 }
 
 /** Classifies a URI. Throws only when it is not a canonical pubky URI with a known root. */
@@ -231,7 +238,7 @@ export function parseUri(uri: string): T.ParsedUri {
 export function buildUri(owner: string, kind: "user"): string;
 export function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;
 export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string {
-  return uris.build(text(owner, "owner"), kind, kind === "user" ? "" : text(id, "id"));
+  return uris.build(text(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
 }
 
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */

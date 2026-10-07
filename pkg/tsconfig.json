@@ -1,16 +1,22 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
     "lib": ["es2022"],
+    "module": "nodenext",
     "types": [],
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    // The SDK's declarations, imported for types by the adapter alone, need the DOM lib
+    "skipLibCheck": true,
     "declaration": true,
-    "removeComments": false,
+    "declarationMap": true,
+    "sourceMap": true,
     "newLine": "lf"
   },
   "include": ["src"]

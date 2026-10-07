@@ -567,6 +567,8 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             "stripSet": crate::STRIP_SET,
             "validMimeTypes": crate::VALID_MIME_TYPES,
             "debugEscaped": debug_escaped(),
+            "skipReasons": crate::migrate::Skip::ALL.iter().map(|skip| skip.as_str()).collect::<Vec<_>>(),
+            "transformRev": crate::migrate::TRANSFORM_REV,
         }),
 
         // The text a type error quotes

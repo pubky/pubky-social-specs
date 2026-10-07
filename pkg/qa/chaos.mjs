@@ -6,8 +6,11 @@
 //        [--seeds 1000] [--from 0] [--out file.json] [--seed N --verbose]
 
 import assert from "node:assert";
-import { init, createFile, createMigration, migrate, readObject, skipReasons } from "../index.js";
-import { runMigration, MemoryPort, MigrationPortError, refusal } from "../migration/index.js";
+import { decodeObject as readObject } from "../dist/index.js";
+import { runMigration, MemoryPort, MigrationPortError, refusal, skipReasons } from "../dist/migration/index.js";
+import { init, transforms } from "../dist/migration/wasm.js";
+
+const { createMigration, migrate } = transforms;
 import { legacyTree, bytesOf, corpus } from "../migration.fixture.js";
 
 const owner = corpus.owner;
@@ -75,7 +78,7 @@ const buildTree = (seed) => {
     bytes[0] = seed & 0xff;
     bytes[size - 1] = i;
     const type = pick(rand, types);
-    const hash = createFile(owner, bytes, type).meta.id;
+    const hash = transforms.mediaId(bytes);
     const micros = 1_740_000_000_000_000 + seed * 1_000_000 + i * 10;
     const fileId = tsid(micros);
     const postId = tsid(micros + 1);

@@ -1,4 +1,4 @@
-import type { Dropped, SkipReason } from "pubky-social-specs";
+import type { Dropped, SkipReason } from "./wasm.js";
 import type { MigrationPort } from "./port.js";
 import type { Bucket } from "./order.js";
 

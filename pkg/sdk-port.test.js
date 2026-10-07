@@ -1,8 +1,8 @@
 import assert from "assert";
 import { createRequire } from "node:module";
-import { init } from "./index.js";
-import { runMigration, MemoryPort } from "./migration/index.js";
-import { sdkPort } from "./migration/adapters/pubky-sdk.js";
+import { init } from "./dist/migration/wasm.js";
+import { runMigration, MemoryPort } from "./dist/migration/index.js";
+import { sdkPort } from "./dist/migration/adapters/pubky-sdk.js";
 import { corpus, legacyTree, bytesOf } from "./migration.fixture.js";
 
 const require = createRequire(import.meta.url);
@@ -280,12 +280,4 @@ describe("pubky SDK port", () => {
     assert.strictEqual((await runMigration({ owner, port: sdkPort(sessionOver(storage)) })).status, "already_migrated");
   });
 
-  it("under require() from Node, the CommonJS twin is the same adapter", async () => {
-    const cjs = require("./migration/adapters/pubky-sdk.cjs");
-    assert.deepStrictEqual(Object.keys(cjs), ["sdkPort"]);
-    await assert.rejects(cjs.sdkPort(sessionOver(failing(answered(507)))).putJson(url("pub/social/v1/a"), {}), {
-      name: "MigrationPortError",
-      kind: "quota",
-    });
-  });
 });

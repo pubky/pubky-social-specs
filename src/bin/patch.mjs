@@ -1,51 +1,22 @@
-// Turns the wasm-bindgen nodejs output into the package's two private glue modules and
-// generates the CommonJS twin of the hand-written entry. `patch.mjs migration` instead
-// generates the twins of the compiled migration engine, once tsc has emitted it.
+// Turns the wasm-bindgen glue of the migrator into the module the package ships:
+// dist/migration/glue.js, an ES module that loads nothing at import time and carries the wasm
+// inside it, so one file works in a browser, in Node and in a worker with no fetch and no
+// file read.
 //
-// The glue instantiates the wasm at module load; both copies get a `__wbg_init()` instead, so
-// nothing runs until the entry's `init()` asks. The ESM copy carries the wasm inline as base64
-// (browsers and bundlers load one file), the CJS copy reads the `.wasm` next to it.
+// wasm-bindgen's nodejs target reads and instantiates the wasm synchronously as the module is
+// evaluated. The tail of the generated file is replaced by an async `__wbg_init()`, and the
+// CommonJS exports by ES ones.
 
-import { readFile, readdir, writeFile, rename, unlink } from "node:fs/promises";
+import { copyFile, readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
-import path, { dirname } from "node:path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = path.join(__dirname, "../../pkg");
-const cargoToml = await readFile(path.join(__dirname, "../../Cargo.toml"), "utf8");
-const name = /\[package\]\nname = "(.*?)"/.exec(cargoToml)[1].replace(/-/g, "_");
+const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../pkg");
+const name = "pubky_social_specs";
+const built = path.join(pkg, "nodejs");
+const out = path.join(pkg, "dist/migration");
 
-// The CommonJS twin of an ES module: an import becomes a require of the `.cjs` twin (a package
-// import stays, its `require` condition picks the twin), and the one closing `export { ... };`
-// becomes module.exports.
-function commonJs(source, file) {
-  const twin = (specifier) => specifier.replace(/^(\.\.?\/[\w./]+)\.js$/, "$1.cjs");
-  const cjs = source
-    .replace(
-      /^import \* as (\w+) from "([^"]+)";$/gm,
-      (_m, local, specifier) => `const ${local} = require("${twin(specifier)}");`,
-    )
-    .replace(
-      /^import \{([^}]*)\} from "([^"]+)";$/gm,
-      (_m, names, specifier) => `const {${names}} = require("${twin(specifier)}");`,
-    )
-    .replace(/^export \{([^}]*)\};$/m, (_m, names) => `module.exports = {${names}};`);
-  if (/^\s*(import|export)\b/m.test(cjs) || /require\("\.[^"]*\.js"\)/.test(cjs)) {
-    throw new Error(`patch.mjs: ${file} has an import or export its CommonJS twin cannot carry`);
-  }
-  return `"use strict";\n${cjs}`;
-}
-
-if (process.argv[2] === "migration") {
-  const dir = path.join(pkg, "migration");
-  for (const file of (await readdir(dir, { recursive: true })).filter((f) => f.endsWith(".js"))) {
-    const source = await readFile(path.join(dir, file), "utf8");
-    await writeFile(path.join(dir, file.replace(/\.js$/, ".cjs")), commonJs(source, `migration/${file}`));
-  }
-  process.exit(0);
-}
-
-const glue = await readFile(path.join(pkg, `nodejs/${name}.js`), "utf8");
+const glue = await readFile(path.join(built, `${name}.js`), "utf8");
 
 // The generated tail: read the bytes, compile, instantiate, start. Fail loudly if a
 // wasm-bindgen upgrade changes it, rather than ship a glue that loads at import time.
@@ -55,24 +26,20 @@ if (!tail.test(glue)) {
   throw new Error("patch.mjs: the wasm-bindgen glue tail changed; update the loader patch");
 }
 
-const loader = (bytes) => `
+const base64 = await readFile(path.join(built, `${name}_bg.wasm`), "base64");
+const esm =
+  glue.replace(/^exports\.(\w+) = (\w+);$/gm, "export { $2 as $1 };").replace(
+    tail,
+    () => `
 let wasm;
 async function __wbg_init() {
-  const { instance } = await WebAssembly.instantiate(${bytes}, __wbg_get_imports());
+  const { instance } = await WebAssembly.instantiate(__toBinary(${JSON.stringify(base64)}), __wbg_get_imports());
   wasm = instance.exports;
   wasm.__wbindgen_start();
 }
-`;
-
-const cjs =
-  glue.replace(tail, () => loader(`require("fs").readFileSync(\`\${__dirname}/${name}_bg.wasm\`)`)) +
-  "exports.__wbg_init = __wbg_init;\n";
-
-const base64 = await readFile(path.join(pkg, `nodejs/${name}_bg.wasm`), "base64");
-let esm = glue
-  .replace(/^exports\.(\w+) = (\w+);$/gm, "export { $2 as $1 };")
-  .replace(tail, () => loader(`__toBinary(${JSON.stringify(base64)})`));
-esm += `
+`,
+  ) +
+  `
 function __toBinary(base64) {
   const table = new Uint8Array(128);
   for (let i = 0; i < 64; i++) table[i < 26 ? i + 65 : i < 52 ? i + 71 : i < 62 ? i - 4 : i * 4 - 205] = i;
@@ -93,12 +60,7 @@ if (/\bexports\.|\brequire\(|\bmodule\.exports\b/.test(esm)) {
   throw new Error("patch.mjs: CommonJS left in the ESM glue");
 }
 
-await writeFile(path.join(pkg, `${name}.cjs`), cjs);
-await writeFile(path.join(pkg, `${name}.js`), esm);
-await rename(path.join(pkg, `nodejs/${name}_bg.wasm`), path.join(pkg, `${name}_bg.wasm`));
-// The exported class declares [Symbol.dispose], which the default lib of a consumer lacks
-const dts = await readFile(path.join(pkg, `nodejs/${name}.d.ts`), "utf8");
-await writeFile(path.join(pkg, `${name}.d.ts`), `/// <reference lib="esnext.disposable" />\n${dts}`);
-await unlink(path.join(pkg, `nodejs/${name}.d.ts`));
-
-await writeFile(path.join(pkg, "index.cjs"), commonJs(await readFile(path.join(pkg, "index.js"), "utf8"), "index.js"));
+await writeFile(path.join(out, "glue.js"), esm);
+// tsc does not carry a hand-written declaration over to the output
+await copyFile(path.join(pkg, "src/migration/glue.d.ts"), path.join(out, "glue.d.ts"));
+await rm(built, { recursive: true });

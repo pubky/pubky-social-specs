@@ -27,8 +27,10 @@ jobs:
       - name: Run native tests
         run: cargo nextest run --no-fail-fast
 
-      - name: Run native tests with the migrator and the replay tooling
-        run: cargo nextest run --no-fail-fast --features replay
+      # `surface` adds the oracle the npm package is checked against, and the test that the
+      # recorded answers under vectors/js are the ones the crate gives now
+      - name: Run native tests with the migrator, the replay tooling and the surface oracle
+        run: cargo nextest run --no-fail-fast --features replay,surface
 
   msrv:
     name: MSRV (1.89)

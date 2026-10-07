@@ -7,8 +7,6 @@ use base32::{encode, Alphabet};
 use blake3::Hasher;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Big-endian microseconds in Crockford base32: bytewise order is chronological order.
 fn encode_timestamp_id(micros: i64) -> String {
@@ -106,7 +104,6 @@ pub trait HashId {
 /// The storage root a path lives under. Its serde spelling is the word a parsed URI's
 /// visibility uses; the path segment is [`Root::segment`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub enum Root {
     #[serde(rename = "public")]
     Pub,

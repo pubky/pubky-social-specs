@@ -1,18 +1,10 @@
 # pubky-social-specs
 
-[![npm version](https://img.shields.io/npm/v/pubky-social-specs)](https://www.npmjs.com/package/pubky-social-specs)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+The Pubky social data model for JavaScript and TypeScript: profiles, posts, tags, bookmarks, follows, mutes, feeds and media, as plain synchronous functions.
 
-JavaScript and TypeScript bindings for Pubky social data models, compiled from the canonical Rust crate to WebAssembly.
+A builder gives you where an object goes and the exact bytes to PUT there. A decoder reads what a GET returns. Nothing is loaded first and nothing performs I/O, so the same calls work in a browser, in Node, in a worker and during server rendering.
 
-Every export is a plain function over plain objects. Nothing runs when the package is imported: `await init()` once, and every call after that is synchronous. The ESM (`import`) and CommonJS (`require`) entries each hold their own wasm instance, so each needs its own `init()`.
-
-## Why Use This Package Instead of Manual JSONs?
-
-- **Validation Consistency**: the same validation rules as [Pubky indexers](https://github.com/pubky/pubky-nexus), from the same code. Builders trim and fold what you pass them; readers take stored objects exactly as written and reject what breaks a rule, never rewriting it.
-- **Ids, Paths and URLs**: generated the way every other client generates them.
-- **Unknown members kept**: an object read and written back keeps the members this version does not know.
-- **Typed**: `types.d.ts` declares every object and every function.
+The reference implementation is the Rust crate of the same name. This package is a native TypeScript implementation of it, checked against the crate on every operation: the same stored bytes, the same ids and paths, and the same message when an object is refused.
 
 ## Installation
 
@@ -20,165 +12,202 @@ Every export is a plain function over plain objects. Nothing runs when the packa
 npm install pubky-social-specs
 ```
 
-## Quick Start
+ESM only, with types. Node 20.19 or later, Deno 2, Bun 1, and browsers from 2022 on (Safari 15.4). One dependency, [`@noble/hashes`](https://www.npmjs.com/package/@noble/hashes).
+
+## Quick start
 
 ```js
-import { init, createUser, createPost } from "pubky-social-specs";
+import { buildPost, decodeObject } from "pubky-social-specs";
 
-await init(); // loads the wasm; every other export throws until it resolves
+// Build: where the post goes and the bytes to send
+const { url, path, body } = buildPost(owner, { content: "Hello" });
+await session.storage.putBytes(path, body);
 
-const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-
-const user = createUser(owner, { name: "Alice", bio: "Building on Pubky" });
-console.log(user.meta.url); // pubky://.../pub/social/v1/profile.json
-// PUT JSON.stringify(user.object) at user.meta.url with your pubky client
-
-const post = createPost(owner, { content: "Hello, Pubky!" });
-console.log(post.meta.path); // /pub/social/v1/posts/{id}/{id}.json
+// Read: what a GET returned, checked against the id, the root and the author the URL names
+const read = decodeObject(url, await session.storage.getBytes(path));
+if (read.kind === "post") console.log(read.object.content);
 ```
 
-Every builder takes the writing user first and returns `{object, meta}`:
+`owner` is the z-base32 public key of the user writing. `body` is a `Uint8Array` that `fetch`, `Blob` and the Pubky SDK take as it is.
 
-- `object` is the stored object exactly as it is written: `JSON.stringify(object)` is the body to PUT. Media is `{bytes: Uint8Array}`.
-- `meta` is `{id, path, url}`: the generated id (`""` for the profile), the owner-relative `path`, and the full `pubky://` `url`.
+## The rules of the surface
 
-Every rejection is a thrown `Error` whose message starts with `Validation Error: `, the crate's own text for the value the rules refuse, whatever the entry point. Ill-formed UTF-16 (a lone surrogate) is refused: a string argument before it reaches the wasm, with `Validation Error: text must be well-formed UTF-16`, and a string inside an object by the JSON parser, since objects cross as `JSON.stringify` text.
+1. **The package writes the bytes.** Never `JSON.stringify` an object yourself: unknown members have an order and numbers a spelling that only the package reproduces. Every builder returns `body`, and `encodeObject` gives the bytes of an object you edited.
+2. **Unknown members are carried, not read.** A newer client may store members this version does not know. They come back in `$unknown`, as text; leave it on the object and it is written back untouched. A member that is neither known nor inside `$unknown` is an error, so a typo is never stored.
+3. **Two kinds of error.** A value the data model refuses throws a `ValidationError`, whose message is the reference text and starts with `Validation Error: `. A value of the wrong JavaScript shape (a number where a string goes, a missing input member) throws a `TypeError` naming the argument: that is a bug in the calling code, and TypeScript catches most of them first.
+4. **Stored objects are spelled as stored.** `created_at`, `cover_image`, `domain_tags`: the same names in an input, in a decoded object and on the wire. Every known member is present, `null` when it has no value. Integers are numbers.
 
 ## Builders
 
-```js
-createUser(owner, { name, bio?, image?, links?: [{ title, url }], status? });
-createPost(owner, { content, kind?, parent?, embed?, attachments?: [{ uri, alt?, name? }], lock?, root? }); // kind defaults to "note"
-createArticlePost(owner, { title, body, coverImage?, parent?, embed?, attachments?, lock?, root? });
-createCollectionPost(owner, { name, description?, items?: [{ uri, note? }], coverImage?, layout?, root? });
-createFeed(owner, { tags?, domainTags?, reach, layout, sort, content?, name, icon });
-createTag(owner, uri, label);
-createBookmark(owner, target);
-createFollow(owner, followee);
-createMute(owner, mutee);
-createFile(owner, bytes, declaredType, root?); // bytes: Uint8Array
+Every builder takes the owner first and returns a `Built<T>`:
+
+```ts
+interface Built<T> {
+  id: string;     // what the path names: "" for the profile, the followee for a follow
+  path: string;   // owner-relative, as the SDK's storage calls take it
+  url: string;    // the full pubky:// URL
+  object: T;      // the stored object, for your local state
+  body: Uint8Array; // the bytes to PUT
+}
 ```
 
-`root` is `"public"` (the default) or `"private"`, the same words `parseUri` reports as `visibility`; the path spells them `pub` and `priv`. A post under `"private"` is a draft, and only a draft may reference the owner's private media.
-
-Every optional input member takes `null` or `undefined` for absent. An input member the builder does not know is an error, so a misspelled option never goes missing silently. So is an argument of the wrong type, and an object with no JSON form (one that refers to itself).
-
-`createUser` stores `image` and every `links[].url` as written, so they must already be canonical: an image is a `pubky://`, `http://` or `https://` URI, a link url is `http://` or `https://`, and surrounding whitespace or the short `pubky<pk>` form rejects. The builder trims `name`, `bio`, `status` and every link title; a blank `bio` or `status` is left out. A stored profile is never rewritten on read, padding included, and `validate` does not trim either: it refuses a blank `bio` or `status`, so an edit path maps blank to `null` itself.
-
-`parent` and `embed` are any URI (`pubky://`, `https://`, `nostr:`, `geo:`, ...), stored exactly as written; a thread can be rooted at a post, a user or an external resource. A post reference is always versionless (`.../posts/{id}`, never a version file). `createPost` trims `content`; `readObject` reads it as stored, so content that is only whitespace rejects unless the post has an embed or attachments. The stored post always carries `attachments`, `[]` when empty. The builder trims an attachment `name`; after that it is stored and counted as written.
-
-`createArticlePost` and `createCollectionPost` write their envelope into `content` as JSON: `{title, body, cover_image?}` and `{name, description?, items: [{uri, note?}], cover_image?, layout?}`. A collection item can point anywhere (a post, a user, a web page, a `nostr:` event) and its note is optional but never blank. The builder trims the collection `name`, its `description` and each item `note`, leaving a blank description or note out; a stored description that is empty or whitespace-only rejects. A collection takes no parent, embed or attachments.
-
-`createTag(owner, uri, label)` stores the uri as written, so it must already be canonical; the builder trims and ASCII-lowercases the label.
-
-`createBookmark(owner, target)` puts the target in the filename: `meta.id` is the canonical target in unpadded base64url and the path is `/priv/social/v1/bookmarks/{filename}.json`, so listing every bookmark is one LIST with no GETs, and one target always lands on one filename. A target over 187 UTF-8 bytes overflows: the filename becomes `~{hash}` and the object carries `target`. `bookmarkTarget(filename, object?)` reads an entry back and throws when it breaks those rules, which is how a reader tells an invalid entry from one to show. The object is needed only for a `~` overflow filename, so a primary entry reads from the LIST alone, with no GET. `bookmarkFilename(target)` gives the filename without building an object.
-
-`createFile` stores the bytes as they are: `meta.id` is the hash of the bytes and the path is `files/{hash}.{ext}`, the extension coming from the declared type. The declared type is read once, here, and never stored. Pass `"private"` as `root` for a draft's media. The 0.x File metadata object and its Blob are gone: this one call makes the one media object.
-
-Feeds are private by default: `createFeed` writes under `/priv/`. The id is derived from the filter alone, so `tags` and `domainTags` are folded, deduplicated and sorted by the builder, and editing the filter gives a new id: `feedId(feed)` derives it from an edited object, so the object keeps its unknown members. `icon` is required, a [Lucide](https://lucide.dev/icons) icon name (at most 50 chars of `a-z`, `0-9`, `-`). `feedPaths(id)` gives `{private, public}` and `feedLifecycle(id)` gives `{publish: {from, to}, unpublish: [...], delete: [...]}`: run each in the order given; a delete of a missing path is a skip, and the publish copy always runs because the name and icon live outside the id.
-
-## Reading and Editing
-
 ```js
-import { readObject, validate } from "pubky-social-specs";
+import { buildUser, buildPost, buildTag, buildBookmark, buildFollow, buildMute, buildFeed, buildFile, buildUri } from "pubky-social-specs";
 
-const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
-const { kind, object } = readObject(url, bytes); // kind: "user" | "post" | ... | "file"
+buildUser(owner, { name: "Alice", bio: "Hi", links: [{ title: "Site", url: "https://example.com" }] });
 
-object.status = "away";
-validate(url, object); // throws when the edit broke a rule
-// PUT JSON.stringify(object) back at url
+buildPost(owner, { content: "A note", parent: buildUri(other, "post", postId) });
+buildPost(owner, { kind: "article", title: "Title", body: "Markdown body", cover_image: imageUrl, slug: "title" });
+buildPost(owner, { kind: "collection", name: "Reading list", items: [{ uri: postUrl, note: "start here" }], layout: "grid" });
+buildPost(owner, { content: "A draft", root: "private" });
+
+buildTag(owner, buildUri(other, "post", postId), "rust");
+buildBookmark(owner, postUrl);
+buildFollow(owner, other);
+buildMute(owner, other);
+buildFeed(owner, { name: "Rust", icon: "star", reach: "all", layout: "columns", sort: "recent", tags: ["rust"] });
 ```
 
-The interfaces in `types.d.ts` list the known members only, so a misspelled field does not compile; unknown members still survive at runtime through read, edit, `validate` and PUT (widen with `& Extra` to reach them). `validate` checks exactly what `JSON.stringify(object)` gives, the bytes a PUT sends. `readObject(uri, bytes)` reads whatever is stored at `uri`, validated against the id, the root and the author the URI names, and returns `{kind, object}`; TypeScript narrows `object` on `kind`. Media comes back as `{kind: "file", object: {bytes}}`. Edit a stored object this way, GET, `readObject`, change the fields, `validate`, PUT: the object keeps every member this version does not know. Rebuilding it through a builder would drop them.
+A builder trims display text (a name, a title, a label) and folds a tag label to lowercase ASCII. References are stored as written and must already be canonical: `buildUri` gives canonical pubky URIs, and a web URL is canonical once trimmed. Absent and `null` mean the same in an input.
 
-## Posts: Drafts, Versions and the Lifecycle
+`buildPost` returns a `BuiltPost`, a `Built<Post>` with the `editId` of the version; for a new post it equals `id`. The input is told apart by `kind`, so a collection with a `parent` does not compile.
 
-```js
-const version = createVersion(owner, post, { root: "private", slug: "my-draft" }); // {id, editId, path, url}
-const edit = editVersion(owner, post, { id: version.id, head: version.editId, root: "private" });
+### Media
 
-const plan = planPublish(owner, version.id, version.editId, post);
-// copy each of plan.mediaCopies ([from, to]) first, then PUT plan.rewrittenPost at plan.destPath
-
-planUnpublish(postId, publicPaths, legacyPaths, privateHeadPath); // {copyBacks, deletes}
-planDelete(owner, postId, legacyPaths, [{ root, path }], versions); // {deletes, mediaGcCandidates}
-```
-
-`root` defaults to `"public"` in the options too. Editing a post keeps its id and writes a new version above the newest one:
+Media is content addressed: its id is the hash of its bytes, and the declared type only picks the extension of the path.
 
 ```js
-const dir = `/pub/social/v1/posts/${postId}/`;
-const newest = (await list(dir)) // LIST, owner-relative paths
-  .map((path) => parseUri(`pubky://${owner}${path}`).resource)
-  .filter((r) => r.kind === "post" && r.version)
-  .map((r) => r.version)
-  .sort()
-  .at(-1);
-const url = `pubky://${owner}${dir}${newest}.json`;
-const { object: post } = readObject(url, await get(url));
-post.content = "edited";
-const next = editVersion(owner, post, { id: postId, head: newest });
-validate(next.url, post);
-// PUT JSON.stringify(post) at next.url
+const { url, path } = buildFile(owner, { bytes, type: file.type });
+await session.storage.putBytes(path, bytes);
+buildPost(owner, { content: "A photo", attachments: [{ uri: url, name: file.name, alt: "A cat" }] });
 ```
 
-The planners do no I/O: they take the paths the caller listed and return the operations in the order to run them.
+Hashing is plain JavaScript and synchronous, on the order of 10 to 20 MB a second. For a large file, hash in a worker and hand over the id:
 
-`deletionPaths({kind, id, listings})` names every stored copy of one object, legacy first. Every public kind spans the epochs, because on resync the highest understood epoch with a surviving copy wins and a surviving legacy copy would bring the object back: a post across both roots and the legacy epoch, a file across both roots plus the legacy `blobs/` bytes and the v0 File objects the caller lists, a tag plus the v0 tags the caller lists, the profile and a follow plus their legacy path. A feed is its two v1 copies; a mute and a bookmark are their one private path.
+```js
+// in the worker
+const hasher = createMediaHasher();
+for await (const chunk of file.stream()) hasher.update(chunk);
+postMessage(hasher.id());
 
-A listing is a path, spelled exactly as its epoch writes it, except for the two legacy copies whose path cannot name the object: a v0 File object is `{path, src}`, and it counts only when its stored `src` resolves to this file's bytes; a v0 tag is `{path, uri, label, src?, contentType?}`, and its path must be the 0.x id of its stored `uri` and `label` while that target and label, respelled as v1 writes them, must derive the v1 id being deleted; a v0 tag on a v0 File object also carries that object's `src` and `content_type`, which spell the v1 media file the tag targets. Every entry is tied to the object being deleted; anything else throws, naming the entry.
+// on the main thread
+const { url } = buildFile(owner, { id, type: file.type });
+```
+
+`limits.maxFileSizeBytes` is the cap, and `validMimeTypes` is a hint list for a file picker.
+
+## Reading and editing
+
+`decodeObject(uri, bytes)` returns `{ kind, object }`, or `{ kind: "file", bytes }` for media. It refuses bytes that are not a valid object at that URI, with the reason.
+
+To change a stored object, decode it, change it, and encode it. Whatever this version does not know stays in `$unknown` and is written back:
+
+```js
+const read = decodeObject(profileUrl, bytes);
+if (read.kind !== "user") throw new Error("not a profile");
+read.object.status = "On holiday";
+await session.storage.putBytes(profilePath, encodeObject(profileUrl, read.object));
+```
+
+`encodeObject` also takes `{ kind, root? }` in place of a URI, for bytes that go somewhere the data model does not name; the object is then checked by every rule that needs no path.
+
+A feed's id is derived from its filter, so an edited filter moves the feed: `feedId(feed)` gives the id to write it under.
+
+### Articles and collections
+
+The `content` of an article or a collection is itself JSON. Read and write it through the package, for the same reason as rule 1:
+
+```js
+const envelope = decodeContent(post);        // { kind: "article", content: { title, body, cover_image } }, or null for a note
+post.content = encodeContent({ ...envelope.content, title: "A better title" });
+```
+
+## Posts: versions, drafts and the lifecycle
+
+A post is a directory of versions, `posts/{id}/{editId}[-slug].json`, under the public root or the private one. The newest `editId` is the post as it reads now.
+
+```js
+// Edit: a new version above the head, under the head's root unless you say otherwise
+const edited = editPost(headUrl, { ...post, content: "Fixed a typo" });
+
+// Publish a private version: copy its private media first, then PUT the post
+const plan = planPublish(owner, { id, editId, post });
+for (const { from, to } of plan.copies) await copy(from, to);
+await put(plan.put.path, plan.put.body);
+
+// Unpublish: copy back what the private tree lacks, then delete the public versions
+const { copies, deletes } = planUnpublish({ id, publicPaths, privateHead });
+
+// Delete everywhere, in the order that never leaves a reader a dangling post
+const { deletes, mediaGcCandidates } = planDelete(owner, { id, legacyPaths, copies, versions });
+```
+
+A plan performs no I/O. It returns owner-relative paths, in the order to run them. A reference to a post is versionless (`buildUri(author, "post", id)`), so it survives every edit.
 
 ## URIs
 
 ```js
-import { parseUri, stableId, resolveDeref, listPrefix, postUriBuilder } from "pubky-social-specs";
+buildUri(owner, "user");                 // pubky://<owner>/pub/social/v1/profile.json
+buildUri(owner, "post", postId);         // the versionless reference
+buildUri(owner, "file", `${hash}.png`);  // a file takes its full name
+listPrefix(owner, "public");             // pubky://<owner>/pub/social/v1/ , for a LIST
+listPrefix(owner, "legacy");             // the 0.x tree, pubky://<owner>/pub/pubky.app/
 
-parseUri(postUriBuilder(owner, "0033SSE3B1FQ0"));
-// { userId, visibility: "public", resource: { kind: "post", id: "0033SSE3B1FQ0" }, path: "/pub/social/v1/posts/0033SSE3B1FQ0" }
-
-stableId("pub/pubky.app/posts/0033SSE3B1FQ0"); // { kind: "key", key: "posts/0033SSE3B1FQ0" }
-listPrefix(owner, "private"); // "pubky://.../priv/social/v1/", a LIST prefix, not a URI
-legacyListPrefix(owner); // "pubky://.../pub/pubky.app/", the 0.x tree an account delete or export walks
+const parsed = parseUri(uri);
+// { owner, root, path, kind: "post", id, editId?, slug? }
+// { owner, root, path, kind: "bookmark", id, target? }   target when the id carries it
+// kind is also "foreign", "unsupportedVersion" or "unknown": classifications, never errors
 ```
 
-`parseUri` reports paths under another namespace, an epoch this version does not speak, and anything else as `foreign`, `unsupportedVersion` and `unknown` kinds; it throws only on a string that is not a canonical `pubky://` URI. `stableId` keys every epoch spelling of one object together, or returns `{kind: "needsDeref", tsid}` for a legacy media reference that `resolveDeref(tsid, src)` completes from its v0 File object.
+`parseUri` throws only for a string that is not a canonical pubky URI with a known root. It never reads the clock, so what a path names does not change with time.
 
-The URI builders check the owner key and throw on a malformed one. They are `userUriBuilder`, `postUriBuilder`, `followUriBuilder`, `muteUriBuilder`, `bookmarkUriBuilder`, `tagUriBuilder`, `fileUriBuilder` (the whole `{hash}.{ext}` filename) and `feedUriBuilder`.
+## Deleting
 
-## MIME Types
+`deletionPaths({ kind, id, listings? })` gives every stored copy of one object across both epochs and both roots, legacy first, as owner-relative paths:
 
 ```js
-import { validMimeTypes, mimeToExt, essence, mimeToExtTable } from "pubky-social-specs";
-
-const accept = validMimeTypes.join(","); // a picker hint only; it gates nothing
-mimeToExt("IMAGE/PNG; charset=x"); // "png", and "bin" for anything unmapped
-essence("IMAGE/PNG; charset=x"); // "image/png", null when malformed
-mimeToExtTable["image/png"]; // "png", from the whole frozen map
+deletionPaths({ kind: "follow", id: followee });
+deletionPaths({ kind: "file", id: hash, listings: [...v1Paths, { path: v0FilePath, src }] });
 ```
 
-`validMimeTypes` and `mimeToExtTable` are frozen data, readable before `init()`, and also published without the wasm as `pubky-social-specs/mimeTypes`.
+Only a post, a file and a tag take `listings`, the copies you found by LIST; each is checked to belong to the object, and one that does not is an error naming it.
 
-## Validation Limits
-
-`validationLimits` is a frozen plain object, readable before `init()`:
+## Limits and names
 
 ```js
-import { validationLimits } from "pubky-social-specs";
+import { limits, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts } from "pubky-social-specs";
 
-validationLimits.userNameMaxLength;
+limits.postNoteContentMaxLength; // 2000
+z.enum(feedReaches);             // the name tuples work as a schema's enum
 ```
 
-The same values are published without the wasm at all. Under Node's ESM loader (and TypeScript's `nodenext`), a JSON import needs its attribute:
+Lengths are in Unicode code points unless the name says bytes. A stored name this version does not know reads as `"unknown"`, so `PostKind` has that member and `KnownPostKind`, what a builder takes, does not.
+
+## Testing your code
+
+The package is pure and synchronous, so tests can call it for real. `setClock` fixes the clock, which fixes every id and `created_at`:
 
 ```js
-import { validationLimits } from "pubky-social-specs/validationLimits";
-import limitsJson from "pubky-social-specs/validationLimits.json" with { type: "json" };
+import { setClock, buildFollow, decodeObject } from "pubky-social-specs";
+
+beforeEach(() => setClock(() => 1_790_000_000_000)); // milliseconds, as Date.now()
+afterAll(() => setClock());
+
+const { url, body } = buildFollow(me, them);
+expect(decodeObject(url, body)).toEqual({ kind: "follow", object: { created_at: 1_790_000_000_000_000 } });
 ```
+
+Ids only go up within one process, so two posts built in the same instant get different ids; `setClock` starts that guard over.
+
+## What to know
+
+- `decodeObject` pulls in every model, about 19 kB gzipped. `buildUri` alone is under 2 kB, and the whole entry about 26 kB.
+- The id guard is per copy of the package. Two copies in one page mint independently, so a library that wraps this one should declare it a peer dependency.
+- An edit through `$unknown` writes the bytes a Rust client writes for the same edit. The one thing a caller can still get wrong is to drop `$unknown` when copying an object field by field.
 
 ## Migration
 
-The package carries the whole 0.x to 1.x migration: the transforms, compiled into the same wasm, and the engine that walks a tree with them, published as `pubky-social-specs/migration`. The engine uses no browser or Node global, so the same code runs in pubky-app, in a standalone web tool, and under Node for a CLI or a server run. Under Node, `pubky-social-specs/migration/pubky-sdk` is the port over a pubky SDK session and `pubky-social-migrate` runs the whole migration from a terminal (see [Running it from Node](#running-it-from-node)).
+The package carries the whole 0.x to 1.x migration: the transforms and the engine that walks a tree with them, published as `pubky-social-specs/migration`. The transforms are the reference crate compiled to wasm, because they read 0.x objects through its frozen reader; this subpath is the only part of the package that loads a wasm, and it does so on the first `runMigration`. The engine uses no browser or Node global, so the same code runs in pubky-app, in a standalone web tool, and under Node for a CLI or a server run. Under Node, `pubky-social-specs/migration/pubky-sdk` is the port over a pubky SDK session and `pubky-social-migrate` runs the whole migration from a terminal (see [Running it from Node](#running-it-from-node)).
 
 ```js
 import { runMigration } from "pubky-social-specs/migration";
@@ -193,15 +222,15 @@ const report = await runMigration({
 });
 ```
 
-`runMigration` calls `init()` itself. It resolves with a report in every case; only a programming error (an owner that is not a pubky, an unknown `mode`, a fault inside the package) rejects.
+`runMigration` loads the wasm itself. It resolves with a report in every case; only a programming error (an owner that is not a pubky, an unknown `mode`, a fault inside the package) rejects.
 
 What a run does, in order:
 
 1. With `caps` given, checks that the session covers `ENGINE_CAPS`, before any request, and aborts with `CAPS_MISSING` otherwise, the scopes to ask for in `error.caps`. A session that holds only the 0.x scope hears about its caps first. The engine never prompts.
 2. Probes the private root by a HEAD of `priv/social/v1/_migrated.json`. A homeserver without `/priv/`, where the HEAD throws `unsupported`, aborts the run with `PRIV_UNSUPPORTED` and a message saying so: the private types and the flag live there. Any other failure of the probe aborts with `IO_ERROR`. When the flag records a `transform_rev` equal to or above `transformRev`, the run returns `already_migrated` without listing anything, unless `rescan: true`.
-3. Lists `pub/social/v1/` and `priv/social/v1/` and keys every path through `stableId`. That set is the journal: a key present in either root is never written again, so a post unpublished to a draft is not copied back to the public root, and an edit made after an earlier run survives. Media is the exception: it counts as present by its exact URL, since a private copy, or one under another extension, does not serve the public references the run writes. So every blob is read and migrated, and the write it gives is what gets checked.
+3. Lists `pub/social/v1/` and `priv/social/v1/` and keys every path by the object it names, whatever the epoch. That set is the journal: a key present in either root is never written again, so a post unpublished to a draft is not copied back to the public root, and an edit made after an earlier run survives. Media is the exception: it counts as present by its exact URL, since a private copy, or one under another extension, does not serve the public references the run writes. So every blob is read and migrated, and the write it gives is what gets checked.
 4. Lists `pub/pubky.app/` and walks it by type: the File objects first, since the run reads them to rewrite media references, then blobs, posts, tags, follows, the profile, feeds, bookmarks and mutes. `settings.json`, `last_read` and anything else no 1.x type takes count as `not_migrated` without a read. A File object that cannot be read stops the run with `IO_ERROR`: every blob and post after it depends on it, and would be copied with a wrong extension or media URL that no later run rewrites. A File that reads but that the 0.x reader refuses is only its own skip: it names nothing, so references through it stay as written and a blob only it named migrates as `bin`. The same holds for a File the owner deletes between two runs: copies made before point at `files/{hash}.{ext}`, copies made after at `.bin`, and neither run rewrites the other's. The 0.x reader bounds a TimestampId by the clock, at most two hours ahead, so an object refused for a future id on one run is accepted by a later `rescan` (a finished run's flag stops a plain rerun from walking). A File refused that way has already sent its blob to `bin` and left the references through it as written; the rescan adds the copy under its extension and rewrites neither.
-5. For each object whose key is not present: GET, `migrate`, PUT every write whose key is still not present, with `ifAbsent`, then a HEAD of the 0.x object. If the owner deleted it meanwhile, or the HEAD fails, the copies just written are deleted (`deleted_mid_run`, or `io_error` for a copy the next run makes again). A GET that answers 404 is read the same way: the port contract says gone, so a front end that answers 404 for an object it still holds loses that object until a `rescan`. If that cleanup DELETE itself fails, the copy stays: the next run lists the 0.x tree without its source and never revisits it, so an object deleted during its own copy comes back in 1.x. That is a known gap, not an accepted case: it is tracked in [#194](https://github.com/pubky/pubky-social-specs/issues/194), with the lost PUT answer below. A destination someone else wrote since the LIST stays as it is and counts `already_present`; the run deletes only what it wrote. Two objects are in flight at a time, and an object whose write folds to a key the other is writing waits for it, and writes itself if that copy did not land. A blob over `validationLimits.maxFileSizeBytes` skips as `oversize` first. Below the cap a blob still never enters the wasm, since a wasm memory grows to fit what is copied into it and never shrinks: one 100 MB blob handed to `migrate` held that memory for the rest of the run. The engine hashes the bytes it read 4 MiB at a time through the hasher, asks `migrateBlob` where they go, and PUTs that same array; the hash naming the destination is its read-back. Under Node, migrating one 100 MB blob through `MemoryPort` peaked at 748 MB RSS when the bytes went through `migrate` and peaks at 352 MB now, most of it the port's own copies of the blob. Those numbers are Node's; the browser target, a peak RSS under 500 MB for the owner of a 100 MB blob, is measured by the replay harness.
+5. For each object whose key is not present: GET, transform, PUT every write whose key is still not present, with `ifAbsent`, then a HEAD of the 0.x object. If the owner deleted it meanwhile, or the HEAD fails, the copies just written are deleted (`deleted_mid_run`, or `io_error` for a copy the next run makes again). A GET that answers 404 is read the same way: the port contract says gone, so a front end that answers 404 for an object it still holds loses that object until a `rescan`. If that cleanup DELETE itself fails, the copy stays: the next run lists the 0.x tree without its source and never revisits it, so an object deleted during its own copy comes back in 1.x. That is a known gap, not an accepted case: it is tracked in [#194](https://github.com/pubky/pubky-social-specs/issues/194), with the lost PUT answer below. A destination someone else wrote since the LIST stays as it is and counts `already_present`; the run deletes only what it wrote. Two objects are in flight at a time, and an object whose write folds to a key the other is writing waits for it, and writes itself if that copy did not land. A blob over `validationLimits.maxFileSizeBytes` skips as `oversize` first. Below the cap a blob still never enters the wasm, since a wasm memory grows to fit what is copied into it and never shrinks: one 100 MB blob handed to `migrate` held that memory for the rest of the run. The engine hashes the bytes it read 4 MiB at a time through the hasher, asks `migrateBlob` where they go, and PUTs that same array; the hash naming the destination is its read-back. Under Node, migrating one 100 MB blob through `MemoryPort` peaked at 748 MB RSS when the bytes went through `migrate` and peaks at 352 MB now, most of it the port's own copies of the blob. Those numbers are Node's; the browser target, a peak RSS under 500 MB for the owner of a 100 MB blob, is measured by the replay harness.
 6. Writes the flag `{migrated_at, transform_rev, skipped}`: microseconds, `transformRev`, and the 0.x paths that did not land, by outcome. A walk with any `io_error` writes no flag and ends `incomplete`, so the next run walks again.
 
 The run never modifies the 0.x tree: it writes and deletes only under `pub/social/v1/` and `priv/social/v1/`, and a write the package gives anywhere else rejects the run as a fault before any PUT. `mode: "dry"` reads and counts exactly as a run does and makes no PUT, re-check or DELETE, the flag included. An interrupted run leaves nothing to clean up: run it again and it resumes from what the 1.x tree already holds.
@@ -289,7 +318,7 @@ Name both packages to `npx`: a bare `npx pubky-social-migrate` would fetch whate
 
 ### Live test
 
-`npm run e2e` runs the migration against a pubky testnet; `npm test` does not. It signs up a fresh account on the testnet homeserver, writes the 0.x tree of the semantic vectors through the SDK, and migrates it with `sdkPort`. Then it checks the report against a `MemoryPort` run over the same bytes, reads every write back from the server through `readObject`, expects a second run to return `already_migrated` and the 0.x tree to be byte for byte unchanged, and runs the CLI from a recovery file. The testnet listens on fixed ports at `PUBKY_TESTNET_HOST`, `localhost` by default. With Docker:
+`npm run e2e` runs the migration against a pubky testnet; `npm test` does not. It signs up a fresh account on the testnet homeserver, writes the 0.x tree of the semantic vectors through the SDK, and migrates it with `sdkPort`. Then it checks the report against a `MemoryPort` run over the same bytes, reads every write back from the server through `decodeObject`, expects a second run to return `already_migrated` and the 0.x tree to be byte for byte unchanged, and runs the CLI from a recovery file. The testnet listens on fixed ports at `PUBKY_TESTNET_HOST`, `localhost` by default. With Docker:
 
 ```bash
 docker run -d --name pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:18-alpine
@@ -305,39 +334,32 @@ docker rm -f pg testnet
 
 CI runs it in the `e2e` job of the JS binding workflow.
 
-### The transforms on their own
+### What a skip means
 
-`runMigration` is built on exports a host can also call directly. `createMigration(owner)` returns a run handle and `migrate(run, path, bytes)` migrates one stored object, by its owner-relative path (`pub/pubky.app/...`) or the full `pubky://` URL a LIST returns. It returns `{writes, dropped}` or `{skip, note?}`, where `note` is what the refusing parser or reader said and the engine puts it in the flag. Each write is `{kind, object, meta}`: the object as `readObject` reads it (media as `{bytes}`) and `meta` as a builder gives it, so `validate(meta.url, object)` already holds and the PUT is `kind === "file" ? object.bytes : JSON.stringify(object)` at `meta.url`. A 0.x File object writes nothing: its name, blob and content type feed the run, so every File has to go through `migrate` before the posts, tags and profile that reference them. A reference the run cannot resolve stays as written, since the legacy URI keeps resolving.
-
-A blob has a second door that keeps its bytes out of the wasm: `migrateBlob(run, path, size, hash)` takes their length and their media id, and gives the same result `migrate` gives for those bytes at that blob path, except that the write is `{kind: "file", meta}` and the caller PUTs its own bytes at `meta.url`. The id comes from the hasher, which copies in one chunk at a time: `hasherNew()`, then `hasherUpdate(hasher, chunk)` for every chunk in order, then `hasherFinish(hasher)`, which consumes the handle and returns what `createFile` would give as `meta.id`. Bytes that do not hash to the blob's id, or no bytes at all, skip as `invalid`, as they do through `migrate`.
-
-`skip` is one of `skipReasons`, frozen data readable before `init()`. An object is skipped when the frozen 0.x reader refuses it: `malformed` when the JSON parser cannot read the bytes, `shape` when the reader cannot read them into its model, `invalid` when its rules refuse the object, as they do a stored id they do not accept or a `[DELETED]` post. What migrates is what the reader stored, so a profile named `[DELETED]` becomes the `anonymous` the reader made of it. `not_migrated` is a path with no 1.x counterpart, such as `last_read`, or another owner's path. A blob that skips leaves the references already rewritten to it dangling, so count every skip and report it.
-
-The handle holds the run's memory in the wasm: call `free()` when the run ends (a handle that is garbage collected is freed too, through the glue's `FinalizationRegistry`). It works only with the entry that made it, since the ESM and CommonJS entries hold separate instances.
+An object the walk leaves behind is counted under one of `skipReasons`, which the subpath exports with `transformRev`. An object is skipped when the frozen 0.x reader refuses it: `malformed` when the JSON parser cannot read the bytes, `shape` when the reader cannot read them into its model, `invalid` when its rules refuse the object, as they do a stored id they do not accept or a `[DELETED]` post. What migrates is what the reader stored, so a profile named `[DELETED]` becomes the `anonymous` the reader made of it. `not_migrated` is a path with no 1.x counterpart, such as `last_read`, or another owner's path. A blob that skips leaves the references already rewritten to it dangling, so count every skip and report it.
 
 ## Reading 0.x data
 
-The frozen 0.x reader (`legacy_v0`) is Rust only. This package exposes the 1.x surface and the migration; a JS consumer that has to read un-migrated data as such goes through a Rust service.
+The frozen 0.x reader is Rust only. This package exposes the 1.x surface and the migration; a JS consumer that has to read un-migrated data as such goes through a Rust service.
 
 ## Specification
 
 The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/rfc-v1-social-specs.md). The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
 
-## Building from Source
+## Building from source
 
-Prerequisites: Rust, the `wasm32-unknown-unknown` target, [`wasm-pack`](https://rustwasm.github.io/wasm-pack/), and Node.js.
+The package builds from `pkg/src` with `tsc`. The wasm of the migrator also needs Rust, the `wasm32-unknown-unknown` target and [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
 
 ```bash
-rustup target add wasm32-unknown-unknown
-
 cd pkg
 npm install
-npm run build
-npm run test
-npm run example
+npm run build      # tsc, then the migrator's wasm, into dist/
+npm test
+npm run types      # the declarations, compiled as a consumer compiles them
+npm run size       # bundle size, tree-shaking and cold start
 ```
 
-Releases are cut from a git tag, and a build that is not on npm yet can be installed from an `npm pack` tarball. Both are described in [Releasing](https://github.com/pubky/pubky-social-specs#releasing).
+How the package is checked against the crate is in [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md). Releases are cut from a git tag, and a build that is not on npm yet can be installed from an `npm pack` tarball; both are described in [Releasing](https://github.com/pubky/pubky-social-specs#releasing).
 
 ## License
 

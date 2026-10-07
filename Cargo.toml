@@ -57,7 +57,6 @@ ed25519-dalek = { version = "3.0.0", optional = true, default-features = false }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.100"
 js-sys = "0.3.77"
-tsify-next = { version = "0.5.6", default-features = false, features = ["js"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.68"
@@ -76,7 +75,7 @@ openapi = ["utoipa"]
 migrator = []
 # The JS surface answered natively, with the clock given by the caller: what the TypeScript
 # package is checked against.
-surface = []
+surface = ["migrator"]
 # The replay tooling under tools/replay: the migrator plus the key derivation of the replica.
 replay = ["migrator", "dep:ed25519-dalek"]
 

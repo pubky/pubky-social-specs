@@ -1,4 +1,4 @@
-// Mutation pass over the engine: plants one bug at a time in migration/engine.ts, recompiles
+// Mutation pass over the engine: plants one bug at a time in src/migration/engine.ts, recompiles
 // the engine, runs the package's Node tests and a slice of the chaos harness, and puts the
 // source back. A mutation nothing catches is a gap in the suite.
 //
@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pkg = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const enginePath = path.join(pkg, "migration/engine.ts");
+const enginePath = path.join(pkg, "src/migration/engine.ts");
 const original = fs.readFileSync(enginePath, "utf8");
 const args = process.argv.slice(2);
 const flag = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
@@ -44,7 +44,7 @@ const MUTATIONS = [
   {
     id: "M5",
     what: "the File objects are walked after the posts",
-    file: "migration/order.ts",
+    file: "src/migration/order.ts",
     from: 'const BUCKETS = [\n  "files",\n  "blobs",\n  "posts",',
     to: 'const BUCKETS = [\n  "blobs",\n  "posts",\n  "files",',
   },
@@ -109,11 +109,11 @@ const run = (cmd, argv, timeoutMs) => {
   return { status: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}`, timedOut: r.error?.code === "ETIMEDOUT" };
 };
 const build = () => {
-  execFileSync("npx", ["--no", "--", "tsc", "-p", "migration"], { cwd: pkg, stdio: "pipe" });
+  execFileSync("npx", ["--no", "--", "tsc", "-p", "."], { cwd: pkg, stdio: "pipe" });
   execFileSync("node", ["../src/bin/patch.mjs", "migration"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
-  const r = run("npx", ["--no", "--", "mocha", "test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
+  const r = run("npx", ["--no", "--", "mocha", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
   const failing = [...r.out.matchAll(/^\s+\d+\) (.+)$/gm)].map((m) => m[1].trim());
   const passing = Number(/(\d+) passing/.exec(r.out)?.[1] ?? 0);
   return { status: r.status, passing, failing: [...new Set(failing)].slice(0, 12), timedOut: r.timedOut };
@@ -130,7 +130,7 @@ const only = flag("--only")?.split(",");
 const files = new Map();
 try {
   for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
-    const file = path.join(pkg, mutation.file ?? "migration/engine.ts");
+    const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
     const source = files.get(file) ?? fs.readFileSync(file, "utf8");
     files.set(file, source);
     if (!source.includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);

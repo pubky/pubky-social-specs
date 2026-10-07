@@ -33,11 +33,10 @@ jobs:
 
     - name: Install package dev dependencies
       run: |
-        # The build compiles the migration engine with the package's own tsc
         cd ./pkg
         npm install
 
-    - name: Build WASM package
+    - name: Build the package
       run: |
         cd ./pkg
         npm run build
@@ -50,17 +49,45 @@ jobs:
         fi
 
     - name: Run JS tests
-      run: |        
+      run: |
         cd ./pkg
-        echo "Running JavaScript tests..."
-        npm run test
-        
-        echo "All tests completed successfully!"
+        npm test
+
+    - name: The declarations compile as a consumer compiles them
+      run: |
+        cd ./pkg
+        npm run types
+
+    - name: Bundle size, tree-shaking and cold start
+      run: |
+        cd ./pkg
+        npm run size
+
+    # The package against the crate: recorded answers, then fresh seeded cases per family
+    - name: Build the surface oracle
+      run: cargo build --release --features surface --bin surface_oracle
+
+    - name: The generated tables are the crate's
+      run: |
+        cd ./pkg
+        node qa/data.mjs --check
+
+    - name: Parity with the crate
+      run: |
+        cd ./pkg
+        npm run score -- --fuzz 50000
+
+    - name: Hostile arguments
+      run: |
+        cd ./pkg
+        node --expose-gc --max-old-space-size=1536 qa/boundary.mjs
 
     - name: Verify npm package contents
       run: |
         cd ./pkg
         npm pack --dry-run .
+        npx --yes publint --strict
+        npx --yes @arethetypeswrong/cli --pack --profile esm-only
   e2e:
     runs-on: ubuntu-latest
 
@@ -109,7 +136,7 @@ jobs:
         cd ./pkg
         npm install
 
-    - name: Build WASM package
+    - name: Build the package
       run: |
         cd ./pkg
         npm run build

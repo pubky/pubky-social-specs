@@ -19,6 +19,10 @@ export const STRIP_SET: readonly string[] = ${literal(data.stripSet)};
 
 export const validMimeTypes: readonly string[] = ${literal(data.validMimeTypes)};
 
+/** Why the migration leaves a 0.x object behind, and the revision of its transforms. */
+export const skipReasons = ${literal(data.skipReasons)} as const;
+export const transformRev: number = ${data.transformRev};
+
 /**
  * The code points the reference spells as \\u{..} when an error quotes text, as inclusive
  * ranges laid end to end. It follows the Unicode tables the reference was built with.

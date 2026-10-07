@@ -1,14 +1,6 @@
-/pubky*
-index.cjs
-nodejs*
 node_modules*
 package-lock.json
-validationLimits*
-mimeTypes*
-migrationData*
-migration/**/*.js
-migration/**/*.cjs
-migration/**/*.d.ts
-!migration/host.d.ts
 dist
+nodejs*
 qa/failures
+qa/out

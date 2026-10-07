@@ -1,26 +1,7 @@
-import {
-  init,
-  createMigration,
-  migrate,
-  migrateBlob,
-  hasherNew,
-  hasherUpdate,
-  hasherFinish,
-  stableId,
-  resolveDeref,
-  validationLimits,
-  skipReasons,
-  transformRev,
-  legacyListPrefix,
-  listPrefix,
-} from "pubky-social-specs";
-import type {
-  Dropped,
-  MigrateBlobResult,
-  MigrateResult,
-  MigratedWrite,
-  Migration,
-} from "pubky-social-specs";
+import { limits, skipReasons, transformRev } from "../data.js";
+import { legacyMediaKey, listPrefix, stableKey } from "../uri.js";
+import { init, transforms } from "./wasm.js";
+import type { Dropped, MigrateBlobResult, MigrateResult, MigratedWrite, Migration } from "./wasm.js";
 import { portErrorKind } from "./port.js";
 import type { MigrationPort, PortErrorKind } from "./port.js";
 import { ordered } from "./order.js";
@@ -60,7 +41,6 @@ const MAX_BACKOFF_MS = 60_000;
 const MAX_EMPTY_PAGES = 100;
 const VALIDATION_ERROR = "Validation Error:";
 // Blobs are hashed in chunks of this size, so the wasm holds a chunk and never a blob
-const HASH_CHUNK = 4 * 1024 * 1024;
 
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
@@ -141,7 +121,7 @@ const pool = async <T>(
   let failure: { error: unknown } | undefined;
   const worker = async () => {
     while (!failure && !stopped() && next < items.length) {
-      const item = items[next++];
+      const item = items[next++] as T;
       try {
         await work(item);
       } catch (error) {
@@ -155,8 +135,8 @@ const pool = async <T>(
 
 /** The dedup key of an owner-relative path; a path with none is its own key. */
 const keyOf = (path: string): string => {
-  const id = stableId(path);
-  return id?.kind === "key" ? id.key : path;
+  const id = stableKey(path);
+  return id !== null && "key" in id ? id.key : path;
 };
 
 /**
@@ -167,14 +147,6 @@ const keyOf = (path: string): string => {
 const claimKey = (write: MigratedWrite): string =>
   write.kind === "file" ? write.meta.url : keyOf(write.meta.path);
 
-/** The media id of `bytes`, fed to the wasm a view at a time. */
-const hashOf = (bytes: Uint8Array): string => {
-  const hasher = hasherNew();
-  for (let at = 0; at < bytes.length; at += HASH_CHUNK) {
-    hasherUpdate(hasher, bytes.subarray(at, at + HASH_CHUNK));
-  }
-  return hasherFinish(hasher);
-};
 
 /**
  * A blob's writes carry the bytes the run already holds, so its copy is the one PUT of that
@@ -263,12 +235,12 @@ class Run {
       this.#emit();
       for (const prefix of [publicPrefix, privatePrefix]) {
         for (const url of await this.#listAll(prefix)) {
-          const id = stableId(this.#relative(url));
-          if (id?.kind !== "key") continue;
+          const id = stableKey(this.#relative(url));
+          if (id === null || !("key" in id)) continue;
           this.#claims.set(id.key.startsWith("files/") ? url : id.key, LANDED);
         }
       }
-      const legacyPrefix = legacyListPrefix(owner);
+      const legacyPrefix = listPrefix(owner, "legacy");
       const legacy = await this.#listAll(legacyPrefix);
       this.#total = legacy.length;
       const { passes, rest } = ordered(legacy, (url) => url.slice(legacyPrefix.length));
@@ -278,7 +250,7 @@ class Run {
       }
 
       this.#phase = "migrating";
-      this.#handle = createMigration(owner);
+      this.#handle = transforms.createMigration(owner);
       for (const [bucket, urls] of passes) {
         this.#kind = bucket;
         await pool(urls, IN_FLIGHT, (url) => this.#object(bucket, url), () => this.#aborted());
@@ -410,7 +382,7 @@ class Run {
     if (bucket === "blobs" && !(ArrayBuffer.isView(bytes) && bytes.BYTES_PER_ELEMENT === 1)) {
       return this.#count("invalid", path, `${VALIDATION_ERROR} the port's GET gave no Uint8Array`);
     }
-    if (bucket === "blobs" && bytes.length > validationLimits.maxFileSizeBytes) {
+    if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) {
       return this.#count("oversize", path);
     }
 
@@ -419,8 +391,8 @@ class Run {
       // A blob never enters the wasm: a copy there would stay for the rest of the run
       result =
         bucket === "blobs"
-          ? blobResult(migrateBlob(this.#handle!, url, bytes.length, hashOf(bytes)), bytes)
-          : migrate(this.#handle!, url, bytes);
+          ? blobResult(transforms.migrateBlob(this.#handle!, url, bytes.length, transforms.mediaId(bytes)), bytes)
+          : transforms.migrate(this.#handle!, url, bytes);
     } catch (error) {
       const message = messageOf(error);
       // The rules refused the object; anything else is a fault in this package
@@ -534,7 +506,7 @@ class Run {
     try {
       const { src, size } = JSON.parse(decoder.decode(bytes));
       const tsid = path.slice(path.lastIndexOf("/") + 1);
-      const key = typeof src === "string" ? resolveDeref(tsid, src) : null;
+      const key = typeof src === "string" ? legacyMediaKey(src) : null;
       if (key !== null && Number.isSafeInteger(size) && size >= 0) this.#blobSizes.set(key, size);
     } catch {
       // The run already read it; only the estimate misses it

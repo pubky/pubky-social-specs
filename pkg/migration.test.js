@@ -1,11 +1,14 @@
 import assert from "assert";
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
-import { init, readObject, listPrefix, transformRev, validationLimits, createFile, createMigration, migrate } from "./index.js";
-import * as migration from "./migration/index.js";
+import { decodeObject, listPrefix, limits, buildFile } from "./dist/index.js";
+import { init, transforms } from "./dist/migration/wasm.js";
+
+const { createMigration, migrate } = transforms;
+import * as migration from "./dist/migration/index.js";
 import { corpus, legacyTree, bytesOf } from "./migration.fixture.js";
 
-const { runMigration, MemoryPort, MigrationPortError, refusal, ENGINE_CAPS, MIGRATION_CAPS, BUCKETS, bucketOf } = migration;
+const { transformRev, runMigration, MemoryPort, MigrationPortError, refusal, ENGINE_CAPS, MIGRATION_CAPS, BUCKETS, bucketOf } = migration;
 
 const require = createRequire(import.meta.url);
 const owner = corpus.owner;
@@ -176,9 +179,9 @@ describe("migration engine", () => {
       }
       assert.deepStrictEqual(v1Urls(port), [...expectedWrites.keys()].sort());
       for (const [written, expected] of expectedWrites) {
-        const { kind, object } = readObject(written, port.store.get(written));
+        const { kind, object, bytes } = decodeObject(written, port.store.get(written));
         if (kind === "file") {
-          assert.deepStrictEqual(object.bytes, encoder.encode(expected.raw), written);
+          assert.deepStrictEqual(bytes, encoder.encode(expected.raw), written);
           continue;
         }
         // The vectors spell an article or collection envelope parsed
@@ -271,8 +274,8 @@ describe("migration engine", () => {
       const profile = url("pub/social/v1/profile.json");
       const tag = v1Urls(port).find((u) => u.includes("/pub/social/v1/tags/"));
       const edited = new Map([
-        [profile, encoder.encode(JSON.stringify({ ...readObject(profile, port.store.get(profile)).object, name: "Edited" }))],
-        [tag, encoder.encode(JSON.stringify({ ...readObject(tag, port.store.get(tag)).object, ext: { kept: true } }))],
+        [profile, encoder.encode(JSON.stringify({ ...decodeObject(profile, port.store.get(profile)).object, name: "Edited" }))],
+        [tag, encoder.encode(JSON.stringify({ ...decodeObject(tag, port.store.get(tag)).object, ext: { kept: true } }))],
       ]);
       for (const [u, bytes] of edited) port.store.set(u, bytes);
 
@@ -573,7 +576,7 @@ describe("migration engine", () => {
       const report = await runMigration({ owner, port });
       assert.strictEqual(report.status, "done");
       assert.deepStrictEqual(port.store.get(jpg), other);
-      const post = readObject(url("pub/social/v1/posts/0034A0X7NJ52J/0034A0X7NJ52J.json"), port.store.get(url("pub/social/v1/posts/0034A0X7NJ52J/0034A0X7NJ52J.json"))).object;
+      const post = decodeObject(url("pub/social/v1/posts/0034A0X7NJ52J/0034A0X7NJ52J.json"), port.store.get(url("pub/social/v1/posts/0034A0X7NJ52J/0034A0X7NJ52J.json"))).object;
       const png = post.attachments[0].uri;
       assert.strictEqual(png, url("pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"));
       assert.deepStrictEqual(port.store.get(png), blob);
@@ -594,7 +597,7 @@ describe("migration engine", () => {
       const blob = url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78");
       const port = legacyPort();
       // Zero-filled, so the pages are only reserved; nothing reads them
-      const huge = new Uint8Array(validationLimits.maxFileSizeBytes + 1);
+      const huge = new Uint8Array(limits.maxFileSizeBytes + 1);
       const sized = delegate(port, {
         get: async (target) => (target === blob ? huge : port.get(target)),
       });
@@ -822,33 +825,22 @@ describe("migration engine", () => {
     });
 
     it("refuses a write outside the 1.x roots before any PUT, as a fault in the package", async () => {
-      const entry = require("pubky-social-specs");
-      const migrate = entry.migrate;
-      // The CommonJS engine reads the entry's exports when it loads, so a fresh load takes the fake
-      const fresh = () => {
-        for (const key of Object.keys(require.cache)) if (/[\\/]migration[\\/]/.test(key)) delete require.cache[key];
-        return require("./migration/index.cjs");
-      };
+      const real = { migrate: transforms.migrate, migrateBlob: transforms.migrateBlob };
       // A transform that sends each copy over its own 0.x source
-      const migrateBlob = entry.migrateBlob;
       const astray = (source, result) => {
         for (const write of result.writes ?? []) write.meta = { ...write.meta, url: source };
         return result;
       };
-      entry.migrate = (handle, source, bytes) => astray(source, migrate(handle, source, bytes));
-      entry.migrateBlob = (handle, source, size, hash) => astray(source, migrateBlob(handle, source, size, hash));
+      transforms.migrate = (handle, source, bytes) => astray(source, real.migrate(handle, source, bytes));
+      transforms.migrateBlob = (handle, source, size, hash) => astray(source, real.migrateBlob(handle, source, size, hash));
       try {
-        const cjs = fresh();
-        const port = new cjs.MemoryPort();
-        for (const [path, { input }] of rows) port.store.set(url(path), input);
+        const port = legacyPort();
         const before = new Map(port.store);
-        await assert.rejects(cjs.runMigration({ owner, port }), /a write to pubky:\/\/\w+\/pub\/pubky\.app\/.*, outside pubky:\/\/\w+\/pub\/social\/v1\/ and pubky:\/\/\w+\/priv\/social\/v1\//);
+        await assert.rejects(runMigration({ owner, port }), /a write to pubky:\/\/\w+\/pub\/pubky\.app\/.*, outside pubky:\/\/\w+\/pub\/social\/v1\/ and pubky:\/\/\w+\/priv\/social\/v1\//);
         assert.ok(!port.calls.some((c) => ["putJson", "putBytes", "delete"].includes(c.op)));
         assert.deepStrictEqual(port.store, before);
       } finally {
-        entry.migrate = migrate;
-        entry.migrateBlob = migrateBlob;
-        fresh();
+        Object.assign(transforms, real);
       }
     });
 
@@ -857,36 +849,24 @@ describe("migration engine", () => {
     });
 
     it("a blob never enters the wasm: a 20 MB one lands where migrate() puts it, and migrate() never sees a blob", async () => {
-      // The CommonJS engine, loaded fresh over an entry whose migrate records every path
-      const entry = require("./index.cjs");
-      const twins = () => Object.keys(require.cache).filter((f) => f.includes("/pkg/migration/"));
-      const real = entry.migrate;
+      const real = transforms.migrate;
       const seen = [];
-      entry.migrate = (handle, path, bytes) => {
+      transforms.migrate = (handle, path, bytes) => {
         seen.push(path);
         return real(handle, path, bytes);
       };
-      twins().forEach((f) => delete require.cache[f]);
-      let cjs;
-      try {
-        cjs = require("./migration/index.cjs");
-      } finally {
-        entry.migrate = real;
-        twins().forEach((f) => delete require.cache[f]);
-      }
 
       const big = new Uint8Array(randomBytes(20 * 1024 * 1024));
-      const hash = createFile(owner, big, "image/png").meta.id;
+      const hash = transforms.mediaId(big);
       const blobPath = `pub/pubky.app/blobs/${hash}`;
       const filePath = "pub/pubky.app/files/0033000000010";
       const file = encoder.encode(
         JSON.stringify({ name: "big.png", created_at: 1727740800000000, src: url(blobPath), content_type: "image/png", size: big.length }),
       );
-      const port = new cjs.MemoryPort();
-      for (const [path, { input }] of rows) port.store.set(url(path), input);
+      const port = legacyPort();
       port.store.set(url(filePath), file);
       port.store.set(url(blobPath), big);
-      const report = await cjs.runMigration({ owner, port });
+      const report = await runMigration({ owner, port }).finally(() => (transforms.migrate = real));
 
       assert.strictEqual(report.status, "done");
       assert.deepStrictEqual(nonZero(report.counts), { ...expectedCounts(), written: expectedCounts().written + 1 });
@@ -907,25 +887,5 @@ describe("migration engine", () => {
       assert.deepStrictEqual(rest, tree(alone));
     });
 
-    it("under require() from Node, the CommonJS twin runs the tree on its own entry to the same result", async () => {
-      const cjs = require("./migration/index.cjs");
-      assert.deepStrictEqual(Object.keys(cjs).sort(), Object.keys(migration).sort());
-      const port = new cjs.MemoryPort();
-      for (const [path, { input }] of rows) port.store.set(url(path), input);
-      const report = await cjs.runMigration({ owner, port });
-      assert.strictEqual(report.status, "done");
-      assert.deepStrictEqual(nonZero(report.counts), expectedCounts());
-      const esm = legacyPort();
-      await runMigration({ owner, port: esm });
-      assert.deepStrictEqual(tree(port), tree(esm));
-      // An error from the other build's class still reads as its kind
-      const quota = new MemoryPort({
-        intercept: (op) => {
-          if (op === "putBytes") throw new cjs.MigrationPortError("quota", undefined, 507);
-        },
-      });
-      for (const [path, { input }] of rows) quota.store.set(url(path), input);
-      assert.strictEqual((await runMigration({ owner, port: quota })).error.code, "QUOTA");
-    });
   });
 });

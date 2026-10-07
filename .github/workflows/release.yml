@@ -39,7 +39,7 @@ jobs:
       prerelease: ${{ steps.version.outputs.prerelease }}
       publish: ${{ steps.version.outputs.publish }}
       tarball: ${{ steps.pack.outputs.tarball }}
-      wasm_bytes: ${{ steps.pack.outputs.wasm_bytes }}
+      tarball_bytes: ${{ steps.pack.outputs.tarball_bytes }}
 
     steps:
       - uses: actions/checkout@v4
@@ -102,13 +102,13 @@ jobs:
           cd pkg
           npm run build
           tarball=$(npm pack --json | jq -r '.[0].filename')
-          wasm_bytes=$(stat -c %s pubky_social_specs_bg.wasm)
+          tarball_bytes=$(stat -c %s "$tarball")
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
-          echo "wasm_bytes=$wasm_bytes" >> "$GITHUB_OUTPUT"
+          echo "tarball_bytes=$tarball_bytes" >> "$GITHUB_OUTPUT"
           {
             echo "### pubky-social-specs ${{ steps.version.outputs.version }}"
             echo
-            echo "- wasm: $wasm_bytes bytes"
+            echo "- npm tarball: $tarball_bytes bytes"
             echo "- npm dist-tag: ${{ steps.version.outputs.dist_tag }}"
             echo "- publish: ${{ steps.version.outputs.publish }}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -117,12 +117,6 @@ jobs:
         with:
           name: npm-package
           path: pkg/${{ steps.pack.outputs.tarball }}
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wasm
-          path: pkg/pubky_social_specs_bg.wasm
           if-no-files-found: error
 
   crates:
@@ -202,7 +196,7 @@ jobs:
             --verify-tag \
             --generate-notes \
             --prerelease="$PRERELEASE" \
-            --notes "wasm: $WASM_BYTES bytes
+            --notes "npm tarball: $TARBALL_BYTES bytes
 
           - crates.io: https://crates.io/crates/pubky-social-specs/$VERSION
           - npm: https://www.npmjs.com/package/pubky-social-specs/v/$VERSION"
@@ -211,4 +205,4 @@ jobs:
           TARBALL: ${{ needs.verify.outputs.tarball }}
           VERSION: ${{ needs.verify.outputs.version }}
           PRERELEASE: ${{ needs.verify.outputs.prerelease }}
-          WASM_BYTES: ${{ needs.verify.outputs.wasm_bytes }}
+          TARBALL_BYTES: ${{ needs.verify.outputs.tarball_bytes }}

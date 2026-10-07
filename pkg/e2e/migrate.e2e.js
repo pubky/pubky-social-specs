@@ -8,9 +8,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pubky, Keypair, PublicKey } from "@synonymdev/pubky";
-import { init, readObject } from "../index.js";
-import { runMigration, MemoryPort } from "../migration/index.js";
-import { sdkPort } from "../migration/adapters/pubky-sdk.js";
+import { decodeObject } from "../dist/index.js";
+import { init } from "../dist/migration/wasm.js";
+import { runMigration, MemoryPort } from "../dist/migration/index.js";
+import { sdkPort } from "../dist/migration/adapters/pubky-sdk.js";
 import { legacyTree } from "../migration.fixture.js";
 
 const HOST = process.env.PUBKY_TESTNET_HOST || "localhost";
@@ -85,7 +86,7 @@ describe("migration against a testnet homeserver", function () {
     const want = [...memory.store.keys()].filter((u) => !legacy.has(u) && u !== flag()).sort();
     assert.deepStrictEqual([...written.keys()].sort(), want);
     for (const [u, bytes] of written) {
-      assert.deepStrictEqual(readObject(u, bytes), readObject(u, memory.store.get(u)), u);
+      assert.deepStrictEqual(decodeObject(u, bytes), decodeObject(u, memory.store.get(u)), u);
     }
   });
 

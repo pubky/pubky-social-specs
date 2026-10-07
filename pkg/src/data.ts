@@ -174,6 +174,19 @@ export const validMimeTypes: readonly string[] = [
   "video/mpeg"
 ];
 
+/** Why the migration leaves a 0.x object behind, and the revision of its transforms. */
+export const skipReasons = [
+  "malformed",
+  "shape",
+  "unsafe_integer",
+  "empty_title",
+  "unknown_feed_content",
+  "oversize",
+  "invalid",
+  "not_migrated"
+] as const;
+export const transformRev: number = 2;
+
 /**
  * The code points the reference spells as \u{..} when an error quotes text, as inclusive
  * ranges laid end to end. It follows the Unicode tables the reference was built with.

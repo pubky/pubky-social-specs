@@ -10,12 +10,9 @@ use crate::types::PubkyId;
 use crate::uri::resource::Resource;
 use crate::VALIDATION_LIMITS;
 use serde::{Deserialize, Serialize};
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Which root a parsed path lives under.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum Visibility {
     Public,

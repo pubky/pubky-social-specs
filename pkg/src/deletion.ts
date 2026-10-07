@@ -21,6 +21,7 @@ type V0Tag = { path: string; uri: string; label: string; src: string | null; con
 type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
 
 const LEGACY = "/pub/pubky.app/";
+const KINDS: readonly string[] = ["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"];
 const maybe = (js: unknown, at: string) => (js === null || js === undefined ? null : string.parse(js, at));
 
 function entryOf(listing: unknown, index: number): Entry {
@@ -110,6 +111,7 @@ function filePaths(hash: string, entries: Entry[]): string[] {
 
 /** The paths to DELETE for the object of `kind` named `id`, given the copies the caller found. */
 export function deletionPaths(kind: ObjectKind, id: string, listings: readonly unknown[]): string[] {
+  if (!KINDS.includes(kind)) misuse("kind", "an object kind");
   const entries = listings.map(entryOf);
   switch (kind) {
     case "post":

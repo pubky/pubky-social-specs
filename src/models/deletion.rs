@@ -22,8 +22,6 @@ use crate::{
     PubkySocialTag, PubkySocialUser,
 };
 use serde::Deserialize;
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Where the 0.x tree kept everything, public only.
 const LEGACY_PREFIX: &str = "/pub/pubky.app/";
@@ -31,7 +29,6 @@ const LEGACY_PREFIX: &str = "/pub/pubky.app/";
 /// One stored copy the caller found. A legacy copy whose path cannot name the object carries
 /// what the crate needs to check that it does.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(untagged)]
 pub enum Listing {
     /// A path as a LIST returns it, `/`-prefixed and owner-relative.
@@ -42,7 +39,6 @@ pub enum Listing {
 
 /// A v0 File object at `path` and its stored `src`, which names the bytes.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(deny_unknown_fields)]
 pub struct V0FileListing {
     pub path: String,
@@ -53,17 +49,14 @@ pub struct V0FileListing {
 /// File object also carries that object's stored `src` and `content_type`, which together
 /// name the v1 media file the tag targets.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(deny_unknown_fields)]
 pub struct V0TagListing {
     pub path: String,
     pub uri: String,
     pub label: String,
     #[serde(default)]
-    #[cfg_attr(target_arch = "wasm32", tsify(optional))]
     pub src: Option<String>,
     #[serde(default, rename = "contentType")]
-    #[cfg_attr(target_arch = "wasm32", tsify(optional))]
     pub content_type: Option<String>,
 }
 

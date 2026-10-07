@@ -4,7 +4,7 @@ import { canonicalPubky, isCanonicalSegment } from "./canonicalize.js";
 import { limits, STRIP_SET } from "./data.js";
 import { fail, misuse } from "./errors.js";
 import { checkPublicKey, hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
-import { utf8 } from "./text.js";
+import { trimWhere, utf8 } from "./text.js";
 
 export type Root = "public" | "private";
 export type ObjectKind = "user" | "post" | "follow" | "mute" | "bookmark" | "tag" | "file" | "feed";
@@ -209,8 +209,7 @@ function encodeSegment(segment: string): string {
  * percent-encoded and its dot segments resolved.
  */
 export function legacyMediaKey(v0FileSrc: string): string | null {
-  // eslint-disable-next-line no-control-regex
-  const input = v0FileSrc.replace(/^[\u0000- ]+|[\u0000- ]+$/g, "").replace(/[\t\n\r]/g, "");
+  const input = trimWhere(v0FileSrc, (unit) => unit <= 0x20).replace(/[\t\n\r]/g, "");
   const scheme = /^pubky:\/\//i.exec(input);
   if (!scheme) return null;
   const rest = input.slice(scheme[0].length);

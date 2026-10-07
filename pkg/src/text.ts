@@ -5,7 +5,6 @@ import { DEBUG_ESCAPED } from "./data.js";
 
 // The 25 code points that were whitespace at Unicode 15.1, spelled out: `\s` follows the engine
 const WS = "\\t-\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
-const EDGES = new RegExp(`^[${WS}]+|[${WS}]+$`, "g");
 const ANY_WS = new RegExp(`[${WS}]`);
 // eslint-disable-next-line no-control-regex
 const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
@@ -24,8 +23,25 @@ export function utf8Text(bytes: Uint8Array): string | null {
   }
 }
 
+/**
+ * `s` without the leading and trailing characters `strip` accepts. A loop and not
+ * `/^x+|x+$/`: that pattern retries from every character of a long inner run, which is
+ * quadratic on text a caller controls.
+ */
+export function trimWhere(s: string, strip: (unit: number) => boolean): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && strip(s.charCodeAt(start))) start++;
+  while (end > start && strip(s.charCodeAt(end - 1))) end--;
+  return s.slice(start, end);
+}
+
+const FROZEN = new Set([0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000]);
+// The whole set is in the BMP, so a UTF-16 unit is a code point here
+const isFrozenWhitespace = (unit: number) => (unit >= 0x09 && unit <= 0x0d) || unit === 0x20 || (unit >= 0x2000 && unit <= 0x200a) || FROZEN.has(unit);
+
 /** Not `String.prototype.trim`, whose set follows the engine's Unicode version. */
-export const frozenTrim = (s: string): string => s.replace(EDGES, "");
+export const frozenTrim = (s: string): string => trimWhere(s, isFrozenWhitespace);
 export const hasFrozenWhitespace = (s: string): boolean => ANY_WS.test(s);
 /** An ASCII control (U+0000 to U+001F, U+007F) or a frozen whitespace anywhere. */
 export const hasControlOrWhitespace = (s: string): boolean => CONTROL_OR_WS.test(s);

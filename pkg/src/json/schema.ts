@@ -6,7 +6,7 @@
 
 import { fail, misuse } from "../errors.js";
 import { debugQuote, isWellFormed } from "../text.js";
-import { type Json, type JsonObject, readJson, type Reader } from "./read.js";
+import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
 
 export interface Codec<T> {
@@ -113,9 +113,7 @@ export function list<T>(inner: Codec<T>): Codec<T[]> {
     write: (items) => `[${items.map(inner.write).join(",")}]`,
     plain: (items) => items.map(inner.plain),
     parse(js, at) {
-      if (!Array.isArray(js)) misuse(at, "an array");
-      // By index, so a hole is an absent item and not a skipped one
-      return Array.from(js, (item, index) => inner.parse(item, `${at}[${index}]`));
+      return arrayOf(js, at).map((item, index) => inner.parse(item, `${at}[${index}]`));
     },
   };
 }
@@ -169,7 +167,13 @@ export type Extra = { extra: JsonObject };
 function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObject {
   if (js === undefined) return new Map();
   if (typeof js !== "string") misuse(`${at}.$unknown`, "the text it was read with");
-  const members = readJson(js, true);
+  let members: Json;
+  try {
+    members = readJson(js, true);
+  } catch (e) {
+    if (e instanceof JsonError) return misuse(`${at}.$unknown`, "the text it was read with");
+    throw e;
+  }
   if (!(members instanceof Map)) return misuse(`${at}.$unknown`, "the text it was read with");
   for (const key of known) if (members.has(key)) fail(`extra must not shadow the field ${key}`);
   return members;
@@ -226,6 +230,17 @@ export function object<T extends Extra>(name: string, fields: Record<string, Cod
       return out as T;
     },
   };
+}
+
+// No list of the model, and no history a caller walks, comes near this
+const MAX_ITEMS = 1 << 20;
+
+/** A caller's array as a plain one: bounded, and a hole an absent item, not a skipped one. */
+export function arrayOf(js: unknown, at: string): unknown[] {
+  if (!Array.isArray(js)) misuse(at, "an array");
+  // Checked before it is walked: a length is free to claim
+  if (js.length > MAX_ITEMS) misuse(at, `an array of at most ${MAX_ITEMS} items`);
+  return Array.from(js);
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */
