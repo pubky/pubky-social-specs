@@ -58,6 +58,12 @@ jobs:
         cd ./pkg
         npm run types
 
+    # pkg/api/index.d.ts is the surface as last agreed; a change to it is made on purpose
+    - name: The public surface is the committed one
+      run: |
+        cd ./pkg
+        npm run api
+
     - name: Bundle size, tree-shaking and cold start
       run: |
         cd ./pkg

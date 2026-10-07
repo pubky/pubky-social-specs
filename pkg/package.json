@@ -1,6 +1,6 @@
 {
   "name": "pubky-social-specs",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0-beta.1",
   "description": "The Pubky social data model: builders, validation and URIs as plain synchronous functions",
   "license": "MIT",
   "type": "module",
@@ -41,7 +41,8 @@
     "size": "node qa/size.mjs",
     "score": "node --max-old-space-size=1536 qa/score.mjs",
     "e2e": "mocha e2e/migrate.e2e.js",
-    "example": "node example.js"
+    "example": "node example.js",
+    "api": "diff -u api/index.d.ts dist/index.d.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0"

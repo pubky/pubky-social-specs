@@ -7,16 +7,58 @@ how to run each again. Every command runs from the repository root unless it say
 
 | what | command | covers |
 |---|---|---|
-| Rust unit and integration tests | `cargo nextest run --features replay` (or `cargo test --features replay`; `replay` adds the migrator and the two replay binaries, whose tests only build with it) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the semantic vectors in `vectors/`, and the replay's remap and verifier |
-| wasm tests | `wasm-pack test --headless --firefox -- --features migrator` | the JS boundary as the browser build sees it |
-| the npm package | `cd pkg && npm install && npm run build && npm test` | the typed surface (`tsc`), the entry's argument checks, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI |
+| Rust unit and integration tests | `cargo nextest run --features replay,surface` (or `cargo test` with the same features; `replay` adds the migrator and the two replay binaries, `surface` the oracle the npm package is checked against) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the replay tooling, and that the recorded answers under `vectors/js` are the ones the crate gives now |
+| the wasm build | `cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings` | the migrator, the one part of the package that is this crate compiled to wasm, builds clean for its target; its behaviour is tested through the package |
+| the npm package | `cd pkg && npm install && npm run build && npm test` | the entry as a caller meets it (shapes, errors, the clock, unknown members), the transforms over the semantic vectors, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI |
+| the package against the crate | `cargo build --release --features surface --bin surface_oracle`, then `cd pkg && npm run score -- --fuzz 50000` | every operation of the entry, on the recorded vectors and on fresh seeded cases: the same bytes, ids, paths and messages as the crate (see below) |
+| types, size, hostile arguments | `cd pkg && npm run types && npm run size && node --expose-gc qa/boundary.mjs` | the declarations as a consumer compiles them, what an import costs a bundle, and that no argument makes a call hang, leak or throw anything but a `ValidationError` or a `TypeError` |
 | live e2e | `cd pkg && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-binding.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
 | lint and format | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` | |
 
 The semantic vectors (`vectors/semantic/v0_to_v1.json`) are shared by the Rust test
-`tests/migrate_vectors.rs` and the package test `pkg/test.js`: a behaviour of the transforms
-ships with a vector row, and both sides read the same file. The 0.x inputs in it are what the
-frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.rs`.
+`tests/migrate_vectors.rs` and the package test `pkg/transforms.test.js`: a behaviour of the
+transforms ships with a vector row, and both sides read the same file. The 0.x inputs in it are
+what the frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.rs`.
+
+## The package against the crate
+
+The npm package implements the 1.x surface natively in TypeScript, so nothing but a check keeps
+it equal to the crate. The check has one reference and three uses of it.
+
+The reference is the surface oracle: `src/surface.rs` behind the `surface` feature, and the
+binary `surface_oracle` over it. It answers each operation of the package (`decode`,
+`createPost`, `planPublish`, ...) as the crate answers it, one JSON request per line in, one
+answer out. A request carries its own clock and its own mint guard, so an answer depends on the
+request alone and a recorded request replays to the same answer.
+
+- **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family with the oracle's
+  answers, read by both sides. `tests/surface_vectors.rs` fails when the crate no longer gives
+  them, and the scoreboard fails when the package does not. Regenerate with
+  `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour.
+- **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh
+  requests per family, the oracle answers them, and the package has to answer the same: stored
+  bytes compared as bytes, a refusal by its message. `--family post --fuzz 1000000 --seed 3`
+  runs one family long; `--stats` prints how often each operation was accepted, since a family
+  that only ever refuses proves little. A mismatch is written to `pkg/qa/failures/<family>.json`
+  with the request, both answers, and nothing else needed to replay it.
+- **The round trip**: inside the `decode` operation the scoreboard also reads the bytes through
+  the public `decodeObject`, writes the object back through `encodeObject`, and requires the
+  bytes the reader produced. That is what holds a JS edit to the bytes a Rust edit writes,
+  unknown members and number spellings included.
+
+What the oracle cannot check is what only JS has: argument shapes, values no JSON holds, the
+`$unknown` text, the error classes. Those are `pkg/test.js` and `pkg/qa/boundary.mjs`.
+
+The tables the package carries (the limits, the MIME map, the set of characters Rust escapes
+when an error quotes text) are generated from the oracle into `pkg/src/data.ts` by
+`node qa/data.mjs`; `--check` fails when the file is stale, as it is after a toolchain bump moves
+the Unicode tables.
+
+`pkg/api/index.d.ts` is the declared surface as last agreed. `npm run api` diffs it against the
+build, so a signature never changes by accident; copy `dist/index.d.ts` over it when the change
+is meant.
+
+A finding goes into the package, never into a vector: a vector is the crate's answer.
 
 ## The replay: a copy of production on a testnet
 
@@ -62,7 +104,7 @@ own time between them, and `browser.mjs` writes both into each user's report.
 |---|---|---|
 | chaos port | `cd pkg && node --max-old-space-size=1536 qa/chaos.mjs [--variant main\|quota-rate\|lost-response\|any-kind\|phantom-404] [--seeds 1000]` | `runMigration` over a `MemoryPort` that fails, races and stalls by a seeded schedule, run again until it finishes, then compared with a fault-free run: create-only writes, the 0.x tree untouched, the flag only after `done`, no hang, counts that add up |
 | transform fuzz | `QA_FUZZ_CASES=10000 cargo test --release --features migrator --test qa_transform_fuzz -- --nocapture` (needs `CARGO_PROFILE_RELEASE_PANIC=unwind` for a release test build) | reader-shaped 0.x objects with hostile content: no panic, deterministic, every write reads back through the 1.x reader, every skip carries a published category and `invalid` a note |
-| wasm boundary | `cd pkg && node --max-old-space-size=1536 qa/boundary.mjs` | every export with one argument slot replaced by a hostile value: a result or a `Validation Error`, never a trap or a hang, the instance still answering afterwards, linear memory growth per call |
+| hostile arguments | `cd pkg && node --expose-gc --max-old-space-size=1536 qa/boundary.mjs` | every export of the entry with one argument slot, or one member of an object argument, replaced by a hostile value (proxies, cycles, lying typed arrays, megabyte strings, sparse arrays): a result, a `ValidationError` or a `TypeError`, promptly, with the heap back where it was |
 | benchmarks | `cd pkg && node qa/bench.mjs --dump inputs.json`, then `QA_BENCH_INPUT=inputs.json cargo test --release --features migrator --test qa_transform_bench -- --nocapture` | throughput per kind through the wasm and natively, the blob door and hasher, a whole run with the time split between wasm, port and engine |
 | mutation pass | `cd pkg && node qa/mutate.mjs [--seeds 150] [--only M3]` | plants one bug at a time in the engine, runs the package tests and a slice of the chaos harness, reports what nothing caught |
 

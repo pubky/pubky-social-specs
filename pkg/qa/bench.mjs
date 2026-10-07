@@ -1,4 +1,4 @@
-// Throughput of the transforms through the wasm, of the blob door and hasher, and of a whole
+// Throughput of the transforms through the wasm, of the blob door and its hash, and of a whole
 // runMigration over a synthetic account, with the time split between wasm, port and engine.
 //
 //   node --max-old-space-size=1536 qa/bench.mjs [--out file.json] [--dump inputs.json]
@@ -7,24 +7,20 @@
 // natively and the wasm overhead reads as the difference.
 
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { corpus } from "../migration.fixture.js";
+import { runMigration } from "../dist/migration/index.js";
+import { init, transforms } from "../dist/migration/wasm.js";
 
-const require = createRequire(import.meta.url);
 const args = process.argv.slice(2);
 const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
 
-// The CommonJS engine reads the entry's exports when it loads, so timing wrappers installed on
-// the entry before that load see every wasm call the engine makes
-const entry = require("pubky-social-specs");
-await entry.init();
-const WASM_CALLS = ["createMigration", "migrate", "migrateBlob", "hasherNew", "hasherUpdate", "hasherFinish", "stableId", "resolveDeref", "listPrefix", "legacyListPrefix"];
+// The engine calls the wasm through `transforms`, so timing wrappers on it see every call
+await init();
 const wasmTime = { ms: 0, calls: 0, by: {} };
-const real = {};
-for (const name of WASM_CALLS) {
-  real[name] = entry[name];
-  entry[name] = (...a) => {
+const real = { ...transforms };
+for (const name of Object.keys(real)) {
+  transforms[name] = (...a) => {
     const t0 = performance.now();
     try {
       return real[name](...a);
@@ -38,10 +34,7 @@ for (const name of WASM_CALLS) {
     }
   };
 }
-for (const key of Object.keys(require.cache)) if (/[\\/]migration[\\/]/.test(key)) delete require.cache[key];
-const { runMigration } = require("../migration/index.cjs");
-for (const name of WASM_CALLS) entry[name] = real[name];
-const { createMigration, migrate, migrateBlob, hasherNew, hasherUpdate, hasherFinish, createFile } = entry;
+const { createMigration, migrate, migrateBlob, mediaId } = real;
 
 const owner = corpus.owner;
 const url = (path) => `pubky://${owner}/${path}`;
@@ -64,8 +57,8 @@ const pubky = (i) => {
   }
   return s + (i % 2 ? "o" : "y");
 };
-/** The crate's hash id: half a blake3, Crockford, as createFile names media. */
-const hashId = (text) => createFile(owner, encoder.encode(text), "application/octet-stream").meta.id;
+/** The crate's hash id: half a blake3, Crockford, as a media path spells it. */
+const hashId = (text) => mediaId(encoder.encode(text));
 const json = (body) => encoder.encode(JSON.stringify(body));
 const BASE = 1_760_000_000_000_000;
 
@@ -103,7 +96,7 @@ const KINDS = {
   file: (i) => fileFor(i, hashId(`blob ${i}`), 1024),
   blob_1k: (i) => {
     const bytes = blobOf(1024, i);
-    return [`pub/pubky.app/blobs/${createFile(owner, bytes, "image/png").meta.id}`, bytes];
+    return [`pub/pubky.app/blobs/${mediaId(bytes)}`, bytes];
   },
 };
 
@@ -137,9 +130,7 @@ if (flag("--dump")) fs.writeFileSync(flag("--dump"), JSON.stringify({ owner, fil
 
 const HASH_CHUNK = 4 * 1024 * 1024;
 const hashOf = (bytes) => {
-  const h = hasherNew();
-  for (let at = 0; at < bytes.length; at += HASH_CHUNK) hasherUpdate(h, bytes.subarray(at, at + HASH_CHUNK));
-  return hasherFinish(h);
+  return mediaId(bytes);
 };
 for (const size of [1024, 1 << 20, 16 << 20, 50 << 20]) {
   const bytes = new Uint8Array(randomBytes(size));
@@ -236,7 +227,7 @@ const account = new BenchPort();
 const counts = { posts: 5000, tags: 15000, follows: 500, blobs: 50 };
 for (let i = 0; i < counts.blobs; i++) {
   const bytes = blobOf(1 << 20, i + 7);
-  const hash = createFile(owner, bytes, "image/png").meta.id;
+  const hash = mediaId(bytes);
   account.store.set(url(`pub/pubky.app/blobs/${hash}`), bytes);
   const [path, body] = fileFor(i, hash, bytes.length);
   account.store.set(url(path), body);
