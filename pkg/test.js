@@ -6,6 +6,7 @@ import assert from "assert";
 import vm from "node:vm";
 import * as specs from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
+import * as postModel from "./dist/models/post.js";
 
 const {
   ValidationError, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
@@ -229,6 +230,15 @@ describe("pubky-social-specs", () => {
       misuse(() => buildPost(OTTO, { kind: "collection", name: "List", parent: buildUri(RIO, "user") }), /input\.parent must be one of kind, name/);
       refuses(() => buildPost(OTTO, { content: "x", kind: "podcast" }), "Validation Error: Invalid content kind: podcast");
       refuses(() => buildPost(OTTO, { content: "x", kind: "unknown" }), "Validation Error: Invalid content kind: unknown");
+    });
+
+    it("a built post and its envelope hold their own unknown members, and the envelope's references are read once for both", () => {
+      const made = postModel.buildPost(OTTO, { kind: "article", title: "t", body: "b", cover_image: "https://a.example/c.png" });
+      made.value.extra.set("later", 1n);
+      assert.deepStrictEqual(postModel.envelopeRefs(made.value), { cover: "https://a.example/c.png", items: [] });
+      assert.notStrictEqual(postModel.buildPost(OTTO, { content: "x" }).value.extra, postModel.buildPost(OTTO, { content: "y" }).value.extra);
+      const list = postModel.buildPost(OTTO, { kind: "collection", name: "List", items: [{ uri: buildUri(RIO, "user") }] });
+      assert.deepStrictEqual(postModel.envelopeRefs(list.value).items, [buildUri(RIO, "user")]);
     });
 
     it("a tag, a bookmark, a follow and a mute are named by what they point at", () => {

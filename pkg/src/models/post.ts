@@ -80,24 +80,33 @@ export function checkReferences(value: Post, publicRoot: boolean, owner: string 
   if (value.embed !== null) checkReference("embed", value.embed, "", max, publicRoot, owner);
   if (value.lock !== null) checkReference("lock", value.lock, "pubky", max, publicRoot, owner);
   value.attachments.forEach((a, index) => checkReference(`attachments[${index}].uri`, a.uri, "pubky or web", max, publicRoot, owner));
-  if (value.kind !== "article" && value.kind !== "collection") return;
-  // Content that does not parse references nothing here; its own rule refuses it after
+  const { cover, items } = envelopeRefs(value);
+  if (cover !== null) checkReference("cover_image", cover, "pubky or web", limits.imageUrlMaxLength, publicRoot, owner);
+  items.forEach((uri, index) => checkReference(`items[${index}].uri`, uri, "", max, publicRoot, owner));
+}
+
+/**
+ * The references inside the envelope of an article or a collection: its cover, and a
+ * collection's item URIs. Content that does not parse references nothing here; its own rule
+ * refuses it after.
+ */
+export function envelopeRefs(value: Post): { cover: string | null; items: string[] } {
+  if (value.kind !== "article" && value.kind !== "collection") return { cover: null, items: [] };
   let envelope: Json | undefined;
   try {
     envelope = readJson(value.content);
   } catch (e) {
     if (!(e instanceof JsonError)) throw e;
   }
-  const cover = envelope instanceof Map ? envelope.get("cover_image") : undefined;
-  if (typeof cover === "string") checkReference("cover_image", cover, "pubky or web", limits.imageUrlMaxLength, publicRoot, owner);
-  if (value.kind !== "collection") return;
-  let items: CollectionItem[] = [];
+  const member = envelope instanceof Map ? envelope.get("cover_image") : undefined;
+  const cover = typeof member === "string" ? member : null;
+  if (value.kind !== "collection") return { cover, items: [] };
   try {
-    items = parse(collection, value.content).items;
+    return { cover, items: parse(collection, value.content).items.map((entry) => entry.uri) };
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
+    return { cover, items: [] };
   }
-  items.forEach((entry, index) => checkReference(`items[${index}].uri`, entry.uri, "", max, publicRoot, owner));
 }
 
 // eslint-disable-next-line no-control-regex
@@ -246,30 +255,29 @@ const items = option(list({ ...item, parse: (js: unknown, at: string): Collectio
   return { uri: string.parse(entry.uri, `${at}.uri`), note: trimmedOrNull(maybe.parse(entry.note, `${at}.note`)), extra: new Map() };
 } }));
 
+/** What a post that can reply, quote and carry media takes, in the order a builder reads it. */
+const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
+  parent: maybe.parse(i.parent, "input.parent"),
+  embed: maybe.parse(i.embed, "input.embed"),
+  attachments: attachments.parse(i.attachments, "input.attachments") ?? [],
+  lock: maybe.parse(i.lock, "input.lock"),
+});
+
 /** A new post. The builder trims the display text and writes the envelope of a typed kind. */
 export function buildPost(owner: string, input: unknown): Minted {
   checkPublicKey(owner);
   const kind = typeof input === "object" && input !== null && Object.hasOwn(input, "kind") ? (input as { kind: unknown }).kind : undefined;
-  const extra = new Map<string, Json>();
   if (kind === "article") {
     const i = inputOf(input, "input", ["kind", "title", "body", "cover_image", "parent", "embed", "attachments", "lock", "root", "slug"]);
     const content = article.write({
       title: frozenTrim(string.parse(i.title, "input.title")),
       body: string.parse(i.body, "input.body"),
       cover_image: maybe.parse(i.cover_image, "input.cover_image"),
-      extra,
+      extra: new Map(),
     });
-    const value: Post = {
-      content,
-      kind,
-      parent: maybe.parse(i.parent, "input.parent"),
-      embed: maybe.parse(i.embed, "input.embed"),
-      attachments: attachments.parse(i.attachments, "input.attachments") ?? [],
-      lock: maybe.parse(i.lock, "input.lock"),
-      extra,
-    };
+    const thread = threaded(i);
     const { root, slug } = placement(i);
-    return create(value, root, owner, slug);
+    return create({ content, kind, ...thread, extra: new Map() }, root, owner, slug);
   }
   if (kind === "collection") {
     const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"]);
@@ -278,22 +286,14 @@ export function buildPost(owner: string, input: unknown): Minted {
     const entries = items.parse(i.items, "input.items") ?? [];
     const cover = maybe.parse(i.cover_image, "input.cover_image");
     const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : known(collectionLayouts, "collection layout", i.layout, "layout");
-    const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra });
-    const value: Post = { content, kind, parent: null, embed: null, attachments: [], lock: null, extra };
+    const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     const { root, slug } = placement(i);
-    return create(value, root, owner, slug);
+    return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, owner, slug);
   }
   const i = inputOf(input, "input", ["kind", "content", "parent", "embed", "attachments", "lock", "root", "slug"]);
   const content = frozenTrim(string.parse(i.content, "input.content"));
-  const value: Post = {
-    content,
-    kind: i.kind === null || i.kind === undefined ? "note" : known(postKinds, "content kind", i.kind, "kind"),
-    parent: maybe.parse(i.parent, "input.parent"),
-    embed: maybe.parse(i.embed, "input.embed"),
-    attachments: attachments.parse(i.attachments, "input.attachments") ?? [],
-    lock: maybe.parse(i.lock, "input.lock"),
-    extra,
-  };
+  const typed = i.kind === null || i.kind === undefined ? "note" : known(postKinds, "content kind", i.kind, "kind");
+  const thread = threaded(i);
   const { root, slug } = placement(i);
-  return create(value, root, owner, slug);
+  return create({ content, kind: typed, ...thread, extra: new Map() }, root, owner, slug);
 }

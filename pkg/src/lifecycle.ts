@@ -8,7 +8,7 @@ import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { type Json, JsonError, type JsonObject, readJson } from "./json/read.js";
 import { writeJson } from "./json/write.js";
 import { checkSafeNumbers, parse, validate } from "./models/common.js";
-import { checkReferences, checkTimestampId, collection, post, type Post } from "./models/post.js";
+import { checkReferences, checkTimestampId, envelopeRefs, post, type Post } from "./models/post.js";
 import { compareBytes } from "./text.js";
 import { LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
@@ -42,25 +42,10 @@ function envelopeOf(value: Post): JsonObject | null {
   }
 }
 
-function coverOf(value: Post): string | null {
-  const cover = envelopeOf(value)?.get("cover_image");
-  return typeof cover === "string" ? cover : null;
-}
-
 function mediaRefs(value: Post): string[] {
   const refs = value.attachments.map((a) => a.uri);
-  const cover = coverOf(value);
+  const { cover } = envelopeRefs(value);
   return cover === null ? refs : [...refs, cover];
-}
-
-function itemUris(value: Post): string[] {
-  if (value.kind !== "collection") return [];
-  try {
-    return parse(collection, value.content).items.map((entry) => entry.uri);
-  } catch (e) {
-    if (e instanceof ValidationError) return [];
-    throw e;
-  }
 }
 
 /** The owner's private media a version references, each once, in order of appearance. */
@@ -77,7 +62,7 @@ function privateMediaRefs(value: Post, owner: string): string[] {
       if (!media.includes(uri)) media.push(uri);
     } else if (isPrivRooted(uri)) fail(`cannot publish: a private reference in a media position is not media: ${uri}`);
   }
-  const others = [value.parent, value.embed, value.lock].filter((uri): uri is string => uri !== null).concat(itemUris(value));
+  const others = [value.parent, value.embed, value.lock].filter((uri): uri is string => uri !== null).concat(envelopeRefs(value).items);
   const hidden = others.find(isPrivRooted);
   if (hidden !== undefined) fail(`cannot publish: a public post cannot reference a private object: ${hidden}`);
   return media;
@@ -99,7 +84,7 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
   if (compareBytes(editId, id) < 0) fail(`editId ${editId} predates the post id ${id}`);
   const copies: Copy[] = privateMediaRefs(value, owner).map((uri) => ({ from: toPath(uri, owner), to: toPath(toPublic(uri, owner), owner) }));
   const published: Post = { ...value, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
-  const cover = coverOf(published);
+  const { cover } = envelopeRefs(published);
   if (cover !== null && toPublic(cover, owner) !== cover) {
     const envelope = envelopeOf(published);
     if (envelope === null) return fail("cannot publish: the cover did not parse");
