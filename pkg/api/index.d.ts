@@ -15,20 +15,32 @@ export type * from "./types.js";
  */
 export declare function setClock(nowMs?: () => number): void;
 /**
- * Reads what is stored at `uri`, checked against the id, the root and the author the URI
- * names. Media comes back as its bytes.
+ * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
+ * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
+ * and for a post the author. Media comes back as its bytes, a view of the ones given.
+ *
+ * Throws a `ValidationError` when the bytes are no valid object there. Other people's data can
+ * be anything, so decode it inside a try. A post of a kind this version does not know is
+ * refused too: it has rules this version cannot check.
  */
 export declare function decodeObject(uri: string, bytes: Uint8Array): T.Decoded;
 /**
- * The bytes to PUT for an object read and then changed, its unknown members kept. `at` is the
- * URI it goes to; `{ kind }` instead checks it by the rules that need no path, for bytes bound
- * elsewhere.
+ * The bytes to PUT for an object read and then changed, its unknown members kept. `object` is
+ * the `.object` of a `decodeObject` or builder result, never its bytes or the result itself;
+ * for media it is the bytes, returned as they are once checked.
+ *
+ * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
+ * need no path, for bytes bound somewhere the data model does not name.
  */
 export declare function encodeObject(at: string | {
     kind: T.ObjectKind;
     root?: T.Root | null;
 }, object: T.Stored[keyof T.Stored] | Uint8Array): T.Bytes;
-/** The envelope inside the `content` of an article or a collection; null for any other kind. */
+/**
+ * The envelope inside the `content` of an article or a collection; null for any other kind.
+ * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
+ * content is not a readable envelope.
+ */
 export declare function decodeContent(post: T.Post): {
     kind: "article";
     content: T.ArticleContent;
@@ -36,34 +48,63 @@ export declare function decodeContent(post: T.Post): {
     kind: "collection";
     content: T.CollectionContent;
 } | null;
-/** The `content` string of an article or a collection, for a post about to be edited. */
+/**
+ * The `content` string of an article (an envelope with a `title`) or a collection (one with a
+ * `name`), for a post about to be edited. It only spells the envelope: the rules run when the
+ * post is passed to `editPost` or `encodeObject`.
+ */
 export declare function encodeContent(content: T.ArticleContent | T.CollectionContent): string;
-/** A fresh profile. To change a stored one and keep what this version does not know: decode, edit, encode. */
+/**
+ * A fresh profile for `owner`, a bare public key. Name, bio, status and link titles are
+ * trimmed; `image` and each link `url` are stored as written and must be canonical already.
+ * To change a stored profile and keep what this version does not know: decode, edit, encode.
+ */
 export declare function buildUser(owner: string, input: T.NewUser): T.Built<T.User>;
-/** A new post at `posts/{id}/{id}[-slug].json`, the id minted here. */
+/**
+ * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
+ * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`,
+ * and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`.
+ * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
+ */
 export declare function buildPost(owner: string, input: T.NewPost): T.BuiltPost;
 /**
  * An edit of the post whose newest version is at `headUri`: a new version in the same post,
- * with an id above the head's. `root` defaults to the head's own.
+ * with an id above the head's. `headUri` is the URL of that version, in the caller's own
+ * storage: the owner and the post id are read from it. `post` is the stored post as it should
+ * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
+ * slug is not carried over from the head.
  */
 export declare function editPost(headUri: string, post: T.Post, options?: {
     root?: T.Root | null;
     slug?: string | null;
 } | null): T.BuiltPost;
-/** A feed at its private path; the id is derived from the filter alone. */
+/**
+ * A feed at its private path. The id is derived from the filter alone (reach, layout, sort,
+ * content, tags), so two feeds with one filter are one feed whatever their names, and an
+ * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
+ */
 export declare function buildFeed(owner: string, input: T.NewFeed): T.Built<T.Feed>;
 /** The id of a feed object: an edited filter moves the feed, and this is where to. */
 export declare function feedId(feed: T.Feed): string;
-/** A tag on `uri`. The builder folds the label; the uri must already be canonical. */
+/**
+ * A tag on `uri`, a reference: for a post, `buildUri(author, "post", id)`. The builder trims
+ * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
+ */
 export declare function buildTag(owner: string, uri: string, label: string): T.Built<T.Tag>;
 /** A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked. */
 export declare function buildBookmark(owner: string, target: string): T.Built<T.Bookmark>;
+/** A follow of `followee`, a bare public key, stored under the public root. */
 export declare function buildFollow(owner: string, followee: string): T.Built<T.Follow>;
 /** A mute, stored under the private root. */
 export declare function buildMute(owner: string, mutee: string): T.Built<T.Mute>;
 /**
  * Where media goes: content addressed, so the id is the hash of the bytes. Pass the bytes, or
- * an id from `createMediaHasher` when they were hashed elsewhere, as in a worker.
+ * an id from `createMediaHasher` when they were hashed elsewhere, as in a worker. The bytes are
+ * yours to PUT at `url`; nothing else is stored.
+ *
+ * `type` picks the extension of the path; one the package does not map, an empty one included,
+ * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
+ * the size is the caller's to check.
  */
 export declare function buildFile(owner: string, input: T.NewFile): {
     id: string;
@@ -78,7 +119,10 @@ export declare function createMediaHasher(): {
     update(chunk: Uint8Array): void;
     id(): string;
 };
-/** Publishing one private version: the media copies to run first, then the post to PUT. */
+/**
+ * Publishing one private version: the media copies to run first, then the post to PUT. Every
+ * path in a plan is owner-relative.
+ */
 export declare function planPublish(owner: string, version: {
     id: string;
     editId: string;
@@ -87,7 +131,11 @@ export declare function planPublish(owner: string, version: {
     copies: lifecycle.Copy[];
     put: T.BuiltPost;
 };
-/** Unpublishing: the copies back into the private root, then the deletes, each in order. */
+/**
+ * Unpublishing: the copies back into the private root, then the deletes, each in order.
+ * `publicPaths` are the paths of the post's public versions as a LIST gave them, `privateHead`
+ * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
+ */
 export declare function planUnpublish(post: {
     id: string;
     publicPaths: string[];
@@ -97,7 +145,12 @@ export declare function planUnpublish(post: {
     copies: lifecycle.Copy[];
     deletes: string[];
 };
-/** Deleting a post everywhere: the deletes in order, then the media to consider collecting. */
+/**
+ * Deleting a post everywhere: the deletes in order, then the media to consider collecting.
+ * `copies` are the stored versions found by LIST, each `{ root, path }`; `versions` the ones
+ * that could be read. A media candidate is deleted only once nothing else references it, which
+ * only the caller can know.
+ */
 export declare function planDelete(owner: string, post: {
     id: string;
     legacyPaths?: string[] | null;
@@ -108,19 +161,27 @@ export declare function planDelete(owner: string, post: {
     mediaGcCandidates: string[];
 };
 /**
- * Every stored copy of one object across both epochs and both roots, legacy first.
- * `listings` are the copies the caller found; only a post, a file and a tag take any.
+ * The paths to DELETE for one object, legacy first. What the id alone gives is derived: the
+ * profile, a follow, and the 1.x path of everything else. For a post, a file and a tag the
+ * other copies come from `listings`, the owner-relative paths found by LIST (and for a 0.x
+ * File object or tag, what proves it belongs to this one); a post with no listings gives none.
  */
 export declare function deletionPaths(target: {
     kind: T.ObjectKind;
     id: string;
     listings?: deletion.Listing[] | null;
 }): string[];
-/** Classifies a URI. Throws only when it is not a canonical pubky URI with a known root. */
+/**
+ * Classifies a URI by its path alone, without the clock. `pubky://<owner>/...` and the short
+ * `pubky<owner>/...` are both read. Throws only when the string is neither, or its path holds
+ * a segment no canonical path has (`..`, an empty one, `%`, whitespace), or its root is not
+ * `pub` or `priv`. A 0.x path reads as `{ kind: "foreign", namespace: "pubky.app" }`.
+ */
 export declare function parseUri(uri: string): T.ParsedUri;
 /**
  * Where an object of `kind` lives under `owner`. A post URI is versionless, the form a
  * reference takes; a file takes its full `{hash}.{ext}` name; a feed gets its private path.
+ * The owner key is checked; the id is spelled as given and not validated.
  */
 export declare function buildUri(owner: string, kind: "user"): string;
 export declare function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;

@@ -40,7 +40,7 @@ for (const [names, budget, absent] of PROBES) {
 
 // A cold process: load the entry, build one post. No init, so this is the whole start
 const cold = `const t=performance.now();const m=await import(${JSON.stringify(entry)});const l=performance.now();m.buildPost("8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo",{content:"hi"});console.log((l-t).toFixed(1),(performance.now()-l).toFixed(2))`;
-const runs = Array.from({ length: 5 }, () => execFileSync(process.execPath, ["--input-type=module", "-e", cold]).toString().trim().split(" ").map(Number));
+const runs = Array.from({ length: 9 }, () => execFileSync(process.execPath, ["--input-type=module", "-e", cold]).toString().trim().split(" ").map(Number));
 const load = Math.min(...runs.map((r) => r[0]));
 const first = Math.min(...runs.map((r) => r[1]));
 const startOk = load < 250 && first < 5;
