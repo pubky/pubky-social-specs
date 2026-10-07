@@ -230,7 +230,7 @@ class Run {
   #roots: string[] = [];
   #handle?: Migration;
   #phase: Phase = "probe";
-  #kind?: Bucket;
+  #kind: Bucket | undefined;
   #done = 0;
   #total = 0;
   #dropped = 0;
@@ -458,7 +458,7 @@ class Run {
       }
     }
     if (bucket === "files") {
-      this.#learnFile(path, bytes);
+      this.#learnFile(bytes);
       return undefined;
     }
 
@@ -572,7 +572,7 @@ class Run {
   }
 
   /** Keeps what a File object declares about its blob's size, for a paused run's estimate. */
-  #learnFile(path: string, bytes: Uint8Array): void {
+  #learnFile(bytes: Uint8Array): void {
     try {
       const { src, size } = JSON.parse(decoder.decode(bytes));
       const key = typeof src === "string" ? legacyMediaKey(src) : null;

@@ -4,7 +4,7 @@
 
 import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
-import { fail, ValidationError } from "../errors.js";
+import { ValidationError } from "../errors.js";
 import { checkWellFormed } from "../text.js";
 import type { ObjectKind } from "../uri.js";
 import * as glue from "./glue.js";

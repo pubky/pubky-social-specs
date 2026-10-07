@@ -118,7 +118,8 @@ class SdkPort implements MigrationPort {
       throw failure;
     }
     // A server or a proxy may cap the page below the size asked, so only an empty page ends the walk
-    return urls.length > 0 ? { urls, next: urls[urls.length - 1] } : { urls };
+    const last = urls.at(-1);
+    return last === undefined ? { urls } : { urls, next: last };
   }
 
   async get(url: string, options?: GetOptions): Promise<Uint8Array | null> {

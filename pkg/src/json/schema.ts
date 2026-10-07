@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { fail, misuse } from "../errors.js";
+import { misuse } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -190,7 +190,7 @@ export type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Code
 export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<T> {
   const names = Object.keys(fields);
   const entries = Object.entries(fields) as [string, Codec<unknown>][];
-  const absent = (key: string, codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : codec.optional ? null : missing());
+  const absent = (codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : codec.optional ? null : missing());
   return {
     read(r: Reader) {
       if (r.peekToken() !== 0x7b) invalidType(r, `struct ${name}`);
@@ -203,7 +203,7 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
         out[key] = codec.read(r);
       });
       for (const [key, codec] of entries) {
-        if (!Object.hasOwn(out, key)) out[key] = absent(key, codec, () => r.fail(`missing field \`${key}\``));
+        if (!Object.hasOwn(out, key)) out[key] = absent(codec, () => r.fail(`missing field \`${key}\``));
       }
       out.extra = extra;
       return out as T;
@@ -233,7 +233,7 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
       const out: Record<string, unknown> = {};
       for (const [key, codec] of entries) {
         const member = given[key];
-        out[key] = member === undefined ? absent(key, codec, () => misuse(`${at}.${key}`, "given")) : codec.parse(member, `${at}.${key}`);
+        out[key] = member === undefined ? absent(codec, () => misuse(`${at}.${key}`, "given")) : codec.parse(member, `${at}.${key}`);
       }
       out.extra = unknownOf(given.$unknown, at, names);
       return out as T;

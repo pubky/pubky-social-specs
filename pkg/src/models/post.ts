@@ -5,7 +5,7 @@ import { blake3 } from "@noble/hashes/blake3.js";
 import { checkReference } from "../canonicalize.js";
 import { mintFrom, nowMicros } from "../clock.js";
 import { limits } from "../data.js";
-import { fail, misuse, ValidationError } from "../errors.js";
+import { fail, ValidationError } from "../errors.js";
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
 import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
