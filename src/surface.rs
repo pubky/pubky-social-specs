@@ -534,6 +534,14 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             .encode(serde_json::to_vec(&a.parsed::<Value>()?).map_err(|e| e.to_string())?)
             .into(),
 
+        // The frozen tables, which the package carries as generated source
+        "data" => json!({
+            "limits": crate::VALIDATION_LIMITS,
+            "mimeToExt": crate::MIME_TO_EXT,
+            "stripSet": crate::STRIP_SET,
+            "validMimeTypes": crate::VALID_MIME_TYPES,
+        }),
+
         "decode" => {
             let uri = a.s()?.to_string();
             read(&uri, a.b()?)?
