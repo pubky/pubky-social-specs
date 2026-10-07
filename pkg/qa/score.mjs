@@ -65,23 +65,32 @@ for (const family of Object.keys(families)) {
     ? fs.readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line))
     : [];
   const vectors = differing(rows.map((row) => row.q), rows.map((row) => row.a));
-  const asked = requests(family, seed, cases);
-  const reference = await ask(asked);
-  if (process.argv.includes("--stats")) {
+  // In batches, so a long run holds one batch of requests and answers at a time
+  const BATCH = 50_000;
+  const fuzz = { missing: 0, wrong: [] };
+  const stats = {};
+  const refusals = new Set();
+  for (let done = 0; done < cases; done += BATCH) {
+    const asked = requests(family, seed + done / BATCH, Math.min(BATCH, cases - done));
+    const reference = await ask(asked);
     // How often each operation is accepted: a family that only ever refuses proves little
-    const stats = {};
     asked.forEach((q, i) => ((stats[q.op] ??= [0, 0])["ok" in reference[i] ? 0 : 1]++));
-    for (const [op, [ok, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  refused ${err}`);
-    const messages = new Set(reference.filter((a) => a.err).map((a) => a.err.replace(/[0-9A-Za-z]{13,}|: .*$/g, "…")));
-    console.log(`  ${messages.size} distinct refusals`);
+    for (const a of reference) if (a.err) refusals.add(a.err.replace(/^Validation Error: /, "").replace(/[0-9A-Za-z]{13,}/g, "…").replace(/: .*$/s, ""));
+    const batch = differing(asked, reference);
+    fuzz.missing += batch.missing;
+    if (fuzz.wrong.length < 50) fuzz.wrong.push(...batch.wrong.slice(0, 50));
+    else fuzz.wrong.length += batch.wrong.length;
   }
-  const fuzz = differing(asked, reference);
+  if (process.argv.includes("--stats")) {
+    for (const [op, [ok, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  refused ${err}`);
+    console.log(`  ${refusals.size} distinct refusals`);
+  }
   const wrong = [...vectors.wrong, ...fuzz.wrong];
   const missing = vectors.missing + fuzz.missing;
   if (wrong.length || missing || !rows.length) clean = false;
   if (wrong.length) {
     fs.mkdirSync(failuresDir, { recursive: true });
-    fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.slice(0, 50), null, 1));
+    fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.filter(Boolean).slice(0, 50), null, 1));
   } else fs.rmSync(`${failuresDir}${family}.json`, { force: true });
   console.log(
     `${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}` +
