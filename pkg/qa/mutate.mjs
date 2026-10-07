@@ -64,7 +64,7 @@ const MUTATIONS = [
     id: "M8",
     what: "only the first LIST page is read",
     from: "if (!page.next) return urls;",
-    to: "if (page.urls.length >= 0) return urls;",
+    to: "if (page.urls.length >= 0 || !page.next) return urls;",
   },
   {
     id: "M9",
