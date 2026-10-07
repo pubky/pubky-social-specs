@@ -5,25 +5,19 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { publicKeyFault } from "./ids.js";
 import { asciiFold, codePointLen, frozenTrim, hasControlOrWhitespace } from "./text.js";
-import { parsePath } from "./uri.js";
+import { isCanonicalSegment, parsePath, splitPubky } from "./path.js";
 
 const isPublicKey = (key: string) => publicKeyFault(key) === null;
 
-export function isCanonicalSegment(segment: string): boolean {
-  return segment !== "" && segment !== "." && segment !== ".." && !/[/%?#]/.test(segment) && !hasControlOrWhitespace(segment);
-}
+export { isCanonicalSegment };
 
 /** The full form `pubky://<pk>[/<path>]` of either spelling, or null. */
 export function canonicalPubky(raw: string): string | null {
   // The scheme is case-sensitive; the SDK short form has no `://`
-  const rest = raw.startsWith("pubky://") ? raw.slice(8) : raw.startsWith("pubky") ? raw.slice(5) : null;
-  if (rest === null) return null;
-  const slash = rest.indexOf("/");
-  const host = slash < 0 ? rest : rest.slice(0, slash);
-  if (!isPublicKey(host)) return null;
-  if (slash < 0) return `pubky://${host}`;
-  const path = rest.slice(slash + 1);
-  return path.split("/").every(isCanonicalSegment) ? `pubky://${host}/${path}` : null;
+  const split = splitPubky(raw.startsWith("pubky") && !raw.startsWith("pubky://") ? `pubky://${raw.slice(5)}` : raw);
+  if (split === null || !isPublicKey(split.owner)) return null;
+  if (split.path === null) return `pubky://${split.owner}`;
+  return split.path.split("/").every(isCanonicalSegment) ? `pubky://${split.owner}/${split.path}` : null;
 }
 
 /** The stored form of a web reference is the trimmed raw string. */
@@ -79,15 +73,12 @@ export function reference(
   else canonical = schemes === "" ? canonicalExternal(uri) : null;
   if (canonical === null || codePointLen(canonical) > max) return shape;
   if (!isPubky) return { canonical };
-  const rest = canonical.slice(8);
-  const slash = rest.indexOf("/");
-  const host = slash < 0 ? rest : rest.slice(0, slash);
-  const path = slash < 0 ? "" : rest.slice(slash + 1);
-  if (path === "priv" || path.startsWith("priv/")) {
+  const { owner: host, path } = splitPubky(canonical) as { owner: string; path: string | null };
+  if (path === "priv" || path?.startsWith("priv/")) {
     if (publicRoot) return { refusal: `must not reference a private object: ${uri}` };
     if (owner !== null && host !== owner) return { refusal: `must not reference a private object of another user: ${uri}` };
   }
-  const parsed = parsePath(slash < 0 ? null : path);
+  const parsed = parsePath(path);
   if (parsed?.kind === "post" && parsed.editId !== undefined) return { refusal: `must be versionless: ${uri}` };
   return { canonical };
 }

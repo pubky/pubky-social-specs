@@ -25,7 +25,7 @@ export function checkSafeInt(value: bigint, where = ""): void {
   if (value > MAX_SAFE || value < -MAX_SAFE) fail(`integer ${value} outside the JSON-safe range${where}`);
 }
 
-function checkSafeNumbers(value: Json, where: string): void {
+export function checkSafeNumbers(value: Json, where = ""): void {
   if (typeof value === "bigint") checkSafeInt(value, where);
   else if (Array.isArray(value)) for (const item of value) checkSafeNumbers(item, where);
   else if (value instanceof Map) for (const key of [...value.keys()].sort(compareBytes)) checkSafeNumbers(value.get(key) as Json, where);

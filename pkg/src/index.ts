@@ -18,7 +18,7 @@ import { plainBytes } from "./bytes.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
 import { fail, misuse, ValidationError } from "./errors.js";
-import { arrayOf, type Codec, inputOf } from "./json/schema.js";
+import { arrayOf, type Codec, inputOf, rootOf } from "./json/schema.js";
 import * as lifecycle from "./lifecycle.js";
 import { parse as parseText } from "./models/common.js";
 import * as feeds from "./models/feed.js";
@@ -27,7 +27,7 @@ import * as graph from "./models/graph.js";
 import * as posts from "./models/post.js";
 import * as users from "./models/user.js";
 import * as objects from "./objects.js";
-import { isWellFormed, utf8 } from "./text.js";
+import { checkWellFormed, utf8 } from "./text.js";
 import type * as T from "./types.js";
 import * as uris from "./uri.js";
 
@@ -37,11 +37,9 @@ export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } fro
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type * from "./types.js";
 
-// A Rust string cannot hold a lone surrogate, so no rule of the model has an answer for one
 function text(value: unknown, name: string): string {
   if (typeof value !== "string") misuse(name, "a string");
-  if (!isWellFormed(value)) fail("text must be well-formed UTF-16", name.includes(".") ? undefined : name);
-  return value;
+  return checkWellFormed(value, name.includes(".") ? undefined : name);
 }
 
 /** A URL argument. A path passed for one is the commonest first mistake, so it is named as such. */
@@ -62,12 +60,6 @@ function bytesOf(value: unknown, name: string): T.Bytes {
 }
 
 const strings = (value: unknown, name: string): string[] => arrayOf(value, name).map((item, index) => text(item, `${name}[${index}]`));
-
-const rootOf = (value: unknown, name: string): uris.Root => {
-  if (value === undefined || value === null) return "public";
-  if (value !== "public" && value !== "private") misuse(name, '"public" or "private"');
-  return value;
-};
 
 type Made<V> = { id: string; path: T.OwnerPath; value: V; body: string };
 

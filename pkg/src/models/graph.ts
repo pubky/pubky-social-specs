@@ -7,9 +7,10 @@ import { limits } from "../data.js";
 import { fail } from "../errors.js";
 import { checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, object, omitted, string } from "../json/schema.js";
-import { asciiFold, codePointLen, frozenTrim, hasFrozenWhitespace, utf8, utf8Len, utf8Text } from "../text.js";
+import { utf8, utf8Len, utf8Text } from "../text.js";
 import { type Root, socialPath } from "../uri.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
+import { checkLabel, foldLabel } from "./label.js";
 
 export interface Edge extends Extra {
   /** Microseconds since the epoch. */
@@ -46,17 +47,6 @@ export interface Tag extends Extra {
   label: string;
   /** Microseconds since the epoch. */
   created_at: bigint;
-}
-
-/** A label as it is stored: trimmed and ASCII-lowercased. Only a builder folds. */
-export const foldLabel = (label: string) => asciiFold(frozenTrim(label));
-
-export function checkLabel(label: string, field = "label"): void {
-  const length = codePointLen(label);
-  if (length > limits.tagLabelMaxLength) fail(`Tag '${label}' exceeds maximum length of ${limits.tagLabelMaxLength} characters`, field);
-  if (length < limits.tagLabelMinLength) fail(`Tag '${label}' is shorter than minimum length of ${limits.tagLabelMinLength} character`, field);
-  if (hasFrozenWhitespace(label)) fail(`Tag '${label}' contains whitespace characters`, field);
-  for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail(`Tag '${label}' contains invalid character: ${c}`, field);
 }
 
 const tagId = (value: Tag) => hashText(`${value.uri}:${value.label}`);

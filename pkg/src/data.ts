@@ -19,13 +19,13 @@ export const limits = /* @__PURE__ */ Object.freeze({
   imageUrlMaxLength: 300,
   maxFileSizeBytes: 104857600,
   objectMaxBytes: 65536,
-  postAllowedAttachmentProtocols: Object.freeze(["pubky", "http", "https"] as const),
+  postAllowedAttachmentProtocols: /* @__PURE__ */ Object.freeze(["pubky", "http", "https"] as const),
   postAttachmentsMaxCount: 10,
   postMaxBytes: 524288,
   postNoteContentMaxLength: 2000,
   postSlugMaxLength: 64,
   referenceUriMaxLength: 1024,
-  tagInvalidChars: Object.freeze([",", ":", " ", "\t", "\n", "\r"] as const),
+  tagInvalidChars: /* @__PURE__ */ Object.freeze([",", ":", " ", "\t", "\n", "\r"] as const),
   tagLabelMaxLength: 20,
   tagLabelMinLength: 1,
   userBioMaxLength: 160,
@@ -37,7 +37,7 @@ export const limits = /* @__PURE__ */ Object.freeze({
   userStatusMaxLength: 50,
 });
 
-export const MIME_TO_EXT = /* @__PURE__ */ Object.freeze([Object.freeze(["image/jpeg", "jpg"] as const), Object.freeze(["image/png", "png"] as const), Object.freeze(["image/gif", "gif"] as const), Object.freeze(["image/webp", "webp"] as const), Object.freeze(["image/svg+xml", "svg"] as const), Object.freeze(["text/csv", "csv"] as const), Object.freeze(["video/mp4", "mp4"] as const), Object.freeze(["video/mpeg", "mpeg"] as const), Object.freeze(["audio/mpeg", "mp3"] as const), Object.freeze(["audio/wav", "wav"] as const), Object.freeze(["application/pdf", "pdf"] as const), Object.freeze(["application/json", "json"] as const), Object.freeze(["application/xml", "xml"] as const), Object.freeze(["text/xml", "xml"] as const), Object.freeze(["application/zip", "zip"] as const), Object.freeze(["application/javascript", "js"] as const), Object.freeze(["text/css", "css"] as const), Object.freeze(["text/html", "html"] as const), Object.freeze(["text/plain", "txt"] as const)] as const);
+export const MIME_TO_EXT = /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze(["image/jpeg", "jpg"] as const), /* @__PURE__ */ Object.freeze(["image/png", "png"] as const), /* @__PURE__ */ Object.freeze(["image/gif", "gif"] as const), /* @__PURE__ */ Object.freeze(["image/webp", "webp"] as const), /* @__PURE__ */ Object.freeze(["image/svg+xml", "svg"] as const), /* @__PURE__ */ Object.freeze(["text/csv", "csv"] as const), /* @__PURE__ */ Object.freeze(["video/mp4", "mp4"] as const), /* @__PURE__ */ Object.freeze(["video/mpeg", "mpeg"] as const), /* @__PURE__ */ Object.freeze(["audio/mpeg", "mp3"] as const), /* @__PURE__ */ Object.freeze(["audio/wav", "wav"] as const), /* @__PURE__ */ Object.freeze(["application/pdf", "pdf"] as const), /* @__PURE__ */ Object.freeze(["application/json", "json"] as const), /* @__PURE__ */ Object.freeze(["application/xml", "xml"] as const), /* @__PURE__ */ Object.freeze(["text/xml", "xml"] as const), /* @__PURE__ */ Object.freeze(["application/zip", "zip"] as const), /* @__PURE__ */ Object.freeze(["application/javascript", "js"] as const), /* @__PURE__ */ Object.freeze(["text/css", "css"] as const), /* @__PURE__ */ Object.freeze(["text/html", "html"] as const), /* @__PURE__ */ Object.freeze(["text/plain", "txt"] as const)] as const);
 
 export const validMimeTypes = /* @__PURE__ */ Object.freeze(["application/javascript", "application/json", "application/octet-stream", "application/pdf", "application/x-www-form-urlencoded", "application/xml", "application/zip", "audio/mpeg", "audio/wav", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp", "multipart/form-data", "text/css", "text/csv", "text/html", "text/plain", "text/xml", "video/mp4", "video/mpeg"] as const);
 

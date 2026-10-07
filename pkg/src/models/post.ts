@@ -8,7 +8,7 @@ import { limits } from "../data.js";
 import { fail, misuse, ValidationError } from "../errors.js";
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
-import { defaulted, type Extra, inputOf, list, object, omitted, option, string } from "../json/schema.js";
+import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../uri.js";
 import { checkExtra, type Model, parse, validate } from "./common.js";
@@ -235,10 +235,7 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
 }
 
 const maybe = option(string);
-const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => {
-  if (i.root !== undefined && i.root !== null && i.root !== "public" && i.root !== "private") misuse("input.root", '"public" or "private"');
-  return { root: (i.root as Root | null | undefined) ?? "public", slug: maybe.parse(i.slug, "input.slug") };
-};
+const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: rootOf(i.root, "input.root"), slug: maybe.parse(i.slug, "input.slug") });
 const attachments = option(list({ ...attachment, parse: (js: unknown, at: string): Attachment => {
   const a = inputOf(js, at, ["uri", "alt", "name"]);
   const name = maybe.parse(a.name, `${at}.name`);

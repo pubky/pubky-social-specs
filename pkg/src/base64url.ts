@@ -1,6 +1,6 @@
 // Unpadded base64url, the spelling of a bookmark target inside its id.
 
-import { radix } from "./ids.js";
+import { radix } from "./radix.js";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 

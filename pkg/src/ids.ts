@@ -1,27 +1,10 @@
 import { blake3 } from "@noble/hashes/blake3.js";
 import { fail } from "./errors.js";
+import { radix } from "./radix.js";
 import { utf8, utf8Len } from "./text.js";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
-
-/** Unpadded: `bits` bits a character from the top, the last one zero-filled. */
-export function radix(bytes: Uint8Array, alphabet: string, bits: number): string {
-  let out = "";
-  let acc = 0;
-  let held = 0;
-  for (const byte of bytes) {
-    acc = (acc << 8) | byte;
-    held += 8;
-    while (held >= bits) {
-      held -= bits;
-      out += alphabet[(acc >> held) & ((1 << bits) - 1)];
-    }
-    acc &= (1 << held) - 1;
-  }
-  if (held > 0) out += alphabet[(acc << (bits - held)) & ((1 << bits) - 1)];
-  return out;
-}
 
 export const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
 

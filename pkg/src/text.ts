@@ -2,6 +2,7 @@
 // set frozen at one Unicode version, since ids hash text trimmed by it.
 
 import { DEBUG_ESCAPED } from "./data.js";
+import { fail } from "./errors.js";
 
 // The 25 code points that were whitespace at Unicode 15.1, spelled out: `\s` follows the engine
 const WS = "\\t-\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
@@ -93,6 +94,12 @@ export function compareBytes(a: string, b: string): number {
 }
 
 /** A Rust string cannot hold a lone surrogate, so text holding one has no reference answer. */
+/** `s`, when it is well-formed: a Rust string cannot hold a lone surrogate, so no rule of the model has an answer for one. */
+export function checkWellFormed(s: string, field?: string): string {
+  if (!isWellFormed(s)) fail("text must be well-formed UTF-16", field);
+  return s;
+}
+
 export function isWellFormed(s: string): boolean {
   for (let i = 0; i < s.length; i++) {
     const unit = s.charCodeAt(i);

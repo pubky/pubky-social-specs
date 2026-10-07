@@ -5,7 +5,7 @@
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
 import { fail, misuse } from "../errors.js";
-import { debugQuote, isWellFormed } from "../text.js";
+import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
 
@@ -52,9 +52,7 @@ export const string: Codec<string> = {
   plain: (value) => value,
   parse(js, at) {
     if (typeof js !== "string") misuse(at, "a string");
-    // A Rust string cannot hold a lone surrogate, so no rule has an answer for one
-    if (!isWellFormed(js)) fail("text must be well-formed UTF-16");
-    return js;
+    return checkWellFormed(js);
   },
 };
 
@@ -172,7 +170,7 @@ export type Extra = { extra: JsonObject };
 function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObject {
   if (js === undefined) return new Map();
   if (typeof js !== "string") misuse(`${at}.$unknown`, "the text it was read with");
-  if (!isWellFormed(js)) fail("text must be well-formed UTF-16");
+  checkWellFormed(js);
   let members: Json;
   try {
     members = readJson(js, true);
@@ -263,6 +261,13 @@ function ownCopy(js: object): Record<string, unknown> {
   const out: Record<string, unknown> = Object.create(null);
   for (const key of Object.keys(js)) out[key] = (js as Record<string, unknown>)[key];
   return out;
+}
+
+/** A caller's root: absent and null are the public one. */
+export function rootOf(js: unknown, at: string): "public" | "private" {
+  if (js === undefined || js === null) return "public";
+  if (js !== "public" && js !== "private") misuse(at, '"public" or "private"');
+  return js;
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */

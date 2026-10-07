@@ -4,13 +4,13 @@
 import { reference } from "./canonicalize.js";
 import { limits } from "./data.js";
 import { fail, ValidationError } from "./errors.js";
-import { checkPublicKey, timestampIdFault, timestampIdMicros } from "./ids.js";
+import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { type Json, JsonError, type JsonObject, readJson } from "./json/read.js";
 import { writeJson } from "./json/write.js";
-import { checkSafeInt, parse, validate } from "./models/common.js";
+import { checkSafeNumbers, parse, validate } from "./models/common.js";
 import { checkReferences, checkTimestampId, collection, post, type Post } from "./models/post.js";
 import { compareBytes } from "./text.js";
-import { isSlug, parsePath, type Root, socialPath } from "./uri.js";
+import { LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
 export interface Copy {
   from: string;
@@ -22,18 +22,13 @@ const mediaPrefix = (owner: string, root: Root) => ownerPrefix(owner) + socialPa
 const toPath = (uri: string, owner: string) => (uri.startsWith(ownerPrefix(owner)) ? uri.slice(ownerPrefix(owner).length) : uri);
 
 function isMediaObject(uri: string): boolean {
-  const rest = uri.startsWith("pubky://") ? uri.slice(8) : "";
-  const slash = rest.indexOf("/");
-  return slash > 0 && parsePath(rest.slice(slash + 1))?.kind === "file";
+  const split = splitPubky(uri);
+  return split !== null && split.owner !== "" && split.path !== null && parsePath(split.path)?.kind === "file";
 }
 
 function isPrivRooted(uri: string): boolean {
-  if (!uri.startsWith("pubky://")) return false;
-  const rest = uri.slice(8);
-  const slash = rest.indexOf("/");
-  if (slash < 0) return false;
-  const path = rest.slice(slash + 1);
-  return path === "priv" || path.startsWith("priv/");
+  const path = splitPubky(uri)?.path;
+  return path === "priv" || path?.startsWith("priv/") === true;
 }
 
 function envelopeOf(value: Post): JsonObject | null {
@@ -93,12 +88,6 @@ function toPublic(uri: string, owner: string): string {
   return uri.startsWith(priv) ? mediaPrefix(owner, "public") + uri.slice(priv.length) : uri;
 }
 
-function checkSafe(value: Json): void {
-  if (typeof value === "bigint") checkSafeInt(value);
-  else if (Array.isArray(value)) value.forEach(checkSafe);
-  else if (value instanceof Map) for (const key of [...value.keys()].sort(compareBytes)) checkSafe(value.get(key) as Json);
-}
-
 /**
  * Publishing one private version: the media copies to run first, then the post to PUT, its
  * private media references respelled to their public form in the reference positions only.
@@ -115,7 +104,7 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
     const envelope = envelopeOf(published);
     if (envelope === null) return fail("cannot publish: the cover did not parse");
     try {
-      checkSafe(envelope);
+      checkSafeNumbers(envelope);
     } catch (e) {
       if (e instanceof ValidationError) fail(`cannot publish: ${e.reason}`, e.field);
       throw e;
@@ -132,22 +121,18 @@ function editIdOf(id: string, root: Root, path: string): string {
   const dir = socialPath(root, `posts/${id}/`);
   const leaf = path.startsWith(dir) ? path.slice(dir.length) : null;
   if (leaf === null || leaf.includes("/")) return fail(`not a version path of post ${id} under ${dir}: ${path}`);
-  const stem = leaf.endsWith(".json") ? leaf.slice(0, -5) : null;
-  const dash = stem?.indexOf("-") ?? -1;
-  const editId = stem === null ? null : dash < 0 ? stem : stem.slice(0, dash);
-  const sound = editId !== null && (dash < 0 || isSlug((stem as string).slice(dash + 1))) && timestampIdFault(editId) === null;
-  return sound ? editId : fail(`not a post version path: ${path}`);
+  return versionOf(leaf)?.editId ?? fail(`not a post version path: ${path}`);
 }
 
 function checkLegacyPaths(id: string, paths: string[]): void {
-  const stray = paths.find((path) => path !== `/pub/pubky.app/posts/${id}`);
+  const stray = paths.find((path) => path !== `${LEGACY_ROOT}posts/${id}`);
   if (stray !== undefined) fail(`not a legacy path of post ${id}: ${stray}`);
 }
 
 const under = (root: Root, path: string) => {
   const trimmed = path.replace(/^\/+/, "");
   const slash = trimmed.indexOf("/");
-  return `/${root === "public" ? "pub" : "priv"}/${slash < 0 ? "" : trimmed.slice(slash + 1)}`;
+  return `/${SEGMENT[root]}/${slash < 0 ? "" : trimmed.slice(slash + 1)}`;
 };
 
 /**

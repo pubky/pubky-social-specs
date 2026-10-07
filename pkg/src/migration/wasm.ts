@@ -5,7 +5,7 @@
 import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
 import { fail, ValidationError } from "../errors.js";
-import { isWellFormed } from "../text.js";
+import { checkWellFormed } from "../text.js";
 import type { ObjectKind } from "../uri.js";
 import * as glue from "./glue.js";
 
@@ -54,7 +54,7 @@ function refuse(call: string, slot: number, what: string): never {
 
 function text(call: string, slot: number, value: unknown): string {
   if (typeof value !== "string") refuse(call, slot, "must be a string");
-  if (!isWellFormed(value)) fail("text must be well-formed UTF-16");
+  checkWellFormed(value);
   // No path or id is longer than the largest object
   if (value.length > limits.postMaxBytes) refuse(call, slot, `is over ${limits.postMaxBytes} characters`);
   return value;

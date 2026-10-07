@@ -1,126 +1,25 @@
 // Paths and URIs: the parser, the builders, and the keys that join the two epochs of a tree.
 
-import { canonicalPubky, isCanonicalSegment } from "./canonicalize.js";
-import { limits } from "./data.js";
+import { canonicalPubky } from "./canonicalize.js";
 import { fail, misuse } from "./errors.js";
-import { checkPublicKey, hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
-import { MEDIA_EXTENSIONS } from "./mime.js";
+import { checkPublicKey, publicKeyFault } from "./ids.js";
+import { isCanonicalSegment, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, type OwnerPath, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
 
-export type Root = "public" | "private";
+export * from "./path.js";
 
-/** An owner-relative path: what the SDK's storage calls and every plan take. */
-export type OwnerPath = `/pub/${string}` | `/priv/${string}`;
-export const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
-export type ObjectKind = (typeof OBJECT_KINDS)[number];
-export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS as readonly string[]).includes(kind);
-
-export type Resource =
-  | { kind: "user" }
-  | { kind: "post"; id: string; editId?: string; slug?: string }
-  | { [K in "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]: { kind: K; id: string } }["follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]
-  | { kind: "foreign"; namespace: string; version?: string; rest: string[] }
-  | { kind: "unsupportedVersion"; version: string }
-  | { kind: "unknown" };
-
-export type Located = { root: Root; path: OwnerPath | "" } & Resource;
-
-const isTimestampId = (id: string) => timestampIdFault(id) === null;
-const isHashId = (id: string) => hashIdFault(id) === null;
 const isPublicKey = (key: string) => publicKeyFault(key) === null;
-const isEpoch = (segment: string) => /^v[0-9]+$/.test(segment);
 const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
-
-export function isSlug(slug: string): boolean {
-  return slug.length <= limits.postSlugMaxLength && /^[a-z0-9-]+$/.test(slug);
-}
-
-/** The id of a media filename: one rightmost extension stripped, only when it is a known one. */
-export function mediaStem(filename: string): string | null {
-  const dot = filename.lastIndexOf(".");
-  return dot >= 0 && MEDIA_EXTENSIONS.has(filename.slice(dot + 1)) ? filename.slice(0, dot) : null;
-}
-
-// 187 bytes of target are 250 characters of unpadded base64url
-const BOOKMARK_ID_MAX = Math.ceil((limits.bookmarkTargetUriMaxBytes * 4) / 3);
-
-/** The form only: the round trip that recovers the target runs when the object is read. */
-export function isBookmarkId(name: string): boolean {
-  if (name.startsWith("~")) return isHashId(name.slice(1));
-  return !name.startsWith("_") && name.length <= BOOKMARK_ID_MAX && name.length % 4 !== 1 && /^[A-Za-z0-9_-]+$/.test(name);
-}
-
-// No time bound here: what a path names must not depend on the clock
-function dispatch(root: Root, rest: string[]): Resource {
-  const [segment, a, b] = rest;
-  const unknown: Resource = { kind: "unknown" };
-  if (rest.length === 1) return root === "public" && segment === "profile.json" ? { kind: "user" } : unknown;
-  if (segment === "posts" && rest.length <= 3 && a !== undefined && isTimestampId(a)) {
-    if (b === undefined) return { kind: "post", id: a };
-    const stem = json(b);
-    if (stem === null) return unknown;
-    const dash = stem.indexOf("-");
-    const editId = dash < 0 ? stem : stem.slice(0, dash);
-    if ((dash >= 0 && !isSlug(stem.slice(dash + 1))) || !isTimestampId(editId)) return unknown;
-    return dash < 0 ? { kind: "post", id: a, editId } : { kind: "post", id: a, editId, slug: stem.slice(dash + 1) };
-  }
-  if (rest.length !== 2 || a === undefined) return unknown;
-  if (segment === "files") {
-    const stem = mediaStem(a);
-    return stem !== null && isHashId(stem) ? { kind: "file", id: stem } : unknown;
-  }
-  const id = json(a);
-  if (id === null) return unknown;
-  if (segment === "feeds") return isHashId(id) ? { kind: "feed", id } : unknown;
-  if (root === "public") {
-    if (segment === "tags") return isHashId(id) ? { kind: "tag", id } : unknown;
-    if (segment === "follows") return isPublicKey(id) ? { kind: "follow", id } : unknown;
-  } else {
-    if (segment === "mutes") return isPublicKey(id) ? { kind: "mute", id } : unknown;
-    if (segment === "bookmarks") return isBookmarkId(id) ? { kind: "bookmark", id } : unknown;
-  }
-  return unknown;
-}
-
-/** What a canonical path names, or null for a root that is neither `pub` nor `priv`. */
-export function parsePath(path: string | null): Located | null {
-  if (path === null) return { root: "public", path: "", kind: "user" };
-  const segments = path.split("/");
-  const root = segments[0] === "pub" ? "public" : segments[0] === "priv" ? "private" : null;
-  if (root === null) return null;
-  const [, namespace, epoch] = segments;
-  let resource: Resource;
-  if (namespace === undefined) resource = { kind: "unknown" };
-  else if (namespace !== "social") {
-    // A namespace should carry an epoch as its second segment; named only when it has that shape
-    const versioned = epoch !== undefined && isEpoch(epoch);
-    resource = versioned
-      ? { kind: "foreign", namespace, version: epoch, rest: segments.slice(3) }
-      : { kind: "foreign", namespace, rest: segments.slice(2) };
-  } else if (epoch === "v1") resource = dispatch(root, segments.slice(3));
-  else if (epoch !== undefined && isEpoch(epoch)) resource = { kind: "unsupportedVersion", version: epoch };
-  else resource = { kind: "unknown" };
-  return { root, path: `/${path}` as OwnerPath, ...resource };
-}
 
 export type Parsed = { owner: string } & Located;
 
 /** Classifies a URI. Throws only when it is not a canonical pubky URI with a known root. */
 export function parse(uri: string): Parsed {
-  const canonical = canonicalPubky(uri);
-  if (canonical === null) fail(`Not a canonical pubky URI: ${uri}`);
-  const rest = canonical.slice(8);
-  const slash = rest.indexOf("/");
-  const located = parsePath(slash < 0 ? null : rest.slice(slash + 1));
+  const split = splitPubky(canonicalPubky(uri) ?? "");
+  if (split === null) return fail(`Not a canonical pubky URI: ${uri}`);
+  const located = parsePath(split.path);
   if (located === null) fail(`Unknown root in URI: ${uri}`);
-  return { owner: slash < 0 ? rest : rest.slice(0, slash), ...located };
-}
-
-const SEGMENT = { private: "priv", public: "pub" } as const;
-
-/** `/{root}/social/v1/{leaf}`, the one place a path is assembled. */
-export function socialPath(root: Root, leaf: string): OwnerPath {
-  return `/${SEGMENT[root]}/social/v1/${leaf}`;
+  return { owner: split.owner, ...located };
 }
 
 const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
@@ -148,7 +47,7 @@ export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${stri
 export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
   const uri = build(owner, kind, id);
   const canonical = canonicalPubky(uri);
-  const located = canonical === null ? null : parsePath(canonical.slice(`pubky://${owner}/`.length));
+  const located = canonical === null ? null : parsePath(splitPubky(canonical)?.path ?? null);
   const named =
     located !== null &&
     located.kind === kind &&
@@ -161,7 +60,7 @@ export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky:/
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */
 export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${string}` {
   checkPublicKey(owner);
-  if (tree === "legacy") return `pubky://${owner}/pub/pubky.app/`;
+  if (tree === "legacy") return `pubky://${owner}${LEGACY_ROOT}`;
   if (tree !== "public" && tree !== "private") misuse("tree", '"public", "private" or "legacy"');
   return `pubky://${owner}${socialPath(tree, "")}`;
 }
@@ -184,7 +83,7 @@ export function stableKey(ownerRelativePath: string): { key: string } | { needsD
     if (parsed.kind === "user") return { key: "profile" };
     return "id" in parsed ? { key: `${parsed.kind}s/${parsed.id}` } : null;
   }
-  if (namespace !== "pubky.app") return null;
+  if (namespace !== LEGACY_NAMESPACE) return null;
   // The 0.x reader matched `[resource, id, ..]` and ignored what follows
   const [segment, leaf] = rest as [string, string | undefined];
   const hasLeaf = rest.length > 1 && rest.slice(1).join("/") !== "";

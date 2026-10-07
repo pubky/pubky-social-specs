@@ -4,7 +4,7 @@
 // engine never loads it, and these declarations compile without it. The package does not
 // declare it as a peer dependency, since a host on another SDK line would fail to install.
 
-import { isCanonicalSegment } from "../../canonicalize.js";
+import { isCanonicalSegment, LEGACY_ROOT, socialPath } from "../../path.js";
 import { MigrationPortError, refusal } from "../port.js";
 import type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "../port.js";
 
@@ -48,7 +48,7 @@ export interface SdkPortOptions {
 const MAX_PAGE = 1000;
 const DEFAULT_DEADLINE_MS = 60_000;
 // The two media directories of the trees the engine reads and writes
-const isBlobPath = (path: string): boolean => path.startsWith("/pub/pubky.app/blobs/") || path.startsWith("/pub/social/v1/files/");
+const isBlobPath = (path: string): boolean => path.startsWith(`${LEGACY_ROOT}blobs/`) || path.startsWith(socialPath("public", "files/"));
 
 // What a homeserver without the private root answers a request under `/priv/`. A current one
 // names both roots in the same refusal, for paths outside them, which the engine never asks.

@@ -7,9 +7,9 @@ import { checkHashId, checkPublicKey, hashText, timestampIdFault } from "./ids.j
 import { inputOf, string } from "./json/schema.js";
 import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
-import { foldLabel } from "./models/graph.js";
+import { foldLabel } from "./models/label.js";
 import { compareBytes } from "./text.js";
-import { isBookmarkId, legacyMediaKey, mediaStem, type ObjectKind, type Root, socialPath, stableKey } from "./uri.js";
+import { isBookmarkId, isObjectKind, LEGACY_ROOT, legacyMediaKey, mediaStem, type ObjectKind, type Root, socialPath, splitPubky, stableKey } from "./uri.js";
 
 /** A path as a LIST gives it, or a 0.x object with what proves it belongs to the target. */
 export type Listing =
@@ -20,8 +20,7 @@ export type Listing =
 type V0Tag = { path: string; uri: string; label: string; src: string | null; contentType: string | null };
 type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
 
-const LEGACY = "/pub/pubky.app/";
-const KINDS: readonly string[] = ["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"];
+const LEGACY = LEGACY_ROOT;
 const maybe = (js: unknown, at: string) => (js === null || js === undefined ? null : string.parse(js, at));
 
 function entryOf(listing: unknown, index: number): Entry {
@@ -48,12 +47,10 @@ function postPaths(id: string, entries: Entry[]): string[] {
 function v1TagTarget(tag: V0Tag): string {
   const { uri } = tag;
   if (uri.startsWith("pubky")) {
-    const canonical = canonicalPubky(uri);
-    if (canonical === null) return fail(`not a pubky uri: ${uri}`);
-    const rest = canonical.slice(8);
-    const slash = rest.indexOf("/");
-    if (slash < 0) return fail(`not a stored object: ${uri}`);
-    const stable = stableKey(rest.slice(slash + 1));
+    const split = splitPubky(canonicalPubky(uri) ?? "");
+    if (split === null) return fail(`not a pubky uri: ${uri}`);
+    if (split.path === null) return fail(`not a stored object: ${uri}`);
+    const stable = stableKey(split.path);
     if (stable === null) return fail(`not a stored object: ${uri}`);
     let key: string;
     if ("key" in stable) key = stable.key;
@@ -64,7 +61,7 @@ function v1TagTarget(tag: V0Tag): string {
       key = `${media}.${mimeToExt(tag.contentType)}`;
     }
     const leaf = key === "profile" ? "profile.json" : key.startsWith("posts/") || key.startsWith("files/") ? key : `${key}.json`;
-    return `pubky://${rest.slice(0, slash)}${socialPath("public", leaf)}`;
+    return `pubky://${split.owner}${socialPath("public", leaf)}`;
   }
   if (uri.startsWith("http://") || uri.startsWith("https://")) return canonicalUniversal(uri) ?? fail(`not a canonical web uri: ${uri}`);
   return fail(`not a tag target v1 spells: ${uri}`);
@@ -111,7 +108,7 @@ function filePaths(hash: string, entries: Entry[]): string[] {
 
 /** The paths to DELETE for the object of `kind` named `id`, given the copies the caller found. */
 export function deletionPaths(kind: ObjectKind, id: string, listings: readonly unknown[]): string[] {
-  if (!KINDS.includes(kind)) misuse("kind", "an object kind");
+  if (!isObjectKind(kind)) misuse("kind", "an object kind");
   const entries = listings.map(entryOf);
   switch (kind) {
     case "post":

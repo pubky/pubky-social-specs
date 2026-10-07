@@ -6,7 +6,7 @@ import { type Extra, i64, inputOf, list, object, omitted, option, string } from 
 import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
 import { socialPath } from "../uri.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
-import { checkLabel, foldLabel } from "./graph.js";
+import { checkLabel, foldLabel } from "./label.js";
 import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface FeedConfig extends Extra {

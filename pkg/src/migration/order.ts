@@ -2,6 +2,8 @@
 // to rewrite every media reference after them; the rest is leaf first, so a reference tends
 // to land after its target, and the private types last.
 
+import { LEGACY_ROOT, splitPubky } from "../path.js";
+
 const BUCKETS = [
   "files",
   "blobs",
@@ -47,7 +49,7 @@ const ordered = <T>(
 };
 
 // The 0.x namespace is frozen, so the path is spelled here instead of asking the wasm for it
-const LEGACY_NAMESPACE = "pub/pubky.app/";
+const LEGACY_NAMESPACE = LEGACY_ROOT.slice(1);
 
 /**
  * The pass that walks a stored object, by its owner-relative path (`pub/pubky.app/posts/X`,
@@ -56,13 +58,8 @@ const LEGACY_NAMESPACE = "pub/pubky.app/";
  * counts `not_migrated`, or a path outside the 0.x tree.
  */
 const bucketOf = (ownerRelativePathOrUrl: string): Bucket | "rest" => {
-  let path = ownerRelativePathOrUrl;
-  if (path.startsWith("pubky://")) {
-    const slash = path.indexOf("/", "pubky://".length);
-    path = slash === -1 ? "" : path.slice(slash + 1);
-  } else if (path.startsWith("/")) {
-    path = path.slice(1);
-  }
+  const split = splitPubky(ownerRelativePathOrUrl);
+  const path = split !== null ? (split.path ?? "") : ownerRelativePathOrUrl.replace(/^\//, "");
   if (!path.startsWith(LEGACY_NAMESPACE)) return "rest";
   return legacyBucket(path.slice(LEGACY_NAMESPACE.length)) ?? "rest";
 };
