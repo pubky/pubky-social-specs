@@ -12,7 +12,7 @@ const {
   ValidationError, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
   decodeObject, encodeObject, decodeContent, encodeContent,
   buildUser, buildPost, editPost, buildFeed, feedId, buildTag, buildBookmark, buildFollow, buildMute, buildFile, createMediaHasher,
-  planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix, toPath,
+  planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix, toPath, hashMedia,
 } = specs;
 
 const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
@@ -41,7 +41,7 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(Object.keys(specs).sort(), [
         "ValidationError", "buildBookmark", "buildFeed", "buildFile", "buildFollow", "buildMute", "buildPost", "buildTag", "buildUri", "buildUser",
         "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
-        "feedId", "feedLayouts", "feedReaches", "feedSorts", "limits", "listPrefix", "parseUri", "planDelete", "planPublish", "planUnpublish",
+        "feedId", "feedLayouts", "feedReaches", "feedSorts", "hashMedia", "limits", "listPrefix", "parseUri", "planDelete", "planPublish", "planUnpublish",
         "postKinds", "toPath", "validMimeTypes",
       ]);
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
@@ -282,6 +282,14 @@ describe("pubky-social-specs", () => {
       const realm = vm.runInNewContext("new Uint8Array([1, 2, 3])");
       assert.deepStrictEqual([...encodeObject({ kind: "file" }, realm)], [1, 2, 3]);
       assert.strictEqual(buildFile(OTTO, { bytes: realm, type: "image/png" }).id, buildFile(OTTO, { bytes: new Uint8Array([1, 2, 3]), type: "image/png" }).id);
+    });
+    it("hashMedia gives the id buildFile gives, from a Blob or a stream, a chunk at a time", async () => {
+      const bytes = new Uint8Array(3 * 65536 + 7).map((_, i) => i * 31);
+      const { id } = buildFile(OTTO, { bytes, type: "image/png" });
+      assert.strictEqual(await hashMedia(new Blob([bytes])), id);
+      assert.strictEqual(await hashMedia(new Blob([bytes]).stream()), id);
+      await assert.rejects(hashMedia("bytes"), (e) => e instanceof TypeError && /source must be a Blob or a ReadableStream/.test(e.message));
+      await assert.rejects(hashMedia(new Response("text").body.pipeThrough(new TextDecoderStream())), /a chunk of source must be a Uint8Array/);
     });
   });
 

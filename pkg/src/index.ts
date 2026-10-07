@@ -242,6 +242,24 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): st
 }
 
 /**
+ * The media id of a `Blob` (a `File` included) or a stream of bytes, read a chunk at a time:
+ * the thread is free between chunks, so a large file does not freeze a page. The same id as
+ * `buildFile` gives for the same bytes; pass it there as `id`.
+ */
+export async function hashMedia(source: T.MediaSource): Promise<string> {
+  const stream = typeof (source as { stream?: unknown } | null)?.stream === "function" ? (source as T.BlobLike).stream() : (source as T.ByteStream);
+  if (typeof stream?.getReader !== "function") misuse("source", "a Blob or a ReadableStream of bytes");
+  const reader = stream.getReader();
+  const hasher = ids.createMediaHasher();
+  try {
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) hasher.update(bytesOf(chunk.value, "a chunk of source"));
+  } finally {
+    reader.releaseLock();
+  }
+  return hasher.id();
+}
+
+/**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
  * path in a plan is owner-relative.
  */

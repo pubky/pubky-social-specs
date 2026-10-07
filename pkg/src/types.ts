@@ -162,6 +162,18 @@ export type NewFile = ({ bytes: Uint8Array | ArrayBuffer } | { id: string }) & {
   root?: Root | null;
 };
 
+/** A `ReadableStream` of bytes, as far as `hashMedia` reads one. */
+export interface ByteStream {
+  getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; releaseLock(): void };
+}
+
+/** A `Blob` or a `File`, as far as `hashMedia` reads one. */
+export interface BlobLike {
+  stream(): ByteStream;
+}
+
+export type MediaSource = BlobLike | ByteStream;
+
 /** Where media goes. There is no `body`: the bytes are the caller's, PUT as they are. */
 export interface BuiltFile {
   /** The hash of the bytes. */
