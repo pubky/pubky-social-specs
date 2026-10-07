@@ -237,7 +237,7 @@ const storedUser = (r) => {
 };
 
 const key = (r) => r.pick([OWNER, OTHER, OTHER, spelled(r, ZBASE32, 52)]);
-const stamp = (r) => r.pick([NOW, NOW, 0, -1, 9007199254740991, "9007199254740992", "-9007199254740992", 1.5, "x", null]);
+const stamp = (r) => r.pick([NOW, NOW, NOW, NOW, NOW, NOW, NOW, NOW, 0, -1, 9007199254740991, "9007199254740992", "-9007199254740992", 1.5, "x", null]);
 const raw = (value) => (typeof value === "string" && /^-?[0-9]+$/.test(value) ? { toJSON: undefined, raw: value } : value);
 // A number too large for a double has to be spelled into the text by hand
 const withRaw = (text) => text.replace(/\{"raw":"(-?[0-9]+)"\}/g, "$1");
@@ -245,6 +245,26 @@ const longRef = (r) => `https://example.com/${"p".repeat(r.pick([150, 167, 168, 
 const b64url = (text) => Buffer.from(text).toString("base64url");
 const tagUri = (r) => r.pick([ref(r), ref(r), `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`]);
 const label = (r) => r.pick(["rust", "Rust", " rust ", "a,b", "a:b", "a b", "", "x".repeat(r.pick([20, 21])), "é", "😀", "RÉSUMÉ", "a\u00a0b", "a\u200bb"]);
+
+const tagList = (r) => r.pick([null, [], ["rust"], ["b", "a"], ["Rust", "rust", " go "], ["a", "b", "c", "d", "e", "f"], [" "], ["a,b"], ["é", "\ue000", "😀"], r.many(4, () => label(r))]);
+const feedInput = (r) => {
+  const o = { reach: r.pick(["all", "all", "following", "wot", "me", "galaxy", "unknown"]), layout: r.pick(["columns", "columns", "wide", "list", "grid"]), sort: r.pick(["recent", "recent", "popularity", "random"]), name: r.pick(["Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]), icon: r.pick(["star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]) };
+  if (r.chance(0.5)) o.tags = tagList(r);
+  if (r.chance(0.3)) o.domainTags = tagList(r);
+  if (r.chance(0.4)) o.content = r.pick([null, "note", "article", "collection", "short", "unknown"]);
+  return o;
+};
+const feedIdText = (f) => { try { return feedIdOfText(f); } catch { return "0".repeat(26); } };
+const feedIdOfText = (f) => hashOfText(`${f.feed.reach}:${f.feed.layout}:${f.feed.sort}:${f.feed.content ?? ""}:${(f.feed.tags ?? []).join(",")}:${(f.feed.domain_tags ?? []).join(",")}`);
+const storedFeed = (r) => {
+  const i = feedInput(r);
+  const sorted = (tags) => (tags && r.chance(0.8) ? [...new Set(tags.map((t) => t.trim().toLowerCase()))].sort() : tags);
+  const f = { feed: { tags: sorted(i.tags ?? null), reach: i.reach, layout: i.layout, sort: i.sort, content: i.content ?? null }, name: i.name, created_at: raw(stamp(r)) };
+  if (i.domainTags !== undefined) f.feed.domain_tags = sorted(i.domainTags);
+  if (r.chance(0.8)) f.icon = i.icon;
+  if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));
+  return f;
+};
 
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
@@ -277,6 +297,26 @@ export const families = {
           : request("bookmarkTarget", s(id), ...(r.chance(0.3) ? [] : [{ j: text }]));
       },
     ])(),
+  feed: (r) =>
+    r.pick([
+      () => request("createFeed", s(key(r)), { j: spoil(r, feedInput(r)) }),
+      () => {
+        const f = storedFeed(r);
+        const id = r.chance(0.85) && f.feed && typeof f.feed === "object" ? feedIdText(f) : hashIdText(r);
+        const text = withRaw(stored(r, f));
+        return r.chance(0.7)
+          ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "pub"])}/social/v1/feeds/${id}.json`), { j: text })
+          : request("feedId", { j: text });
+      },
+      () => request("feedPaths", s(r.chance(0.6) ? hashIdText(r) : spelled(r, "0123456789ABCDEFGHJKMNPQRSTVWXYZ", 26))),
+    ])(),
+  file: (r) => {
+    const data = Buffer.from(r.many(r.pick([0, 0, 3, 40, 300]), () => r.below(256)));
+    const b = { b: data.toString("base64") };
+    return r.chance(0.5)
+      ? request("createFile", s(key(r)), b, s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])), ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null, "priv", 1])) }] : []))
+      : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "priv"])}/social/v1/files/${r.chance(0.7) ? crock(blake3(data).subarray(0, 16)) : hashIdText(r)}.${r.pick(["png", "bin", "jpg"])}`), b);
+  },
   user: (r) =>
     r.chance(0.5)
       ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: spoil(r, userInput(r)) })

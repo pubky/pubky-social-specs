@@ -14,6 +14,11 @@ import { DEBUG_ESCAPED } from "../dist/data.js";
 import { readObject } from "../dist/objects.js";
 import { buildUser } from "../dist/models/user.js";
 import * as graph from "../dist/models/graph.js";
+import * as feeds from "../dist/models/feed.js";
+import { buildFile } from "../dist/models/file.js";
+import { variant } from "../dist/json/schema.js";
+
+const root = variant(["public", "private"]);
 import { parse } from "../dist/models/common.js";
 import { lastMint, pin } from "../dist/clock.js";
 
@@ -70,6 +75,14 @@ const ops = {
   createTag: (a, b, c) => made(a.s, graph.buildTag(a.s, b.s, c.s)),
   createBookmark: (a, b) => made(a.s, graph.buildBookmark(a.s, b.s)),
   bookmarkId: (a) => graph.bookmarkId(a.s),
+  createFeed: (a, input) => made(a.s, feeds.buildFeed(a.s, input?.j ?? "null")),
+  feedId: (a) => feeds.feedIdOf(a?.j ?? "null"),
+  feedPaths: (a) => feeds.feedPaths(a.s),
+  createFile: (a, data, type, r) => {
+    ids.checkPublicKey(a.s);
+    const m = buildFile(a.s, bytes(data), type.s, parse({ read: (reader) => (reader.peekToken() === 0x6e ? (reader.pos++, reader.ident("ull"), null) : root.read(reader)) }, r?.j ?? "null") ?? "public");
+    return { id: m.id, path: m.path, url: `pubky://${a.s}${m.path}` };
+  },
   bookmarkTarget: (a, content) => {
     const text = content?.j ?? "null";
     if (text === "null") return graph.targetOf(a.s, { created_at: 0n, target: null, extra: new Map() });

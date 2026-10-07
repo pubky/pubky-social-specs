@@ -3,6 +3,8 @@
 
 import { fail } from "./errors.js";
 import { readStored } from "./models/common.js";
+import { feed } from "./models/feed.js";
+import { checkFile } from "./models/file.js";
 import { bookmark, follow, mute, tag } from "./models/graph.js";
 import { user } from "./models/user.js";
 import { parseUri } from "./uri.js";
@@ -25,6 +27,11 @@ export function readObject(uri: string, bytes: Uint8Array): { kind: string; valu
       return json("tag", readStored(tag, bytes, parsed.id, publicRoot));
     case "bookmark":
       return json("bookmark", readStored(bookmark, bytes, parsed.id, publicRoot));
+    case "feed":
+      return json("feed", readStored(feed, bytes, parsed.id, publicRoot));
+    case "file":
+      checkFile(bytes, parsed.id);
+      return { kind: "file", value: bytes, body: bytes };
     case "foreign":
       return fail("a foreign namespace is not a social object");
     case "unsupportedVersion":

@@ -124,7 +124,7 @@ export function variant<T extends string>(names: readonly T[], other?: T): Codec
       if (colon === undefined) r.fail("EOF while parsing an object");
       if (colon !== 0x3a) r.fail("expected `:`");
       r.pos++;
-      if (r.peekToken() !== 0x6e) invalidType(r, "unit variant");
+      if (r.peekToken() !== 0x6e) invalidType(r, "unit");
       r.pos++;
       r.ident("ull");
       r.leave();
