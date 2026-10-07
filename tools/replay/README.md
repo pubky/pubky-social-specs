@@ -275,7 +275,7 @@ package's ESM build and its wasm loaded by a page, the SDK's browser build over 
 `fetch` and CORS, Web Locks for the lock, and a tab's memory for the largest blobs. The browser
 path runs exactly that, in Chromium and in Firefox through Playwright.
 
-`browser/harness.html` loads `pkg/index.js`, the migration subpath and its SDK adapter from the
+`browser/harness.html` loads the package's `dist/index.js`, the migration subpath and its SDK adapter from the
 built package, and `@synonymdev/pubky`'s browser build from `node_modules`, through an import
 map; `browser/serve.mjs` serves them on `127.0.0.1`, a secure context without TLS, so
 `navigator.locks` is there. `window.replay.run({secretHex, testnetHost, mode, rescan})` signs in
