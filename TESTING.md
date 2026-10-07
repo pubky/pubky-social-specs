@@ -14,6 +14,8 @@ how to run each again. Every command runs from the repository root unless it say
 | types, size, hostile arguments | `cd pkg && npm run types && npm run size && node --expose-gc qa/boundary.mjs` | the declarations as a consumer compiles them, what an import costs a bundle, and that no argument makes a call hang, leak or throw anything but a `ValidationError` or a `TypeError` |
 | live e2e | `cd pkg && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-binding.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
 | lint and format | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` | |
+| properties | `cd pkg && npx mocha property.test.js` (in `npm test`; `FC_SEED` and `FC_RUNS` change the seed and the count) | what holds for every input the generators make: built objects decode to themselves and encode back to their bytes, `parseUri` and `buildUri` are inverses both ways, minting is strictly increasing under any clock inside the tolerance, a plan names each path once, publish then unpublish brings a version back |
+| the model fuzz | `cd pkg && npm run model -- --runs 1000` (25 runs in `npm test`, 10000 nightly) | a seeded sequence of builds, edits, publishes, unpublishes, deletes, migrations with port faults, rescans, revision bumps, clock steps and a second copy of the package over one tree, checked after every step: deleted stays deleted, nothing private under `/pub/`, every object decodes, no path overwritten. A failure prints the shrunk sequence, its seed and its path; `--seed N --path P` replays it |
 
 The semantic vectors (`vectors/semantic/v0_to_v1.json`) are shared by the Rust test
 `tests/migrate_vectors.rs` and the package test `pkg/transforms.test.js`: a behaviour of the
@@ -59,6 +61,13 @@ build, so a signature never changes by accident; copy `dist/index.d.ts` over it 
 is meant.
 
 A finding goes into the package, never into a vector: a vector is the crate's answer.
+
+The model fuzz counts one resurrection apart instead of failing on it: a deleted key coming back
+from a 0.x copy that is still stored and that no finished run had recorded. `deletionPaths` does
+not reach the 0.x copy of a mute, a bookmark or a feed (the crate defines it so), a client may
+skip the 0.x listing of a post or a tag, and only a finished run writes the record of what it
+copied, so nothing in the package can tell such a copy from one never migrated. `--strict` fails
+on those too.
 
 ## The replay: a copy of production on a testnet
 
@@ -146,6 +155,8 @@ piece again.
 | the 100 MB blob in a browser | `node --experimental-websocket qa/cdp-run.mjs --only <pk> ...` (raw CDP: Playwright's pipe cannot carry a 100 MB request body) | done in 8.6 s and verified; the renderer peaked at 834 MB, with 5.6 MB in the package's wasm. On the wasm package the same user ended at 1.5 GB with 302 MB there |
 | live e2e | `cd pkg && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-binding.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
 | lint and format | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` | |
+| properties | `cd pkg && npx mocha property.test.js` (in `npm test`; `FC_SEED` and `FC_RUNS` change the seed and the count) | what holds for every input the generators make: built objects decode to themselves and encode back to their bytes, `parseUri` and `buildUri` are inverses both ways, minting is strictly increasing under any clock inside the tolerance, a plan names each path once, publish then unpublish brings a version back |
+| the model fuzz | `cd pkg && npm run model -- --runs 1000` (25 runs in `npm test`, 10000 nightly) | a seeded sequence of builds, edits, publishes, unpublishes, deletes, migrations with port faults, rescans, revision bumps, clock steps and a second copy of the package over one tree, checked after every step: deleted stays deleted, nothing private under `/pub/`, every object decodes, no path overwritten. A failure prints the shrunk sequence, its seed and its path; `--seed N --path P` replays it |
 
 The semantic vectors (`vectors/semantic/v0_to_v1.json`) are shared by the Rust test
 `tests/migrate_vectors.rs` and the package test `pkg/transforms.test.js`: a behaviour of the
@@ -191,6 +202,13 @@ build, so a signature never changes by accident; copy `dist/index.d.ts` over it 
 is meant.
 
 A finding goes into the package, never into a vector: a vector is the crate's answer.
+
+The model fuzz counts one resurrection apart instead of failing on it: a deleted key coming back
+from a 0.x copy that is still stored and that no finished run had recorded. `deletionPaths` does
+not reach the 0.x copy of a mute, a bookmark or a feed (the crate defines it so), a client may
+skip the 0.x listing of a post or a tag, and only a finished run writes the record of what it
+copied, so nothing in the package can tell such a copy from one never migrated. `--strict` fails
+on those too.
 
 ## The replay: a copy of production on a testnet
 
