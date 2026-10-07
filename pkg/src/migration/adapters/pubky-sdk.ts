@@ -1,12 +1,35 @@
 // The port over a session of the pubky SDK, `@synonymdev/pubky` >=0.11 <1: the session
-// storage it calls has the same shape and answers from 0.11 to 0.14. Only its types are
-// imported: the adapter works on the session it is given, so the host installs the SDK and the
-// engine never loads it. The package does not declare it as a peer dependency, since a host on
-// another SDK line would fail to install.
+// storage it calls has the same shape and answers from 0.11 to 0.14. The adapter works on the
+// session it is given and declares the part it calls itself, so the host installs the SDK, the
+// engine never loads it, and these declarations compile without it. The package does not
+// declare it as a peer dependency, since a host on another SDK line would fail to install.
 
-import type { Path, PubkyErrorName, Session } from "@synonymdev/pubky";
 import { MigrationPortError, refusal } from "../port.js";
-import type { MigrationPort, PortErrorKind, PutOptions } from "../port.js";
+import type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "../port.js";
+
+/** The part of a streamed `Response` the port reads. */
+export interface SdkResponse {
+  headers: { get(name: string): string | null };
+  body: {
+    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; cancel(): Promise<void> };
+    cancel(): Promise<void>;
+  } | null;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+/** The part of a signed-in SDK `Session` the port calls, as 0.11 to 0.14 declare it. */
+export interface SdkSession {
+  info: { publicKey: { z32(): string } };
+  storage: {
+    list(path: string, cursor: string | null, reverse: boolean, limit: number, shallow: boolean): Promise<string[]>;
+    getBytes(path: string): Promise<Uint8Array>;
+    get(path: string): Promise<SdkResponse>;
+    exists(path: string): Promise<boolean>;
+    putJson(path: string, body: unknown): Promise<void>;
+    putBytes(path: string, bytes: Uint8Array): Promise<void>;
+    delete(path: string): Promise<void>;
+  };
+}
 
 export interface SdkPortOptions {
   /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
@@ -31,7 +54,7 @@ const isBlobPath = (path: string): boolean => path.startsWith("/pub/pubky.app/bl
 const PRE_PRIV = "other than '/pub/' is forbidden";
 
 // Without a status, the SDK's name says whether the request went out at all
-const NAMED: Partial<Record<PubkyErrorName, PortErrorKind>> = {
+const NAMED: Partial<Record<string, PortErrorKind>> = {
   AuthenticationError: "unauthorized",
   InvalidInput: "rejected",
   ClientStateError: "rejected",
@@ -50,7 +73,7 @@ const portError = (error: unknown): MigrationPortError => {
   const status = statusOf(error);
   if (status === undefined) {
     const name = error instanceof Error ? error.name : "";
-    return new MigrationPortError(NAMED[name as PubkyErrorName] ?? "network", message);
+    return new MigrationPortError((Object.hasOwn(NAMED, name) && NAMED[name]) || "network", message);
   }
   if (status === 403 && message.includes(PRE_PRIV)) return new MigrationPortError("unsupported", message, status);
   // The SDK reads a 410 as missing, as its `exists` does
@@ -59,12 +82,12 @@ const portError = (error: unknown): MigrationPortError => {
 };
 
 class SdkPort implements MigrationPort {
-  readonly #storage: Session["storage"];
+  readonly #storage: SdkSession["storage"];
   readonly #ownerPrefix: string;
   readonly #pageSize: number;
   readonly #deadlineMs: number;
 
-  constructor(session: Session, options: SdkPortOptions = {}) {
+  constructor(session: SdkSession, options: SdkPortOptions = {}) {
     const pageSize = options.pageSize ?? MAX_PAGE;
     if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE) {
       throw new RangeError(`sdkPort: pageSize must be an integer from 1 to ${MAX_PAGE}, not ${pageSize}`);
@@ -97,12 +120,14 @@ class SdkPort implements MigrationPort {
     return urls.length > 0 ? { urls, next: urls[urls.length - 1] } : { urls };
   }
 
-  async get(url: string): Promise<Uint8Array | null> {
+  async get(url: string, options?: GetOptions): Promise<Uint8Array | null> {
     const path = this.#path(url);
+    const max = options?.maxBytes;
     try {
       // A blob's download grows with its size and the SDK gives no progress, so only an
       // object's GET has the deadline
-      return await this.#call(() => this.#storage.getBytes(path), !isBlobPath(path));
+      const read = () => (max === undefined ? this.#storage.getBytes(path) : this.#capped(path, max));
+      return await this.#call(read, !isBlobPath(path));
     } catch (error) {
       const failure = portError(error);
       if (failure.kind === "not_found") return null;
@@ -155,6 +180,36 @@ class SdkPort implements MigrationPort {
     await this.#call(() => this.#storage.delete(path), false);
   }
 
+  /** The body, read as a stream and dropped once it runs past `max`. */
+  async #capped(path: string, max: number): Promise<Uint8Array> {
+    const response = await this.#storage.get(path);
+    const tooLarge = () => new MigrationPortError("too_large", `${path} is over ${max} bytes`);
+    if (Number(response.headers.get("content-length")) > max) {
+      await response.body?.cancel();
+      throw tooLarge();
+    }
+    if (response.body === null) return new Uint8Array(await response.arrayBuffer());
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+      if (chunk.value === undefined) continue;
+      total += chunk.value.length;
+      if (total > max) {
+        await reader.cancel();
+        throw tooLarge();
+      }
+      chunks.push(chunk.value);
+    }
+    const bytes = new Uint8Array(total);
+    let at = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, at);
+      at += chunk.length;
+    }
+    return bytes;
+  }
+
   async #absent(url: string, options?: PutOptions): Promise<void> {
     if (options?.ifAbsent && (await this.head(url))) {
       throw new MigrationPortError("exists", `${url} exists`);
@@ -192,12 +247,12 @@ class SdkPort implements MigrationPort {
     }
   }
 
-  #path(url: string): Path {
+  #path(url: string): string {
     const path = url.startsWith(this.#ownerPrefix) ? url.slice(this.#ownerPrefix.length - 1) : "";
     if (!path.startsWith("/pub/") && !path.startsWith("/priv/")) {
       throw new MigrationPortError("rejected", `${url} is not under /pub/ or /priv/ of the session's owner`);
     }
-    return path as Path;
+    return path;
   }
 }
 
@@ -206,6 +261,6 @@ class SdkPort implements MigrationPort {
  * be in the session owner's tree. `ifAbsent` is a HEAD then the PUT, which leaves a one round
  * trip window.
  */
-const sdkPort = (session: Session, options?: SdkPortOptions): MigrationPort => new SdkPort(session, options);
+const sdkPort = (session: SdkSession, options?: SdkPortOptions): MigrationPort => new SdkPort(session, options);
 
 export { sdkPort };

@@ -1,5 +1,5 @@
 import { MigrationPortError } from "./port.js";
-import type { MigrationPort, PutOptions } from "./port.js";
+import type { GetOptions, MigrationPort, PutOptions } from "./port.js";
 
 /** A port call, as `intercept` sees it. */
 export type PortOp = "list" | "get" | "head" | "putJson" | "putBytes" | "delete";
@@ -48,10 +48,12 @@ class MemoryPort implements MigrationPort {
     return matching.length > this.#pageSize ? { urls, next: urls[urls.length - 1] } : { urls };
   }
 
-  async get(url: string): Promise<Uint8Array | null> {
+  async get(url: string, options?: GetOptions): Promise<Uint8Array | null> {
     await this.#enter("get", url);
     const bytes = this.store.get(url);
-    return bytes === undefined ? null : bytes.slice();
+    if (bytes === undefined) return null;
+    if (options?.maxBytes !== undefined && bytes.length > options.maxBytes) throw new MigrationPortError("too_large");
+    return bytes.slice();
   }
 
   async head(url: string): Promise<boolean> {

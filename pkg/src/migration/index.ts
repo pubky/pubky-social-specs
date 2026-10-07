@@ -6,7 +6,7 @@ import { MemoryPort } from "./memory.js";
 import { BUCKETS, bucketOf } from "./order.js";
 import { skipReasons, transformRev } from "../data.js";
 
-export type { MigrationPort, PortErrorKind, PutOptions } from "./port.js";
+export type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "./port.js";
 export type { MemoryPortOptions, PortOp } from "./memory.js";
 export type { Bucket } from "./order.js";
 export type {

@@ -884,6 +884,50 @@ describe("migration engine", () => {
       }
     });
 
+    it("a 0.x object over the largest a client writes skips as oversize before the wasm sees it", async () => {
+      const post = [...rows.keys()].find((p) => p.startsWith("pub/pubky.app/posts/"));
+      const huge = new Uint8Array(6 * limits.postMaxBytes + 1).fill(32);
+      huge[0] = 0x7b;
+      huge[huge.length - 1] = 0x7d;
+      const real = transforms.migrate;
+      const seen = [];
+      transforms.migrate = (handle, path, bytes) => (seen.push(path), real(handle, path, bytes));
+      try {
+        // A port that bounds its GET, and one that ignores the bound
+        for (const bounded of [true, false]) {
+          const port = legacyPort();
+          port.store.set(url(post), huge);
+          const loose = delegate(port, { get: (u) => port.get(u) });
+          seen.length = 0;
+          const report = await runMigration({ owner, port: bounded ? port : loose });
+          assert.deepStrictEqual(report.skipped.oversize, [post]);
+          assert.ok(!seen.includes(url(post)));
+        }
+      } finally {
+        transforms.migrate = real;
+      }
+    });
+
+    it("asks the port for at most the cap, and a port that stops reading there counts oversize", async () => {
+      const blob = url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78");
+      const asked = new Map();
+      const port = legacyPort();
+      const watched = delegate(port, {
+        get: async (u, options) => {
+          asked.set(u, options?.maxBytes);
+          if (u === blob) throw new MigrationPortError("too_large");
+          return port.get(u, options);
+        },
+      });
+      const report = await runMigration({ owner, port: watched });
+      assert.deepStrictEqual(report.skipped.oversize, ["pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78"]);
+      assert.strictEqual(asked.get(blob), limits.maxFileSizeBytes);
+      assert.strictEqual(asked.get(url([...rows.keys()].find((p) => p.includes("/posts/")))), 6 * limits.postMaxBytes);
+      await port.putBytes(blob, new Uint8Array(11));
+      await assert.rejects(port.get(blob, { maxBytes: 10 }), { kind: "too_large" });
+      assert.strictEqual((await port.get(blob, { maxBytes: 11 })).length, 11);
+    });
+
     it("refuses a mode it does not know", async () => {
       await assert.rejects(runMigration({ owner, port: legacyPort(), mode: "Dry" }), /mode must be "run" or "dry"/);
     });

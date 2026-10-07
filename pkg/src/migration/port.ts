@@ -13,6 +13,8 @@ export type PortErrorKind =
   | "not_found"
   /** An `ifAbsent` PUT found something at that URL (412) and wrote nothing. */
   | "exists"
+  /** A GET found more than its `maxBytes` and stopped reading. The object skips as `oversize`. */
+  | "too_large"
   /** The homeserver does not serve that root at all, such as `/priv/` before it had one. */
   | "unsupported"
   /**
@@ -51,6 +53,14 @@ class MigrationPortError extends Error {
   }
 }
 
+export interface GetOptions {
+  /**
+   * The most bytes the engine takes. Over it, a port throws `too_large` instead of reading
+   * the rest; one that cannot tell may return the bytes, and the engine skips them all the same.
+   */
+  maxBytes?: number;
+}
+
 export interface PutOptions {
   /**
    * Write only when nothing is stored at the URL, and throw `exists` otherwise. Over a
@@ -67,7 +77,7 @@ export interface PutOptions {
  */
 export interface MigrationPort {
   list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }>;
-  get(url: string): Promise<Uint8Array | null>;
+  get(url: string, options?: GetOptions): Promise<Uint8Array | null>;
   head(url: string): Promise<boolean>;
   putJson(url: string, object: unknown, options?: PutOptions): Promise<void>;
   putBytes(url: string, bytes: Uint8Array, options?: PutOptions): Promise<void>;

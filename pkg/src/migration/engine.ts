@@ -41,6 +41,9 @@ const FIRST_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
 // Empty pages a LIST may answer in a row before the walk is called broken
 const MAX_EMPTY_PAGES = 100;
+// The largest 1.x object with every byte spelled as a six-byte escape: no 0.x object a client
+// wrote is larger, and a larger one would hold wasm memory for the rest of the run
+const LEGACY_OBJECT_MAX = 6 * limits.postMaxBytes;
 const OUTCOMES: readonly string[] = [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"];
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
@@ -400,7 +403,9 @@ class Run {
     if (bucket !== "files" && this.#before.has(path)) return this.#count("already_present", path);
     const present = bucket !== "files" && bucket !== "blobs" && (await this.#landed(keyOf(path)));
     if (present) return this.#count("already_present", path);
-    const got = await this.#attempt(() => this.#port.get(url));
+    const max = bucket === "blobs" ? limits.maxFileSizeBytes : LEGACY_OBJECT_MAX;
+    const got = await this.#attempt(() => this.#port.get(url, { maxBytes: max }));
+    if (isFailure(got) && got.failed === "too_large") return this.#count("oversize", path);
     if (isFailure(got) && got.failed !== "not_found") {
       // Every later blob and post reads the Files; migrating them without one would bake a
       // wrong extension or media URL into copies no later run rewrites
@@ -412,7 +417,8 @@ class Run {
     if (got === null || isFailure(got)) return this.#count("deleted_mid_run", path);
     const bytes = viewBytes(got);
     if (bytes === null) throw new TypeError(`pubky-social-specs/migration: the port's get() gave no Uint8Array for ${url}`);
-    if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) return this.#count("oversize", path);
+    // A port may not bound its read; the cap still holds before the wasm sees anything
+    if (bytes.length > max) return this.#count("oversize", path);
 
     let result: MigrateResult;
     try {

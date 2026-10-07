@@ -43,6 +43,12 @@ const fakeStorage = (store = new Map()) => {
       if (bytes === undefined) throw answered(404, "Not Found");
       return bytes.slice();
     },
+    async get(path) {
+      record("get", path);
+      const bytes = store.get(full(path));
+      if (bytes === undefined) throw answered(404, "Not Found");
+      return new Response(bytes.slice());
+    },
     async exists(path) {
       record("exists", path);
       return store.has(full(path));
@@ -218,6 +224,35 @@ describe("pubky SDK port", () => {
       await assert.rejects(call(), { name: "MigrationPortError", kind: "rejected" });
     }
     assert.deepStrictEqual(storage.calls, []);
+  });
+
+  it("a GET with maxBytes streams the body and stops past it, whatever the length the server declares", async () => {
+    const storage = fakeStorage(new Map([[url("pub/pubky.app/posts/a"), new Uint8Array(100)]]));
+    const port = sdkPort(sessionOver(storage));
+    assert.strictEqual((await port.get(url("pub/pubky.app/posts/a"), { maxBytes: 100 })).length, 100);
+    await assert.rejects(port.get(url("pub/pubky.app/posts/a"), { maxBytes: 99 }), { kind: "too_large" });
+    assert.strictEqual(await port.get(url("pub/pubky.app/posts/b"), { maxBytes: 99 }), null);
+    // A declared length over the cap ends it before any body is read
+    let pulled = 0;
+    const declared = {
+      ...storage,
+      get: async () => ({
+        headers: { get: (name) => (name === "content-length" ? "1000000000" : null) },
+        body: { getReader: () => ({ read: async () => (pulled++, { done: true }), cancel: async () => {} }), cancel: async () => {} },
+        arrayBuffer: async () => new ArrayBuffer(0),
+      }),
+    };
+    await assert.rejects(sdkPort(sessionOver(declared)).get(url("pub/pubky.app/posts/a"), { maxBytes: 10 }), { kind: "too_large" });
+    assert.strictEqual(pulled, 0);
+    // A length the server understates is still cut where the bytes pass the cap
+    const lying = {
+      ...storage,
+      get: async () => {
+        const response = new Response(new Uint8Array(50));
+        return { headers: { get: () => "1" }, body: response.body, arrayBuffer: () => response.arrayBuffer() };
+      },
+    };
+    await assert.rejects(sdkPort(sessionOver(lying)).get(url("pub/pubky.app/posts/a"), { maxBytes: 10 }), { kind: "too_large" });
   });
 
   it("ifAbsent is a HEAD then the PUT, and throws exists without writing when something is there", async () => {
