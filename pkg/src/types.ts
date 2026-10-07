@@ -69,16 +69,19 @@ export interface Tag extends Open {
 }
 
 export interface Bookmark extends Open {
+  /** Microseconds since the epoch. */
   created_at: number;
   /** Only on a bookmark whose target is too long for its id to carry. */
   target: string | null;
 }
 
 export interface Follow extends Open {
+  /** Microseconds since the epoch. */
   created_at: number;
 }
 
 export interface Mute extends Open {
+  /** Microseconds since the epoch. */
   created_at: number;
 }
 
@@ -94,7 +97,9 @@ export interface FeedConfig extends Open {
 export interface Feed extends Open {
   feed: FeedConfig;
   name: string;
+  /** 1 to 50 of a-z, 0-9 and `-`: a name for the client's icon set, not an emoji. */
   icon: string | null;
+  /** Microseconds since the epoch. */
   created_at: number;
 }
 
@@ -117,7 +122,9 @@ export interface Built<T> {
   id: string;
   /** Owner-relative, as the SDK's storage calls take it. */
   path: string;
+  /** The full `pubky://` URL of the stored object. For a post it names this version: a reference to the post is `buildUri(owner, "post", id)`. */
   url: string;
+  /** The object as stored, every known member present. Keep it for local state; PUT `body`, not this. */
   object: T;
   body: Bytes;
 }

@@ -264,7 +264,8 @@ export class Reader {
     const start = positive ? this.pos : this.pos - 1;
     const value = this.scanNumber(positive);
     if (!this.exactFloats || typeof value === "bigint") return value;
-    return Number(String.fromCharCode(...this.bytes.subarray(start, this.pos)));
+    // A number is ASCII; decoded, not spread, since a token has no bound on its length
+    return Number(utf8Text(this.bytes.subarray(start, this.pos)));
   }
 
   private scanNumber(positive: boolean): bigint | number {

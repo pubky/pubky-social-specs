@@ -217,12 +217,12 @@ pub const MAX_FUTURE_MICROS: i64 = 2 * 60 * 60 * 1_000_000;
 const SUCCESSOR_SPREAD_MICROS: i64 = 60 * 1_000_000;
 
 /// The same mint with a floor. When the clock is past the floor this is the ordinary mint.
-/// When it is not, as it is when a post was created by a faster clock, the successor lands at
-/// `floor + 1 + (salt mod room)`: the clock cannot separate two clients that are both behind
-/// the head, so the salt does, and callers derive it from the bytes being written so only
-/// identical writes share a path. `room` is bounded by the validity window, and a floor with
-/// no room left is an error rather than an id no reader accepts. A floor far ahead does not
-/// poison later mints: the rollback tolerance treats the next clock reading as a correction.
+/// When it is not, as it is when a post was created by a faster clock or edited in the instant
+/// it was created, the successor lands at `floor + 1 + (salt mod room)`: the clock cannot
+/// separate two clients that are both behind the head, so the salt does, and callers derive it
+/// from the bytes being written so only identical writes share a path. `room` is bounded by the
+/// validity window, and a floor with no room left is an error rather than an id no reader
+/// accepts. A salted successor does not move the mint guard.
 pub fn mint_timestamp_micros_above(floor: i64, salt: u64) -> Result<i64, String> {
     let now = timestamp();
     if now > floor {
@@ -234,8 +234,11 @@ pub fn mint_timestamp_micros_above(floor: i64, salt: u64) -> Result<i64, String>
         .filter(|r| *r > 0)
         .ok_or("Validation Error: the current version leaves no room for a newer id")?;
     let spread = room.min(SUCCESSOR_SPREAD_MICROS) as u64;
-    let target = floor + 1 + (salt % spread) as i64;
-    Ok(mint_from(target, &LAST_MINTED_MICROS))
+    // Returned as it is, past the guard: the guard keeps two mints of one instant apart, and a
+    // successor is told apart by its salt. Moving the guard up to it would put the guard ahead
+    // of the clock, the next plain mint would read that as a clock correction and issue the
+    // raw clock again, which an earlier mint of the same instant already holds.
+    Ok(floor + 1 + (salt % spread) as i64)
 }
 
 fn mint_from(now: i64, last_minted: &AtomicI64) -> i64 {

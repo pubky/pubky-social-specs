@@ -63,7 +63,7 @@ const MUTATIONS = [
   {
     id: "M8",
     what: "only the first LIST page is read",
-    from: "if (!page.next || page.next === cursor) return urls;",
+    from: "if (!page.next) return urls;",
     to: "if (page.urls.length >= 0) return urls;",
   },
   {
@@ -99,7 +99,7 @@ const MUTATIONS = [
   {
     id: "M14",
     what: "no oversize check before hashing: a blob over the cap is hashed whole before the wasm refuses it",
-    from: 'if (bucket === "blobs" && bytes.length > validationLimits.maxFileSizeBytes) {\n      return this.#count("oversize", path);\n    }',
+    from: 'if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) {\n      return this.#count("oversize", path);\n    }',
     to: "",
   },
 ];

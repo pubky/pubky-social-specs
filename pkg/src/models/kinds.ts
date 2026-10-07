@@ -4,11 +4,11 @@
 import { fail } from "../errors.js";
 import { string, variant } from "../json/schema.js";
 
-export const postKinds = ["note", "article", "image", "video", "link", "file", "collection"] as const;
-export const feedReaches = ["following", "followers", "friends", "all", "wot", "me"] as const;
-export const feedLayouts = ["columns", "wide", "visual", "list"] as const;
-export const feedSorts = ["recent", "popularity"] as const;
-export const collectionLayouts = ["grid", "list", "visual"] as const;
+export const postKinds = Object.freeze(["note", "article", "image", "video", "link", "file", "collection"] as const);
+export const feedReaches = Object.freeze(["following", "followers", "friends", "all", "wot", "me"] as const);
+export const feedLayouts = Object.freeze(["columns", "wide", "visual", "list"] as const);
+export const feedSorts = Object.freeze(["recent", "popularity"] as const);
+export const collectionLayouts = Object.freeze(["grid", "list", "visual"] as const);
 
 export type KnownPostKind = (typeof postKinds)[number];
 export type KnownFeedReach = (typeof feedReaches)[number];

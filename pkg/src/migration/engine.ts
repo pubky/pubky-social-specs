@@ -505,7 +505,6 @@ class Run {
   #learnFile(path: string, bytes: Uint8Array): void {
     try {
       const { src, size } = JSON.parse(decoder.decode(bytes));
-      const tsid = path.slice(path.lastIndexOf("/") + 1);
       const key = typeof src === "string" ? legacyMediaKey(src) : null;
       if (key !== null && Number.isSafeInteger(size) && size >= 0) this.#blobSizes.set(key, size);
     } catch {

@@ -56,6 +56,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(limits.maxFileSizeBytes, 100 * 1024 * 1024);
       assert.ok(validMimeTypes.includes("image/png"));
       assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection"]);
+      assert.ok(Object.isFrozen(limits) && Object.isFrozen(limits.tagInvalidChars) && Object.isFrozen(postKinds) && Object.isFrozen(validMimeTypes));
       assert.deepStrictEqual([feedReaches.length, feedLayouts.length, feedSorts.length, collectionLayouts.length], [6, 4, 2, 3]);
     });
   });
@@ -77,6 +78,23 @@ describe("pubky-social-specs", () => {
       misuse(() => decodeObject(buildUri(OTTO, "user"), "{}"), /bytes must be a Uint8Array/);
       misuse(() => decodeObject(buildUri(OTTO, "user"), new DataView(new ArrayBuffer(2))), /bytes must be a Uint8Array/);
       misuse(() => listPrefix(OTTO, "pub"), /tree must be "public", "private" or "legacy"/);
+      // A misspelled option is refused, not ignored
+      const post = buildPost(OTTO, { content: "x" });
+      misuse(() => editPost(post.url, post.object, { rooot: "private" }), /options\.rooot must be one of root, slug/);
+      misuse(() => editPost(post.url, post.object, "private"), /options must be an object/);
+      misuse(() => deletionPaths({ kind: "mute", id: RIO, listing: [] }), /target\.listing must be one of kind, id, listings/);
+      misuse(() => planUnpublish({ id: post.id, publicPaths: [], privatHead: "x" }), /post\.privatHead must be one of/);
+      misuse(() => encodeObject({ kind: "user", rot: "private" }, {}), /at\.rot must be one of kind, root/);
+      misuse(() => buildFile(OTTO, { bytes: new Uint8Array(1), type: "image/png", name: "a.png" }), /input\.name must be one of bytes, id, type, root/);
+      misuse(() => buildFile(OTTO, { type: "image/png" }), /input must be given either bytes or an id/);
+      // A name outside the set is a typo, not a newer writer's value
+      const feed = buildFeed(OTTO, { name: "n", icon: "a", reach: "all", layout: "list", sort: "recent", content: "note" });
+      misuse(() => feedId({ ...feed.object, feed: { ...feed.object.feed, content: "vdeo" } }), /feed\.feed\.content must be one of note, article/);
+      misuse(() => encodeContent({ name: "abc", description: null, items: [], cover_image: null, layout: "gird" }), /content\.layout must be one of grid, list, visual/);
+      misuse(() => encodeContent({ body: "no title" }), /content must be an article envelope, with a title, or a collection envelope, with a name/);
+      misuse(() => setClock(T0), /nowMs must be a function/);
+      setClock(() => T0 + 0.5);
+      misuse(() => buildFollow(OTTO, RIO), /the clock given to setClock must be returning an integer of milliseconds/);
       misuse(() => buildUri(OTTO, "posts", "x"), /kind must be an object kind/);
     });
 
@@ -129,6 +147,16 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(buildFollow(OTTO, RIO).object.created_at, T0 * 1000);
       setClock(() => T0);
       assert.strictEqual(buildPost(OTTO, { content: "a" }).id, a.id, "setClock starts the guard over");
+    });
+
+    it("a post built after an edit in the same instant never takes an earlier post's id", () => {
+      const ids = new Set();
+      for (let i = 0; i < 200; i++) {
+        const post = buildPost(OTTO, { content: `post ${i}` });
+        editPost(post.url, { ...post.object, content: `edited ${i}` });
+        ids.add(post.id);
+      }
+      assert.strictEqual(ids.size, 200);
     });
 
     it("a post is told apart by kind, and a typed kind gets its envelope written", () => {
@@ -185,6 +213,7 @@ describe("pubky-social-specs", () => {
       refuses(() => buildFile(OTTO, { id: "not-a-hash", type: "image/png" }), /Invalid ID length/);
       assert.deepStrictEqual(decodeObject(file.url, bytes), { kind: "file", bytes });
       const realm = vm.runInNewContext("new Uint8Array([1, 2, 3])");
+      assert.deepStrictEqual([...encodeObject({ kind: "file" }, realm)], [1, 2, 3]);
       assert.strictEqual(buildFile(OTTO, { bytes: realm, type: "image/png" }).id, buildFile(OTTO, { bytes: new Uint8Array([1, 2, 3]), type: "image/png" }).id);
     });
   });
@@ -224,10 +253,15 @@ describe("pubky-social-specs", () => {
     it("refuses a member it does not know outside $unknown, and an $unknown that shadows a member", () => {
       const url = buildUri(OTTO, "user");
       const { object } = buildUser(OTTO, { name: "Alice" });
-      misuse(() => encodeObject(url, { ...object, nmae: "x" }), /user\.nmae must be a member this version knows/);
+      misuse(() => encodeObject(url, { ...object, nmae: "x" }), /user\.nmae must be a member of the stored object/);
       misuse(() => encodeObject(url, { ...object, $unknown: {} }), /user\.\$unknown must be the text it was read with/);
       misuse(() => encodeObject(url, { ...object, $unknown: "[1]" }), /user\.\$unknown/);
-      refuses(() => encodeObject(url, { ...object, $unknown: '{"name":"x"}' }), "Validation Error: extra must not shadow the field name");
+      misuse(() => encodeObject(url, { ...object, $unknown: '{"name":"x"}' }), /user\.\$unknown must be without the known member name/);
+      misuse(() => encodeObject(url, { ...object, $unknown: `{"a":0.${"0".repeat(300_000)}1` }), /user\.\$unknown/);
+      refuses(() => encodeObject(url, { ...object, $unknown: '{"a":"\ud800"}' }), "Validation Error: text must be well-formed UTF-16");
+      // Handing over the wrong thing says what the right thing is
+      misuse(() => encodeObject(url, buildUser(OTTO, { name: "Alice" })), /user\.id must be a member of the stored object: pass the \.object/);
+      misuse(() => encodeObject(url, buildUser(OTTO, { name: "Alice" }).body), /object must be the decoded user, not its bytes/);
       refuses(() => encodeObject(url, { ...object, $unknown: '{"n":9007199254740992}' }), "Validation Error: integer 9007199254740992 outside the JSON-safe range (in extra member n)");
     });
 

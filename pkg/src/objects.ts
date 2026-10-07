@@ -56,11 +56,12 @@ export function write(at: string | { kind: ObjectKind; root?: Root }, js: unknow
   const { kind, id } = where ? stored(where) : { kind: (at as { kind: ObjectKind }).kind, id: null };
   const publicRoot = (where?.root ?? (at as { root?: Root }).root ?? "public") === "public";
   if (kind === "file") {
-    if (!(js instanceof Uint8Array)) misuse("object", "the bytes of the media");
+    if (!(js instanceof Uint8Array)) return misuse("object", "the bytes of the media");
     checkFile(js, id);
     return js as Bytes;
   }
   if (!Object.hasOwn(models, kind)) misuse("kind", "an object kind");
+  if (ArrayBuffer.isView(js)) misuse("object", `the decoded ${kind}, not its bytes`);
   const model = models[kind];
   const value = model.codec.parse(js, kind);
   const body = validate(model, value, id, publicRoot);

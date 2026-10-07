@@ -226,7 +226,9 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
   else {
     const room = now + MAX_FUTURE - floor - 1n;
     if (room <= 0n) fail("the current version leaves no room for a newer id");
-    minted = mintFrom(floor + 1n + (salt % (room < SPREAD ? room : SPREAD)));
+    // Past the guard: the salt tells successors apart, and a guard moved ahead of the clock
+    // would make the next new post read the clock as corrected and reuse an id
+    minted = floor + 1n + (salt % (room < SPREAD ? room : SPREAD));
   }
   return mint(value, id, timestampId(minted), root, owner, slug);
 }

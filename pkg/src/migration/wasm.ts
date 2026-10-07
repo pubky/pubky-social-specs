@@ -104,9 +104,15 @@ export const transforms = {
   },
   /** The media id of `data`, fed to the wasm a view at a time: far faster than hashing in JS. */
   mediaId(data: Uint8Array): string {
-    bytes("mediaId", 1, data);
+    // A plain view of the same memory, so every chunk handed over is one this module made
+    const view = new Uint8Array(bytes("mediaId", 1, data).buffer, data.byteOffset, data.byteLength);
     const hasher = glue.hasherNew();
-    for (let at = 0; at < data.length; at += HASH_CHUNK) glue.hasherUpdate(hasher, data.subarray(at, at + HASH_CHUNK));
+    try {
+      for (let at = 0; at < view.length; at += HASH_CHUNK) glue.hasherUpdate(hasher, view.subarray(at, at + HASH_CHUNK));
+    } catch (e) {
+      hasher.free();
+      throw e;
+    }
     return glue.hasherFinish(hasher);
   },
 };

@@ -76,7 +76,7 @@ export const i64: Codec<bigint> = {
   // Every stored integer is checked to fit a double before it gets here
   plain: (value) => Number(value),
   parse(js, at) {
-    if (typeof js !== "number" || !Number.isInteger(js)) misuse(at, "an integer");
+    if (typeof js !== "number" || !Number.isInteger(js)) misuse(at, "an integer (a timestamp is microseconds since the epoch)");
     return BigInt(js);
   },
 };
@@ -155,7 +155,12 @@ export function variant<T extends string>(names: readonly T[]): Codec<T | "unkno
     },
     write: writeString,
     plain: (value) => value,
-    parse: (js, at) => named(string.parse(js, at)),
+    // A caller's name is one of the set, or the "unknown" a read gave it: a typo is not stored
+    parse(js, at) {
+      const name = string.parse(js, at);
+      if (name !== "unknown" && !(names as readonly string[]).includes(name)) misuse(at, `one of ${names.join(", ")}`);
+      return name as T | "unknown";
+    },
   };
 }
 
@@ -167,6 +172,7 @@ export type Extra = { extra: JsonObject };
 function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObject {
   if (js === undefined) return new Map();
   if (typeof js !== "string") misuse(`${at}.$unknown`, "the text it was read with");
+  if (!isWellFormed(js)) fail("text must be well-formed UTF-16");
   let members: Json;
   try {
     members = readJson(js, true);
@@ -175,7 +181,7 @@ function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObjec
     throw e;
   }
   if (!(members instanceof Map)) return misuse(`${at}.$unknown`, "the text it was read with");
-  for (const key of known) if (members.has(key)) fail(`extra must not shadow the field ${key}`);
+  for (const key of known) if (members.has(key)) misuse(`${at}.$unknown`, `without the known member ${key}`);
   return members;
 }
 
@@ -219,7 +225,9 @@ export function object<T extends Extra>(name: string, fields: Record<string, Cod
       if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
       const given = js as Record<string, unknown>;
       for (const key of Object.keys(given)) {
-        if (key !== "$unknown" && !Object.hasOwn(fields, key)) misuse(`${at}.${key}`, "a member this version knows (others travel in $unknown)");
+        if (key !== "$unknown" && !Object.hasOwn(fields, key)) {
+          misuse(`${at}.${key}`, "a member of the stored object: pass the .object a builder or decodeObject returned (members this version does not know travel in its $unknown)");
+        }
       }
       const out: Record<string, unknown> = {};
       for (const [key, codec] of entries) {
