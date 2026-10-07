@@ -1,8 +1,9 @@
 // Type tests: this file only has to compile. `@ts-expect-error` marks what must not.
 
 import {
-  buildFile, buildPost, buildUri, buildUser, decodeContent, decodeObject, deletionPaths, editPost, encodeObject, feedReaches, limits, parseUri, planPublish, planUnpublish, toPath, ValidationError,
+  buildBookmark, buildFile, buildFollow, buildPost, buildTag, buildUri, buildUser, parseEditId, parseOwner, parsePostId, parsePostRef, parsePubkyUrl, planDelete, decodeContent, decodeObject, deletionPaths, editPost, encodeObject, feedReaches, limits, parseUri, planPublish, planUnpublish, toPath, ValidationError,
   type Built, type BuiltFile, type BuiltPost, type Bytes, type Decoded, type Feed, type FeedReach, type KnownFeedReach, type KnownPostKind, type NewPost, type OwnerPath, type ParsedUri, type Post, type PubkyUrl, type User,
+  type EditId, type Owner, type PostId, type PostRef,
 } from "pubky-social-specs";
 import { setClock } from "pubky-social-specs/testing";
 import { runMigration, type MigrationPort, type MigrationReport } from "pubky-social-specs/migration";
@@ -104,3 +105,42 @@ try {
 // The migration subpaths
 const report: Promise<MigrationReport> = runMigration({ owner, port });
 void [report, sdkPort];
+
+// Brands: one kind of value cannot pass for another, a plain string passes for any
+const ref: PostRef = buildUri(owner, "post", built.id);
+buildTag(owner, ref, "t");
+buildTag(owner, "https://example.com", "t");
+buildTag(owner, user.url, "t");
+// @ts-expect-error the url of a version is no reference to the post
+buildTag(owner, built.url, "t");
+// @ts-expect-error the url of a version is no reference to the post
+buildBookmark(owner, built.url);
+buildPost(owner, { content: "re", parent: ref, embed: "https://example.com" });
+// @ts-expect-error the url of a version is no reference to the post
+buildPost(owner, { content: "re", parent: built.url });
+// @ts-expect-error not as an attachment either
+buildPost(owner, { kind: "image", content: "c", attachments: [{ uri: built.url }] });
+// @ts-expect-error nor as a collection item
+buildPost(owner, { kind: "collection", name: "n", items: [{ uri: built.url }] });
+// @ts-expect-error a reference names no stored object
+decodeObject(ref, bytes);
+const postId: PostId = built.id;
+const editId: EditId = built.editId;
+planDelete(owner, { id: postId });
+// @ts-expect-error a version id is no post id
+planDelete(owner, { id: editId });
+// @ts-expect-error nor the other way round
+planPublish(owner, { id: postId, editId: postId, post: expected });
+planPublish(owner, { id: "plain", editId: "strings", post: expected });
+const alice: Owner = parseOwner("key");
+buildFollow(alice, buildFollow(owner, alice).id);
+// @ts-expect-error a post id is no owner
+buildFollow(postId, alice);
+parsePubkyUrl("pubky://x") satisfies PubkyUrl;
+void [parsePostId("i") satisfies PostId, parseEditId("i") satisfies EditId, parsePostRef("pubky://x") satisfies PostRef];
+declare const someKind: Exclude<import("pubky-social-specs").ObjectKind, "user">;
+buildUri(owner, someKind, "id") satisfies string;
+// @ts-expect-error a version id names no post
+buildUri(owner, "post", editId);
+// @ts-expect-error not through the kind-agnostic form either
+buildUri(owner, someKind, editId);

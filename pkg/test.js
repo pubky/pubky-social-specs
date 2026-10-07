@@ -41,8 +41,8 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(Object.keys(specs).sort(), [
         "ValidationError", "buildBookmark", "buildFeed", "buildFile", "buildFollow", "buildMute", "buildPost", "buildTag", "buildUri", "buildUser",
         "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
-        "feedId", "feedLayouts", "feedReaches", "feedSorts", "hashMedia", "limits", "listPrefix", "parseUri", "planDelete", "planPublish", "planUnpublish",
-        "postKinds", "toPath", "validMimeTypes",
+        "feedId", "feedLayouts", "feedReaches", "feedSorts", "hashMedia", "limits", "listPrefix", "parseEditId", "parseMediaId", "parseOwner", "parseOwnerPath",
+        "parsePostId", "parsePostRef", "parsePubkyUrl", "parseUri", "planDelete", "planPublish", "planUnpublish", "postKinds", "toPath", "validMimeTypes",
       ]);
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
     });
@@ -416,10 +416,51 @@ describe("pubky-social-specs", () => {
       misuse(() => encodeObject(url, { ...base, links: sparse }), /user\.links\[0\] must be an object/);
       const cyclic = { ...base };
       cyclic.links = [cyclic];
-      misuse(() => encodeObject(url, cyclic), /user\.links\[0\]\.name|user\.links\[0\]\.\w+ must be a member/);
+      misuse(() => encodeObject(url, cyclic), /object\.links\[0\] must be plain data, not a structure that contains itself/);
+      let deep = { name: "x" };
+      for (let i = 0; i < 40; i++) deep = { links: [deep] };
+      misuse(() => encodeObject(url, deep), /must be plain data nested at most 32 deep/);
       const trap = { ...base, get bio() { throw new RangeError("mine"); } };
       assert.throws(() => encodeObject(url, trap), RangeError);
       misuse(() => encodeObject(url, new Map()), /user\.name must be given/);
+    });
+
+    it("reads a caller's value once, before any rule: a getter or a Proxy cannot answer twice", () => {
+      let reads = 0;
+      const input = { get content() { return ++reads === 1 ? "first" : "x".repeat(5000); } };
+      assert.strictEqual(text(buildPost(OTTO, input).body).includes('"first"'), true);
+      assert.strictEqual(reads, 1);
+      const traps = [];
+      const proxy = new Proxy({ name: "Alice", bio: "b" }, { get: (t, k) => (traps.push(k), t[k]), ownKeys: (t) => (traps.push("ownKeys"), Reflect.ownKeys(t)) });
+      buildUser(OTTO, proxy);
+      assert.deepStrictEqual(traps, ["ownKeys", "name", "bio"]);
+      // One object reached twice is read once
+      let shared = 0;
+      const attachment = { get uri() { shared++; return "https://example.com/a.png"; } };
+      buildPost(OTTO, { kind: "image", content: "c", attachments: [attachment, attachment] });
+      assert.strictEqual(shared, 1);
+    });
+
+    it("brands where data enters, and refuses what is not that kind", () => {
+      const built = buildPost(OTTO, { content: "hello" });
+      assert.strictEqual(specs.parseOwner(OTTO), OTTO);
+      assert.strictEqual(specs.parsePostId(built.id), built.id);
+      assert.strictEqual(specs.parseEditId(built.editId), built.editId);
+      assert.strictEqual(specs.parsePubkyUrl(`pubky${OTTO}${built.path}`), built.url);
+      assert.strictEqual(specs.parseOwnerPath(built.path), built.path);
+      assert.strictEqual(specs.parsePostRef(buildUri(OTTO, "post", built.id)), buildUri(OTTO, "post", built.id));
+      const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
+      assert.strictEqual(specs.parseMediaId(media.id), media.id);
+      refuses(() => specs.parseOwner("nope"), /not 52 ASCII characters/);
+      refuses(() => specs.parsePostId(media.id), /Invalid ID length/);
+      refuses(() => specs.parseMediaId(built.id), /Invalid ID length/);
+      refuses(() => specs.parsePubkyUrl(buildUri(OTTO, "post", built.id)), /not the URL of a stored object/);
+      refuses(() => specs.parsePubkyUrl(`pubky://${OTTO}/pub/pubky.app/posts/x`), /not the URL of a stored object/);
+      refuses(() => specs.parsePostRef(built.url), /not a reference to a post/);
+      refuses(() => specs.parseOwnerPath(built.url), /not an owner-relative path/);
+      refuses(() => specs.parseOwnerPath("/pub/social/../x"), /not an owner-relative path/);
+      refuses(() => specs.parseOwnerPath("/etc/passwd"), /not an owner-relative path/);
+      misuse(() => specs.parseOwner(1), /owner must be a string/);
     });
 
     it("the envelope of an article is read and written by the package, unknown members kept", () => {

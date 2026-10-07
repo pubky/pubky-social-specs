@@ -85,6 +85,13 @@ const calls = {
   listPrefix: [OWNER, "public"],
   toPath: [post.url],
   hashMedia: [new Blob([file])],
+  parseOwner: [OWNER],
+  parsePostId: [post.id],
+  parseEditId: [post.editId],
+  parseMediaId: [hash],
+  parsePubkyUrl: [post.url],
+  parseOwnerPath: [post.path],
+  parsePostRef: [api.buildUri(OWNER, "post", post.id)],
 };
 
 const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError");

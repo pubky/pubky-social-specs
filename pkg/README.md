@@ -34,7 +34,7 @@ console.log(post.content);
 
 ### Common mistakes
 
-Four spellings of a place run through the whole surface, and most first errors are one passed where another goes. The types tell a URL (`PubkyUrl`) from a path (`OwnerPath`), so TypeScript catches most of these before they run.
+Four spellings of a place run through the whole surface, and most first errors are one passed where another goes. Each has a branded type (`Owner`, `PubkyUrl`, `OwnerPath`, `PostRef`, and the ids `PostId`, `EditId`, `MediaId`), so TypeScript refuses one passed for another before it runs: the `url` of a post version as a `parent`, an `editId` as a post id. A plain string is still taken anywhere; to brand one where it enters, from a form or a LIST, call `parseOwner`, `parsePostId`, `parseEditId`, `parseMediaId`, `parsePubkyUrl`, `parseOwnerPath` or `parsePostRef`, each of which throws a `ValidationError` for a string that is not one.
 
 | | looks like | comes from | goes to |
 |---|---|---|---|
@@ -50,7 +50,7 @@ Four spellings of a place run through the whole surface, and most first errors a
 ## The rules of the surface
 
 1. **The package writes the bytes.** Never `JSON.stringify` an object yourself: unknown members have an order and numbers a spelling that only the package reproduces. Every builder returns `body`, and `encodeObject` gives the bytes of an object you edited.
-2. **Unknown members are carried, not read.** A newer client may store members this version does not know. They come back in `$unknown`, as text; leave it on the object and it is written back untouched. It is an ordinary string member, so a spread, `structuredClone` and a JSON round trip keep it; copying an object field by field drops it, and with it the other client's data. A member that is neither known nor inside `$unknown` is an error, in an input, an object and an options bag alike, so a typo is never stored or ignored. Only an object's own members are read: whatever `Object.prototype` holds never becomes one.
+2. **Unknown members are carried, not read.** A newer client may store members this version does not know. They come back in `$unknown`, as text; leave it on the object and it is written back untouched. It is an ordinary string member, so a spread, `structuredClone` and a JSON round trip keep it; copying an object field by field drops it, and with it the other client's data. A member that is neither known nor inside `$unknown` is an error, in an input, an object and an options bag alike, so a typo is never stored or ignored. Every argument is copied once on entry, own members only, and only the copy is read: whatever `Object.prototype` holds never becomes a member, and a getter or a Proxy is asked once.
 3. **Two kinds of error.** A value the data model refuses throws a `ValidationError`. Its `message` is the reference text and starts with `Validation Error: `; `reason` is that text without the prefix, and `field` names the member or argument refused (`content`, `attachments[0].uri`, `owner`) when the refusal is about one. Recognise it with `instanceof ValidationError`, which holds across two installed copies of the package. A value of the wrong JavaScript shape (a number where a string goes, a missing or misspelled member) throws a `TypeError` naming the argument: that is a bug in the calling code, and TypeScript catches most of them first.
 4. **Stored objects are spelled as stored.** `created_at`, `cover_image`, `domain_tags`: the same names in an input, in a decoded object and on the wire. In an object every known member is present, `null` when it has no value (the bytes leave some of those out). Integers are numbers, and `created_at` is microseconds since the epoch.
 
@@ -255,12 +255,14 @@ From `pubky-social-specs`:
 | `decodeObject`, `encodeObject`, `decodeContent`, `encodeContent` | reading and writing stored objects and envelopes |
 | `feedId` | the id an edited feed moves to |
 | `buildUri`, `parseUri`, `listPrefix`, `toPath`, `deletionPaths` | places: references, LIST prefixes, paths |
+| `parseOwner`, `parsePostId`, `parseEditId`, `parseMediaId`, `parsePubkyUrl`, `parseOwnerPath`, `parsePostRef` | a string checked once and branded |
 | `limits`, `validMimeTypes`, `postKinds`, `feedReaches`, `feedLayouts`, `feedSorts`, `collectionLayouts` | the data model's constants |
 | `ValidationError` | a refusal of the data model |
 | `User`, `Post`, `Tag`, `Bookmark`, `Follow`, `Mute`, `Feed`, `FeedConfig`, `UserLink`, `Attachment`, `ArticleContent`, `CollectionContent`, `CollectionItem`, `Stored` | the stored objects |
 | `Built`, `BuiltPost`, `BuiltFile`, `Decoded`, `ParsedUri`, `Copy`, `StoredCopy`, `Listing` | results and plan entries |
-| `NewUser`, `NewPost`, `NewAttachment`, `NewFeed`, `NewFile`, `MediaSource`, `BlobLike`, `ByteStream` | builder inputs |
-| `PubkyUrl`, `OwnerPath`, `Bytes`, `Root`, `ObjectKind`, `MimeType`, `PostKind`, `KnownPostKind` and the other name unions | the vocabulary |
+| `NewUser`, `NewPost`, `NewNote`, `NewArticle`, `NewCollection`, `NewAttachment`, `NewFeed`, `NewFile`, `MediaSource`, `BlobLike`, `ByteStream`, `CheckedPost` | builder inputs |
+| `Owner`, `PostId`, `EditId`, `MediaId`, `PubkyUrl`, `OwnerPath`, `PostRef`, `Reference`, `Brand`, `Given`, `UrlArg`, `PathArg` | the branded places and ids, and the argument types that take them or a plain string |
+| `Bytes`, `Root`, `ObjectKind`, `MimeType`, `PostKind`, `KnownPostKind` and the other name unions | the vocabulary |
 
 From `pubky-social-specs/testing`: `setClock`. From `pubky-social-specs/migration` and `pubky-social-specs/migration/pubky-sdk`: the migration, in [`MIGRATION.md`](MIGRATION.md).
 

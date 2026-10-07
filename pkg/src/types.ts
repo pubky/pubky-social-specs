@@ -8,13 +8,57 @@ import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedS
 import type * as posts from "./models/post.js";
 import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
-import type { ObjectKind, OwnerPath, Resource, Root } from "./uri.js";
+import type { ObjectKind, OwnerPath as PathText, Root } from "./uri.js";
 
 /** Bytes that `fetch`, `Blob` and the SDK take as they are. */
 export type Bytes = Uint8Array<ArrayBuffer>;
 
-/** The full URL of a stored object, `pubky://<owner>/...`: what `decodeObject` reads at. */
-export type PubkyUrl = `pubky://${string}`;
+declare const brand: unique symbol;
+
+/**
+ * A string the package made or checked, tagged with what it names. The tag is a type only: at
+ * run time a branded value is the string, and a plain string is taken wherever a brand is.
+ */
+export type Brand<S extends string, B extends string> = S & { readonly [brand]: B };
+
+/**
+ * A string argument: a plain one, or one branded `B`. A value branded as anything else is a
+ * value of another kind passed by mistake, and does not compile.
+ */
+export type Given<B extends string, S extends string = string> = S & { readonly [brand]?: B };
+
+/** A bare public key, 52 z-base32 characters, no `pubky://`: whose tree an object is in. */
+export type Owner = Brand<string, "Owner">;
+
+/** The id of a post, minted when it was created; every version of it shares it. */
+export type PostId = Brand<string, "PostId">;
+
+/** The id of one version of a post: its post id for the first version, a later one per edit. */
+export type EditId = Brand<string, "EditId">;
+
+/** The id of media: the hash of its bytes. */
+export type MediaId = Brand<string, "MediaId">;
+
+/**
+ * The full URL of one stored object of kind `K`, `pubky://<owner>/...`: what `decodeObject`
+ * reads at. For a post it names one version, so it is no reference to the post.
+ */
+export type PubkyUrl<K extends ObjectKind = ObjectKind> = Brand<`pubky://${string}`, `PubkyUrl.${K}`>;
+
+/** An owner-relative path, `/pub/...` or `/priv/...`: what the SDK's storage calls and every plan take. */
+export type OwnerPath = Brand<PathText, "OwnerPath">;
+
+/** A reference to a post, `buildUri(owner, "post", id)`: versionless, so it names the post and not one version. */
+export type PostRef = Brand<`pubky://${string}`, "PostRef">;
+
+/** Where a reference may point: anything but one version of a post. */
+export type Reference = Given<"PostRef" | `PubkyUrl.${Exclude<ObjectKind, "post">}`>;
+
+/** A URL argument naming a stored object. */
+export type UrlArg<K extends ObjectKind = ObjectKind> = Given<`PubkyUrl.${K}`, `pubky://${string}`>;
+
+/** An owner-relative path argument. */
+export type PathArg = Given<"OwnerPath", PathText>;
 
 
 /** A media type the package maps to an extension; any other string is taken too, as `.bin`. */
@@ -85,22 +129,25 @@ export interface Stored {
 /** What `decodeObject` gives: the kind the URI names and the object, or the bytes of media. */
 export type Decoded = { [K in keyof Stored]: { kind: K; object: Stored[K] } }[keyof Stored] | { kind: "file"; bytes: Bytes };
 
+/** The kind of a stored object type: a post's URL names a version, every other one the object. */
+type KindOf<T> = T extends Post ? "post" : T extends User ? "user" : T extends Feed ? "feed" : T extends Tag ? "tag" : T extends Bookmark ? "bookmark" : "follow" | "mute";
+
 /** A built object: where it goes, what it is, and the exact bytes to PUT there. */
-export interface Built<T> {
+export interface Built<T, Id extends string = string> {
   /** What the path names: empty for the profile, the followee for a follow. */
-  id: string;
+  id: Id;
   /** Owner-relative, as the SDK's storage calls take it. */
   path: OwnerPath;
   /** The full `pubky://` URL of the stored object. For a post it names this version: a reference to the post is `buildUri(owner, "post", id)`. */
-  url: PubkyUrl;
+  url: PubkyUrl<KindOf<T>>;
   /** The object as stored, every known member present. Keep it for local state; PUT `body`, not this. */
   object: T;
   body: Bytes;
 }
 
-export type BuiltPost = Built<Post> & {
+export type BuiltPost = Built<Post, PostId> & {
   /** The id of this version; equal to `id` for a post never edited. */
-  editId: string;
+  editId: EditId;
 };
 
 export interface NewUser {
@@ -131,19 +178,36 @@ interface Threaded {
   lock?: string | null;
 }
 
-export type NewPost = (
-  | ({ kind?: Exclude<KnownPostKind, "article" | "collection"> | null; content: string } & Threaded)
-  | ({ kind: "article"; title: string; body: string; cover_image?: string | null } & Threaded)
-  | {
-      kind: "collection";
-      name: string;
-      description?: string | null;
-      items?: { uri: string; note?: string | null }[] | null;
-      cover_image?: string | null;
-      layout?: KnownCollectionLayout | null;
-    }
-) &
-  Placement;
+/** A post of any kind but an article or a collection: `note` when `kind` is absent. */
+export type NewNote = { kind?: Exclude<KnownPostKind, "article" | "collection"> | null; content: string } & Threaded & Placement;
+
+export type NewArticle = { kind: "article"; title: string; body: string; cover_image?: string | null } & Threaded & Placement;
+
+export type NewCollection = {
+  kind: "collection";
+  name: string;
+  description?: string | null;
+  items?: { uri: string; note?: string | null }[] | null;
+  cover_image?: string | null;
+  layout?: KnownCollectionLayout | null;
+} & Placement;
+
+export type NewPost = NewNote | NewArticle | NewCollection;
+
+/** The version URL a reference member would hold, named where it is refused. */
+type NoVersion<T> = T extends { readonly [brand]: "PubkyUrl.post" }
+  ? { error: 'a reference names the post, buildUri(owner, "post", id), never the url of one version' }
+  : T extends object
+    ? { [K in keyof T]: NoVersion<T[K]> }
+    : T;
+
+type BranchOf<I> = I extends { kind: "article" } ? NewArticle : I extends { kind: "collection" } ? NewCollection : NewNote;
+
+/**
+ * A post input as `buildPost` checks it at compile time: the members of its kind only, and no
+ * reference holding the URL of a post version.
+ */
+export type CheckedPost<I> = { [K in keyof I]: K extends keyof BranchOf<I> ? NoVersion<I[K]> : never };
 
 export interface NewFeed {
   name: string;
@@ -177,9 +241,9 @@ export type MediaSource = BlobLike | ByteStream;
 /** Where media goes. There is no `body`: the bytes are the caller's, PUT as they are. */
 export interface BuiltFile {
   /** The hash of the bytes. */
-  id: string;
+  id: MediaId;
   path: OwnerPath;
-  url: PubkyUrl;
+  url: PubkyUrl<"file">;
 }
 
 /** One copy a plan runs, `from` and `to` both owner-relative. */
@@ -191,22 +255,29 @@ export interface Copy {
 /** A stored version of a post as a LIST found it. */
 export interface StoredCopy {
   root: Root;
-  path: OwnerPath;
+  path: PathArg;
 }
 
 /** A path as a LIST gave it, or a 0.x object with what proves it belongs to the target. */
 export type Listing =
-  | OwnerPath
-  | { path: OwnerPath; src: string }
-  | { path: OwnerPath; uri: string; label: string; src?: string | null; contentType?: string | null };
+  | PathArg
+  | { path: PathArg; src: string }
+  | { path: PathArg; uri: string; label: string; src?: string | null; contentType?: string | null };
 
-export type ParsedUri = { owner: string; root: Root; path: OwnerPath | "" } & (
-  | Exclude<Resource, { kind: "follow" | "mute" | "bookmark" | "tag" | "file" | "feed" }>
-  | { kind: "follow" | "mute" | "tag" | "feed"; id: string }
+export type ParsedUri = { owner: Owner; root: Root; path: OwnerPath | "" } & (
+  | { kind: "user" }
+  | { kind: "post"; id: PostId; editId?: EditId; slug?: string }
+  | { kind: "follow" | "mute"; id: Owner }
+  | { kind: "tag" | "feed"; id: string }
   /** `id` is the hash; `filename` adds the extension, the name `buildUri` takes. */
-  | { kind: "file"; id: string; filename: string }
+  | { kind: "file"; id: MediaId; filename: string }
   /** `target` when the id carries one: the long form keeps it in the stored object. */
   | { kind: "bookmark"; id: string; target?: string }
+  /** A path under a namespace other than this one, such as the 0.x `pubky.app`. */
+  | { kind: "foreign"; namespace: string; version?: string; rest: string[] }
+  /** A path under an epoch of this namespace this version does not read. */
+  | { kind: "unsupportedVersion"; version: string }
+  | { kind: "unknown" }
 );
 
-export type { ObjectKind, OwnerPath, Root };
+export type { ObjectKind, Root };

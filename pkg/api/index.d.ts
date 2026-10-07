@@ -13,9 +13,9 @@ export type * from "./types.js";
  * be anything, so decode it inside a try. A post of a kind this version does not know is
  * refused too: it has rules this version cannot check.
  */
-export declare function decodeObject<K extends keyof T.Stored>(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
-export declare function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
-export declare function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer): T.Decoded;
+export declare function decodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
+export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
+export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): T.Decoded;
 /**
  * The bytes to PUT for an object read and then changed, its unknown members kept. `object` is
  * the `.object` of a `decodeObject` or builder result, never its bytes or the result itself;
@@ -24,7 +24,7 @@ export declare function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayB
  * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
  * need no path, for bytes bound somewhere the data model does not name.
  */
-export declare function encodeObject(at: T.PubkyUrl | {
+export declare function encodeObject(at: T.UrlArg | {
     kind: T.ObjectKind;
     root?: T.Root | null;
 }, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes;
@@ -51,14 +51,14 @@ export declare function encodeContent(content: T.ArticleContent | T.CollectionCo
  * trimmed; `image` and each link `url` are stored as written and must be canonical already.
  * To change a stored profile and keep what this version does not know: decode, edit, encode.
  */
-export declare function buildUser(owner: string, input: T.NewUser): T.Built<T.User>;
+export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.User>;
 /**
  * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`,
  * and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`.
  * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
  */
-export declare function buildPost(owner: string, input: T.NewPost): T.BuiltPost;
+export declare function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, input: I & T.CheckedPost<I>): T.BuiltPost;
 /**
  * An edit of the post whose newest version is at `headUri`: a new version in the same post,
  * with an id above the head's. `headUri` is the URL of that version, in the caller's own
@@ -66,7 +66,7 @@ export declare function buildPost(owner: string, input: T.NewPost): T.BuiltPost;
  * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
  * slug is not carried over from the head.
  */
-export declare function editPost(headUri: T.PubkyUrl, post: T.Post, options?: {
+export declare function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: {
     root?: T.Root | null;
     slug?: string | null;
 } | null): T.BuiltPost;
@@ -75,20 +75,20 @@ export declare function editPost(headUri: T.PubkyUrl, post: T.Post, options?: {
  * content, tags), so two feeds with one filter are one feed whatever their names, and an
  * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  */
-export declare function buildFeed(owner: string, input: T.NewFeed): T.Built<T.Feed>;
+export declare function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.Feed>;
 /** The id of a feed object: an edited filter moves the feed, and this is where to. */
 export declare function feedId(feed: T.Feed): string;
 /**
  * A tag on `uri`, a reference: for a post, `buildUri(author, "post", id)`. The builder trims
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  */
-export declare function buildTag(owner: string, uri: string, label: string): T.Built<T.Tag>;
+export declare function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: string): T.Built<T.Tag>;
 /** A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked. */
-export declare function buildBookmark(owner: string, target: string): T.Built<T.Bookmark>;
+export declare function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.Built<T.Bookmark>;
 /** A follow of `followee`, a bare public key, stored under the public root. */
-export declare function buildFollow(owner: string, followee: string): T.Built<T.Follow>;
+export declare function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner>;
 /** A mute, stored under the private root. */
-export declare function buildMute(owner: string, mutee: string): T.Built<T.Mute>;
+export declare function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner>;
 /**
  * Where media goes: content addressed, so the id is the hash of the bytes. Pass the bytes, or
  * an id from `createMediaHasher` when they were hashed elsewhere, as in a worker. The bytes are
@@ -98,28 +98,28 @@ export declare function buildMute(owner: string, mutee: string): T.Built<T.Mute>
  * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
  * the size is the caller's to check.
  */
-export declare function buildFile(owner: string, input: T.NewFile): T.BuiltFile;
+export declare function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFile;
 /**
  * A media id fed a chunk at a time, for bytes too large to hold at once or hashed off the main
  * thread. `id()` is what `buildFile` gives for the same bytes, and may be read at any point.
  */
 export declare function createMediaHasher(): {
     update(chunk: Uint8Array): void;
-    id(): string;
+    id(): T.MediaId;
 };
 /**
  * The media id of a `Blob` (a `File` included) or a stream of bytes, read a chunk at a time:
  * the thread is free between chunks, so a large file does not freeze a page. The same id as
  * `buildFile` gives for the same bytes; pass it there as `id`.
  */
-export declare function hashMedia(source: T.MediaSource): Promise<string>;
+export declare function hashMedia(source: T.MediaSource): Promise<T.MediaId>;
 /**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
  * path in a plan is owner-relative.
  */
-export declare function planPublish(owner: string, version: {
-    id: string;
-    editId: string;
+export declare function planPublish(owner: T.Given<"Owner">, version: {
+    id: T.Given<"PostId">;
+    editId: T.Given<"EditId">;
     post: T.Post;
 }): {
     copies: T.Copy[];
@@ -131,10 +131,10 @@ export declare function planPublish(owner: string, version: {
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
  */
 export declare function planUnpublish(post: {
-    id: string;
-    publicPaths: T.OwnerPath[];
-    legacyPaths?: T.OwnerPath[] | null;
-    privateHead?: T.OwnerPath | null;
+    id: T.Given<"PostId">;
+    publicPaths: T.PathArg[];
+    legacyPaths?: T.PathArg[] | null;
+    privateHead?: T.PathArg | null;
 }): {
     copies: T.Copy[];
     deletes: T.OwnerPath[];
@@ -145,9 +145,9 @@ export declare function planUnpublish(post: {
  * that could be read. A media candidate is deleted only once nothing else references it, which
  * only the caller can know.
  */
-export declare function planDelete(owner: string, post: {
-    id: string;
-    legacyPaths?: T.OwnerPath[] | null;
+export declare function planDelete(owner: T.Given<"Owner">, post: {
+    id: T.Given<"PostId">;
+    legacyPaths?: T.PathArg[] | null;
     copies?: T.StoredCopy[] | null;
     versions?: T.Post[] | null;
 }): {
@@ -179,13 +179,34 @@ export declare function parseUri(uri: string): T.ParsedUri;
  * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
  * comes out.
  */
-export declare function buildUri(owner: string, kind: "user"): T.PubkyUrl;
-export declare function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): T.PubkyUrl;
+export declare function buildUri(owner: T.Given<"Owner">, kind: "user"): T.PubkyUrl<"user">;
+export declare function buildUri(owner: T.Given<"Owner">, kind: "post", id: T.Given<"PostId">): T.PostRef;
+export declare function buildUri(owner: T.Given<"Owner">, kind: "file", filename: string): T.PubkyUrl<"file">;
+export declare function buildUri<K extends Exclude<T.ObjectKind, "user" | "post" | "file">>(owner: T.Given<"Owner">, kind: K, id: string): T.PubkyUrl<K>;
+export declare function buildUri(owner: T.Given<"Owner">, kind: Exclude<T.ObjectKind, "user">, id: T.Given<"PostId" | "MediaId" | "Owner">): T.PubkyUrl | T.PostRef;
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */
-export declare function listPrefix(owner: string, tree: T.Root | "legacy"): T.PubkyUrl;
+export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `pubky://${string}`;
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
  * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
  */
 export declare function toPath(uri: string): T.OwnerPath;
+/** A bare public key as an `Owner`. */
+export declare function parseOwner(value: string): T.Owner;
+/** A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule. */
+export declare function parsePostId(value: string): T.PostId;
+/** A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one. */
+export declare function parseEditId(value: string): T.EditId;
+/** A media id as a `MediaId`: the canonical spelling of a content hash. */
+export declare function parseMediaId(value: string): T.MediaId;
+/**
+ * The URL of a stored object as a `PubkyUrl`, in its full `pubky://` spelling: a post's must
+ * name one version. A path under another namespace, an unknown leaf or a post reference is
+ * refused.
+ */
+export declare function parsePubkyUrl(value: string): T.PubkyUrl;
+/** An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments. */
+export declare function parseOwnerPath(value: string): T.OwnerPath;
+/** A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless. */
+export declare function parsePostRef(value: string): T.PostRef;
 //# sourceMappingURL=index.d.ts.map
