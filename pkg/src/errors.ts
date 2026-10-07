@@ -1,20 +1,32 @@
 const BRAND = Symbol.for("pubky-social-specs.ValidationError");
+const PREFIX = "Validation Error: ";
 
 /**
  * A value the data model refuses. The message is the reference text, "Validation Error: "
- * included. `instanceof` holds across two copies of the package in one program.
+ * included; `reason` is the same text without it. `field` names the member or argument
+ * refused (`content`, `attachments[0].uri`, `owner`) where the refusal is about one.
+ * `instanceof` holds across two copies of the package in one program.
  */
 export class ValidationError extends Error {
   override name = "ValidationError";
+  readonly reason: string;
+  readonly field?: string;
   readonly [BRAND] = true;
 
+  constructor(reason: string, field?: string, options?: ErrorOptions) {
+    super(PREFIX + reason, options);
+    this.reason = reason;
+    if (field !== undefined) this.field = field;
+  }
+
   static override [Symbol.hasInstance](value: unknown): boolean {
-    return typeof value === "object" && value !== null && BRAND in value;
+    // Own, so a polluted prototype does not make every object one
+    return typeof value === "object" && value !== null && Object.hasOwn(value, BRAND);
   }
 }
 
-export function fail(message: string): never {
-  throw new ValidationError(`Validation Error: ${message}`);
+export function fail(reason: string, field?: string): never {
+  throw new ValidationError(reason, field);
 }
 
 /** A caller's value of the wrong shape: a bug in the caller, not a rule of the data model. */

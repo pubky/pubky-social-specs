@@ -102,6 +102,6 @@ export function checkReference(
   owner: string | null,
 ): void {
   const result = reference(uri, schemes, max, publicRoot, owner);
-  if ("refusal" in result) fail(`${field} ${result.refusal}`);
-  if (result.canonical !== uri) fail(`${field} must be spelled in canonical form: ${uri}`);
+  if ("refusal" in result) fail(`${field} ${result.refusal}`, field);
+  if (result.canonical !== uri) fail(`${field} must be spelled in canonical form: ${uri}`, field);
 }

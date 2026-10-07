@@ -24,9 +24,9 @@ const link = object<UserLink>("PubkySocialUserLink", { title: string, url: strin
 
 function checkLink(value: UserLink, index: number): void {
   checkExtra(value.extra);
-  if (frozenTrim(value.title) === "") fail(`links[${index}].title must not be blank`);
+  if (frozenTrim(value.title) === "") fail(`links[${index}].title must not be blank`, `links[${index}].title`);
   if (codePointLen(value.title) > limits.userLinkTitleMaxLength) {
-    fail(`links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`);
+    fail(`links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`);
   }
   checkReference(`links[${index}].url`, value.url, "web", limits.userLinkUrlMaxLength, true, null);
 }
@@ -44,21 +44,21 @@ export const user: Model<User> = {
   check(value) {
     checkExtra(value.extra);
     // Padding is display text, so it is counted, not removed; only whitespace is still no name
-    if (frozenTrim(value.name) === "") fail("name must not be blank");
+    if (frozenTrim(value.name) === "") fail("name must not be blank", "name");
     const length = codePointLen(value.name);
-    if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("Invalid name length");
+    if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("Invalid name length", "name");
     if (value.bio !== null) {
-      if (frozenTrim(value.bio) === "") fail("bio must not be blank");
-      if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length");
+      if (frozenTrim(value.bio) === "") fail("bio must not be blank", "bio");
+      if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length", "bio");
     }
     if (value.image !== null) checkReference("image", value.image, "pubky or web", limits.imageUrlMaxLength, true, null);
     if (value.links !== null) {
-      if (value.links.length > limits.userLinksMaxCount) fail("Too many links");
+      if (value.links.length > limits.userLinksMaxCount) fail("Too many links", "links");
       value.links.forEach(checkLink);
     }
     if (value.status !== null) {
-      if (frozenTrim(value.status) === "") fail("status must not be blank");
-      if (codePointLen(value.status) > limits.userStatusMaxLength) fail("Status exceeds maximum length");
+      if (frozenTrim(value.status) === "") fail("status must not be blank", "status");
+      if (codePointLen(value.status) > limits.userStatusMaxLength) fail("Status exceeds maximum length", "status");
     }
   },
 };

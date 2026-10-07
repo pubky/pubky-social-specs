@@ -45,16 +45,16 @@ export function publicKeyFault(key: string): string | null {
   return key.endsWith("y") || key.endsWith("o") ? null : "invalid public key encoding";
 }
 
-const checked = (fault: (value: string) => string | null) => (value: string) => {
+const checked = (fault: (value: string) => string | null) => (value: string, field?: string) => {
   const found = fault(value);
-  if (found !== null) fail(found);
+  if (found !== null) fail(found, field);
 };
 export const checkHashId = checked(hashIdFault);
 export const checkPublicKey = checked(publicKeyFault);
 
 /** The microseconds a canonical TimestampId spells. No time bound: that is the object's rule. */
-export function timestampIdMicros(id: string): bigint {
-  checked(timestampIdFault)(id);
+export function timestampIdMicros(id: string, field?: string): bigint {
+  checked(timestampIdFault)(id, field);
   let acc = 0n;
   for (const c of id) acc = (acc << 5n) | BigInt(CROCKFORD.indexOf(c));
   return BigInt.asIntN(64, acc >> 1n);

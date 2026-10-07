@@ -67,8 +67,8 @@ const MAX_FUTURE = 7_200_000_000n;
 /** A TimestampId in its canonical spelling and inside the time bounds. */
 export function checkTimestampId(id: string): bigint {
   const micros = timestampIdMicros(id);
-  if (micros < MIN_MICROS) fail("Invalid ID, timestamp must be on or after October 1st, 2024");
-  if (micros > nowMicros() + MAX_FUTURE) fail("Invalid ID, timestamp is too far in the future");
+  if (micros < MIN_MICROS) fail("Invalid ID, timestamp must be on or after October 1st, 2024", "id");
+  if (micros > nowMicros() + MAX_FUTURE) fail("Invalid ID, timestamp is too far in the future", "id");
   return micros;
 }
 
@@ -103,39 +103,39 @@ export function checkReferences(value: Post, publicRoot: boolean, owner: string 
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
 function checkArticle(post: Post): void {
-  if (codePointLen(post.content) > limits.articleContentMaxLength) fail(`Article content must be at most ${limits.articleContentMaxLength} code points`);
+  if (codePointLen(post.content) > limits.articleContentMaxLength) fail(`Article content must be at most ${limits.articleContentMaxLength} code points`, "content");
   const envelope = parse(article, post.content, "Article content must be a valid JSON envelope: ");
   checkExtra(envelope.extra);
   // Other controls escape to six characters and would break the bound on the content
   if (hasOtherControl(envelope.title) || hasOtherControl(envelope.body)) {
-    fail("Article text must not contain control characters other than tab, newline and carriage return");
+    fail("Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
   }
-  if (frozenTrim(envelope.title) === "") fail("Article title must contain non-whitespace characters");
-  if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail(`Article title must be at most ${limits.articleTitleMaxLength} code points`);
-  if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail(`Article body must be at most ${limits.articleBodyMaxLength} code points`);
+  if (frozenTrim(envelope.title) === "") fail("Article title must contain non-whitespace characters", "title");
+  if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail(`Article title must be at most ${limits.articleTitleMaxLength} code points`, "title");
+  if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail(`Article body must be at most ${limits.articleBodyMaxLength} code points`, "body");
 }
 
 function checkCollection(post: Post): void {
-  if (post.parent !== null || post.embed !== null) fail("Collection posts cannot have parent or embed");
-  if (post.attachments.length > 0) fail("Collection posts must not use post.attachments; items belong in the content envelope");
-  if (codePointLen(post.content) > limits.collectionContentMaxLength) fail(`Collection content exceeds max length ${limits.collectionContentMaxLength}`);
+  if (post.parent !== null || post.embed !== null) fail("Collection posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
+  if (post.attachments.length > 0) fail("Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
+  if (codePointLen(post.content) > limits.collectionContentMaxLength) fail(`Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content");
   const envelope = parse(collection, post.content, "Collection content must be a valid JSON envelope: ");
   checkExtra(envelope.extra);
-  if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters");
+  if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters", "name");
   const length = codePointLen(envelope.name);
   if (length < limits.collectionNameMinLength || length > limits.collectionNameMaxLength) {
-    fail(`Collection name must be ${limits.collectionNameMinLength}..=${limits.collectionNameMaxLength} characters`);
+    fail(`Collection name must be ${limits.collectionNameMinLength}..=${limits.collectionNameMaxLength} characters`, "name");
   }
   if (envelope.description !== null) {
-    if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank");
-    if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`);
+    if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank", "description");
+    if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description");
   }
-  if (envelope.items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`);
+  if (envelope.items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
   envelope.items.forEach((entry, index) => {
     checkExtra(entry.extra);
     const max = limits.collectionItemNoteMaxLength;
     if (entry.note !== null && (frozenTrim(entry.note) === "" || codePointLen(entry.note) > max)) {
-      fail(`items[${index}].note must be 1..=${max} code points and not blank`);
+      fail(`items[${index}].note must be 1..=${max} code points and not blank`, `items[${index}].note`);
     }
   });
 }
@@ -154,26 +154,26 @@ export const post: Model<Post> = {
     if (id !== null) checkTimestampId(id);
     checkExtra(value.extra);
     // "unknown" is what a newer kind reads as: readable, never valid to write
-    if (value.kind === "unknown") fail("post kind is unknown");
+    if (value.kind === "unknown") fail("post kind is unknown", "kind");
     checkReferences(value, publicRoot, null);
-    if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`);
+    if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments");
     value.attachments.forEach((a, index) => {
       checkExtra(a.extra);
       if (a.alt !== null && codePointLen(a.alt) > limits.attachmentAltMaxLength) {
-        fail(`attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`);
+        fail(`attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`);
       }
       const max = limits.attachmentNameMaxLength;
       if (a.name !== null && (frozenTrim(a.name) === "" || codePointLen(a.name) > max)) {
-        fail(`attachments[${index}].name must be 1..=${max} code points and not blank`);
+        fail(`attachments[${index}].name must be 1..=${max} code points and not blank`, `attachments[${index}].name`);
       }
     });
     if (value.kind === "collection") return checkCollection(value);
     if (value.kind === "article") return checkArticle(value);
     if (frozenTrim(value.content) === "" && value.embed === null && value.attachments.length === 0) {
-      fail("Post must have content, an embed, or attachments");
+      fail("Post must have content, an embed, or attachments", "content");
     }
     if (codePointLen(value.content) > limits.postNoteContentMaxLength) {
-      fail(`content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`);
+      fail(`content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`, "content");
     }
   },
 };
@@ -188,7 +188,7 @@ export interface Minted {
 
 // Where one version goes, after every rule a stored version has to pass
 function mint(value: Post, id: string, editId: string, root: Root, owner: string, slug: string | null): Minted {
-  if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`);
+  if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
   const publicRoot = root === "public";
   const body = validate(post, value, id, publicRoot);
   // The editId is a TimestampId too, so the validity bound applies to it
@@ -279,7 +279,7 @@ export function buildPost(owner: string, input: unknown): Minted {
     const description = trimmedOrNull(maybe.parse(i.description, "input.description"));
     const entries = items.parse(i.items, "input.items") ?? [];
     const cover = maybe.parse(i.cover_image, "input.cover_image");
-    const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : known(collectionLayouts, "collection layout", i.layout, "input.layout");
+    const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : known(collectionLayouts, "collection layout", i.layout, "layout");
     const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra });
     const value: Post = { content, kind, parent: null, embed: null, attachments: [], lock: null, extra };
     const { root, slug } = placement(i);
@@ -289,7 +289,7 @@ export function buildPost(owner: string, input: unknown): Minted {
   const content = frozenTrim(string.parse(i.content, "input.content"));
   const value: Post = {
     content,
-    kind: i.kind === null || i.kind === undefined ? "note" : known(postKinds, "content kind", i.kind, "input.kind"),
+    kind: i.kind === null || i.kind === undefined ? "note" : known(postKinds, "content kind", i.kind, "kind"),
     parent: maybe.parse(i.parent, "input.parent"),
     embed: maybe.parse(i.embed, "input.embed"),
     attachments: attachments.parse(i.attachments, "input.attachments") ?? [],

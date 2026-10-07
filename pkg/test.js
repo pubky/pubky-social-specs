@@ -98,6 +98,30 @@ describe("pubky-social-specs", () => {
       misuse(() => buildUri(OTTO, "posts", "x"), /kind must be an object kind/);
     });
 
+    it("a refusal carries the reference text as its reason, and the member or argument it is about", () => {
+      const caught = (fn) => {
+        try {
+          fn();
+        } catch (e) {
+          return e;
+        }
+        assert.fail("no refusal");
+      };
+      const name = caught(() => buildUser(OTTO, { name: "ab" }));
+      assert.strictEqual(name.reason, "Invalid name length");
+      assert.strictEqual(name.field, "name");
+      assert.strictEqual(name.message, `Validation Error: ${name.reason}`);
+      assert.strictEqual(caught(() => buildUser("nope", { name: "Alice" })).field, "owner");
+      assert.strictEqual(caught(() => buildFollow(OTTO, "nope")).field, "followee");
+      assert.strictEqual(caught(() => buildPost(OTTO, { content: "x", parent: "not a uri" })).field, "parent");
+      assert.strictEqual(caught(() => buildPost(OTTO, { content: "x", attachments: [{ uri: "https://a.example", name: " " }] })).field, "attachments[0].name");
+      assert.strictEqual(caught(() => buildPost(OTTO, { kind: "article", title: " ", body: "b" })).field, "title");
+      assert.strictEqual(caught(() => buildTag(OTTO, buildUri(RIO, "user"), "a b")).field, "label");
+      assert.strictEqual(caught(() => buildFeed(OTTO, { name: "n", icon: "A!", reach: "all", layout: "list", sort: "recent" })).field, "icon");
+      // A refusal of the whole object names no field
+      assert.strictEqual(caught(() => decodeObject(buildUri(OTTO, "user"), utf8("{"))).field, undefined);
+    });
+
     it("instanceof holds for an error of another copy of the package", () => {
       const other = Object.assign(new Error("Validation Error: x"), { [Symbol.for("pubky-social-specs.ValidationError")]: true });
       assert.ok(other instanceof ValidationError);

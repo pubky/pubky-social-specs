@@ -15,7 +15,7 @@ export function parse<T>(codec: Codec<T>, input: Uint8Array | string, context = 
     reader.end();
     return value;
   } catch (e) {
-    if (e instanceof JsonError) throw new ValidationError(`Validation Error: ${context}${e.message}`);
+    if (e instanceof JsonError) throw new ValidationError(`${context}${e.message}`, undefined, { cause: e });
     throw e;
   }
 }

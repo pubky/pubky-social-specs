@@ -27,15 +27,15 @@ export interface Feed extends Extra {
 
 function checkTagList(tags: string[] | null, field: string): void {
   if (tags === null) return;
-  if (tags.length === 0) fail(`Feed config ${field} cannot be an empty list, omit it for no filter`);
-  if (tags.length > limits.feedTagsMaxCount) fail(`Feed config cannot have more than ${limits.feedTagsMaxCount} ${field}`);
+  if (tags.length === 0) fail(`Feed config ${field} cannot be an empty list, omit it for no filter`, field);
+  if (tags.length > limits.feedTagsMaxCount) fail(`Feed config cannot have more than ${limits.feedTagsMaxCount} ${field}`, field);
   for (const tag of tags) {
-    if (tag !== foldLabel(tag)) fail(`Tag '${tag}' must be stored folded (trimmed, ASCII lowercase)`);
-    checkLabel(tag);
+    if (tag !== foldLabel(tag)) fail(`Tag '${tag}' must be stored folded (trimmed, ASCII lowercase)`, field);
+    checkLabel(tag, field);
   }
   for (let i = 1; i < tags.length; i++) {
     if (compareBytes(tags[i - 1] as string, tags[i] as string) >= 0) {
-      fail(`Feed config ${field} must be stored deduplicated and sorted by code point`);
+      fail(`Feed config ${field} must be stored deduplicated and sorted by code point`, field);
     }
   }
 }
@@ -43,8 +43,8 @@ function checkTagList(tags: string[] | null, field: string): void {
 function checkIcon(icon: string | null): void {
   if (icon === null) return;
   const length = codePointLen(icon);
-  if (length < 1 || length > limits.feedIconMaxLength) fail(`Feed icon '${icon}' must be 1 to ${limits.feedIconMaxLength} characters`);
-  for (const c of icon) if (!/^[a-z0-9-]$/.test(c)) fail(`Feed icon '${icon}' contains invalid character: ${c}`);
+  if (length < 1 || length > limits.feedIconMaxLength) fail(`Feed icon '${icon}' must be 1 to ${limits.feedIconMaxLength} characters`, "icon");
+  for (const c of icon) if (!/^[a-z0-9-]$/.test(c)) fail(`Feed icon '${icon}' contains invalid character: ${c}`, "icon");
 }
 
 // The id is the filter alone, so name and icon change without moving the feed
@@ -69,23 +69,23 @@ export const feed: Model<Feed> = {
   check(value, id) {
     const f = value.feed;
     // reach, layout and sort define the feed; an unknown content filter only means no filter
-    if (f.reach === "unknown") fail("feed reach is unknown");
-    if (f.layout === "unknown") fail("feed layout is unknown");
-    if (f.sort === "unknown") fail("feed sort is unknown");
+    if (f.reach === "unknown") fail("feed reach is unknown", "reach");
+    if (f.layout === "unknown") fail("feed layout is unknown", "layout");
+    if (f.sort === "unknown") fail("feed sort is unknown", "sort");
     checkExtra(f.extra);
     checkTagList(f.tags, "tags");
     checkTagList(f.domain_tags, "domain_tags");
     checkExtra(value.extra);
-    if (frozenTrim(value.name) === "") fail("Feed name cannot be empty");
-    if (codePointLen(value.name) > limits.feedNameMaxLength) fail(`Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`);
+    if (frozenTrim(value.name) === "") fail("Feed name cannot be empty", "name");
+    if (codePointLen(value.name) > limits.feedNameMaxLength) fail(`Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`, "name");
     checkIcon(value.icon);
     checkSafeInt(value.created_at);
     if (id !== null) {
-      checkHashId(id);
+      checkHashId(id, "id");
       // A reader that does not know the content filter cannot rebuild the writer's id input
       if (f.content !== "unknown") {
         const expected = idOf(value);
-        if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`);
+        if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
       }
     }
   },
@@ -102,8 +102,8 @@ const tagList = option(list(string));
 
 function filter(tags: string[] | null, field: string): string[] | null {
   if (tags === null) return null;
-  if (tags.length === 0) fail(`${field} must not be an empty list; pass None for no filter`);
-  if (tags.some((tag) => foldLabel(tag) === "")) fail(`${field} must not contain a blank label`);
+  if (tags.length === 0) fail(`${field} must not be an empty list; pass None for no filter`, field);
+  if (tags.some((tag) => foldLabel(tag) === "")) fail(`${field} must not contain a blank label`, field);
   return [...new Set(tags.map(foldLabel))].sort(compareBytes);
 }
 
@@ -114,10 +114,10 @@ export function buildFeed(owner: string, input: unknown) {
   const given = { tags: tagList.parse(i.tags, "input.tags"), domain: tagList.parse(i.domain_tags, "input.domain_tags") };
   const name = string.parse(i.name, "input.name");
   const icon = string.parse(i.icon, "input.icon");
-  const content = i.content === null || i.content === undefined ? null : known(postKinds, "content kind", i.content, "input.content");
-  const reach = known(feedReaches, "feed reach", i.reach, "input.reach");
-  const layout = known(feedLayouts, "feed layout", i.layout, "input.layout");
-  const sort = known(feedSorts, "feed sort", i.sort, "input.sort");
+  const content = i.content === null || i.content === undefined ? null : known(postKinds, "content kind", i.content, "content");
+  const reach = known(feedReaches, "feed reach", i.reach, "reach");
+  const layout = known(feedLayouts, "feed layout", i.layout, "layout");
+  const sort = known(feedSorts, "feed sort", i.sort, "sort");
   const tags = filter(given.tags, "tags");
   const domainTags = filter(given.domain, "domain_tags");
   checkTagList(tags, "tags");

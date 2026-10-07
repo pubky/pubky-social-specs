@@ -49,12 +49,12 @@ export interface Tag extends Extra {
 /** A label as it is stored: trimmed and ASCII-lowercased. Only a builder folds. */
 export const foldLabel = (label: string) => asciiFold(frozenTrim(label));
 
-export function checkLabel(label: string): void {
+export function checkLabel(label: string, field = "label"): void {
   const length = codePointLen(label);
-  if (length > limits.tagLabelMaxLength) fail(`Tag '${label}' exceeds maximum length of ${limits.tagLabelMaxLength} characters`);
-  if (length < limits.tagLabelMinLength) fail(`Tag '${label}' is shorter than minimum length of ${limits.tagLabelMinLength} character`);
-  if (hasFrozenWhitespace(label)) fail(`Tag '${label}' contains whitespace characters`);
-  for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail(`Tag '${label}' contains invalid character: ${c}`);
+  if (length > limits.tagLabelMaxLength) fail(`Tag '${label}' exceeds maximum length of ${limits.tagLabelMaxLength} characters`, field);
+  if (length < limits.tagLabelMinLength) fail(`Tag '${label}' is shorter than minimum length of ${limits.tagLabelMinLength} character`, field);
+  if (hasFrozenWhitespace(label)) fail(`Tag '${label}' contains whitespace characters`, field);
+  for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail(`Tag '${label}' contains invalid character: ${c}`, field);
 }
 
 const tagId = (value: Tag) => hashText(`${value.uri}:${value.label}`);
@@ -65,10 +65,10 @@ export const tag: Model<Tag> = {
   check(value, id) {
     if (id !== null) {
       const expected = tagId(value);
-      if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`);
+      if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
     }
     checkExtra(value.extra);
-    if (value.label !== foldLabel(value.label)) fail(`Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`);
+    if (value.label !== foldLabel(value.label)) fail(`Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
     checkLabel(value.label);
     // A tag is public, so a private target fails the root rule under any root
     checkReference("uri", value.uri, "", limits.referenceUriMaxLength, true, null);
@@ -93,7 +93,7 @@ const MAX = limits.bookmarkTargetUriMaxBytes;
 
 function canonicalTarget(target: string): string {
   const result = reference(target, "", limits.referenceUriMaxLength, true, null);
-  return "canonical" in result ? result.canonical : fail(`${TARGET} ${result.refusal}`);
+  return "canonical" in result ? result.canonical : fail(`${TARGET} ${result.refusal}`, "target");
 }
 
 const checkTarget = (target: string) => checkReference(TARGET, target, "", limits.referenceUriMaxLength, true, null);

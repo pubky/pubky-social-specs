@@ -117,7 +117,7 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
     try {
       checkSafe(envelope);
     } catch (e) {
-      if (e instanceof ValidationError) fail(`cannot publish: ${e.message.replace(/^Validation Error: /, "")}`);
+      if (e instanceof ValidationError) fail(`cannot publish: ${e.reason}`, e.field);
       throw e;
     }
     envelope.set("cover_image", toPublic(cover, owner));

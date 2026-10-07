@@ -17,7 +17,7 @@
 import * as clock from "./clock.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
-import { fail, misuse } from "./errors.js";
+import { fail, misuse, ValidationError } from "./errors.js";
 import { arrayOf, type Codec, inputOf } from "./json/schema.js";
 import * as lifecycle from "./lifecycle.js";
 import { parse as parseText } from "./models/common.js";
@@ -42,8 +42,14 @@ export type * from "./types.js";
 // A Rust string cannot hold a lone surrogate, so no rule of the model has an answer for one
 function text(value: unknown, name: string): string {
   if (typeof value !== "string") misuse(name, "a string");
-  if (!isWellFormed(value)) fail("text must be well-formed UTF-16");
+  if (!isWellFormed(value)) fail("text must be well-formed UTF-16", name.includes(".") ? undefined : name);
   return value;
+}
+
+/** A public key argument: refused under its own name, which the reference text does not carry. */
+function key(value: unknown, name: string): string {
+  ids.checkPublicKey(text(value, name), name);
+  return value as string;
 }
 
 function bytesOf(value: unknown, name: string): Uint8Array {
@@ -152,7 +158,7 @@ export function encodeContent(content: T.ArticleContent | T.CollectionContent): 
  * To change a stored profile and keep what this version does not know: decode, edit, encode.
  */
 export function buildUser(owner: string, input: T.NewUser): T.Built<T.User> {
-  return built(owner, users.user.codec, users.buildUser(text(owner, "owner"), input));
+  return built(owner, users.user.codec, users.buildUser(key(owner, "owner"), input));
 }
 
 /**
@@ -162,7 +168,7 @@ export function buildUser(owner: string, input: T.NewUser): T.Built<T.User> {
  * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
  */
 export function buildPost(owner: string, input: T.NewPost): T.BuiltPost {
-  return builtPost(owner, posts.buildPost(text(owner, "owner"), input));
+  return builtPost(owner, posts.buildPost(key(owner, "owner"), input));
 }
 
 /**
@@ -188,7 +194,7 @@ export function editPost(headUri: string, post: T.Post, options?: { root?: T.Roo
  * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  */
 export function buildFeed(owner: string, input: T.NewFeed): T.Built<T.Feed> {
-  return built(owner, feeds.feed.codec, feeds.buildFeed(text(owner, "owner"), input));
+  return built(owner, feeds.feed.codec, feeds.buildFeed(key(owner, "owner"), input));
 }
 
 /** The id of a feed object: an edited filter moves the feed, and this is where to. */
@@ -201,22 +207,22 @@ export function feedId(feed: T.Feed): string {
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  */
 export function buildTag(owner: string, uri: string, label: string): T.Built<T.Tag> {
-  return built(owner, graph.tag.codec, graph.buildTag(text(owner, "owner"), text(uri, "uri"), text(label, "label")));
+  return built(owner, graph.tag.codec, graph.buildTag(key(owner, "owner"), text(uri, "uri"), text(label, "label")));
 }
 
 /** A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked. */
 export function buildBookmark(owner: string, target: string): T.Built<T.Bookmark> {
-  return built(owner, graph.bookmark.codec, graph.buildBookmark(text(owner, "owner"), text(target, "target")));
+  return built(owner, graph.bookmark.codec, graph.buildBookmark(key(owner, "owner"), text(target, "target")));
 }
 
 /** A follow of `followee`, a bare public key, stored under the public root. */
 export function buildFollow(owner: string, followee: string): T.Built<T.Follow> {
-  return built(owner, graph.follow.codec, graph.buildFollow(text(owner, "owner"), text(followee, "followee")));
+  return built(owner, graph.follow.codec, graph.buildFollow(key(owner, "owner"), key(followee, "followee")));
 }
 
 /** A mute, stored under the private root. */
 export function buildMute(owner: string, mutee: string): T.Built<T.Mute> {
-  return built(owner, graph.mute.codec, graph.buildMute(text(owner, "owner"), text(mutee, "mutee")));
+  return built(owner, graph.mute.codec, graph.buildMute(key(owner, "owner"), key(mutee, "mutee")));
 }
 
 /**
@@ -232,7 +238,7 @@ export function buildFile(owner: string, input: T.NewFile): { id: string; path: 
   const given = inputOf(input, "input", ["bytes", "id", "type", "root"]);
   if ((given.bytes === undefined) === (given.id === undefined)) misuse("input", "given either bytes or an id");
   const source = given.bytes !== undefined ? { bytes: bytesOf(given.bytes, "input.bytes") } : { id: text(given.id, "input.id") };
-  const made = files.buildFile(text(owner, "owner"), source, text(given.type, "input.type"), rootOf(given.root, "input.root"));
+  const made = files.buildFile(key(owner, "owner"), source, text(given.type, "input.type"), rootOf(given.root, "input.root"));
   return { ...made, url: `pubky://${owner}${made.path}` };
 }
 
@@ -252,7 +258,7 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): st
 export function planPublish(owner: string, version: { id: string; editId: string; post: T.Post }): { copies: lifecycle.Copy[]; put: T.BuiltPost } {
   const given = inputOf(version, "version", ["id", "editId", "post"]);
   const value = posts.post.codec.parse(given.post, "version.post");
-  const plan = lifecycle.planPublish(text(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value);
+  const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value);
   return { copies: plan.copies, put: builtPost(owner, plan.put) };
 }
 
@@ -280,7 +286,7 @@ export function planDelete(owner: string, post: { id: string; legacyPaths?: stri
     return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
   });
   const versions = arrayOf(given.versions ?? [], "post.versions").map((version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
-  return lifecycle.planDelete(text(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions);
+  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions);
 }
 
 /**
@@ -307,7 +313,7 @@ export function parseUri(uri: string): T.ParsedUri {
     return { ...parsed, target: graph.targetOf(parsed.id, { created_at: 0n, target: null, extra: new Map() }) };
   } catch (e) {
     // The form of the id passed; what it carries is no valid target, which a reader skips
-    if (e instanceof Error && e.name === "ValidationError") return parsed;
+    if (e instanceof ValidationError) return parsed;
     throw e;
   }
 }
@@ -320,10 +326,10 @@ export function parseUri(uri: string): T.ParsedUri {
 export function buildUri(owner: string, kind: "user"): string;
 export function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;
 export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string {
-  return uris.build(text(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
+  return uris.build(key(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
 }
 
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */
 export function listPrefix(owner: string, tree: T.Root | "legacy"): string {
-  return uris.listPrefix(text(owner, "owner"), tree);
+  return uris.listPrefix(key(owner, "owner"), tree);
 }
