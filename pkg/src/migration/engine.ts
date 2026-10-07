@@ -1,5 +1,6 @@
 import { limits, skipReasons, transformRev } from "../data.js";
 import { viewBytes } from "../bytes.js";
+import { isCanonicalSegment } from "../canonicalize.js";
 import { ValidationError } from "../errors.js";
 import { legacyMediaKey, listPrefix, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
@@ -80,7 +81,7 @@ const messageOf = (error: unknown): string =>
 
 const decoder = new TextDecoder();
 
-/** Whether every scope of `required` is granted, read and write alike. */
+/** Whether every scope of `required` is granted, read and write alike, by one scope or several. */
 const covers = (granted: string | string[], required: string): boolean => {
   const scopes = (caps: string | string[]) =>
     (Array.isArray(caps) ? caps : [caps])
@@ -93,10 +94,12 @@ const covers = (granted: string | string[], required: string): boolean => {
       });
   const have = scopes(granted);
   return scopes(required).every((need) =>
-    have.some(
-      (cap) =>
-        (cap.path === need.path || (cap.path.endsWith("/") && need.path.startsWith(cap.path))) &&
-        [...need.actions].every((action) => cap.actions.includes(action)),
+    [...need.actions].every((action) =>
+      have.some(
+        (cap) =>
+          (cap.path === need.path || (cap.path.endsWith("/") && need.path.startsWith(cap.path))) &&
+          cap.actions.includes(action),
+      ),
     ),
   );
 };
@@ -125,6 +128,10 @@ const readFlag = (bytes: Uint8Array): Flag => {
   }
   return { transformRev: Number.isSafeInteger(rev) ? (rev as number) : 0, skipped: kept, migrated: new Set(migrated) };
 };
+
+/** Whether `url` names an object under one of `roots`, by canonical segments only. */
+const fenced = (url: string, roots: string[]): boolean =>
+  roots.some((root) => url.startsWith(root) && url.slice(root.length).split("/").every(isCanonicalSegment));
 
 /** Resolves after `ms`, or as soon as `signal` aborts. */
 const timer = (ms: number, signal?: AbortSignalLike) =>
@@ -189,6 +196,17 @@ const blobResult = (result: MigrateBlobResult, bytes: Uint8Array): MigrateResult
       };
 
 const LANDED = Promise.resolve(true);
+
+const equalBytes = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((byte, i) => byte === b[i]);
+
+// The same JSON value, whatever the member order the port wrote it in
+const sameJson = (a: unknown, b: unknown): boolean => {
+  if (typeof a !== "object" || a === null || typeof b !== "object" || b === null) return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((key) => Object.hasOwn(b, key) && sameJson((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+};
 
 interface Flag {
   transformRev: number;
@@ -435,7 +453,7 @@ class Run {
     if ("skip" in result) return this.#count(result.skip, path, result.note);
     // The port can write the whole tree, the 0.x one included, which the run must never touch
     for (const write of result.writes) {
-      if (!this.#roots.some((root) => write.meta.url.startsWith(root))) {
+      if (!fenced(write.meta.url, this.#roots)) {
         throw new Error(`pubky-social-specs/migration: a write to ${write.meta.url}, outside ${this.#roots.join(" and ")}`);
       }
     }
@@ -493,7 +511,9 @@ class Run {
       return this.#written(path, dropped);
     }
     for (const [i, claim] of made.entries()) {
-      const deleted = await this.#attempt(() => this.#port.delete(claim.write.meta.url));
+      // Over a check-then-write port another device may have written there since; theirs stays
+      const ours = await this.#holds(claim.write);
+      const deleted = ours === true ? await this.#attempt(() => this.#port.delete(claim.write.meta.url)) : ours;
       if (isFailure(deleted) && deleted.failed !== "not_found") {
         // The copies before this one are gone, this one and the rest are still there
         made.forEach((m, j) => m.settle(j >= i));
@@ -505,6 +525,23 @@ class Run {
       return this.#count("io_error", path, `re-check after copy: ${stillThere.message}`);
     }
     return this.#count("deleted_mid_run", path);
+  }
+
+  /**
+   * Whether what is stored at the write's URL is what this run wrote there: `false` for
+   * something else or nothing, a failure when the GET failed.
+   */
+  async #holds(write: MigratedWrite): Promise<boolean | Failure> {
+    const stored = await this.#attempt(() => this.#port.get(write.meta.url));
+    if (isFailure(stored)) return stored.failed === "not_found" ? false : stored;
+    const bytes = stored === null ? null : viewBytes(stored);
+    if (bytes === null) return false;
+    if (write.kind === "file") return equalBytes(bytes, write.object.bytes);
+    try {
+      return sameJson(JSON.parse(decoder.decode(bytes)), write.object);
+    } catch {
+      return false;
+    }
   }
 
   /** Whether a copy under `key` exists, waiting for one being made to land or not. */

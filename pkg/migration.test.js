@@ -928,6 +928,52 @@ describe("migration engine", () => {
       assert.strictEqual((await port.get(blob, { maxBytes: 11 })).length, 11);
     });
 
+    it("refuses a write whose URL holds a dot segment, before any PUT", async () => {
+      const real = transforms.migrate;
+      transforms.migrate = (handle, source, bytes) => {
+        const result = real(handle, source, bytes);
+        for (const write of result.writes ?? []) write.meta = { ...write.meta, url: url("pub/social/v1/../../pubky.app/profile.json") };
+        return result;
+      };
+      try {
+        const port = legacyPort();
+        const profile = port.store.get(url("pub/pubky.app/profile.json"));
+        await assert.rejects(runMigration({ owner, port }), /a write to .*\/pub\/social\/v1\/\.\.\/\.\.\/pubky\.app\/profile\.json, outside/);
+        assert.ok(!port.calls.some((c) => c.url.includes("/../")));
+        assert.deepStrictEqual(port.store.get(url("pub/pubky.app/profile.json")), profile);
+      } finally {
+        transforms.migrate = real;
+      }
+    });
+
+    it("the race guard deletes only the copy this run wrote, never another device's", async () => {
+      const follow = url([...rows.keys()].find((p) => p.includes("/follows/")));
+      const theirs = encoder.encode('{"created_at":1730000000000001}');
+      let port;
+      let destination;
+      port = legacyPort({
+        intercept: (op, target) => {
+          if (op === "putJson" && target.includes("/pub/social/v1/follows/")) destination = target;
+          // The source goes, and another device writes the destination, between the PUT and the re-check
+          if (op === "head" && target === follow) {
+            port.store.delete(follow);
+            port.store.set(destination, theirs);
+          }
+        },
+      });
+      const report = await runMigration({ owner, port });
+      assert.ok(report.skipped.deleted_mid_run.includes(follow.slice(`pubky://${owner}/`.length)));
+      assert.deepStrictEqual(port.store.get(destination), theirs);
+      assert.ok(!port.calls.some((c) => c.op === "delete" && c.url === destination));
+    });
+
+    it("caps split over several scopes cover what one scope would", async () => {
+      const split = ["/pub/social/v1/:r", "/pub/social/v1/:w", "/priv/social/v1/:r,/priv/social/v1/:w"];
+      assert.strictEqual((await runMigration({ owner, port: legacyPort(), caps: split })).status, "done");
+      const report = await runMigration({ owner, port: legacyPort(), caps: ["/pub/social/v1/:r", "/priv/social/v1/:rw"] });
+      assert.strictEqual(report.error?.code, "CAPS_MISSING");
+    });
+
     it("refuses a mode it does not know", async () => {
       await assert.rejects(runMigration({ owner, port: legacyPort(), mode: "Dry" }), /mode must be "run" or "dry"/);
     });

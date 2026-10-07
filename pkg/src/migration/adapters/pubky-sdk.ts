@@ -4,6 +4,7 @@
 // engine never loads it, and these declarations compile without it. The package does not
 // declare it as a peer dependency, since a host on another SDK line would fail to install.
 
+import { isCanonicalSegment } from "../../canonicalize.js";
 import { MigrationPortError, refusal } from "../port.js";
 import type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "../port.js";
 
@@ -249,8 +250,11 @@ class SdkPort implements MigrationPort {
 
   #path(url: string): string {
     const path = url.startsWith(this.#ownerPrefix) ? url.slice(this.#ownerPrefix.length - 1) : "";
-    if (!path.startsWith("/pub/") && !path.startsWith("/priv/")) {
-      throw new MigrationPortError("rejected", `${url} is not under /pub/ or /priv/ of the session's owner`);
+    // Every segment but a directory's empty tail, so no dot segment resolves elsewhere
+    const segments = path.split("/").slice(2);
+    const clean = segments.every((segment, i) => isCanonicalSegment(segment) || (segment === "" && i === segments.length - 1));
+    if ((!path.startsWith("/pub/") && !path.startsWith("/priv/")) || !clean) {
+      throw new MigrationPortError("rejected", `${url} is not a clean path under /pub/ or /priv/ of the session's owner`);
     }
     return path;
   }

@@ -220,6 +220,9 @@ describe("pubky SDK port", () => {
       () => port.list("pubky://pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy/pub/"),
       () => port.get(url("dav/x")),
       () => port.list(url("pub/pubky.app")),
+      () => port.putJson(url("pub/social/v1/../../pubky.app/profile.json"), {}),
+      () => port.delete(url("pub/social/v1/./x")),
+      () => port.get(url("pub/social/v1/%2e%2e/x")),
     ]) {
       await assert.rejects(call(), { name: "MigrationPortError", kind: "rejected" });
     }
