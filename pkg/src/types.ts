@@ -2,7 +2,11 @@
 // (null when it has no value), integers as numbers. Members this version does not know travel
 // in `$unknown`, as text to carry along untouched.
 
-import type { CollectionLayout, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
+import type * as feeds from "./models/feed.js";
+import type * as graph from "./models/graph.js";
+import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind } from "./models/kinds.js";
+import type * as posts from "./models/post.js";
+import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
 import type { ObjectKind, OwnerPath, Resource, Root } from "./uri.js";
 
@@ -16,101 +20,56 @@ export type PubkyUrl = `pubky://${string}`;
 /** A media type the package maps to an extension; any other string is taken too, as `.bin`. */
 export type MimeType = (typeof validMimeTypes)[number];
 
+/**
+ * A stored model as a caller holds it: the known members, integers as numbers, and the
+ * unknown ones as `$unknown` text. Every public object type below is this of its model, so a
+ * member added to a model reaches the type a caller sees.
+ */
+type Plain<T> = { [K in keyof T as K extends "extra" ? never : K]: T[K] extends bigint ? number : T[K] };
+
 interface Open {
   /** The members a newer writer added, as the text they were read with. Carry it along. */
   $unknown?: string;
 }
 
-export interface UserLink extends Open {
-  title: string;
-  url: string;
-}
+export interface UserLink extends Open, Plain<users.UserLink> {}
 
-export interface User extends Open {
-  name: string;
-  bio: string | null;
-  image: string | null;
+export interface User extends Open, Omit<Plain<users.User>, "links"> {
   links: UserLink[] | null;
-  status: string | null;
 }
 
-export interface Attachment extends Open {
-  uri: string;
-  alt: string | null;
-  name: string | null;
-}
+export interface Attachment extends Open, Plain<posts.Attachment> {}
 
-export interface Post extends Open {
-  /** Text for an untyped kind; for an article or a collection, the envelope `decodeContent` reads. */
-  content: string;
+export interface Post extends Open, Omit<Plain<posts.Post>, "kind" | "attachments"> {
   /** A post of a kind this version does not know is refused on read, so never `"unknown"`. */
   kind: KnownPostKind;
-  parent: string | null;
-  embed: string | null;
   attachments: Attachment[];
-  lock: string | null;
 }
 
-export interface ArticleContent extends Open {
-  title: string;
-  body: string;
-  cover_image: string | null;
-}
+export interface ArticleContent extends Open, Plain<posts.ArticleContent> {}
 
-export interface CollectionItem extends Open {
-  uri: string;
-  note: string | null;
-}
+export interface CollectionItem extends Open, Plain<posts.CollectionItem> {}
 
-export interface CollectionContent extends Open {
-  name: string;
-  description: string | null;
+export interface CollectionContent extends Open, Omit<Plain<posts.CollectionContent>, "items"> {
   items: CollectionItem[];
-  cover_image: string | null;
-  layout: CollectionLayout | null;
 }
 
-export interface Tag extends Open {
-  uri: string;
-  label: string;
-  /** Microseconds since the epoch. */
-  created_at: number;
-}
+export interface Tag extends Open, Plain<graph.Tag> {}
 
-export interface Bookmark extends Open {
-  /** Microseconds since the epoch. */
-  created_at: number;
-  /** Only on a bookmark whose target is too long for its id to carry. */
-  target: string | null;
-}
+export interface Bookmark extends Open, Plain<graph.Bookmark> {}
 
-export interface Follow extends Open {
-  /** Microseconds since the epoch. */
-  created_at: number;
-}
+export interface Follow extends Open, Plain<graph.Edge> {}
 
-export interface Mute extends Open {
-  /** Microseconds since the epoch. */
-  created_at: number;
-}
+export interface Mute extends Open, Plain<graph.Edge> {}
 
-export interface FeedConfig extends Open {
-  tags: string[] | null;
-  domain_tags: string[] | null;
+export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort"> {
   reach: KnownFeedReach;
   layout: KnownFeedLayout;
   sort: KnownFeedSort;
-  /** The one member of a feed that reads as `"unknown"` for a newer kind: the feed is still usable. */
-  content: PostKind | null;
 }
 
-export interface Feed extends Open {
+export interface Feed extends Open, Omit<Plain<feeds.Feed>, "feed"> {
   feed: FeedConfig;
-  name: string;
-  /** 1 to 50 of a-z, 0-9 and `-`: a name for the client's icon set, not an emoji. */
-  icon: string | null;
-  /** Microseconds since the epoch. */
-  created_at: number;
 }
 
 export interface Stored {

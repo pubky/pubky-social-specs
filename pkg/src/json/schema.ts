@@ -185,10 +185,13 @@ function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObjec
   return members;
 }
 
+/** A codec per known member of `T`: a member left out or misspelled does not compile. */
+export type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Codec<T[K]> };
+
 /** An object that keeps the members it does not know, under `extra`. */
-export function object<T extends Extra>(name: string, fields: Record<string, Codec<any>>): Codec<T> {
+export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<T> {
   const names = Object.keys(fields);
-  const entries = Object.entries(fields);
+  const entries = Object.entries(fields) as [string, Codec<unknown>][];
   const absent = (key: string, codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : codec.optional ? null : missing());
   return {
     read(r: Reader) {
@@ -196,7 +199,7 @@ export function object<T extends Extra>(name: string, fields: Record<string, Cod
       const out: Record<string, unknown> = {};
       const extra: JsonObject = new Map();
       r.object((key) => {
-        const codec = Object.hasOwn(fields, key) ? fields[key] : undefined;
+        const codec = Object.hasOwn(fields, key) ? (fields as Record<string, Codec<unknown>>)[key] : undefined;
         if (!codec) return void extra.set(key, r.value());
         if (Object.hasOwn(out, key)) r.fail(`duplicate field \`${key}\``);
         out[key] = codec.read(r);

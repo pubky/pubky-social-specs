@@ -99,7 +99,7 @@ export function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, k
   }
   const read = objects.read(at, bytesOf(bytes, "bytes"));
   if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.body } : read.body;
-  const object = objects.models[read.kind].codec.plain(read.value) as T.Stored[keyof T.Stored];
+  const object = objects.modelOf(read.kind).codec.plain(read.value) as T.Stored[keyof T.Stored];
   return kind === undefined ? ({ kind: read.kind, object } as T.Decoded) : object;
 }
 

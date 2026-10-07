@@ -21,6 +21,7 @@ export interface Attachment extends Extra {
 }
 
 export interface Post extends Extra {
+  /** Text for an untyped kind; for an article or a collection, the envelope `decodeContent` reads. */
   content: string;
   kind: PostKind;
   parent: string | null;

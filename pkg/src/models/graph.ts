@@ -12,6 +12,7 @@ import { type Root, socialPath } from "../uri.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 
 export interface Edge extends Extra {
+  /** Microseconds since the epoch. */
   created_at: bigint;
 }
 
@@ -43,6 +44,7 @@ export const buildMute = (owner: string, mutee: string) => buildEdge(mute, "priv
 export interface Tag extends Extra {
   uri: string;
   label: string;
+  /** Microseconds since the epoch. */
   created_at: bigint;
 }
 
@@ -84,7 +86,9 @@ export function buildTag(owner: string, uri: string, label: string) {
 }
 
 export interface Bookmark extends Extra {
+  /** Microseconds since the epoch. */
   created_at: bigint;
+  /** Only on a bookmark whose target is too long for its id to carry. */
   target: string | null;
 }
 

@@ -3,15 +3,30 @@
 
 import { fail, misuse } from "./errors.js";
 import { type Model, readStored, validate } from "./models/common.js";
-import { feed } from "./models/feed.js";
+import { type Feed, feed } from "./models/feed.js";
 import { checkFile } from "./models/file.js";
-import { bookmark, follow, mute, tag } from "./models/graph.js";
+import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from "./models/graph.js";
 import { checkReferences, post, type Post } from "./models/post.js";
-import { user } from "./models/user.js";
+import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
 import { type ObjectKind, parse, type Parsed, type Root } from "./uri.js";
 
-export const models: Record<Exclude<ObjectKind, "file">, Model<any>> = { user, post, follow, mute, bookmark, tag, feed };
+interface Models {
+  user: User;
+  post: Post;
+  follow: Edge;
+  mute: Edge;
+  bookmark: Bookmark;
+  tag: Tag;
+  feed: Feed;
+}
+
+/** The model of each stored kind, typed by its own value: a model of another kind does not compile. */
+const models: { [K in keyof Models]: Model<Models[K]> } = { user, post, follow, mute, bookmark, tag, feed };
+
+/** The model of a kind known only at run time, its value type erased at this one place. */
+export const modelOf = (kind: Exclude<ObjectKind, "file">): Model<unknown> => models[kind] as unknown as Model<unknown>;
+export const isStoredKind = (kind: string): kind is keyof Models => Object.hasOwn(models, kind);
 
 // What a path names that is no stored object
 function stored(parsed: Parsed): { kind: ObjectKind; id: string } {
@@ -41,7 +56,7 @@ export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value:
     return { kind, value: bytes, body: bytes as Bytes };
   }
   const publicRoot = parsed.root === "public";
-  const { value, body } = readStored(models[kind], bytes, id, publicRoot);
+  const { value, body } = readStored(modelOf(kind), bytes, id, publicRoot);
   // The URI names the author, so the ownership rule can run here
   if (kind === "post") checkReferences(value as Post, publicRoot, parsed.owner);
   return { kind, value, body: utf8(body) };
@@ -60,9 +75,9 @@ export function write(at: string | { kind: ObjectKind; root?: Root }, js: unknow
     checkFile(js, id);
     return js as Bytes;
   }
-  if (!Object.hasOwn(models, kind)) misuse("kind", "an object kind");
+  if (!isStoredKind(kind)) misuse("kind", "an object kind");
   if (ArrayBuffer.isView(js)) misuse("object", `the decoded ${kind}, not its bytes`);
-  const model = models[kind];
+  const model = modelOf(kind);
   const value = model.codec.parse(js, kind);
   const body = validate(model, value, id, publicRoot);
   if (where && kind === "post") checkReferences(value as Post, publicRoot, where.owner);

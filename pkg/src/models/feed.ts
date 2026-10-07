@@ -21,7 +21,9 @@ export interface FeedConfig extends Extra {
 export interface Feed extends Extra {
   feed: FeedConfig;
   name: string;
+  /** 1 to 50 of a-z, 0-9 and `-`: a name for the client's icon set, not an emoji. */
   icon: string | null;
+  /** Microseconds since the epoch. */
   created_at: bigint;
 }
 

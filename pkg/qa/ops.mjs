@@ -56,7 +56,7 @@ const ops = {
     if (!same(again, read.body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
     return { kind: read.kind, body: b64(read.body) };
   },
-  encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.models[kind.s].codec, stored))),
+  encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.modelOf(kind.s).codec, stored))),
   // `filename` is the package's addition, so `buildUri` takes back what this gives
   parseUri: (a) => (({ filename: _, ...parsed }) => parsed)(api.parseUri(a.s)),
 
