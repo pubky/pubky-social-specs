@@ -7,7 +7,6 @@ import { fail } from "./errors.js";
 // The 25 code points that were whitespace at Unicode 15.1, spelled out: `\s` follows the engine
 const WS = "\\t-\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
 const ANY_WS = new RegExp(`[${WS}]`);
-// eslint-disable-next-line no-control-regex
 const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
 
 const encoder = new TextEncoder();

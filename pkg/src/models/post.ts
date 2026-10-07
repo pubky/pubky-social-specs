@@ -109,7 +109,6 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
   }
 }
 
-// eslint-disable-next-line no-control-regex
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
 function checkArticle(post: Post): void {

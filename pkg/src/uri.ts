@@ -107,7 +107,8 @@ export function stableKey(ownerRelativePath: string): { key: string } | { needsD
 const DOT = /^(\.|%2e)$/i;
 const DOT_DOT = /^(\.|%2e){2}$/i;
 
-// What a URL parser percent-encodes in a path: controls, space, `"#<>?\`{}` and non-ASCII
+// What a URL parser percent-encodes in the path of a non-special scheme: controls, space,
+// `"#<>?\`{}` and non-ASCII. A backslash is no separator there and stays as it is
 function encodeSegment(segment: string): string {
   let out = "";
   for (const byte of utf8(segment)) {

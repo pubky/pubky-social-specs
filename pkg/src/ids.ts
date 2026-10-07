@@ -6,6 +6,7 @@ import { utf8, utf8Len } from "./text.js";
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 
+// Exported for the vector generator as well
 export const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
 
 // An id is valid only spelled as the encoder spells it: an alias (`O` for `0`, lowercase)

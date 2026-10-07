@@ -5,7 +5,6 @@ import { compareBytes } from "../text.js";
 import type { Json, JsonObject } from "./read.js";
 
 const NAMED: Record<string, string> = { '"': '\\"', "\\": "\\\\", "\b": "\\b", "\f": "\\f", "\n": "\\n", "\r": "\\r", "\t": "\\t" };
-// eslint-disable-next-line no-control-regex
 const ESCAPED = /["\\\u0000-\u001f]/g;
 
 /** Only the quote, the backslash and the C0 controls are escaped. */

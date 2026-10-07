@@ -7,6 +7,7 @@ import { type Root, socialPath } from "../uri.js";
 /** Media is raw bytes with no JSON form: not empty, under the cap, named by its hash. */
 export function checkFile(bytes: Uint8Array, id: string | null): string {
   if (bytes.length === 0) fail("File size cannot be zero");
+  // The reference's own words, which name the cap as text
   if (bytes.length > limits.maxFileSizeBytes) fail("File size exceeds maximum limit of 100MB");
   const hash = hashId(bytes);
   if (id !== null && hash !== id) fail(`Invalid ID: expected ${hash}, found ${id}`);
