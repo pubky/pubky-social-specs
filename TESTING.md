@@ -128,6 +128,42 @@ before dispatch). Two findings belong to other layers and are filed on `pubky/pu
 the per-PUT collision check scans every entry of a user, and the SDK copies blob bodies through
 its wasm.
 
+## The native package campaign of 2026-10-07
+
+The npm package moved from the crate compiled to wasm to a native TypeScript implementation,
+with the wasm kept for the migrator alone. This is what holds the two equal, and how to run each
+piece again.
+
+| what | command | result |
+|---|---|---|
+| differential fuzz, one million cases a family | `cd pkg && for f in text ids canonical uri json user graph feed file post plan loose; do node --max-old-space-size=2048 qa/score.mjs --family $f --fuzz 1000000 --seed 20261007; done` | 12 families, 12 million cases, 0 mismatches; after the fixes below, post, plan, loose and feed again at seed 77, 0 mismatches |
+| hostile arguments | `cd pkg && node --expose-gc qa/boundary.mjs` | 13,248 calls: a result, a `ValidationError` or a `TypeError` every time, the slowest 1.6 s, the heap 1 MB above where it started |
+| chaos port, 1000 seeds a profile | `cd pkg && node qa/chaos.mjs --variant <profile> --seeds 1000` | `main`, `quota-rate`, `lost-response`, `phantom-404`: no violation. `any-kind`, a port that lies in any way: 147, the same seeds and the same invariants as the build before the move (compared on seeds 0 to 149) |
+| mutation pass | `cd pkg && node qa/mutate.mjs` | 12 of 14 planted engine bugs caught; M12 and M14 pass as they did before, for the reasons the lane B report gives |
+| the replay | `cd tools/replay && node replay.mjs --data <dir> --to verify` | 849 of 849 users done; the oracle finds no mismatched user and no object migrated though refused; counts equal to the wasm run (107,138 written, 157 invalid, 11 shape, 7 malformed, 1,669 not migrated) |
+| the replay against the wasm run | every object of every tree compared with the dump kept from 2026-10-01, by size and hash | 222,201 objects, none differs; the 849 flags differ in `migrated_at` and in `transform_rev`, 1 then and 2 now |
+| size and start | `cd pkg && npm run size` | the whole entry 25.7 kB gzipped, `buildUri` alone 1.6 kB; first call 3.6 ms after a 115 ms load of unbundled files, no init |
+| throughput | `cd pkg && node qa/bench-entry.mjs`, `node qa/bench.mjs` | a note built in 62 us, decoded in 70 us; the engine 3,067 objects a second over `MemoryPort`, as before; a blob hashed at about 280 MB a second in the wasm and about 17 in JS |
+
+What the campaign found, all fixed:
+
+- **In the crate too.** A post edited in the instant it was created got a salted successor id up
+  to a minute ahead, which moved the mint guard ahead of the clock; the next new post then read
+  the clock as corrected and took the first post's id, so its PUT would have overwritten the
+  first post's first version. A salted successor now leaves the guard alone
+  (`tests/surface_mint.rs`).
+- A trim written as one regular expression was quadratic on a long inner run of whitespace.
+- A hostile `$unknown` text leaked the reader's internal error; a sparse array of 2^32 entries
+  was walked; an array where a kind goes reached string formatting; a typed array whose
+  `length` lies reached the hash.
+- A name outside a closed set, in an object a caller wrote, was stored as `"unknown"`. It is
+  refused now; only a name a read gave is written back.
+- An options bag with a misspelled member was accepted and the member ignored.
+
+Two things are as the crate has them and are stated, not fixed: a stored name a version does not
+know is written back as `"unknown"` by that version, in either language; and a public key that is
+no key is refused without naming the argument.
+
 ## Running anything here on a small machine
 
 One `cargo` at a time across checkouts, each checkout with its own `CARGO_TARGET_DIR`. Node with
