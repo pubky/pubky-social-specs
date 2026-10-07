@@ -149,11 +149,85 @@ export function json(r, depth = 3) {
   return out;
 }
 
+const WRONG = ["null", "1", "1.5", "-0", "true", '"x"', "[]", "{}", '["a","b"]', '{"a":1}', "18446744073709551616", "1e400", "nul"];
+
+/**
+ * The JSON text of `object`, mostly as it is and sometimes broken one way: a member missing,
+ * unknown, doubled or of another type, the array form, a cut.
+ */
+export function spoil(r, object) {
+  const entries = Object.entries(object).map(([key, value]) => [key, JSON.stringify(value)]);
+  const roll = r.below(100);
+  if (roll < 6 && entries.length) entries.splice(r.below(entries.length), 1);
+  else if (roll < 12) entries.splice(r.below(entries.length + 1), 0, [r.pick(["zzz", "extra", "é", "__proto__", "😀", "\ue000", "10", "created_at", "kind"]), r.pick([...WRONG, json(r, 2)])]);
+  else if (roll < 20 && entries.length) entries[r.below(entries.length)][1] = r.pick(WRONG);
+  else if (roll < 24 && entries.length) entries.push([...r.pick(entries)]);
+  else if (roll < 26) return `[${entries.map(([, value]) => value).slice(0, r.below(entries.length + 2)).join(",")}${r.pick(["", "", ",1", ","])}]`;
+  else if (roll < 28) return r.pick(WRONG);
+  let text = `{${entries.map(([key, value]) => `${JSON.stringify(key)}:${value}`).join(",")}}`;
+  if (roll >= 28 && roll < 30) text = [...text].slice(0, r.below(text.length)).join("");
+  if (roll >= 30 && roll < 32) text += r.pick([" ", ",", "x", "{}"]);
+  return text;
+}
+
+const words = (r, max) => r.many(max, () => r.pick(["Ann", "bob", " ", "\u00a0", "\u3000", "\u200b", "é", "😀", "x".repeat(r.below(60)), "\t", "\n", "\u0000", "A"])).join("");
+const text = (r, max = 6) => words(r, max);
+
+/** A reference for a field: the right tier most of the time. */
+export function ref(r) {
+  return r.pick([
+    () => `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick([`posts/${timestampIdOf(NOW - 5e9)}`, `posts/${timestampIdOf(NOW - 5e9)}/${timestampIdOf(NOW - 4e9)}.json`, `files/${hashIdText(r)}.png`, "profile.json"])}`,
+    () => `pubky://${OTHER}`,
+    () => `pubky${OTHER}/pub/social/v1/profile.json`,
+    () => `https://example.com/${r.pick(["", "a.png", "x".repeat(r.pick([10, 280, 300, 1100]))])}`,
+    () => r.pick(["nostr:note1abc", "geo:1,2", "IPFS:Qm", " https://example.com", "https://example.com ", "http://", "x"]),
+    () => uri(r),
+  ])();
+}
+
+function userInput(r) {
+  const o = { name: r.pick(["Ann", " Ann ", "ab", "x".repeat(r.pick([3, 50, 51])), text(r), "😀😀😀"]) };
+  if (r.chance(0.6)) o.bio = r.pick([null, "bio", "  ", " padded ", "b".repeat(r.pick([160, 161])), text(r)]);
+  if (r.chance(0.5)) o.image = r.pick([null, ref(r)]);
+  if (r.chance(0.6)) o.links = r.pick([null, r.many(6, () => r.chance(0.9) ? { title: r.pick(["Site", " ", " t ", "t".repeat(r.pick([100, 101])), text(r)]), url: ref(r) } : JSON.parse(spoilSafe(r, { title: "t", url: "https://example.com" })))]);
+  if (r.chance(0.5)) o.status = r.pick([null, "ok", " ", "s".repeat(r.pick([50, 51])), text(r)]);
+  return o;
+}
+
+// A spoiled member that is still JSON, so it can sit inside a larger object
+function spoilSafe(r, object) {
+  for (;;) {
+    const candidate = spoil(r, object);
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {}
+  }
+}
+
+const EXTRA = ['"x":1', '"x":9007199254740992', '"x":-9007199254740992', '"x":1.0', '"x":{"b":[1,{"a":18446744073709551615}],"a":1e30}', '"é":"é","\ue000":1,"😀":2', '"__proto__":{"a":1}', '"x":null,"x":2', '"n":123456789012345678901234567890'];
+
+/** A stored object: `object` spoiled, sometimes carrying members no version knows. */
+function stored(r, object) {
+  let out = spoil(r, object);
+  if (r.chance(0.3) && out.endsWith("}") && out.length > 2) out = `${out.slice(0, -1)},${r.pick(EXTRA)}}`;
+  return out;
+}
+
+const storedUser = (r) => {
+  const o = userInput(r);
+  return { name: o.name, bio: o.bio ?? null, image: o.image ?? null, links: o.links ?? null, status: o.status ?? null };
+};
+
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
 
 export const families = {
-  text: (r) => request(r.pick(["frozenTrim", "asciiFold", "codePointLen"]), s(str(r))),
+  text: (r) => request(r.pick(["frozenTrim", "asciiFold", "codePointLen", "debug"]), s(r.chance(0.2) ? String.fromCodePoint(...r.many(6, () => r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0xe0000 + r.below(0x200)]))) : str(r))),
+  user: (r) =>
+    r.chance(0.5)
+      ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: spoil(r, userInput(r)) })
+      : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`), { j: stored(r, storedUser(r)) }),
   ids: (r) =>
     r.pick([
       () => request("publicKey", s(r.chance(0.5) ? spelled(r, ZBASE32, 52) : r.pick([OWNER, OTHER, str(r, 60)]))),

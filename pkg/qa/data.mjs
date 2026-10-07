@@ -18,6 +18,12 @@ export const MIME_TO_EXT: ReadonlyArray<readonly [string, string]> = ${literal(d
 export const STRIP_SET: readonly string[] = ${literal(data.stripSet)};
 
 export const validMimeTypes: readonly string[] = ${literal(data.validMimeTypes)};
+
+/**
+ * The code points the reference spells as \\u{..} when an error quotes text, as inclusive
+ * ranges laid end to end. It follows the Unicode tables the reference was built with.
+ */
+export const DEBUG_ESCAPED: readonly number[] = [${data.debugEscaped.flat().join(",")}];
 `;
 const file = fileURLToPath(new URL("../src/data.ts", import.meta.url));
 if (process.argv.includes("--check")) {

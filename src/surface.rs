@@ -512,6 +512,24 @@ fn read(uri: &str, bytes: Vec<u8>) -> Result<Value, String> {
     Ok(json!({ "kind": kind, "body": body }))
 }
 
+/// The code points a string's `Debug` form spells as `\u{..}`, as inclusive ranges. A type
+/// error quotes the text it met in that form, so the package needs the same set; it follows
+/// the Unicode tables of the toolchain, which is why it is read from here and not written
+/// down.
+fn debug_escaped() -> Vec<(u32, u32)> {
+    let mut ranges: Vec<(u32, u32)> = Vec::new();
+    for c in (0..=char::MAX as u32).filter_map(char::from_u32) {
+        if !format!("{:?}", c.to_string()).starts_with("\"\\u{") {
+            continue;
+        }
+        match ranges.last_mut() {
+            Some(last) if last.1 + 1 == c as u32 => last.1 = c as u32,
+            _ => ranges.push((c as u32, c as u32)),
+        }
+    }
+    ranges
+}
+
 fn run(op: &str, a: &mut Args) -> Result<Value, String> {
     Ok(match op {
         // Text, ids and canonical forms: what every rule above them is made of
@@ -540,7 +558,11 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             "mimeToExt": crate::MIME_TO_EXT,
             "stripSet": crate::STRIP_SET,
             "validMimeTypes": crate::VALID_MIME_TYPES,
+            "debugEscaped": debug_escaped(),
         }),
+
+        // The text a type error quotes
+        "debug" => format!("{:?}", a.s()?).into(),
 
         "decode" => {
             let uri = a.s()?.to_string();

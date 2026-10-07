@@ -71,3 +71,27 @@ export function isWellFormed(s: string): boolean {
   }
   return true;
 }
+
+const NAMED_DEBUG: Record<string, string> = { "\t": "\\t", "\n": "\\n", "\r": "\\r", "\0": "\\0", "\\": "\\\\", '"': '\\"' };
+
+function isDebugEscaped(codePoint: number, ranges: readonly number[]): boolean {
+  let low = 0;
+  let high = ranges.length / 2 - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (codePoint < (ranges[2 * mid] as number)) high = mid - 1;
+    else if (codePoint > (ranges[2 * mid + 1] as number)) low = mid + 1;
+    else return true;
+  }
+  return false;
+}
+
+/** Text as the reference quotes it inside an error: Rust's `{:?}` of a string. */
+export function debugQuote(s: string, ranges: readonly number[]): string {
+  let out = '"';
+  for (const c of s) {
+    const codePoint = c.codePointAt(0) as number;
+    out += NAMED_DEBUG[c] ?? (isDebugEscaped(codePoint, ranges) ? `\\u{${codePoint.toString(16)}}` : c);
+  }
+  return `${out}"`;
+}

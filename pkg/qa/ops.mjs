@@ -9,6 +9,13 @@ import * as uri from "../dist/uri.js";
 import { mimeToExt } from "../dist/mime.js";
 import { JsonError, readJson } from "../dist/json/read.js";
 import { writeJson } from "../dist/json/write.js";
+import { debugQuote } from "../dist/text.js";
+import { DEBUG_ESCAPED } from "../dist/data.js";
+import { readObject } from "../dist/objects.js";
+import { buildUser } from "../dist/models/user.js";
+
+const utf8 = (text) => new TextEncoder().encode(text);
+const created = (owner, id, made) => ({ id, path: made.path, url: `pubky://${owner}${made.path}`, body: b64(utf8(made.body)) });
 
 const b64 = (bytes) => Buffer.from(bytes).toString("base64");
 const bytes = (arg) => ("j" in arg ? new TextEncoder().encode(arg.j) : new Uint8Array(Buffer.from(arg.b, "base64")));
@@ -39,6 +46,12 @@ const ops = {
   feedUri: (a, b) => uri.feedUri(a.s, b.s),
   mimeToExt: (a) => mimeToExt(a.s),
   json: (a) => b64(new TextEncoder().encode(writeJson(readJson(a.j)))),
+  debug: (a) => debugQuote(a.s, DEBUG_ESCAPED),
+  decode: (a, body) => {
+    const read = readObject(a.s, bytes(body));
+    return { kind: read.kind, body: b64(read.body) };
+  },
+  createUser: (a, input) => created(a.s, "", buildUser(a.s, input?.j ?? "null")),
 };
 
 export const implemented = (op) => op in ops;

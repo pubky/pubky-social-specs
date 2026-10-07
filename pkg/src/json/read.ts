@@ -47,7 +47,7 @@ export class Reader {
     if (this.peekToken() !== undefined) this.fail("trailing characters");
   }
 
-  private ident(rest: string): void {
+  ident(rest: string): void {
     for (let i = 0; i < rest.length; i++) {
       const b = this.bytes[this.pos++];
       if (b === undefined) this.fail("EOF while parsing a value");
