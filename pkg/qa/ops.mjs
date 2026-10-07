@@ -15,6 +15,7 @@ import { readObject } from "../dist/objects.js";
 import { buildUser } from "../dist/models/user.js";
 import * as graph from "../dist/models/graph.js";
 import * as feeds from "../dist/models/feed.js";
+import * as posts from "../dist/models/post.js";
 import { buildFile } from "../dist/models/file.js";
 import { variant } from "../dist/json/schema.js";
 
@@ -23,6 +24,7 @@ import { parse } from "../dist/models/common.js";
 import { lastMint, pin } from "../dist/clock.js";
 
 const utf8 = (text) => new TextEncoder().encode(text);
+const version = (owner, m) => ({ id: m.id, editId: m.editId, path: m.path, url: `pubky://${owner}${m.path}`, body: b64(utf8(m.body)) });
 const made = (owner, m) => created(owner, m.id, m);
 const readStoredText = (model, text, id) => {
   const bytes = utf8(text);
@@ -75,6 +77,8 @@ const ops = {
   createTag: (a, b, c) => made(a.s, graph.buildTag(a.s, b.s, c.s)),
   createBookmark: (a, b) => made(a.s, graph.buildBookmark(a.s, b.s)),
   bookmarkId: (a) => graph.bookmarkId(a.s),
+  createPost: (a, input) => version(a.s, posts.buildPost(a.s, input?.j ?? "null")),
+  editPost: (a, post, at) => version(a.s, posts.buildEdit(a.s, post?.j ?? "null", at?.j ?? "null")),
   createFeed: (a, input) => made(a.s, feeds.buildFeed(a.s, input?.j ?? "null")),
   feedId: (a) => feeds.feedIdOf(a?.j ?? "null"),
   feedPaths: (a) => feeds.feedPaths(a.s),

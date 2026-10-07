@@ -6,6 +6,7 @@ import { readStored } from "./models/common.js";
 import { feed } from "./models/feed.js";
 import { checkFile } from "./models/file.js";
 import { bookmark, follow, mute, tag } from "./models/graph.js";
+import { checkReferences, post } from "./models/post.js";
 import { user } from "./models/user.js";
 import { parseUri } from "./uri.js";
 
@@ -19,6 +20,13 @@ export function readObject(uri: string, bytes: Uint8Array): { kind: string; valu
   switch (parsed.kind) {
     case "user":
       return json("user", readStored(user, bytes, "", publicRoot));
+    case "post": {
+      if (parsed.editId === undefined) fail("a versionless post reference is never a stored object");
+      const read = readStored(post, bytes, parsed.id, publicRoot);
+      // The URI names the author, so the ownership rule can run here
+      checkReferences(read.value, publicRoot, parsed.userId);
+      return json("post", read);
+    }
     case "follow":
       return json("follow", readStored(follow, bytes, parsed.id, publicRoot));
     case "mute":
@@ -38,7 +46,5 @@ export function readObject(uri: string, bytes: Uint8Array): { kind: string; valu
       return fail("an unsupported epoch is a skip, not an object");
     case "unknown":
       return fail("Unrecognized resource Unknown");
-    default:
-      throw new Error(`unported kind ${parsed.kind}`);
   }
 }

@@ -218,7 +218,7 @@ struct NoteInput {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct ArticleInput {
     #[serde(rename = "kind")]
-    _kind: IgnoredAny,
+    _kind: String,
     title: String,
     body: String,
     #[serde(default)]
@@ -249,7 +249,7 @@ struct ItemInput {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct CollectionInput {
     #[serde(rename = "kind")]
-    _kind: IgnoredAny,
+    _kind: String,
     name: String,
     #[serde(default)]
     description: Option<String>,
