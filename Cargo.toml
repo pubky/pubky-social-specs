@@ -29,6 +29,10 @@ name = "bundle_specs_npm"
 required-features = ["migrator"]
 
 [[bin]]
+name = "surface_oracle"
+required-features = ["surface"]
+
+[[bin]]
 name = "replay_remap"
 required-features = ["replay"]
 
@@ -70,6 +74,9 @@ openapi = ["utoipa"]
 # The v0 to v1 transforms. Off by default for the crate: only a client that runs the
 # migration needs them. The npm package is built with them, since it is that client.
 migrator = []
+# The JS surface answered natively, with the clock given by the caller: what the TypeScript
+# package is checked against.
+surface = []
 # The replay tooling under tools/replay: the migrator plus the key derivation of the replica.
 replay = ["migrator", "dep:ed25519-dalek"]
 

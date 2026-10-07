@@ -15,10 +15,50 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn timestamp() -> i64 {
+    #[cfg(feature = "surface")]
+    if let Some(now) = pinned::clock() {
+        return now;
+    }
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_micros() as i64
+}
+
+/// A clock and a mint guard a caller sets, so an answer of the surface depends on its request
+/// alone and can be recorded and replayed.
+#[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+pub(crate) mod pinned {
+    use super::{Ordering, LAST_MINTED_MICROS};
+    use std::sync::atomic::AtomicI64;
+
+    // i64::MIN stands for no pin: every real reading is positive
+    static CLOCK: AtomicI64 = AtomicI64::new(i64::MIN);
+
+    pub(crate) fn clock() -> Option<i64> {
+        Some(CLOCK.load(Ordering::SeqCst)).filter(|now| *now != i64::MIN)
+    }
+
+    pub(crate) fn set(now_micros: i64, last_minted: i64) {
+        CLOCK.store(now_micros, Ordering::SeqCst);
+        LAST_MINTED_MICROS.store(last_minted, Ordering::SeqCst);
+    }
+
+    pub(crate) fn last_minted() -> i64 {
+        LAST_MINTED_MICROS.load(Ordering::SeqCst)
+    }
+}
+
+/// A JSON error as this crate words it: the parser's message without its position. A position
+/// counts bytes of one spelling of the text, so it is no part of what a reader refused.
+pub(crate) fn json_error(e: &serde_json::Error) -> String {
+    let message = e.to_string();
+    // Built from the error's own numbers rather than searched for: a message can quote text
+    let position = format!(" at line {} column {}", e.line(), e.column());
+    match message.strip_suffix(&position) {
+        Some(stripped) => stripped.to_string(),
+        None => message,
+    }
 }
 
 /// The 25 code points with White_Space=Yes at Unicode 15.1. Frozen: never

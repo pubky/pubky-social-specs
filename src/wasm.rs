@@ -74,8 +74,12 @@ const OBJECT_JSON_CAP: usize = 6 * VALIDATION_LIMITS.post_max_bytes;
 /// Parses the JSON form, so an unknown member of an input is an error: a deserializer walking
 /// the JS object only asks it for the fields it expects.
 fn from_js<T: DeserializeOwned>(value: JsValue) -> Result<T, JsError> {
-    serde_json::from_str(&json_of(&value, OBJECT_JSON_CAP)?)
-        .map_err(|e| fail(format!("Validation Error: {e}")))
+    serde_json::from_str(&json_of(&value, OBJECT_JSON_CAP)?).map_err(|e| {
+        fail(format!(
+            "Validation Error: {}",
+            crate::common::json_error(&e)
+        ))
+    })
 }
 
 /// A list of objects, each under the object bound: a history has no size of its own, so no

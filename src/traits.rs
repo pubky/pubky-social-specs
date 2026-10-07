@@ -1,6 +1,6 @@
 use crate::common::{
-    mint_timestamp_micros, mint_timestamp_micros_above, timestamp, validate_timestamp_id_format,
-    MAX_FUTURE_MICROS,
+    json_error, mint_timestamp_micros, mint_timestamp_micros_above, timestamp,
+    validate_timestamp_id_format, MAX_FUTURE_MICROS,
 };
 use crate::limits::VALIDATION_LIMITS;
 use base32::{encode, Alphabet};
@@ -148,8 +148,8 @@ pub trait Validatable: Sized + Serialize + DeserializeOwned {
     /// any id derived from them.
     fn try_from(blob: &[u8], id: &str, ctx: &ValidationCtx) -> Result<Self, ValidationError> {
         check_size(blob.len(), Self::MAX_BYTES)?;
-        let instance: Self =
-            serde_json::from_slice(blob).map_err(|e| format!("Validation Error: {e}"))?;
+        let instance: Self = serde_json::from_slice(blob)
+            .map_err(|e| format!("Validation Error: {}", json_error(&e)))?;
         instance.validate(Some(id), ctx)?;
         Ok(instance)
     }

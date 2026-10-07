@@ -1,4 +1,4 @@
-use crate::common::{check_extra, code_point_len, frozen_trim, trimmed_or_none};
+use crate::common::{check_extra, code_point_len, frozen_trim, json_error, trimmed_or_none};
 use crate::limits::VALIDATION_LIMITS;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -135,7 +135,7 @@ pub(crate) fn validate_collection_post(post: &PubkySocialPost) -> Result<(), Str
         serde_json::from_str(&post.content).map_err(|e| {
             format!(
                 "Validation Error: Collection content must be a valid JSON envelope: {}",
-                e
+                json_error(&e)
             )
         })?;
     validate_collection_envelope(&envelope)
