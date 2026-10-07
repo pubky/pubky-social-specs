@@ -4,8 +4,13 @@
 let clock: (() => bigint) | null = null;
 let lastMinted = 0n;
 
-/** Microseconds since the epoch. The engine's clock ticks in milliseconds. */
-export const nowMicros = (): bigint => (clock ? clock() : BigInt(Date.now()) * 1000n);
+// The wall clock gives the millisecond and the monotonic one the microseconds inside it, so two
+// instances minting in one millisecond rarely meet. Only the fraction is taken from the
+// monotonic clock, which can fall behind the wall clock across a suspend.
+const wallMicros = (): bigint => BigInt(Date.now()) * 1000n + BigInt(Math.floor((performance.now() % 1) * 1000));
+
+/** Microseconds since the epoch. */
+export const nowMicros = (): bigint => (clock ? clock() : wallMicros());
 
 /** A clock in microseconds and a guard as given, so an answer depends on its request alone. */
 export function pin(now: (() => bigint) | null, last = 0n): void {

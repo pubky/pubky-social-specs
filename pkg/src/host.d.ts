@@ -10,5 +10,7 @@ declare class TextDecoder {
   decode(input?: Uint8Array): string;
 }
 
+declare const performance: { readonly timeOrigin: number; now(): number };
+
 declare function setTimeout(handler: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;
