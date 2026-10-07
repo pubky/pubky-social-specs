@@ -14,6 +14,7 @@
 // A reference to a post from another object is none of these: it is `buildUri(owner, "post",
 // id)`, which names the post and not one version of it.
 
+import { plainBytes } from "./bytes.js";
 import * as clock from "./clock.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
@@ -52,12 +53,8 @@ function key(value: unknown, name: string): string {
   return value as string;
 }
 
-function bytesOf(value: unknown, name: string): Uint8Array {
-  // By shape, not `instanceof`: bytes from another realm are bytes too
-  const view = value as Uint8Array | null;
-  if (!ArrayBuffer.isView(view) || view.BYTES_PER_ELEMENT !== 1 || view instanceof DataView) misuse(name, "a Uint8Array");
-  // A plain view of the same memory: a subclass may report a length it does not have
-  return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+function bytesOf(value: unknown, name: string): T.Bytes {
+  return plainBytes(value) ?? misuse(name, "a Uint8Array or an ArrayBuffer");
 }
 
 const strings = (value: unknown, name: string): string[] => arrayOf(value, name).map((item, index) => text(item, `${name}[${index}]`));
@@ -115,8 +112,7 @@ export function decodeObject(uri: string, bytes: Uint8Array): T.Decoded {
  * need no path, for bytes bound somewhere the data model does not name.
  */
 export function encodeObject(at: string | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array): T.Bytes {
-  // Media by shape, as everywhere: bytes from another realm are bytes too
-  if (ArrayBuffer.isView(object)) object = bytesOf(object, "object") as T.Bytes;
+  object = plainBytes(object) ?? object;
   if (typeof at === "string") return objects.write(text(at, "at"), object);
   const where = inputOf(at, "at", ["kind", "root"]);
   return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, object);

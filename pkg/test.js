@@ -122,6 +122,30 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(caught(() => decodeObject(buildUri(OTTO, "user"), utf8("{"))).field, undefined);
     });
 
+    it("byte inputs are read through the intrinsic getters: an ArrayBuffer is bytes, a lying view is not trusted", () => {
+      const media = buildFile(OTTO, { bytes: utf8("hello"), type: "text/plain" });
+      assert.deepStrictEqual(buildFile(OTTO, { bytes: utf8("hello").buffer, type: "text/plain" }), media);
+      const follow = buildFollow(OTTO, RIO);
+      assert.deepStrictEqual(decodeObject(follow.url, follow.body.slice().buffer), decodeObject(follow.url, follow.body));
+      // A view over a larger buffer whose subclass reports the whole buffer
+      class Liar extends Uint8Array {
+        get byteLength() {
+          return this.buffer.byteLength;
+        }
+        get byteOffset() {
+          return 0;
+        }
+      }
+      const padded = new Uint8Array(follow.body.length + 8).fill(0x20);
+      padded.set(follow.body, 4);
+      const liar = new Liar(padded.buffer, 4, follow.body.length);
+      assert.deepStrictEqual(decodeObject(follow.url, liar), decodeObject(follow.url, follow.body));
+      const detached = new Uint8Array(4);
+      structuredClone(detached.buffer, { transfer: [detached.buffer] });
+      misuse(() => decodeObject(follow.url, detached), /bytes must be a Uint8Array/);
+      misuse(() => createMediaHasher().update(new Float32Array(2)), /chunk must be a Uint8Array/);
+    });
+
     it("instanceof holds for an error of another copy of the package", () => {
       const other = Object.assign(new Error("Validation Error: x"), { [Symbol.for("pubky-social-specs.ValidationError")]: true });
       assert.ok(other instanceof ValidationError);
