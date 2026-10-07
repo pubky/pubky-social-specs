@@ -13,8 +13,13 @@ function essence(declared: string): string | null {
   return ok ? folded : null;
 }
 
+const EXTENSION: ReadonlyMap<string, string> = /* @__PURE__ */ new Map(MIME_TO_EXT);
+
+/** The extensions a media file name may end in: every mapped one, and the fallback. */
+export const MEDIA_EXTENSIONS: ReadonlySet<string> = /* @__PURE__ */ new Set([...EXTENSION.values(), "bin"]);
+
 /** The path extension a declared type maps to; `"bin"` for anything unmapped or malformed. */
 export function mimeToExt(declared: string): string {
   const type = essence(declared);
-  return MIME_TO_EXT.find(([mime]) => mime === type)?.[1] ?? "bin";
+  return (type !== null && EXTENSION.get(type)) || "bin";
 }
