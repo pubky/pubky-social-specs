@@ -84,7 +84,7 @@ const exitCode = (report) => EXIT[report.status] ?? 1;
 const progress = (write) => {
   let last;
   return (event) => {
-    const step = event.kind ? `${event.phase} ${event.kind}` : event.phase;
+    const step = event.pass ? `${event.phase} ${event.pass}` : event.phase;
     if (step === last && (event.done === 0 || event.done % PROGRESS_EVERY !== 0)) return;
     last = step;
     write(`${step}: ${event.done}/${event.total}`);

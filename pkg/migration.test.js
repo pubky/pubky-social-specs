@@ -8,7 +8,9 @@ const { createMigration, migrate } = transforms;
 import * as migration from "./dist/migration/index.js";
 import { corpus, legacyTree, bytesOf } from "./migration.fixture.js";
 
-const { transformRev, runMigration, MemoryPort, MigrationPortError, refusal, ENGINE_CAPS, MIGRATION_CAPS, BUCKETS, bucketOf } = migration;
+const { transformRev, runMigration, MemoryPort, MigrationPortError, refusal, ENGINE_CAPS, MIGRATION_CAPS, bucketOf } = migration;
+// The walk order, which the subpath keeps to itself
+const BUCKETS = ["files", "blobs", "posts", "tags", "follows", "profile", "feeds", "bookmarks", "mutes"];
 
 const require = createRequire(import.meta.url);
 const owner = corpus.owner;
@@ -147,7 +149,7 @@ describe("migration engine", () => {
         port,
         onProgress: (e) => {
           if (e.phase !== "migrating") return;
-          const key = e.kind ?? "rest";
+          const key = e.pass ?? "rest";
           if (e.done !== last) walked[key] = (walked[key] ?? 0) + 1;
           last = e.done;
         },
@@ -199,7 +201,7 @@ describe("migration engine", () => {
       const phases = [...new Set(events.map((e) => e.phase))];
       assert.deepStrictEqual(phases, ["probe", "listing", "migrating", "flag", "done"]);
       assert.deepStrictEqual(
-        [...new Set(events.filter((e) => e.kind).map((e) => e.kind))],
+        [...new Set(events.filter((e) => e.pass).map((e) => e.pass))],
         BUCKETS.filter((b) => b !== "profile" || rows.has("pub/pubky.app/profile.json")),
       );
       assert.strictEqual(events.at(-1).done, events.at(-1).total);

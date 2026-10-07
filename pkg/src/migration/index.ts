@@ -3,7 +3,7 @@
 import { ENGINE_CAPS, MIGRATION_CAPS, runMigration } from "./engine.js";
 import { MigrationPortError, refusal } from "./port.js";
 import { MemoryPort } from "./memory.js";
-import { BUCKETS, bucketOf } from "./order.js";
+import { bucketOf } from "./order.js";
 import { skipReasons, transformRev } from "../data.js";
 
 export type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "./port.js";
@@ -24,4 +24,4 @@ export type {
 
 export type { Dropped, SkipReason } from "./wasm.js";
 
-export { runMigration, ENGINE_CAPS, MIGRATION_CAPS, MigrationPortError, refusal, MemoryPort, BUCKETS, bucketOf, skipReasons, transformRev };
+export { runMigration, ENGINE_CAPS, MIGRATION_CAPS, MigrationPortError, refusal, MemoryPort, bucketOf, skipReasons, transformRev };

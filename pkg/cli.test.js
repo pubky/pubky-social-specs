@@ -53,7 +53,7 @@ describe("pubky-social-migrate arguments", () => {
   it("prints a line per phase or pass, and one every 50 objects", () => {
     const lines = [];
     const print = progress((line) => lines.push(line));
-    const event = (phase, done, kind) => ({ phase, done, total: 120, ...(kind ? { kind } : {}) });
+    const event = (phase, done, pass) => ({ phase, done, total: 120, ...(pass ? { pass } : {}) });
     print(event("probe", 0));
     print(event("listing", 0));
     for (let done = 1; done <= 110; done++) print(event("migrating", done, done <= 60 ? "posts" : "tags"));

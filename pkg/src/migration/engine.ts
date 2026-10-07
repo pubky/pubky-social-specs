@@ -662,7 +662,7 @@ class Run {
   #emit(current?: string, error?: MigrationError): void {
     this.#options.onProgress?.({
       phase: this.#phase,
-      ...(this.#kind ? { kind: this.#kind } : {}),
+      ...(this.#kind ? { pass: this.#kind } : {}),
       done: this.#done,
       total: this.#total,
       counts: { ...this.#counts },

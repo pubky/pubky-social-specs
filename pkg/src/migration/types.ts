@@ -56,8 +56,8 @@ export interface MigrationError {
 
 export interface ProgressEvent {
   phase: Phase;
-  /** The pass being walked. */
-  kind?: Bucket;
+  /** The pass being walked, named by its 0.x directory. */
+  pass?: Bucket;
   /** 0.x objects finished, out of `total` listed. */
   done: number;
   total: number;
