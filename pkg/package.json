@@ -101,5 +101,8 @@
   "sideEffects": false,
   "type": "module",
   "types": "types.d.ts",
-  "version": "1.0.0-alpha.5"
+  "version": "1.0.0-alpha.5",
+  "dependencies": {
+    "@noble/hashes": "^2.4.0"
+  }
 }

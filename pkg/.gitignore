@@ -10,3 +10,5 @@ migration/**/*.js
 migration/**/*.cjs
 migration/**/*.d.ts
 !migration/host.d.ts
+dist
+qa/failures
