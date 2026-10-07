@@ -4,7 +4,7 @@ import { asciiFold } from "./text.js";
 const ESSENCE_PART = /^[a-z0-9!#$&^_.+-]+$/;
 
 /** The text before the first `;`, ASCII-folded and untrimmed; null when malformed. */
-export function essence(declared: string): string | null {
+function essence(declared: string): string | null {
   const semicolon = declared.indexOf(";");
   const folded = asciiFold(semicolon < 0 ? declared : declared.slice(0, semicolon));
   const slash = folded.indexOf("/");

@@ -25,7 +25,7 @@ export interface Codec<T> {
 }
 
 /** Refuses the value ahead as the wrong type, naming what it is. Reads it to name it. */
-export function invalidType(r: Reader, expected: string): never {
+function invalidType(r: Reader, expected: string): never {
   const b = r.peekToken();
   if (b === undefined) r.fail("EOF while parsing a value");
   let met: string;

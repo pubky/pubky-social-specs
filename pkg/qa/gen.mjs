@@ -2,20 +2,12 @@
 // replayed from three numbers.
 
 import { blake3 } from "@noble/hashes/blake3.js";
+import { crockford, hashText, timestampId } from "../dist/ids.js";
 
-const crock = (bytes) => {
-  let bits = 0n;
-  for (const b of bytes) bits = (bits << 8n) | BigInt(b);
-  bits <<= 2n;
-  let out = "";
-  for (let i = 0; i < 26; i++) {
-    out = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[Number(bits & 31n)] + out;
-    bits >>= 5n;
-  }
-  return out;
-};
-// The id of a hashed object, computed here so a generated path can name its own content
-export const hashOfText = (text) => crock(blake3(new TextEncoder().encode(text)).subarray(0, 16));
+// The ids of generated content come from the package's own encoders: a wrong one there makes
+// the oracle refuse where the package accepts, which the scoreboard counts like any mismatch
+const crock = crockford;
+export const hashOfText = hashText;
 const hashOfTag = (uri, label) => hashOfText(`${uri}:${label}`);
 
 export function rng(seed) {
@@ -68,15 +60,7 @@ function spelled(r, alphabet, length) {
   return id;
 }
 
-export const timestampIdOf = (micros) => {
-  let bits = BigInt(micros) << 1n;
-  let id = "";
-  for (let i = 0; i < 13; i++) {
-    id = CROCKFORD[Number(bits & 31n)] + id;
-    bits >>= 5n;
-  }
-  return id;
-};
+export const timestampIdOf = (micros) => timestampId(BigInt(micros));
 
 const hashIdText = (r) => Array.from({ length: 25 }, () => r.pick([...CROCKFORD])).join("") + r.pick([..."048CGMRW"]);
 const base64url = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
