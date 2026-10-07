@@ -108,6 +108,47 @@ export function uri(r) {
   return out;
 }
 
+const NUMBERS = [
+  "0", "-0", "1", "-1", "9007199254740991", "9007199254740992", "-9007199254740993", "18446744073709551615",
+  "18446744073709551616", "-9223372036854775808", "-9223372036854775809", "123456789012345678901234567890",
+  "1.0", "2.50", "0.1", "1e30", "1E+30", "1e-7", "1e16", "1e15", "123456789012345680000", "0.000001", "0.00001234",
+  "1.7976931348623157e308", "1e309", "5e-324", "2.5e-324", "1e-400", "0e999999999999", "1e999999999999",
+  "0.30000000000000004", "9007199254740993.0", "4.35", "1.2345678901234567890123", "123456789.123456789e-5",
+  "01", "-", "1.", ".5", "1e", "1e+", "+1", "0x10", "1.e3", "--1", "1.0e-0",
+];
+const digits = (r, max) => r.many(max, () => r.below(10)).join("");
+
+function number(r) {
+  if (r.chance(0.45)) return r.pick(NUMBERS);
+  const integer = r.chance(0.5) ? String(r.below(1000)) : (r.below(9) + 1) + digits(r, 24);
+  return `${r.pick(["", "", "-"])}${integer}${r.chance(0.5) ? "." + digits(r, 22) + r.below(10) : ""}${r.chance(0.4) ? r.pick(["e", "E"]) + r.pick(["", "+", "-"]) + r.below(r.pick([5, 30, 330])) : ""}`;
+}
+
+const ESCAPES = ['\\n', '\\"', "\\\\", "\\/", "\\u0041", "\\u00e9", "\\ud83d\\ude00", "\\ud83d", "\\ude00", "\\ud83d\\u0041", "\\ud83dx", "\\ud83d\\n", "\\u12", "\\u12g4", "\\x", "\\u0000", "\\u001f", "\\uD83D\\uDE00", "\\b\\f\\r\\t"];
+
+function jsonString(r) {
+  const inner = r.many(6, () => (r.chance(0.3) ? r.pick(ESCAPES) : r.chance(0.2) ? r.pick(["\t", "\n", "\u007f", "é", "😀", "\u2028", "\ue000", "\uffff", "__proto__"]) : r.pick([...PLAIN])));
+  return `"${inner.join("")}"`;
+}
+
+/** JSON text: mostly well formed, with the numbers, keys and escapes two parsers read apart. */
+export function json(r, depth = 3) {
+  const kind = r.below(depth > 0 ? 10 : 6);
+  let out;
+  if (kind < 2) out = number(r);
+  else if (kind < 4) out = jsonString(r);
+  else if (kind < 6) out = r.pick(["null", "true", "false", "nul", "tru", "falsy", "", "undefined", "NaN"]);
+  else if (kind < 8) out = `[${r.many(4, () => json(r, depth - 1)).join(r.chance(0.93) ? "," : r.pick([" , ", ",,", " ", ";"]))}${r.chance(0.04) ? "," : ""}]`;
+  else {
+    const key = () => (r.chance(0.9) ? r.pick([jsonString(r), '"a"', '"b"', '"é"', '"\ue000"', '"😀"', '"__proto__"', '"10"', '"9"']) : r.pick(["a", "1", "null", ""]));
+    out = `{${r.many(4, () => `${key()}${r.chance(0.95) ? ":" : r.pick(["", "=", "::"])}${json(r, depth - 1)}`).join(r.chance(0.93) ? "," : r.pick([";", " ", ",,"]))}${r.chance(0.04) ? "," : ""}}`;
+  }
+  if (r.chance(0.03)) out = [...out].slice(0, r.below(out.length + 1)).join("");
+  if (r.chance(0.05)) out = r.pick([" ", "\n", "\t\r", "\ufeff", "\u00a0", "\u000c"]) + out;
+  if (r.chance(0.05)) out += r.pick([" ", "\n", "x", ",", "]", "}", "1"]);
+  return out;
+}
+
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
 
@@ -120,6 +161,7 @@ export const families = {
       () => request("hashId", s(spelled(r, CROCKFORD, 26))),
       () => request("mediaId", { b: Buffer.from(r.many(200, () => r.below(256))).toString("base64") }),
     ])(),
+  json: (r) => request("json", { j: r.chance(0.02) ? "[".repeat(r.pick([126, 127, 128, 129])) + "]".repeat(r.pick([126, 127, 128])) : json(r) }),
   canonical: (r) =>
     request(r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]), s(uri(r))),
   uri: (r) =>

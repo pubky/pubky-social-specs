@@ -40,6 +40,8 @@ function differing(asked, reference) {
   let missing = 0;
   const wrong = [];
   asked.forEach((q, i) => {
+    // A request the oracle cannot read is a fault of the generator, not an answer
+    if (reference[i].err?.startsWith("surface:")) throw new Error(`${reference[i].err}: ${JSON.stringify(q)}`);
     const got = answer(q);
     if (got.missing) missing++;
     else if (canonical(got) !== canonical(reference[i])) wrong.push({ q, want: reference[i], got });

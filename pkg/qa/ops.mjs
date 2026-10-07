@@ -7,6 +7,8 @@ import * as ids from "../dist/ids.js";
 import * as canon from "../dist/canonicalize.js";
 import * as uri from "../dist/uri.js";
 import { mimeToExt } from "../dist/mime.js";
+import { JsonError, readJson } from "../dist/json/read.js";
+import { writeJson } from "../dist/json/write.js";
 
 const b64 = (bytes) => Buffer.from(bytes).toString("base64");
 const bytes = (arg) => ("j" in arg ? new TextEncoder().encode(arg.j) : new Uint8Array(Buffer.from(arg.b, "base64")));
@@ -36,6 +38,7 @@ const ops = {
   fileUri: (a, b) => uri.fileUri(a.s, b.s),
   feedUri: (a, b) => uri.feedUri(a.s, b.s),
   mimeToExt: (a) => mimeToExt(a.s),
+  json: (a) => b64(new TextEncoder().encode(writeJson(readJson(a.j)))),
 };
 
 export const implemented = (op) => op in ops;
@@ -46,6 +49,7 @@ export function answer({ op, args = [], now, last }) {
   try {
     return { ok: ops[op](...args) ?? null, last };
   } catch (e) {
+    if (e instanceof JsonError) return { err: `Validation Error: ${e.message}`, last };
     if (e?.name !== "ValidationError") throw e;
     return { err: e.message, last };
   }
