@@ -124,12 +124,14 @@ export function encodeObject(at: string | { kind: T.ObjectKind; root?: T.Root | 
  * content is not a readable envelope.
  */
 export function decodeContent(post: T.Post): { kind: "article"; content: T.ArticleContent } | { kind: "collection"; content: T.CollectionContent } | null {
-  const content = text(post?.content, "post.content");
-  if (post.kind === "article") {
+  const own = (key: "content" | "kind") => (typeof post === "object" && post !== null && Object.hasOwn(post, key) ? post[key] : undefined);
+  const content = text(own("content"), "post.content");
+  const kind = own("kind");
+  if (kind === "article") {
     const envelope = parseText(posts.article, content, "Article content must be a valid JSON envelope: ");
     return { kind: "article", content: posts.article.plain(envelope) as T.ArticleContent };
   }
-  if (post.kind === "collection") {
+  if (kind === "collection") {
     const envelope = parseText(posts.collection, content, "Collection content must be a valid JSON envelope: ");
     return { kind: "collection", content: posts.collection.plain(envelope) as T.CollectionContent };
   }
@@ -143,8 +145,8 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
  */
 export function encodeContent(content: T.ArticleContent | T.CollectionContent): string {
   if (typeof content !== "object" || content === null) misuse("content", "an article or a collection envelope");
-  if ("title" in content) return posts.article.write(posts.article.parse(content, "content"));
-  if ("name" in content) return posts.collection.write(posts.collection.parse(content, "content"));
+  if (Object.hasOwn(content, "title")) return posts.article.write(posts.article.parse(content, "content"));
+  if (Object.hasOwn(content, "name")) return posts.collection.write(posts.collection.parse(content, "content"));
   return misuse("content", "an article envelope, with a title, or a collection envelope, with a name");
 }
 

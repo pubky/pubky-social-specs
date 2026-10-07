@@ -251,7 +251,7 @@ const items = option(list({ ...item, parse: (js: unknown, at: string): Collectio
 /** A new post. The builder trims the display text and writes the envelope of a typed kind. */
 export function buildPost(owner: string, input: unknown): Minted {
   checkPublicKey(owner);
-  const kind = (input as { kind?: unknown } | null)?.kind;
+  const kind = typeof input === "object" && input !== null && Object.hasOwn(input, "kind") ? (input as { kind: unknown }).kind : undefined;
   const extra = new Map<string, Json>();
   if (kind === "article") {
     const i = inputOf(input, "input", ["kind", "title", "body", "cover_image", "parent", "embed", "attachments", "lock", "root", "slug"]);

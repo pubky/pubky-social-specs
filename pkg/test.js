@@ -334,6 +334,33 @@ describe("pubky-social-specs", () => {
       misuse(() => encodeObject(url, { created_at: 1n }), /follow\.created_at must be an integer/);
     });
 
+    it("a polluted Object.prototype or Array.prototype never reaches a built or encoded object", () => {
+      const polluted = { parent: "https://evil.example/", root: "private", embed: "https://evil.example/", lock: buildUri(RIO, "user"), slug: "x", $unknown: '{"evil":1}', kind: "article", title: "t", name: "n" };
+      const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
+      Object.assign(Object.prototype, polluted);
+      Array.prototype[0] = { uri: "https://evil.example/" };
+      try {
+        const post = buildPost(OTTO, { content: "x" });
+        assert.strictEqual(post.object.kind, "note");
+        assert.strictEqual(post.object.parent, null);
+        assert.strictEqual(post.object.embed, null);
+        assert.strictEqual(post.object.lock, null);
+        assert.ok(!Object.hasOwn(post.object, "$unknown"));
+        assert.ok(post.path.startsWith("/pub/") && !post.path.includes("-x.json"));
+        const read = decodeObject(post.url, post.body);
+        const { content, kind, attachments } = read.object;
+        assert.deepStrictEqual(text(encodeObject(post.url, { content, kind, parent: null, embed: null, attachments, lock: null })), text(post.body));
+        // A hole is absent, never the polluted entry at its index
+        misuse(() => buildPost(OTTO, { content: "x", attachments: new Array(1) }), /input\.attachments\[0\] must be an object/);
+        assert.strictEqual(buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" }).path, media.path);
+        assert.strictEqual(decodeContent({ content: "x", kind: "note" }), null);
+      } finally {
+        for (const key of Object.keys(polluted)) delete Object.prototype[key];
+        delete Array.prototype[0];
+      }
+      assert.ok(!(Object.assign(Object.create({ [Symbol.for("pubky-social-specs.ValidationError")]: true })) instanceof ValidationError));
+    });
+
     it("values no JSON holds are refused as shapes: holes, getters that throw, cycles", () => {
       const url = buildUri(OTTO, "user");
       const base = buildUser(OTTO, { name: "Alice" }).object;

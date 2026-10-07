@@ -223,7 +223,7 @@ export function object<T extends Extra>(name: string, fields: Record<string, Cod
     },
     parse(js, at) {
       if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
-      const given = js as Record<string, unknown>;
+      const given = ownCopy(js);
       for (const key of Object.keys(given)) {
         if (key !== "$unknown" && !Object.hasOwn(fields, key)) {
           misuse(`${at}.${key}`, "a member of the stored object: pass the .object a builder or decodeObject returned (members this version does not know travel in its $unknown)");
@@ -248,14 +248,26 @@ export function arrayOf(js: unknown, at: string): unknown[] {
   if (!Array.isArray(js)) misuse(at, "an array");
   // Checked before it is walked: a length is free to claim
   if (js.length > MAX_ITEMS) misuse(at, `an array of at most ${MAX_ITEMS} items`);
-  return Array.from(js);
+  // A hole reads as absent, never as what a polluted prototype holds at that index
+  return Array.from({ length: js.length }, (_, index) => (Object.hasOwn(js, index) ? js[index] : undefined));
+}
+
+/**
+ * The own enumerable members of a caller's object, each read once, on an object with no
+ * prototype: a member the caller left out stays absent whatever `Object.prototype` holds.
+ */
+function ownCopy(js: object): Record<string, unknown> {
+  const out: Record<string, unknown> = Object.create(null);
+  for (const key of Object.keys(js)) out[key] = (js as Record<string, unknown>)[key];
+  return out;
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */
 export function inputOf(js: unknown, at: string, allowed: readonly string[]): Record<string, unknown> {
   if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
-  for (const key of Object.keys(js)) if (!allowed.includes(key)) misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`);
-  return js as Record<string, unknown>;
+  const given = ownCopy(js);
+  for (const key of Object.keys(given)) if (!allowed.includes(key)) misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`);
+  return given;
 }
 
 export type { Json };
