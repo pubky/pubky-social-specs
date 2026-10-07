@@ -66,7 +66,16 @@ for (const family of Object.keys(families)) {
     : [];
   const vectors = differing(rows.map((row) => row.q), rows.map((row) => row.a));
   const asked = requests(family, seed, cases);
-  const fuzz = differing(asked, await ask(asked));
+  const reference = await ask(asked);
+  if (process.argv.includes("--stats")) {
+    // How often each operation is accepted: a family that only ever refuses proves little
+    const stats = {};
+    asked.forEach((q, i) => ((stats[q.op] ??= [0, 0])["ok" in reference[i] ? 0 : 1]++));
+    for (const [op, [ok, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  refused ${err}`);
+    const messages = new Set(reference.filter((a) => a.err).map((a) => a.err.replace(/[0-9A-Za-z]{13,}|: .*$/g, "…")));
+    console.log(`  ${messages.size} distinct refusals`);
+  }
+  const fuzz = differing(asked, reference);
   const wrong = [...vectors.wrong, ...fuzz.wrong];
   const missing = vectors.missing + fuzz.missing;
   if (wrong.length || missing || !rows.length) clean = false;

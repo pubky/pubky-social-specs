@@ -13,8 +13,21 @@ import { debugQuote } from "../dist/text.js";
 import { DEBUG_ESCAPED } from "../dist/data.js";
 import { readObject } from "../dist/objects.js";
 import { buildUser } from "../dist/models/user.js";
+import * as graph from "../dist/models/graph.js";
+import { parse } from "../dist/models/common.js";
+import { lastMint, pin } from "../dist/clock.js";
 
 const utf8 = (text) => new TextEncoder().encode(text);
+const made = (owner, m) => created(owner, m.id, m);
+const readStoredText = (model, text, id) => {
+  const bytes = utf8(text);
+  if (bytes.length > model.maxBytes) throw Object.assign(new Error(`Validation Error: object exceeds ${model.maxBytes} bytes`), { name: "ValidationError" });
+  const value = parse(model.codec, bytes);
+  const body = model.codec.write(value);
+  if (utf8(body).length > model.maxBytes) throw Object.assign(new Error(`Validation Error: object exceeds ${model.maxBytes} bytes`), { name: "ValidationError" });
+  model.check(value, id, false);
+  return { value };
+};
 const created = (owner, id, made) => ({ id, path: made.path, url: `pubky://${owner}${made.path}`, body: b64(utf8(made.body)) });
 
 const b64 = (bytes) => Buffer.from(bytes).toString("base64");
@@ -52,6 +65,17 @@ const ops = {
     return { kind: read.kind, body: b64(read.body) };
   },
   createUser: (a, input) => created(a.s, "", buildUser(a.s, input?.j ?? "null")),
+  createFollow: (a, b) => made(a.s, graph.buildFollow(a.s, b.s)),
+  createMute: (a, b) => made(a.s, graph.buildMute(a.s, b.s)),
+  createTag: (a, b, c) => made(a.s, graph.buildTag(a.s, b.s, c.s)),
+  createBookmark: (a, b) => made(a.s, graph.buildBookmark(a.s, b.s)),
+  bookmarkId: (a) => graph.bookmarkId(a.s),
+  bookmarkTarget: (a, content) => {
+    const text = content?.j ?? "null";
+    if (text === "null") return graph.targetOf(a.s, { created_at: 0n, target: null, extra: new Map() });
+    const { value } = readStoredText(graph.bookmark, text, a.s);
+    return graph.targetOf(a.s, value);
+  },
 };
 
 export const implemented = (op) => op in ops;
@@ -59,11 +83,13 @@ export const implemented = (op) => op in ops;
 /** `{ok, last}` or `{err, last}`, as the oracle answers the same request. */
 export function answer({ op, args = [], now, last }) {
   if (!(op in ops)) return { missing: op };
+  pin(BigInt(now), BigInt(last));
+  const after = () => Number(lastMint());
   try {
-    return { ok: ops[op](...args) ?? null, last };
+    return { ok: ops[op](...args) ?? null, last: after() };
   } catch (e) {
-    if (e instanceof JsonError) return { err: `Validation Error: ${e.message}`, last };
+    if (e instanceof JsonError) return { err: `Validation Error: ${e.message}`, last: after() };
     if (e?.name !== "ValidationError") throw e;
-    return { err: e.message, last };
+    return { err: e.message, last: after() };
   }
 }

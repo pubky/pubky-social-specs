@@ -1,6 +1,23 @@
 // Seeded requests per family. A case is its family, its seed and its index, so a mismatch is
 // replayed from three numbers.
 
+import { blake3 } from "@noble/hashes/blake3.js";
+
+const crock = (bytes) => {
+  let bits = 0n;
+  for (const b of bytes) bits = (bits << 8n) | BigInt(b);
+  bits <<= 2n;
+  let out = "";
+  for (let i = 0; i < 26; i++) {
+    out = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[Number(bits & 31n)] + out;
+    bits >>= 5n;
+  }
+  return out;
+};
+// The id of a hashed object, computed here so a generated path can name its own content
+export const hashOfText = (text) => crock(blake3(new TextEncoder().encode(text)).subarray(0, 16));
+const hashOfTag = (uri, label) => hashOfText(`${uri}:${label}`);
+
 export function rng(seed) {
   let a = seed >>> 0;
   const next = () => {
@@ -219,11 +236,47 @@ const storedUser = (r) => {
   return { name: o.name, bio: o.bio ?? null, image: o.image ?? null, links: o.links ?? null, status: o.status ?? null };
 };
 
+const key = (r) => r.pick([OWNER, OTHER, OTHER, spelled(r, ZBASE32, 52)]);
+const stamp = (r) => r.pick([NOW, NOW, 0, -1, 9007199254740991, "9007199254740992", "-9007199254740992", 1.5, "x", null]);
+const raw = (value) => (typeof value === "string" && /^-?[0-9]+$/.test(value) ? { toJSON: undefined, raw: value } : value);
+// A number too large for a double has to be spelled into the text by hand
+const withRaw = (text) => text.replace(/\{"raw":"(-?[0-9]+)"\}/g, "$1");
+const longRef = (r) => `https://example.com/${"p".repeat(r.pick([150, 167, 168, 169, 400]))}`;
+const b64url = (text) => Buffer.from(text).toString("base64url");
+const tagUri = (r) => r.pick([ref(r), ref(r), `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`]);
+const label = (r) => r.pick(["rust", "Rust", " rust ", "a,b", "a:b", "a b", "", "x".repeat(r.pick([20, 21])), "é", "😀", "RÉSUMÉ", "a\u00a0b", "a\u200bb"]);
+
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
 
 export const families = {
   text: (r) => request(r.pick(["frozenTrim", "asciiFold", "codePointLen", "debug"]), s(r.chance(0.2) ? String.fromCodePoint(...r.many(6, () => r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0xe0000 + r.below(0x200)]))) : str(r))),
+  graph: (r) =>
+    r.pick([
+      () => request(r.pick(["createFollow", "createMute"]), s(key(r)), s(key(r))),
+      () => request("createTag", s(key(r)), s(tagUri(r)), s(label(r))),
+      () => {
+        const target = r.pick([ref(r), longRef(r)]);
+        return r.chance(0.5) ? request("createBookmark", s(key(r)), s(target)) : request("bookmarkId", s(target));
+      },
+      () => request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick(["follows", "follows", "mutes"])}/${key(r)}.json`), { j: withRaw(stored(r, { created_at: raw(stamp(r)) })) }),
+      () => {
+        const uri = tagUri(r);
+        const l = r.pick(["rust", "rust", "pubky", label(r)]);
+        const id = r.chance(0.85) ? hashOfTag(uri, l) : hashIdText(r);
+        return request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/tags/${id}.json`), { j: withRaw(stored(r, { uri, label: l, created_at: raw(stamp(r)) })) });
+      },
+      () => {
+        const target = r.pick([ref(r), longRef(r), `pubky://${OTHER}/pub/social/v1/profile.json`]);
+        const id = r.pick([b64url(target), b64url(target), "~" + hashOfText(target), "~" + hashIdText(r), b64url(target) + "=", b64url(target).slice(0, -1) + "B", spelled(r, base64url, 8), b64url("\u00ff\u00fe").replace("w7", "_w")]);
+        const content = { created_at: raw(stamp(r)) };
+        if (r.chance(0.5)) content.target = r.pick([target, target, ref(r), null]);
+        const text = withRaw(stored(r, content));
+        return r.chance(0.6)
+          ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "priv", "pub"])}/social/v1/bookmarks/${id}.json`), { j: text })
+          : request("bookmarkTarget", s(id), ...(r.chance(0.3) ? [] : [{ j: text }]));
+      },
+    ])(),
   user: (r) =>
     r.chance(0.5)
       ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: spoil(r, userInput(r)) })
