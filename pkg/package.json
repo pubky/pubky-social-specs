@@ -37,7 +37,8 @@
     "src",
     "!src/host.d.ts",
     "bin/migrate.js",
-    "example.js"
+    "example.js",
+    "MIGRATION.md"
   ],
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --features migrator --bin bundle_specs_npm",
