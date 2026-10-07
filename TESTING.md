@@ -142,6 +142,8 @@ piece again.
 | mutation pass | `cd pkg && node qa/mutate.mjs` | 12 of 14 planted engine bugs caught. M12 and M14 pass as they did before the move: M12 is close to an equivalent mutant (the next object folding to the key PUTs, gets `exists` and counts as present), and with M14 the wasm still refuses an oversize blob, only after hashing it |
 | the replay | `cd tools/replay && node replay.mjs --data <dir> --to verify` | 849 of 849 users done; the oracle finds no mismatched user and no object migrated though refused; counts equal to the wasm run (107,138 written, 157 invalid, 11 shape, 7 malformed, 1,669 not migrated) |
 | the replay against the wasm run | every object of every tree compared with the dump kept from 2026-10-01, by size and hash | 222,201 objects, none differs; the 849 flags differ in `migrated_at` and in `transform_rev`, 1 then and 2 now |
+| the replay in a browser | `node replay.mjs --data <dir> --from browser --to browser --sample 2` | four sample users migrated in Chromium by the page harness, the 9,111-object one among them, each verified by the oracle with no mismatch. The fifth, the owner of a 100 MB blob, ends the Playwright driver (`ERR_STRING_TOO_LONG` in its pipe), the limit `qa/cdp-run.mjs` exists for; not rerun through it here |
+| live e2e | `cd pkg && npm run e2e` against the testnet | 5 of 5 |
 | size and start | `cd pkg && npm run size` | the whole entry 25.7 kB gzipped, `buildUri` alone 1.6 kB; first call 3.6 ms after a 115 ms load of unbundled files, no init |
 | throughput | `cd pkg && node qa/bench-entry.mjs`, `node qa/bench.mjs` | a note built in 62 us, decoded in 70 us; the engine 3,067 objects a second over `MemoryPort`, as before; a blob hashed at about 280 MB a second in the wasm and about 17 in JS |
 
