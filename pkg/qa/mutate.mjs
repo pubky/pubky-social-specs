@@ -110,7 +110,6 @@ const run = (cmd, argv, timeoutMs) => {
 };
 const build = () => {
   execFileSync("npx", ["--no", "--", "tsc", "-p", "."], { cwd: pkg, stdio: "pipe" });
-  execFileSync("node", ["../src/bin/patch.mjs", "migration"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
   const r = run("npx", ["--no", "--", "mocha", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
