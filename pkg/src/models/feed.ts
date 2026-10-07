@@ -1,12 +1,11 @@
 import { nowMicros } from "../clock.js";
 import { limits } from "../data.js";
 import { fail } from "../errors.js";
-import { checkHashId, checkPublicKey, hashId } from "../ids.js";
-import { closed, type Extra, i64, list, open, option, string } from "../json/schema.js";
-import { compareKeys } from "../json/write.js";
-import { asciiFold, codePointLen, frozenTrim } from "../text.js";
+import { checkHashId, checkPublicKey, hashText } from "../ids.js";
+import { type Extra, i64, inputOf, list, object, omitted, option, string } from "../json/schema.js";
+import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
 import { socialPath } from "../uri.js";
-import { checkExtra, checkSafeInt, type Model, parse, SIZES, validate } from "./common.js";
+import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./graph.js";
 import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
@@ -26,8 +25,6 @@ export interface Feed extends Extra {
   created_at: bigint;
 }
 
-const encoder = new TextEncoder();
-
 function checkTagList(tags: string[] | null, field: string): void {
   if (tags === null) return;
   if (tags.length === 0) fail(`Feed config ${field} cannot be an empty list, omit it for no filter`);
@@ -37,7 +34,7 @@ function checkTagList(tags: string[] | null, field: string): void {
     checkLabel(tag);
   }
   for (let i = 1; i < tags.length; i++) {
-    if (compareKeys(tags[i - 1] as string, tags[i] as string) >= 0) {
+    if (compareBytes(tags[i - 1] as string, tags[i] as string) >= 0) {
       fail(`Feed config ${field} must be stored deduplicated and sorted by code point`);
     }
   }
@@ -54,26 +51,21 @@ function checkIcon(icon: string | null): void {
 function idOf(value: Feed): string {
   const f = value.feed;
   const joined = (tags: string[] | null) => tags?.join(",") ?? "";
-  return hashId(encoder.encode(`${f.reach}:${f.layout}:${f.sort}:${f.content ?? ""}:${joined(f.tags)}:${joined(f.domain_tags)}`));
+  return hashText(`${f.reach}:${f.layout}:${f.sort}:${f.content ?? ""}:${joined(f.tags)}:${joined(f.domain_tags)}`);
 }
 
-const config = open<FeedConfig>("PubkySocialFeedConfig", {
-  tags: { codec: option(list(string)) },
-  domain_tags: { codec: option(list(string)), absent: () => null, skipNull: true },
-  reach: { codec: feedReach },
-  layout: { codec: feedLayout },
-  sort: { codec: feedSort },
-  content: { codec: option(postKind) },
+const config = object<FeedConfig>("PubkySocialFeedConfig", {
+  tags: option(list(string)),
+  domain_tags: omitted(list(string)),
+  reach: feedReach,
+  layout: feedLayout,
+  sort: feedSort,
+  content: option(postKind),
 });
 
 export const feed: Model<Feed> = {
-  codec: open<Feed>("PubkySocialFeed", {
-    feed: { codec: config },
-    name: { codec: string },
-    icon: { codec: option(string), absent: () => null, skipNull: true },
-    created_at: { codec: i64 },
-  }),
-  maxBytes: SIZES.object,
+  codec: object<Feed>("PubkySocialFeed", { feed: config, name: string, icon: omitted(string), created_at: i64 }),
+  maxBytes: limits.objectMaxBytes,
   check(value, id) {
     const f = value.feed;
     // reach, layout and sort define the feed; an unknown content filter only means no filter
@@ -106,60 +98,34 @@ export function feedId(value: Feed): string {
   return idOf(value);
 }
 
-export const feedIdOf = (feedJson: string) => feedId(parse(feed.codec, feedJson));
-
-/** A feed lives at `private`; its published copy is the same bytes at `public`. */
-export function feedPaths(id: string): { private: string; public: string } {
-  checkHashId(id);
-  return { private: socialPath("private", `feeds/${id}.json`), public: socialPath("public", `feeds/${id}.json`) };
-}
-
-interface FeedInput {
-  tags: string[] | null;
-  domainTags: string[] | null;
-  reach: string;
-  layout: string;
-  sort: string;
-  content: string | null;
-  name: string;
-  icon: string;
-}
-
-const none = { absent: () => null };
-const input = closed<FeedInput>("FeedInput", {
-  tags: { codec: option(list(string)), ...none },
-  domainTags: { codec: option(list(string)), ...none },
-  reach: { codec: string },
-  layout: { codec: string },
-  sort: { codec: string },
-  content: { codec: option(string), ...none },
-  name: { codec: string },
-  icon: { codec: string },
-});
+const tagList = option(list(string));
 
 function filter(tags: string[] | null, field: string): string[] | null {
   if (tags === null) return null;
   if (tags.length === 0) fail(`${field} must not be an empty list; pass None for no filter`);
   if (tags.some((tag) => foldLabel(tag) === "")) fail(`${field} must not contain a blank label`);
-  return [...new Set(tags.map(foldLabel))].sort(compareKeys);
+  return [...new Set(tags.map(foldLabel))].sort(compareBytes);
 }
 
-/** A feed at its private path, from the JSON text of its input. The builder folds and sorts. */
-export function buildFeed(owner: string, inputJson: string) {
+/** A feed at its private path. The builder folds and sorts the filter and trims the name. */
+export function buildFeed(owner: string, input: unknown) {
   checkPublicKey(owner);
-  const i = parse(input, inputJson);
-  const content = i.content === null ? null : known(postKinds, "content kind", i.content);
-  const reach = known(feedReaches, "feed reach", i.reach);
-  const layout = known(feedLayouts, "feed layout", i.layout);
-  const sort = known(feedSorts, "feed sort", i.sort);
-  const tags = filter(i.tags, "tags");
-  const domainTags = filter(i.domainTags, "domain_tags");
+  const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "name", "icon"]);
+  const given = { tags: tagList.parse(i.tags, "input.tags"), domain: tagList.parse(i.domain_tags, "input.domain_tags") };
+  const name = string.parse(i.name, "input.name");
+  const icon = string.parse(i.icon, "input.icon");
+  const content = i.content === null || i.content === undefined ? null : known(postKinds, "content kind", i.content, "input.content");
+  const reach = known(feedReaches, "feed reach", i.reach, "input.reach");
+  const layout = known(feedLayouts, "feed layout", i.layout, "input.layout");
+  const sort = known(feedSorts, "feed sort", i.sort, "input.sort");
+  const tags = filter(given.tags, "tags");
+  const domainTags = filter(given.domain, "domain_tags");
   checkTagList(tags, "tags");
   checkTagList(domainTags, "domain_tags");
   const value: Feed = {
     feed: { tags, domain_tags: domainTags, reach, layout, sort, content, extra: new Map() },
-    name: frozenTrim(i.name),
-    icon: asciiFold(frozenTrim(i.icon)),
+    name: frozenTrim(name),
+    icon: asciiFold(frozenTrim(icon)),
     created_at: nowMicros(),
     extra: new Map(),
   };

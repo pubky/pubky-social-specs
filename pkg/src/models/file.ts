@@ -1,6 +1,6 @@
 import { limits } from "../data.js";
 import { fail } from "../errors.js";
-import { checkPublicKey, hashId } from "../ids.js";
+import { checkHashId, checkPublicKey, hashId } from "../ids.js";
 import { mimeToExt } from "../mime.js";
 import { type Root, socialPath } from "../uri.js";
 
@@ -13,9 +13,14 @@ export function checkFile(bytes: Uint8Array, id: string | null): string {
   return hash;
 }
 
-/** Where media goes. The declared type picks the extension and is never stored. */
-export function buildFile(owner: string, bytes: Uint8Array, declaredType: string, root: Root) {
+/**
+ * Where media goes, from its bytes or from an id hashed elsewhere. The declared type picks
+ * the extension and is never stored.
+ */
+export function buildFile(owner: string, source: { bytes: Uint8Array } | { id: string }, declaredType: string, root: Root) {
   checkPublicKey(owner);
-  const id = checkFile(bytes, null);
+  let id: string;
+  if ("bytes" in source) id = checkFile(source.bytes, null);
+  else checkHashId((id = source.id));
   return { id, path: socialPath(root, `files/${id}.${mimeToExt(declaredType)}`) };
 }

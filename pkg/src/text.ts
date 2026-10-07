@@ -1,35 +1,38 @@
 // Strings as the reference sees them: lengths in code points or UTF-8 bytes, and a whitespace
 // set frozen at one Unicode version, since ids hash text trimmed by it.
 
-const FROZEN_WHITESPACE = new Set([
-  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003,
-  0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f,
-  0x3000,
-]);
+import { DEBUG_ESCAPED } from "./data.js";
 
-/** By UTF-16 unit, which is the code point here: the whole set is in the BMP. */
-export function isFrozenWhitespace(unit: number): boolean {
-  return FROZEN_WHITESPACE.has(unit);
+// The 25 code points that were whitespace at Unicode 15.1, spelled out: `\s` follows the engine
+const WS = "\\t-\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+const EDGES = new RegExp(`^[${WS}]+|[${WS}]+$`, "g");
+const ANY_WS = new RegExp(`[${WS}]`);
+// eslint-disable-next-line no-control-regex
+const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+export const utf8 = (s: string): Uint8Array<ArrayBuffer> => encoder.encode(s) as Uint8Array<ArrayBuffer>;
+
+/** The text of `bytes`, or null when they are not UTF-8. A leading BOM is text like any other. */
+export function utf8Text(bytes: Uint8Array): string | null {
+  try {
+    return decoder.decode(bytes);
+  } catch {
+    return null;
+  }
 }
 
 /** Not `String.prototype.trim`, whose set follows the engine's Unicode version. */
-export function frozenTrim(s: string): string {
-  let start = 0;
-  let end = s.length;
-  while (start < end && isFrozenWhitespace(s.charCodeAt(start))) start++;
-  while (end > start && isFrozenWhitespace(s.charCodeAt(end - 1))) end--;
-  return s.slice(start, end);
-}
-
-export function hasFrozenWhitespace(s: string): boolean {
-  for (let i = 0; i < s.length; i++) if (isFrozenWhitespace(s.charCodeAt(i))) return true;
-  return false;
-}
+export const frozenTrim = (s: string): string => s.replace(EDGES, "");
+export const hasFrozenWhitespace = (s: string): boolean => ANY_WS.test(s);
+/** An ASCII control (U+0000 to U+001F, U+007F) or a frozen whitespace anywhere. */
+export const hasControlOrWhitespace = (s: string): boolean => CONTROL_OR_WS.test(s);
+export const trimmedOrNull = (s: string | null): string | null => (s === null ? null : frozenTrim(s) || null);
 
 /** A to Z only: `toLowerCase` folds far more and differently per engine version. */
-export function asciiFold(s: string): string {
-  return s.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
-}
+export const asciiFold = (s: string): string => s.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
 
 export function codePointLen(s: string): number {
   let n = 0;
@@ -41,6 +44,7 @@ export function codePointLen(s: string): number {
   return n;
 }
 
+/** Counted, not encoded: this runs on every object for its size cap. */
 export function utf8Len(s: string): number {
   let n = 0;
   for (let i = 0; i < s.length; i++) {
@@ -55,12 +59,24 @@ export function utf8Len(s: string): number {
   return n;
 }
 
-/** U+0000 to U+001F and U+007F. */
-export function isAsciiControl(unit: number): boolean {
-  return unit < 0x20 || unit === 0x7f;
+/** By UTF-8 bytes, which is code point order and not the engine's UTF-16 order. */
+export function compareBytes(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    let x = a.charCodeAt(i);
+    let y = b.charCodeAt(i);
+    if (x === y) continue;
+    // A surrogate stands for a code point above every BMP one
+    if (x >= 0xd800 && x <= 0xdfff) x += 0x2000;
+    else if (x >= 0xe000) x -= 0x800;
+    if (y >= 0xd800 && y <= 0xdfff) y += 0x2000;
+    else if (y >= 0xe000) y -= 0x800;
+    return x - y;
+  }
+  return a.length - b.length;
 }
 
-/** A Rust string cannot hold a lone surrogate, so no text holding one has a reference answer. */
+/** A Rust string cannot hold a lone surrogate, so text holding one has no reference answer. */
 export function isWellFormed(s: string): boolean {
   for (let i = 0; i < s.length; i++) {
     const unit = s.charCodeAt(i);
@@ -74,24 +90,20 @@ export function isWellFormed(s: string): boolean {
 
 const NAMED_DEBUG: Record<string, string> = { "\t": "\\t", "\n": "\\n", "\r": "\\r", "\0": "\\0", "\\": "\\\\", '"': '\\"' };
 
-function isDebugEscaped(codePoint: number, ranges: readonly number[]): boolean {
-  let low = 0;
-  let high = ranges.length / 2 - 1;
-  while (low <= high) {
-    const mid = (low + high) >> 1;
-    if (codePoint < (ranges[2 * mid] as number)) high = mid - 1;
-    else if (codePoint > (ranges[2 * mid + 1] as number)) low = mid + 1;
-    else return true;
+function isDebugEscaped(codePoint: number): boolean {
+  for (let i = 0; i < DEBUG_ESCAPED.length; i += 2) {
+    if (codePoint < (DEBUG_ESCAPED[i] as number)) return false;
+    if (codePoint <= (DEBUG_ESCAPED[i + 1] as number)) return true;
   }
   return false;
 }
 
-/** Text as the reference quotes it inside an error: Rust's `{:?}` of a string. */
-export function debugQuote(s: string, ranges: readonly number[]): string {
+/** Text as the reference quotes it inside a type error: Rust's `{:?}` of a string. */
+export function debugQuote(s: string): string {
   let out = '"';
   for (const c of s) {
     const codePoint = c.codePointAt(0) as number;
-    out += NAMED_DEBUG[c] ?? (isDebugEscaped(codePoint, ranges) ? `\\u{${codePoint.toString(16)}}` : c);
+    out += NAMED_DEBUG[c] ?? (isDebugEscaped(codePoint) ? `\\u{${codePoint.toString(16)}}` : c);
   }
   return `${out}"`;
 }

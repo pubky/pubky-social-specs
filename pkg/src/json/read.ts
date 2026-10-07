@@ -2,6 +2,8 @@
 // point of the text. `JSON.parse` cannot stand in: it reads every number as a double, keeps
 // one of two equal keys without a trace, and words its errors per engine.
 
+import { utf8, utf8Text } from "../text.js";
+
 /** A refusal of the reader. The message is the parser's own, with no position. */
 export class JsonError extends Error {}
 
@@ -12,7 +14,6 @@ export type JsonObject = Map<string, Json>;
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 const I32_MAX = 2147483647;
 const POW10 = Array.from({ length: 309 }, (_, i) => Number(`1e${i}`));
-const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
@@ -20,10 +21,19 @@ const isDigit = (b: number) => b >= 0x30 && b <= 0x39;
 
 export class Reader {
   pos = 0;
+  readonly bytes: Uint8Array;
   // Arrays and objects still open; the parser gives up at 128
   private depth = 0;
+  private readonly exactFloats: boolean;
 
-  constructor(readonly bytes: Uint8Array) {}
+  /**
+   * `exactFloats` reads a double correctly rounded, where the reference parser's own
+   * arithmetic can land a unit away: for text this package wrote and must read back unchanged.
+   */
+  constructor(bytes: Uint8Array, exactFloats = false) {
+    this.bytes = bytes;
+    this.exactFloats = exactFloats;
+  }
 
   fail(message: string): never {
     throw new JsonError(message);
@@ -192,14 +202,21 @@ export class Reader {
   string(): string {
     let out = "";
     let start = this.pos;
+    // The parser looks at the encoding only at the closing quote, so an error later in the
+    // same string comes first
+    let invalid = false;
     const flush = () => {
-      if (this.pos > start) out += this.utf8(start, this.pos);
+      if (this.pos === start) return;
+      const text = utf8Text(this.bytes.subarray(start, this.pos));
+      if (text === null) invalid = true;
+      else out += text;
     };
     for (;;) {
       const b = this.byteOrEof();
       if (b === QUOTE) {
         flush();
         this.pos++;
+        if (invalid) this.fail("invalid unicode code point");
         return out;
       }
       if (b < 0x20) {
@@ -242,34 +259,15 @@ export class Reader {
     return String.fromCharCode(n, low);
   }
 
-  private utf8(from: number, to: number): string {
-    try {
-      return decoder.decode(this.bytes.subarray(from, to));
-    } catch {
-      // The parser reads to the closing quote before it looks at the encoding, so an error
-      // later in the same string comes first
-      this.skipString();
-      return this.fail("invalid unicode code point");
-    }
-  }
-
-  /** The rest of a string, read for its errors alone. */
-  private skipString(): void {
-    for (;;) {
-      const b = this.byteOrEof();
-      this.pos++;
-      if (b === QUOTE) return;
-      if (b < 0x20) this.fail("control character (\\u0000-\\u001F) found while parsing a string");
-      if (b !== BACKSLASH) continue;
-      const escape = this.byteOrEof();
-      this.pos++;
-      if (escape === 0x75) this.unicodeEscape();
-      else if (ESCAPES[escape] === undefined) this.fail("invalid escape");
-    }
-  }
-
   /** A number whose sign is read: a bigint for an integer in 64 bits, else a double. */
   number(positive: boolean): bigint | number {
+    const start = positive ? this.pos : this.pos - 1;
+    const value = this.scanNumber(positive);
+    if (!this.exactFloats || typeof value === "bigint") return value;
+    return Number(String.fromCharCode(...this.bytes.subarray(start, this.pos)));
+  }
+
+  private scanNumber(positive: boolean): bigint | number {
     const first = this.bytes[this.pos++];
     if (first === undefined) this.fail("EOF while parsing a value");
     if (first === 0x30) {
@@ -391,11 +389,9 @@ const ESCAPES: Record<number, string> = {
   0x22: '"', 0x5c: "\\", 0x2f: "/", 0x62: "\b", 0x66: "\f", 0x6e: "\n", 0x72: "\r", 0x74: "\t",
 };
 
-const encoder = new TextEncoder();
-
 /** One document: a value and nothing after it. */
-export function readJson(input: Uint8Array | string): Json {
-  const reader = new Reader(typeof input === "string" ? encoder.encode(input) : input);
+export function readJson(input: Uint8Array | string, exactFloats = false): Json {
+  const reader = new Reader(typeof input === "string" ? utf8(input) : input, exactFloats);
   const value = reader.value();
   reader.end();
   return value;

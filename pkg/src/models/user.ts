@@ -2,10 +2,10 @@ import { checkReference } from "../canonicalize.js";
 import { limits } from "../data.js";
 import { fail } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
-import { closed, type Extra, list, open, option, string } from "../json/schema.js";
-import { codePointLen, frozenTrim } from "../text.js";
+import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
+import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
 import { socialPath } from "../uri.js";
-import { checkExtra, type Model, parse, SIZES, validate } from "./common.js";
+import { checkExtra, type Model, validate } from "./common.js";
 
 export interface UserLink extends Extra {
   title: string;
@@ -20,7 +20,7 @@ export interface User extends Extra {
   status: string | null;
 }
 
-const link = open<UserLink>("PubkySocialUserLink", { title: { codec: string }, url: { codec: string } });
+const link = object<UserLink>("PubkySocialUserLink", { title: string, url: string });
 
 function checkLink(value: UserLink, index: number): void {
   checkExtra(value.extra);
@@ -32,14 +32,14 @@ function checkLink(value: UserLink, index: number): void {
 }
 
 export const user: Model<User> = {
-  codec: open<User>("PubkySocialUser", {
-    name: { codec: string },
-    bio: { codec: option(string) },
-    image: { codec: option(string) },
-    links: { codec: option(list(link)) },
-    status: { codec: option(string) },
+  codec: object<User>("PubkySocialUser", {
+    name: string,
+    bio: option(string),
+    image: option(string),
+    links: option(list(link)),
+    status: option(string),
   }),
-  maxBytes: SIZES.object,
+  maxBytes: limits.objectMaxBytes,
   // The profile has one root, the public one, whatever root a caller reads it under
   check(value) {
     checkExtra(value.extra);
@@ -63,36 +63,23 @@ export const user: Model<User> = {
   },
 };
 
-interface UserInput {
-  name: string;
-  bio: string | null;
-  image: string | null;
-  links: { title: string; url: string }[] | null;
-  status: string | null;
-}
+const maybe = option(string);
 
-const none = { absent: () => null };
-const input = closed<UserInput>("UserInput", {
-  name: { codec: string },
-  bio: { codec: option(string), ...none },
-  image: { codec: option(string), ...none },
-  links: { codec: option(list(closed<{ title: string; url: string }>("LinkInput", { title: { codec: string }, url: { codec: string } }))), ...none },
-  status: { codec: option(string), ...none },
-});
-
-const trimmedOrNull = (text: string | null) => (text === null ? null : frozenTrim(text) || null);
-
-/** A fresh profile from the JSON text of its input. The builder trims the display text. */
-export function buildUser(owner: string, inputJson: string): { path: string; value: User; body: string } {
+/** A fresh profile. The builder trims the display text; references are stored as written. */
+export function buildUser(owner: string, input: unknown) {
   checkPublicKey(owner);
-  const i = parse(input, inputJson);
+  const i = inputOf(input, "input", ["name", "bio", "image", "links", "status"]);
+  const links = option(list({ ...link, parse: (js, at) => {
+    const l = inputOf(js, at, ["title", "url"]);
+    return { title: frozenTrim(string.parse(l.title, `${at}.title`)), url: string.parse(l.url, `${at}.url`), extra: new Map() };
+  } }));
   const value: User = {
-    name: frozenTrim(i.name),
-    bio: trimmedOrNull(i.bio),
-    image: i.image,
-    links: i.links?.map((l) => ({ title: frozenTrim(l.title), url: l.url, extra: new Map() })) ?? null,
-    status: trimmedOrNull(i.status),
+    name: frozenTrim(string.parse(i.name, "input.name")),
+    bio: trimmedOrNull(maybe.parse(i.bio, "input.bio")),
+    image: maybe.parse(i.image, "input.image"),
+    links: links.parse(i.links, "input.links"),
+    status: trimmedOrNull(maybe.parse(i.status, "input.status")),
     extra: new Map(),
   };
-  return { path: socialPath("public", "profile.json"), value, body: validate(user, value, null, true) };
+  return { id: "", path: socialPath("public", "profile.json"), value, body: validate(user, value, null, true) };
 }

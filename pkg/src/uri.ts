@@ -1,13 +1,13 @@
 // Paths and URIs: the parser, the builders, and the keys that join the two epochs of a tree.
 
-import { canonicalPubky, isPublicKey } from "./canonicalize.js";
+import { canonicalPubky, isCanonicalSegment } from "./canonicalize.js";
 import { limits, STRIP_SET } from "./data.js";
-import { fail, ValidationError } from "./errors.js";
-import { checkHashId, checkPublicKey, timestampIdMicros } from "./ids.js";
+import { fail, misuse } from "./errors.js";
+import { checkPublicKey, hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
+import { utf8 } from "./text.js";
 
 export type Root = "public" | "private";
-
-export type ParsedUri = { userId: string; root: Root; path: string } & Resource;
+export type ObjectKind = "user" | "post" | "follow" | "mute" | "bookmark" | "tag" | "file" | "feed";
 
 export type Resource =
   | { kind: "user" }
@@ -17,17 +17,11 @@ export type Resource =
   | { kind: "unsupportedVersion"; version: string }
   | { kind: "unknown" };
 
-const refuses = (check: () => unknown): boolean => {
-  try {
-    check();
-    return false;
-  } catch (e) {
-    if (e instanceof ValidationError) return true;
-    throw e;
-  }
-};
-const isTimestampId = (id: string) => !refuses(() => timestampIdMicros(id));
-const isHashId = (id: string) => !refuses(() => checkHashId(id));
+export type Located = { root: Root; path: string } & Resource;
+
+const isTimestampId = (id: string) => timestampIdFault(id) === null;
+const isHashId = (id: string) => hashIdFault(id) === null;
+const isPublicKey = (key: string) => publicKeyFault(key) === null;
 const isEpoch = (segment: string) => /^v[0-9]+$/.test(segment);
 const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 
@@ -83,8 +77,8 @@ function dispatch(root: Root, rest: string[]): Resource {
 }
 
 /** What a canonical path names, or null for a root that is neither `pub` nor `priv`. */
-export function parsePath(host: string, path: string | null): ParsedUri | null {
-  if (path === null) return { userId: host, root: "public", path: "", kind: "user" };
+export function parsePath(path: string | null): Located | null {
+  if (path === null) return { root: "public", path: "", kind: "user" };
   const segments = path.split("/");
   const root = segments[0] === "pub" ? "public" : segments[0] === "priv" ? "private" : null;
   if (root === null) return null;
@@ -100,17 +94,20 @@ export function parsePath(host: string, path: string | null): ParsedUri | null {
   } else if (epoch === "v1") resource = dispatch(root, segments.slice(3));
   else if (epoch !== undefined && isEpoch(epoch)) resource = { kind: "unsupportedVersion", version: epoch };
   else resource = { kind: "unknown" };
-  return { userId: host, root, path: `/${path}`, ...resource };
+  return { root, path: `/${path}`, ...resource };
 }
 
+export type Parsed = { owner: string } & Located;
+
 /** Classifies a URI. Throws only when it is not a canonical pubky URI with a known root. */
-export function parseUri(uri: string): ParsedUri {
+export function parse(uri: string): Parsed {
   const canonical = canonicalPubky(uri);
   if (canonical === null) fail(`Not a canonical pubky URI: ${uri}`);
   const rest = canonical.slice(8);
   const slash = rest.indexOf("/");
-  const parsed = slash < 0 ? parsePath(rest, null) : parsePath(rest.slice(0, slash), rest.slice(slash + 1));
-  return parsed ?? fail(`Unknown root in URI: ${uri}`);
+  const located = parsePath(slash < 0 ? null : rest.slice(slash + 1));
+  if (located === null) fail(`Unknown root in URI: ${uri}`);
+  return { owner: slash < 0 ? rest : rest.slice(0, slash), ...located };
 }
 
 const SEGMENT = { private: "priv", public: "pub" } as const;
@@ -120,43 +117,36 @@ export function socialPath(root: Root, leaf: string): string {
   return `/${SEGMENT[root]}/social/v1/${leaf}`;
 }
 
-// The builders check the owner key; the second part is spelled as given
-function builder(root: Root, leaf: (id: string) => string) {
-  return (owner: string, id: string): string => {
-    checkPublicKey(owner);
-    return `pubky://${owner}${socialPath(root, leaf(id))}`;
-  };
-}
+const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
+  user: () => ["public", "profile.json"],
+  post: (id) => ["public", `posts/${id}`],
+  follow: (id) => ["public", `follows/${id}.json`],
+  mute: (id) => ["private", `mutes/${id}.json`],
+  bookmark: (id) => ["private", `bookmarks/${id}.json`],
+  tag: (id) => ["public", `tags/${id}.json`],
+  // The full `{hash}.{ext}` filename: an extension cannot be derived from an id
+  file: (id) => ["public", `files/${id}`],
+  // The private path, where a feed lives
+  feed: (id) => ["private", `feeds/${id}.json`],
+};
 
-export function userUri(owner: string): string {
+/** Where an object of `kind` lives under `owner`. The owner key is checked, the id is spelled as given. */
+export function build(owner: string, kind: ObjectKind, id = ""): string {
   checkPublicKey(owner);
-  return `pubky://${owner}${socialPath("public", "profile.json")}`;
+  if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
+  const [root, leaf] = LEAF[kind](id);
+  return `pubky://${owner}${socialPath(root, leaf)}`;
 }
-export const postUri = builder("public", (id) => `posts/${id}`);
-export const followUri = builder("public", (id) => `follows/${id}.json`);
-export const muteUri = builder("private", (id) => `mutes/${id}.json`);
-export const bookmarkUri = builder("private", (id) => `bookmarks/${id}.json`);
-export const tagUri = builder("public", (id) => `tags/${id}.json`);
-/** Takes the full `{hash}.{ext}` filename: an extension cannot be derived from an id. */
-export const fileUri = builder("public", (filename) => `files/${filename}`);
-/** The private path, where a feed lives. */
-export const feedUri = builder("private", (id) => `feeds/${id}.json`);
 
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */
 export function listPrefix(owner: string, tree: Root | "legacy"): string {
   checkPublicKey(owner);
   if (tree === "legacy") return `pubky://${owner}/pub/pubky.app/`;
-  if (tree !== "public" && tree !== "private") {
-    fail(`unknown variant \`${tree}\`, expected one of \`public\`, \`private\`, \`legacy\``);
-  }
+  if (tree !== "public" && tree !== "private") misuse("tree", '"public", "private" or "legacy"');
   return `pubky://${owner}${socialPath(tree, "")}`;
 }
 
 const stripJson = (leaf: string) => json(leaf) ?? leaf;
-const PLACEHOLDER = "y".repeat(52);
-const KEY_SEGMENT: Record<string, string> = {
-  post: "posts", follow: "follows", mute: "mutes", bookmark: "bookmarks", tag: "tags", file: "files", feed: "feeds",
-};
 
 /**
  * The key one object has under both epochs of a tree, from its owner-relative path:
@@ -168,11 +158,11 @@ export function stableKey(ownerRelativePath: string): { key: string } | { needsD
   const [root, namespace, ...rest] = path.split("/");
   if ((root !== "pub" && root !== "priv") || namespace === undefined || rest.length === 0) return null;
   if (namespace === "social") {
-    if (canonicalPubky(`pubky://${PLACEHOLDER}/${path}`) === null) return null;
-    const parsed = parsePath(PLACEHOLDER, path);
+    if (!path.split("/").every(isCanonicalSegment)) return null;
+    const parsed = parsePath(path);
     if (parsed === null) return null;
     if (parsed.kind === "user") return { key: "profile" };
-    return "id" in parsed ? { key: `${KEY_SEGMENT[parsed.kind]}/${parsed.id}` } : null;
+    return "id" in parsed ? { key: `${parsed.kind}s/${parsed.id}` } : null;
   }
   if (namespace !== "pubky.app") return null;
   // The 0.x reader matched `[resource, id, ..]` and ignored what follows
@@ -197,12 +187,11 @@ export function stableKey(ownerRelativePath: string): { key: string } | { needsD
 
 const DOT = /^(\.|%2e)$/i;
 const DOT_DOT = /^(\.|%2e){2}$/i;
-const encoder = new TextEncoder();
 
 // What a URL parser percent-encodes in a path: controls, space, `"#<>?\`{}` and non-ASCII
 function encodeSegment(segment: string): string {
   let out = "";
-  for (const byte of encoder.encode(segment)) {
+  for (const byte of utf8(segment)) {
     const c = String.fromCharCode(byte);
     out += byte <= 0x20 || byte >= 0x7f || '"#<>?`{}'.includes(c) ? `%${byte.toString(16).toUpperCase().padStart(2, "0")}` : c;
   }

@@ -215,7 +215,7 @@ struct NoteInput {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 struct ArticleInput {
     #[serde(rename = "kind")]
     _kind: String,
@@ -246,7 +246,7 @@ struct ItemInput {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 struct CollectionInput {
     #[serde(rename = "kind")]
     _kind: String,
@@ -278,7 +278,7 @@ struct EditAt {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 struct FeedInput {
     #[serde(default)]
     tags: Option<Vec<String>>,
@@ -353,7 +353,7 @@ enum Tree {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UriParts {
-    user_id: String,
+    owner: String,
     root: Visibility,
     path: String,
     #[serde(flatten)]
@@ -380,6 +380,9 @@ enum ResourceParts {
     },
     Bookmark {
         id: String,
+        /// What the id carries, for the form that carries it.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target: Option<String>,
     },
     Tag {
         id: String,
@@ -413,7 +416,12 @@ impl ResourceParts {
             },
             Resource::Follow(pk) => Self::Follow { id: pk.to_string() },
             Resource::Mute(pk) => Self::Mute { id: pk.to_string() },
-            Resource::Bookmark(id) => Self::Bookmark { id },
+            Resource::Bookmark(id) => Self::Bookmark {
+                target: (!id.starts_with('~'))
+                    .then(|| crate::bookmark_target(&id, &PubkySocialBookmark::default()).ok())
+                    .flatten(),
+                id,
+            },
             Resource::Tag(id) => Self::Tag { id },
             file @ Resource::File(_) => Self::File {
                 id: file.id().unwrap_or_default(),
@@ -568,6 +576,29 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             let uri = a.s()?.to_string();
             read(&uri, a.b()?)?
         }
+        // An object checked by the rules that need no path: no id and no author
+        "encodeKind" => {
+            let kind = a.s()?.to_string();
+            let ctx = ValidationCtx {
+                root: a.parsed::<Option<Root>>()?.unwrap_or(Root::Pub),
+            };
+            let json = a.j()?;
+            fn loose<T: Validatable>(json: &str, ctx: &ValidationCtx) -> Result<Value, String> {
+                let object: T = parse(json)?;
+                object.validate(None, ctx)?;
+                Ok(body(&object)?.into())
+            }
+            match kind.as_str() {
+                "user" => loose::<PubkySocialUser>(json, &ctx)?,
+                "post" => loose::<PubkySocialPost>(json, &ctx)?,
+                "follow" => loose::<PubkySocialFollow>(json, &ctx)?,
+                "mute" => loose::<PubkySocialMute>(json, &ctx)?,
+                "bookmark" => loose::<PubkySocialBookmark>(json, &ctx)?,
+                "tag" => loose::<PubkySocialTag>(json, &ctx)?,
+                "feed" => loose::<PubkySocialFeed>(json, &ctx)?,
+                _ => return Err(format!("surface: no object kind {kind}")),
+            }
+        }
         "parseUri" => {
             let uri = a.s()?;
             let parsed = ParsedUri::try_from(uri)?;
@@ -576,7 +607,7 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             let after_scheme = &canonical[PROTOCOL.len()..];
             let path = after_scheme.find('/').map_or("", |i| &after_scheme[i..]);
             value(&UriParts {
-                user_id: parsed.user_id.to_string(),
+                owner: parsed.user_id.to_string(),
                 root: parsed.visibility,
                 path: path.to_string(),
                 resource: ResourceParts::of(parsed.resource),

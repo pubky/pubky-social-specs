@@ -1,19 +1,15 @@
 // Follows, mutes, tags and bookmarks: one small object each, named by what it points at.
 
-import { decode, encode } from "../base64url.js";
+import * as base64url from "../base64url.js";
 import { checkReference, reference } from "../canonicalize.js";
 import { nowMicros } from "../clock.js";
 import { limits } from "../data.js";
 import { fail } from "../errors.js";
-import { checkPublicKey, hashId } from "../ids.js";
-import { type Extra, i64, open, option, string } from "../json/schema.js";
-import { asciiFold, codePointLen, frozenTrim, hasFrozenWhitespace, utf8Len } from "../text.js";
-import { socialPath } from "../uri.js";
-import { checkExtra, checkSafeInt, type Model, SIZES, validate } from "./common.js";
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-const hashOf = (text: string) => hashId(encoder.encode(text));
+import { checkPublicKey, hashText } from "../ids.js";
+import { type Extra, i64, object, omitted, string } from "../json/schema.js";
+import { asciiFold, codePointLen, frozenTrim, hasFrozenWhitespace, utf8, utf8Len, utf8Text } from "../text.js";
+import { type Root, socialPath } from "../uri.js";
+import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 
 export interface Edge extends Extra {
   created_at: bigint;
@@ -21,8 +17,8 @@ export interface Edge extends Extra {
 
 function edge(name: string): Model<Edge> {
   return {
-    codec: open<Edge>(name, { created_at: { codec: i64 } }),
-    maxBytes: SIZES.object,
+    codec: object<Edge>(name, { created_at: i64 }),
+    maxBytes: limits.objectMaxBytes,
     check(value, id) {
       if (id !== null) checkPublicKey(id);
       checkExtra(value.extra);
@@ -34,7 +30,7 @@ function edge(name: string): Model<Edge> {
 export const follow = edge("PubkySocialFollow");
 export const mute = edge("PubkySocialMute");
 
-function buildEdge(model: Model<Edge>, root: "public" | "private", segment: string, owner: string, target: string) {
+function buildEdge(model: Model<Edge>, root: Root, segment: string, owner: string, target: string) {
   checkPublicKey(owner);
   const value: Edge = { created_at: nowMicros(), extra: new Map() };
   const body = validate(model, value, target, root === "public");
@@ -61,11 +57,11 @@ export function checkLabel(label: string): void {
   for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail(`Tag '${label}' contains invalid character: ${c}`);
 }
 
-const tagId = (value: Tag) => hashOf(`${value.uri}:${value.label}`);
+const tagId = (value: Tag) => hashText(`${value.uri}:${value.label}`);
 
 export const tag: Model<Tag> = {
-  codec: open<Tag>("PubkySocialTag", { uri: { codec: string }, label: { codec: string }, created_at: { codec: i64 } }),
-  maxBytes: SIZES.object,
+  codec: object<Tag>("PubkySocialTag", { uri: string, label: string, created_at: i64 }),
+  maxBytes: limits.objectMaxBytes,
   check(value, id) {
     if (id !== null) {
       const expected = tagId(value);
@@ -102,11 +98,8 @@ function canonicalTarget(target: string): string {
 
 const checkTarget = (target: string) => checkReference(TARGET, target, "", limits.referenceUriMaxLength, true, null);
 
-/** The filename carries the target; one too long for a path segment goes by its hash. */
-const idOf = (canonical: string) => (utf8Len(canonical) <= MAX ? encode(encoder.encode(canonical)) : `~${hashOf(canonical)}`);
-
-/** The id `target` is bookmarked under, without building an object. */
-export const bookmarkId = (target: string) => idOf(canonicalTarget(target));
+/** The id carries the target; one too long for a path segment goes by its hash. */
+const idOf = (canonical: string) => (utf8Len(canonical) <= MAX ? base64url.encode(utf8(canonical)) : `~${hashText(canonical)}`);
 
 function checkStoredTarget(target: string): void {
   checkTarget(target);
@@ -118,18 +111,14 @@ export function targetOf(id: string, content: Bookmark): string {
   if (id.startsWith("~")) {
     if (content.target === null) fail("an overflow bookmark requires target in the content");
     checkStoredTarget(content.target);
-    if (id.slice(1) !== hashOf(content.target)) fail(`bookmark filename does not hash its target: ${content.target}`);
+    if (id.slice(1) !== hashText(content.target)) fail(`bookmark filename does not hash its target: ${content.target}`);
     return content.target;
   }
   if (content.target !== null) fail("a primary bookmark carries its target in the filename, not in the content");
-  const bytes = decode(id);
+  const bytes = base64url.decode(id);
   if (bytes === null) fail(`bookmark filename is not canonical base64url: ${id}`);
-  let target: string;
-  try {
-    target = decoder.decode(bytes);
-  } catch {
-    return fail(`bookmark filename is not UTF-8: ${id}`);
-  }
+  const target = utf8Text(bytes);
+  if (target === null) fail(`bookmark filename is not UTF-8: ${id}`);
   checkTarget(target);
   // Without the bound one target has a primary spelling and an overflow one
   if (bytes.length > MAX) fail(`a target over ${MAX} bytes belongs in the overflow bookmark form`);
@@ -137,11 +126,8 @@ export function targetOf(id: string, content: Bookmark): string {
 }
 
 export const bookmark: Model<Bookmark> = {
-  codec: open<Bookmark>("PubkySocialBookmark", {
-    created_at: { codec: i64 },
-    target: { codec: option(string), absent: () => null, skipNull: true },
-  }),
-  maxBytes: SIZES.object,
+  codec: object<Bookmark>("PubkySocialBookmark", { created_at: i64, target: omitted(string) }),
+  maxBytes: limits.objectMaxBytes,
   check(value, id) {
     checkExtra(value.extra);
     checkSafeInt(value.created_at);

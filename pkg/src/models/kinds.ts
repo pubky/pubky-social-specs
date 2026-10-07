@@ -2,7 +2,7 @@
 // reader survives a newer writer; a builder takes only the names it knows.
 
 import { fail } from "../errors.js";
-import { variant } from "../json/schema.js";
+import { string, variant } from "../json/schema.js";
 
 export const postKinds = ["note", "article", "image", "video", "link", "file", "collection"] as const;
 export const feedReaches = ["following", "followers", "friends", "all", "wot", "me"] as const;
@@ -10,21 +10,25 @@ export const feedLayouts = ["columns", "wide", "visual", "list"] as const;
 export const feedSorts = ["recent", "popularity"] as const;
 export const collectionLayouts = ["grid", "list", "visual"] as const;
 
-export type PostKind = (typeof postKinds)[number] | "unknown";
-export type FeedReach = (typeof feedReaches)[number] | "unknown";
-export type FeedLayout = (typeof feedLayouts)[number] | "unknown";
-export type FeedSort = (typeof feedSorts)[number] | "unknown";
-export type CollectionLayout = (typeof collectionLayouts)[number] | "unknown";
+export type KnownPostKind = (typeof postKinds)[number];
+export type KnownFeedReach = (typeof feedReaches)[number];
+export type KnownFeedLayout = (typeof feedLayouts)[number];
+export type KnownFeedSort = (typeof feedSorts)[number];
+export type KnownCollectionLayout = (typeof collectionLayouts)[number];
+export type PostKind = KnownPostKind | "unknown";
+export type FeedReach = KnownFeedReach | "unknown";
+export type FeedLayout = KnownFeedLayout | "unknown";
+export type FeedSort = KnownFeedSort | "unknown";
+export type CollectionLayout = KnownCollectionLayout | "unknown";
 
-const stored = <T extends string>(names: readonly T[]) => variant<T | "unknown">([...names, "unknown"], "unknown");
-
-export const postKind = stored(postKinds);
-export const feedReach = stored(feedReaches);
-export const feedLayout = stored(feedLayouts);
-export const feedSort = stored(feedSorts);
-export const collectionLayout = stored(collectionLayouts);
+export const postKind = variant(postKinds);
+export const feedReach = variant(feedReaches);
+export const feedLayout = variant(feedLayouts);
+export const feedSort = variant(feedSorts);
+export const collectionLayout = variant(collectionLayouts);
 
 /** A name a builder was given: one of `names`, or a refusal naming `what`. */
-export function known<T extends string>(names: readonly T[], what: string, name: string): T {
+export function known<T extends string>(names: readonly T[], what: string, js: unknown, at: string): T {
+  const name = string.parse(js, at);
   return (names as readonly string[]).includes(name) ? (name as T) : fail(`Invalid ${what}: ${name}`);
 }

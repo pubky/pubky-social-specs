@@ -2,31 +2,15 @@
 // (userinfo stripped, `..` collapsed, query ignored) and differs between engines and versions.
 
 import { limits } from "./data.js";
-import { ValidationError } from "./errors.js";
-import { checkPublicKey } from "./ids.js";
+import { fail } from "./errors.js";
+import { publicKeyFault } from "./ids.js";
+import { asciiFold, codePointLen, frozenTrim, hasControlOrWhitespace } from "./text.js";
 import { parsePath } from "./uri.js";
-import { asciiFold, codePointLen, frozenTrim, isAsciiControl, isFrozenWhitespace } from "./text.js";
 
-export function isPublicKey(key: string): boolean {
-  try {
-    checkPublicKey(key);
-    return true;
-  } catch (e) {
-    if (e instanceof ValidationError) return false;
-    throw e;
-  }
-}
-
-function hasControlOrSpace(s: string): boolean {
-  for (let i = 0; i < s.length; i++) {
-    const unit = s.charCodeAt(i);
-    if (isAsciiControl(unit) || isFrozenWhitespace(unit)) return true;
-  }
-  return false;
-}
+const isPublicKey = (key: string) => publicKeyFault(key) === null;
 
 export function isCanonicalSegment(segment: string): boolean {
-  return segment !== "" && segment !== "." && segment !== ".." && !/[/%?#]/.test(segment) && !hasControlOrSpace(segment);
+  return segment !== "" && segment !== "." && segment !== ".." && !/[/%?#]/.test(segment) && !hasControlOrWhitespace(segment);
 }
 
 /** The full form `pubky://<pk>[/<path>]` of either spelling, or null. */
@@ -45,7 +29,7 @@ export function canonicalPubky(raw: string): string | null {
 /** The stored form of a web reference is the trimmed raw string. */
 export function canonicalWeb(raw: string): string | null {
   const s = frozenTrim(raw);
-  if (hasControlOrSpace(s)) return null;
+  if (hasControlOrWhitespace(s)) return null;
   const rest = s.startsWith("http://") ? s.slice(7) : s.startsWith("https://") ? s.slice(8) : null;
   return rest && !/^[/?#]/.test(rest) ? s : null;
 }
@@ -53,7 +37,7 @@ export function canonicalWeb(raw: string): string | null {
 /** Any other scheme: the scheme folds, the rest is opaque. */
 export function canonicalExternal(raw: string): string | null {
   const s = frozenTrim(raw);
-  if (hasControlOrSpace(s)) return null;
+  if (hasControlOrWhitespace(s)) return null;
   const colon = s.indexOf(":");
   if (colon <= 0 || colon + 1 === s.length) return null;
   const scheme = s.slice(0, colon);
@@ -103,7 +87,7 @@ export function reference(
     if (publicRoot) return { refusal: `must not reference a private object: ${uri}` };
     if (owner !== null && host !== owner) return { refusal: `must not reference a private object of another user: ${uri}` };
   }
-  const parsed = parsePath(host, slash < 0 ? null : path);
+  const parsed = parsePath(slash < 0 ? null : path);
   if (parsed?.kind === "post" && parsed.editId !== undefined) return { refusal: `must be versionless: ${uri}` };
   return { canonical };
 }
@@ -118,6 +102,6 @@ export function checkReference(
   owner: string | null,
 ): void {
   const result = reference(uri, schemes, max, publicRoot, owner);
-  if ("refusal" in result) throw new ValidationError(`Validation Error: ${field} ${result.refusal}`);
-  if (result.canonical !== uri) throw new ValidationError(`Validation Error: ${field} must be spelled in canonical form: ${uri}`);
+  if ("refusal" in result) fail(`${field} ${result.refusal}`);
+  if (result.canonical !== uri) fail(`${field} must be spelled in canonical form: ${uri}`);
 }

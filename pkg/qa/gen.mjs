@@ -206,7 +206,7 @@ function userInput(r) {
   const o = { name: r.pick(["Ann", " Ann ", "ab", "x".repeat(r.pick([3, 50, 51])), text(r), "😀😀😀"]) };
   if (r.chance(0.6)) o.bio = r.pick([null, "bio", "  ", " padded ", "b".repeat(r.pick([160, 161])), text(r)]);
   if (r.chance(0.5)) o.image = r.pick([null, ref(r)]);
-  if (r.chance(0.6)) o.links = r.pick([null, r.many(6, () => r.chance(0.9) ? { title: r.pick(["Site", " ", " t ", "t".repeat(r.pick([100, 101])), text(r)]), url: ref(r) } : JSON.parse(spoilSafe(r, { title: "t", url: "https://example.com" })))]);
+  if (r.chance(0.6)) o.links = r.pick([null, r.many(6, () => ({ title: r.pick(["Site", " ", " t ", "t".repeat(r.pick([100, 101])), text(r)]), url: ref(r) }))]);
   if (r.chance(0.5)) o.status = r.pick([null, "ok", " ", "s".repeat(r.pick([50, 51])), text(r)]);
   return o;
 }
@@ -250,7 +250,7 @@ const tagList = (r) => r.pick([null, [], ["rust"], ["b", "a"], ["Rust", "rust", 
 const feedInput = (r) => {
   const o = { reach: r.pick(["all", "all", "following", "wot", "me", "galaxy", "unknown"]), layout: r.pick(["columns", "columns", "wide", "list", "grid"]), sort: r.pick(["recent", "recent", "popularity", "random"]), name: r.pick(["Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]), icon: r.pick(["star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]) };
   if (r.chance(0.5)) o.tags = tagList(r);
-  if (r.chance(0.3)) o.domainTags = tagList(r);
+  if (r.chance(0.3)) o.domain_tags = tagList(r);
   if (r.chance(0.4)) o.content = r.pick([null, "note", "article", "collection", "short", "unknown"]);
   return o;
 };
@@ -260,7 +260,7 @@ const storedFeed = (r) => {
   const i = feedInput(r);
   const sorted = (tags) => (tags && r.chance(0.8) ? [...new Set(tags.map((t) => t.trim().toLowerCase()))].sort() : tags);
   const f = { feed: { tags: sorted(i.tags ?? null), reach: i.reach, layout: i.layout, sort: i.sort, content: i.content ?? null }, name: i.name, created_at: raw(stamp(r)) };
-  if (i.domainTags !== undefined) f.feed.domain_tags = sorted(i.domainTags);
+  if (i.domain_tags !== undefined) f.feed.domain_tags = sorted(i.domain_tags);
   if (r.chance(0.8)) f.icon = i.icon;
   if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));
   return f;
@@ -300,18 +300,18 @@ function storedPost(r) {
 }
 
 function postInput(r) {
-  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown", 1]);
+  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown"]);
   let o;
   if (kind === "article") {
     const e = articleEnvelope(r);
     o = { kind, title: e.title, body: e.body };
-    if ("cover_image" in e) o.coverImage = e.cover_image;
+    if ("cover_image" in e) o.cover_image = e.cover_image;
   } else if (kind === "collection") {
     const e = collectionEnvelope(r);
     o = { kind, name: e.name };
     if ("description" in e) o.description = e.description;
     if ("items" in e) o.items = e.items;
-    if ("cover_image" in e) o.coverImage = e.cover_image;
+    if ("cover_image" in e) o.cover_image = e.cover_image;
     if ("layout" in e) o.layout = e.layout;
   } else {
     o = { content: r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]) };
@@ -323,14 +323,67 @@ function postInput(r) {
     if (r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
     if (r.chance(0.15)) o.lock = ref(r);
   }
-  if (r.chance(0.4)) o.root = r.pick(["public", "private", "priv", null]);
+  if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
   if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
-  if (r.chance(0.05)) o[r.pick(["title", "content", "name", "items", "coverImage"])] = "x";
   return o;
 }
 
 // Clocks around a head: past it, behind it, and too far behind to leave room
 const env = (r) => ({ now: NOW + r.pick([0, 0, 0, -6e9, -7.3e9, -1e10, 1e6]), last: r.pick([0, 0, NOW - 1, NOW, NOW + 5, NOW + 2e6, NOW - 2e6]) });
+
+const seg = (root) => (root === "private" ? "priv" : "pub");
+const versionPath = (r, root, id, editId) => `/${r.pick([seg(root), seg(root), seg(root), "pub", "priv", "x"])}/social/v1/posts/${id}/${editId}${r.pick(["", "", "-a-slug", "-BAD"])}${r.pick([".json", ".json", ".json", "", "/x"])}`;
+const editIds = (r) => r.many(4, () => timestampIdOf(NOW - r.pick([1e9, 2e9, 3e9, 4e9, 4e9])));
+const legacyPosts = (r, id) => r.pick([[], [], [`/pub/pubky.app/posts/${id}`], [`/pub/pubky.app/posts/${id}`, `/pub/pubky.app/posts/${timestampIdOf(NOW)}`], ["/pub/pubky.app/posts/"]]);
+const ownMedia = (r, root) => `pubky://${OWNER}/${seg(root)}/social/v1/files/${r.pick(["0000000000000000000000000G", "ZZZZZZZZZZZZZZZZZZZZZZZZZW"])}.${r.pick(["png", "png", "exe"])}`;
+
+/** A private version about to be published: its media mostly the owner's own private files. */
+function draft(r) {
+  const p = storedPost(r);
+  const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r)]);
+  if (r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
+  if (p.kind === "article" && r.chance(0.7)) p.content = JSON.stringify({ title: "T", body: "B", cover_image: media(), ...(r.chance(0.2) ? { z: r.pick([1, "x", 9007199254740991]), a: [1] } : {}) });
+  if (p.kind === "collection" && r.chance(0.7)) p.content = JSON.stringify({ name: "List", items: r.many(2, () => ({ uri: ref(r) })), ...(r.chance(0.5) ? { cover_image: media() } : {}) });
+  return p;
+}
+
+const v0TagPath = (uri, label) => `/pub/pubky.app/tags/${hashOfText(`${uri}:${label}`)}`;
+const BLOB = "0000000000000000000000000G";
+
+function deletion(r) {
+  const id = postId(r);
+  return r.pick([
+    () => ({ kind: "post", id, listings: [...legacyPosts(r, id), ...editIds(r).map((e) => versionPath(r, r.pick(["public", "private"]), id, e))] }),
+    () => ({ kind: "post", id, listings: [{ path: `/pub/pubky.app/files/${id}`, src: "x" }] }),
+    () => {
+      const hash = r.pick([BLOB, BLOB, hashIdText(r), "x"]);
+      const listings = r.many(4, () => r.pick([
+        `/pub/pubky.app/blobs/${hash}`,
+        `/${r.pick(["pub", "priv"])}/social/v1/files/${r.pick([hash, hash, hashIdText(r)])}.${r.pick(["png", "bin", "exe"])}`,
+        { path: `/pub/pubky.app/files/${r.pick([id, id, "x"])}`, src: `pubky://${OWNER}/pub/pubky.app/blobs/${r.pick([hash, hash, hashIdText(r)])}` },
+        { path: "/pub/pubky.app/tags/x", uri: "https://example.com", label: "a" },
+      ]));
+      return { kind: "file", id: hash, listings };
+    },
+    () => {
+      const label = r.pick(["rust", "Rust", " rust "]);
+      const target = r.pick([
+        { uri: `pubky://${OTHER}/pub/pubky.app/posts/${id}`, v1: `pubky://${OTHER}/pub/social/v1/posts/${id}` },
+        { uri: `pubky://${OTHER}/pub/pubky.app/profile.json`, v1: `pubky://${OTHER}/pub/social/v1/profile.json` },
+        { uri: "https://example.com/a", v1: "https://example.com/a" },
+        { uri: `pubky://${OTHER}/pub/pubky.app/files/${id}`, v1: `pubky://${OTHER}/pub/social/v1/files/${BLOB}.png`, src: `pubky://${OTHER}/pub/pubky.app/blobs/${BLOB}`, contentType: "image/png" },
+        { uri: "nostr:note1", v1: "nostr:note1" },
+        { uri: `pubky://${OTHER}`, v1: `pubky://${OTHER}` },
+      ]);
+      const listing = { path: r.chance(0.85) ? v0TagPath(target.uri, label) : "/pub/pubky.app/tags/x", uri: target.uri, label };
+      if (target.src && r.chance(0.8)) listing.src = target.src;
+      if (target.contentType && r.chance(0.8)) listing.contentType = target.contentType;
+      const tagId = r.chance(0.85) ? hashOfText(`${target.v1}:${label.trim().toLowerCase()}`) : hashIdText(r);
+      return { kind: "tag", id: tagId, listings: r.pick([[listing], [listing, listing], [], ["/pub/x"]]) };
+    },
+    () => ({ kind: r.pick(["user", "follow", "mute", "bookmark", "feed"]), id: r.pick(["", key(r), hashIdText(r), "~" + hashIdText(r), "aGk", "_x"]), ...(r.chance(0.2) ? { listings: r.pick([[], ["/pub/x"], null]) } : {}) }),
+  ])();
+}
 
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
@@ -343,7 +396,7 @@ export const families = {
       () => request("createTag", s(key(r)), s(tagUri(r)), s(label(r))),
       () => {
         const target = r.pick([ref(r), longRef(r)]);
-        return r.chance(0.5) ? request("createBookmark", s(key(r)), s(target)) : request("bookmarkId", s(target));
+        return request("createBookmark", s(key(r)), s(target));
       },
       () => request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick(["follows", "follows", "mutes"])}/${key(r)}.json`), { j: withRaw(stored(r, { created_at: raw(stamp(r)) })) }),
       () => {
@@ -365,7 +418,7 @@ export const families = {
     ])(),
   post: (r) =>
     r.pick([
-      () => ({ ...request("createPost", s(key(r)), { j: spoil(r, postInput(r)) }), ...env(r) }),
+      () => ({ ...request("createPost", s(key(r)), { j: JSON.stringify(postInput(r)) }), ...env(r) }),
       () => ({ ...request("createPost", s(OWNER), { j: JSON.stringify(postInput(r)) }), ...env(r) }),
       () => {
         const id = postId(r);
@@ -373,7 +426,7 @@ export const families = {
         const at = { id, head };
         if (r.chance(0.4)) at.root = r.pick(["public", "private"]);
         if (r.chance(0.3)) at.slug = r.pick(["edited", "Bad Slug"]);
-        return { ...request("editPost", s(key(r)), { j: stored(r, storedPost(r)) }, { j: spoil(r, at) }), ...env(r) };
+        return { ...request("editPost", s(key(r)), { j: stored(r, storedPost(r)) }, { j: JSON.stringify(at) }), ...env(r) };
       },
       () => {
         const id = postId(r);
@@ -381,9 +434,40 @@ export const families = {
         return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r)) });
       },
     ])(),
+  plan: (r) => {
+    const id = postId(r);
+    return r.pick([
+      () => request("planPublish", s(key(r)), { j: JSON.stringify({ id, editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]), post: draft(r) }) }),
+      () => {
+        const post = { id: r.pick([id, id, id, "x"]), publicPaths: editIds(r).map((e) => versionPath(r, "public", id, e)) };
+        if (r.chance(0.5)) post.legacyPaths = legacyPosts(r, id);
+        if (r.chance(0.5)) post.privateHead = r.pick([versionPath(r, "private", id, timestampIdOf(NOW - 2.5e9)), null]);
+        return request("planUnpublish", { j: JSON.stringify(post) });
+      },
+      () => {
+        const post = { id: r.pick([id, id, id, "x"]) };
+        if (r.chance(0.5)) post.legacyPaths = legacyPosts(r, id);
+        if (r.chance(0.8)) post.copies = editIds(r).map((e) => { const root = r.pick(["public", "private"]); return { root, path: versionPath(r, root, id, e) }; });
+        if (r.chance(0.6)) post.versions = r.many(3, () => draft(r));
+        return request("planDelete", s(key(r)), { j: JSON.stringify(post) });
+      },
+      () => request("deletionPaths", { j: JSON.stringify(deletion(r)) }),
+    ])();
+  },
+  loose: (r) => {
+    const [kind, object] = r.pick([
+      () => ["user", storedUser(r)],
+      () => ["post", storedPost(r)],
+      () => [r.pick(["follow", "mute"]), { created_at: raw(stamp(r)) }],
+      () => ["bookmark", { created_at: raw(stamp(r)), ...(r.chance(0.5) ? { target: r.pick([ref(r), longRef(r)]) } : {}) }],
+      () => ["tag", { uri: tagUri(r), label: label(r), created_at: raw(stamp(r)) }],
+      () => ["feed", storedFeed(r)],
+    ])();
+    return request("encodeKind", s(kind), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, object)) });
+  },
   feed: (r) =>
     r.pick([
-      () => request("createFeed", s(key(r)), { j: spoil(r, feedInput(r)) }),
+      () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),
       () => {
         const f = storedFeed(r);
         const id = r.chance(0.85) && f.feed && typeof f.feed === "object" ? feedIdText(f) : hashIdText(r);
@@ -392,18 +476,17 @@ export const families = {
           ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "pub"])}/social/v1/feeds/${id}.json`), { j: text })
           : request("feedId", { j: text });
       },
-      () => request("feedPaths", s(r.chance(0.6) ? hashIdText(r) : spelled(r, "0123456789ABCDEFGHJKMNPQRSTVWXYZ", 26))),
     ])(),
   file: (r) => {
     const data = Buffer.from(r.many(r.pick([0, 0, 3, 40, 300]), () => r.below(256)));
     const b = { b: data.toString("base64") };
     return r.chance(0.5)
-      ? request("createFile", s(key(r)), b, s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])), ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null, "priv", 1])) }] : []))
+      ? request("createFile", s(key(r)), b, s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])), ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null])) }] : []))
       : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "priv"])}/social/v1/files/${r.chance(0.7) ? crock(blake3(data).subarray(0, 16)) : hashIdText(r)}.${r.pick(["png", "bin", "jpg"])}`), b);
   },
   user: (r) =>
     r.chance(0.5)
-      ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: spoil(r, userInput(r)) })
+      ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: JSON.stringify(userInput(r)) })
       : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`), { j: stored(r, storedUser(r)) }),
   ids: (r) =>
     r.pick([
@@ -421,7 +504,7 @@ export const families = {
       () => request("parseUri", s(`pubky://${OWNER}/${path(r)}`)),
       () => request("stableKey", s(r.pick(["", "/", "/"]) + path(r))),
       () => request("legacyMediaKey", s(r.pick([uri(r), `pubky://${OWNER}/pub/pubky.app/blobs/${str(r, 6)}`, `${r.pick(["pubky", "PuBkY"])}://${r.pick(["", "u@", "u:p@", "@@"])}${OWNER}${r.pick(["", ":", ":80", ":65536", ":8x", ":080"])}/${r.pick(["", "./", "x/../", "%2e/", "%2E%2e/", "a/b/../../"])}pub/pubky.app/blobs/${r.pick(["h", "a b", "é", "%zz", "..", ".", "x/..", "x/.", "x?q", "x#f", "a\\b", "a|b^c", "a\tb", "{x}", "\u0060", "'", "[", "~"])}${r.pick(["", "/", "/more"])}`]))),
-      () => request("listPrefix", s(r.pick([OWNER, str(r, 8)])), { j: JSON.stringify(r.pick(["public", "private", "legacy", "pub", str(r, 4)])) }),
+      () => request("listPrefix", s(r.pick([OWNER, str(r, 8)])), { j: JSON.stringify(r.pick(["public", "private", "legacy"])) }),
       () => request("userUri", s(r.pick([OWNER, OTHER, spelled(r, ZBASE32, 52)]))),
       () => request(r.pick(["postUri", "followUri", "muteUri", "bookmarkUri", "tagUri", "fileUri", "feedUri"]), s(r.pick([OWNER, spelled(r, ZBASE32, 52)])), s(str(r, 8))),
       () => request("mimeToExt", s(r.pick(["image/png", "IMAGE/JPEG; q=1", " image/png", "text/xml", "application/octet-stream", "a/b/c", "/", "image/", str(r, 8)]))),

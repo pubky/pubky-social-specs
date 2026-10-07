@@ -1,7 +1,8 @@
 // The bytes the reference serializer writes for a value: members in the order given, numbers
 // and escapes spelled its way.
 
-import type { Json } from "./read.js";
+import { compareBytes } from "../text.js";
+import type { Json, JsonObject } from "./read.js";
 
 const NAMED: Record<string, string> = { '"': '\\"', "\\": "\\\\", "\b": "\\b", "\f": "\\f", "\n": "\\n", "\r": "\\r", "\t": "\\t" };
 // eslint-disable-next-line no-control-regex
@@ -33,23 +34,6 @@ export function writeFloat(f: number): string {
   return `${sign}${digits.slice(0, exp + 1)}.${digits.slice(exp + 1)}`;
 }
 
-/** Keys in the order of their UTF-8 bytes, which is code point order, not UTF-16 order. */
-export function compareKeys(a: string, b: string): number {
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    let x = a.charCodeAt(i);
-    let y = b.charCodeAt(i);
-    if (x === y) continue;
-    // A surrogate stands for a code point above every BMP one
-    if (x >= 0xd800 && x <= 0xdfff) x += 0x2000;
-    else if (x >= 0xe000) x -= 0x800;
-    if (y >= 0xd800 && y <= 0xdfff) y += 0x2000;
-    else if (y >= 0xe000) y -= 0x800;
-    return x - y;
-  }
-  return a.length - b.length;
-}
-
 /** A value with every object's members sorted, as an unknown member of an object is kept. */
 export function writeJson(value: Json): string {
   if (value === null) return "null";
@@ -64,6 +48,10 @@ export function writeJson(value: Json): string {
       return writeFloat(value);
   }
   if (Array.isArray(value)) return `[${value.map(writeJson).join(",")}]`;
-  const members = [...value.keys()].sort(compareKeys).map((key) => `${writeString(key)}:${writeJson(value.get(key) as Json)}`);
-  return `{${members.join(",")}}`;
+  return `{${writeMembers(value).join(",")}}`;
+}
+
+/** The members of an object, sorted by the bytes of their keys. */
+export function writeMembers(members: JsonObject): string[] {
+  return [...members.keys()].sort(compareBytes).map((key) => `${writeString(key)}:${writeJson(members.get(key) as Json)}`);
 }

@@ -1,20 +1,10 @@
-// Unpadded base64url, the spelling of a bookmark target inside its filename.
+// Unpadded base64url, the spelling of a bookmark target inside its id.
+
+import { radix } from "./ids.js";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
-export function encode(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i] as number;
-    const b = bytes[i + 1];
-    const c = bytes[i + 2];
-    out += ALPHABET[a >> 2];
-    out += ALPHABET[((a & 3) << 4) | ((b ?? 0) >> 4)];
-    if (b !== undefined) out += ALPHABET[((b & 15) << 2) | ((c ?? 0) >> 6)];
-    if (c !== undefined) out += ALPHABET[c & 63];
-  }
-  return out;
-}
+export const encode = (bytes: Uint8Array): string => radix(bytes, ALPHABET, 6);
 
 /** The bytes of `text`, or null unless it is exactly what `encode` writes for them. */
 export function decode(text: string): Uint8Array | null {
@@ -23,8 +13,8 @@ export function decode(text: string): Uint8Array | null {
   let acc = 0;
   let bits = 0;
   let at = 0;
-  for (let i = 0; i < text.length; i++) {
-    const digit = ALPHABET.indexOf(text[i] as string);
+  for (const c of text) {
+    const digit = ALPHABET.indexOf(c);
     if (digit < 0) return null;
     acc = (acc << 6) | digit;
     bits += 6;
@@ -34,6 +24,6 @@ export function decode(text: string): Uint8Array | null {
       acc &= (1 << bits) - 1;
     }
   }
-  // Set trailing bits would name one target under a second filename
+  // Set trailing bits would name one target under a second id
   return acc === 0 ? bytes : null;
 }
