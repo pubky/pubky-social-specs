@@ -1,6 +1,7 @@
-// Mutation pass over the engine: plants one bug at a time in src/migration/engine.ts, recompiles
-// the engine, runs the package's Node tests and a slice of the chaos harness, and puts the
-// source back. A mutation nothing catches is a gap in the suite.
+// Mutation pass over the engine: plants one bug at a time in a copy of the package under
+// qa/out/mutant, recompiles the copy, and runs its Node tests and a slice of the chaos harness.
+// The sources are never written, so a crash or a Ctrl-C leaves no planted bug behind. A
+// mutation nothing catches is a gap in the suite.
 //
 //   node qa/mutate.mjs [--seeds 150] [--only M3] [--out file.json]
 
@@ -9,9 +10,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const pkg = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const enginePath = path.join(pkg, "src/migration/engine.ts");
-const original = fs.readFileSync(enginePath, "utf8");
+const source = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// The copy keeps the tree's shape, so the tests find ../vectors as they do from pkg/
+const work = path.join(source, "qa/out/mutant");
+const pkg = path.join(work, "pkg");
+fs.rmSync(work, { recursive: true, force: true });
+fs.mkdirSync(path.join(pkg, "qa"), { recursive: true });
+fs.symlinkSync(path.join(source, "../vectors"), path.join(work, "vectors"));
+fs.symlinkSync(path.join(source, "node_modules"), path.join(pkg, "node_modules"));
+for (const entry of ["src", "bin", "tsconfig.json", "package.json", "migration.fixture.js", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js", "qa/chaos.mjs"]) {
+  fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });
+}
+// The wasm glue is the one part of dist that tsc does not write
+fs.mkdirSync(path.join(pkg, "dist/migration"), { recursive: true });
+fs.copyFileSync(path.join(source, "dist/migration/glue.js"), path.join(pkg, "dist/migration/glue.js"));
 const args = process.argv.slice(2);
 const flag = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
 const seeds = Number(flag("--seeds", 150));
@@ -38,7 +50,7 @@ const MUTATIONS = [
   {
     id: "M4",
     what: "no write fence: a write outside the 1.x roots goes through",
-    from: "if (!this.#roots.some((root) => write.meta.url.startsWith(root))) {",
+    from: "if (!fenced(write.meta.url, this.#roots)) {",
     to: "if (false) {",
   },
   {
@@ -75,7 +87,7 @@ const MUTATIONS = [
   {
     id: "M10",
     what: "a File object that cannot be read counts io_error instead of stopping the run",
-    from: "if (bucket === \"files\") {\n        throw new Stop({ code: \"IO_ERROR\", message: `reading ${path}: ${bytes.message}` });\n      }",
+    from: "if (bucket === \"files\") {\n        throw new Stop({ code: \"IO_ERROR\", message: `reading ${path}: ${got.message}` });\n      }",
     to: "",
   },
   {
@@ -98,9 +110,21 @@ const MUTATIONS = [
   },
   {
     id: "M14",
-    what: "no oversize check before hashing: a blob over the cap is hashed whole before the wasm refuses it",
-    from: 'if (bucket === "blobs" && bytes.length > limits.maxFileSizeBytes) {\n      return this.#count("oversize", path);\n    }',
+    what: "no oversize check after the GET: an object over the cap from a port that ignores maxBytes reaches the hash or the wasm",
+    from: 'if (bytes.length > max) return this.#count("oversize", path);',
     to: "",
+  },
+  {
+    id: "M15",
+    what: "a later walk copies again what an earlier run migrated, so a deleted object comes back",
+    from: 'if (bucket !== "files" && this.#before.has(path)) return this.#count("already_present", path);',
+    to: "",
+  },
+  {
+    id: "M16",
+    what: "the race guard deletes whatever is at the destination, another device's copy included",
+    from: "const deleted = ours === true ? await this.#attempt(() => this.#port.delete(claim.write.meta.url)) : ours;",
+    to: "const deleted = await this.#attempt(() => this.#port.delete(claim.write.meta.url));",
   },
 ];
 
@@ -109,7 +133,8 @@ const run = (cmd, argv, timeoutMs) => {
   return { status: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}`, timedOut: r.error?.code === "ETIMEDOUT" };
 };
 const build = () => {
-  execFileSync("npx", ["--no", "--", "tsc", "-p", "."], { cwd: pkg, stdio: "pipe" });
+  // A planted bug often leaves a helper unread, which is no reason to stop the pass
+  execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
   const r = run("npx", ["--no", "--", "mocha", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
@@ -126,31 +151,23 @@ const chaos = () => {
 
 const results = [];
 const only = flag("--only")?.split(",");
-const files = new Map();
-try {
-  for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
-    const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
-    const source = files.get(file) ?? fs.readFileSync(file, "utf8");
-    files.set(file, source);
-    if (!source.includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);
-    fs.writeFileSync(file, source.replace(mutation.from, mutation.to));
-    let entry;
-    try {
-      build();
-      const t = tests();
-      const c = chaos();
-      entry = { id: mutation.id, what: mutation.what, tests: t, chaos: c, caughtByTests: t.status !== 0, caughtByChaos: c.status !== 0 || c.violatingSeeds > 0 };
-    } catch (e) {
-      entry = { id: mutation.id, what: mutation.what, buildError: `${e.stdout ?? ""}${e.stderr ?? ""}${e.message}`.slice(0, 600) };
-    } finally {
-      fs.writeFileSync(file, source);
-    }
-    results.push(entry);
-    console.log(JSON.stringify(entry));
+for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
+  const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
+  const clean = fs.readFileSync(file, "utf8");
+  if (!clean.includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);
+  fs.writeFileSync(file, clean.replace(mutation.from, mutation.to));
+  let entry;
+  try {
+    build();
+    const t = tests();
+    const c = chaos();
+    entry = { id: mutation.id, what: mutation.what, tests: t, chaos: c, caughtByTests: t.status !== 0, caughtByChaos: c.status !== 0 || c.violatingSeeds > 0 };
+  } catch (e) {
+    entry = { id: mutation.id, what: mutation.what, buildError: `${e.stdout ?? ""}${e.stderr ?? ""}${e.message}`.slice(0, 600) };
+  } finally {
+    fs.writeFileSync(file, clean);
   }
-} finally {
-  for (const [file, source] of files) fs.writeFileSync(file, source);
-  build();
+  results.push(entry);
+  console.log(JSON.stringify(entry));
 }
-if (fs.readFileSync(enginePath, "utf8") !== original) throw new Error("engine.ts was not restored");
 if (flag("--out")) fs.writeFileSync(flag("--out"), JSON.stringify(results, null, 1));
