@@ -100,6 +100,7 @@ jobs:
         shell: bash
         run: |
           cd pkg
+          npm ci
           npm run build
           tarball=$(npm pack --json | jq -r '.[0].filename')
           tarball_bytes=$(stat -c %s "$tarball")
@@ -173,7 +174,7 @@ jobs:
           name: npm-package
 
       - name: Publish to npm
-        run: npm publish "./$TARBALL" --access public --tag "$DIST_TAG"
+        run: npm publish "./$TARBALL" --access public --tag "$DIST_TAG" --provenance
         env:
           TARBALL: ${{ needs.verify.outputs.tarball }}
           DIST_TAG: ${{ needs.verify.outputs.dist_tag }}

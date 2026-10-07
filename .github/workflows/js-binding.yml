@@ -34,7 +34,7 @@ jobs:
     - name: Install package dev dependencies
       run: |
         cd ./pkg
-        npm install
+        npm ci
 
     - name: Build the package
       run: |
@@ -136,7 +136,7 @@ jobs:
     - name: Install package dev dependencies
       run: |
         cd ./pkg
-        npm install
+        npm ci
 
     - name: Build the package
       run: |

@@ -1,19 +1,9 @@
-import * as deletion from "./deletion.js";
-import * as lifecycle from "./lifecycle.js";
 import type * as T from "./types.js";
 export { limits, validMimeTypes } from "./data.js";
 export { ValidationError } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
-export type { Copy, StoredCopy } from "./lifecycle.js";
-export type { Listing } from "./deletion.js";
 export type * from "./types.js";
-/**
- * Replaces the clock, for tests: `nowMs` gives milliseconds as `Date.now` does, so ids and
- * `created_at` are known in advance. Without an argument the engine's clock is back. Either
- * way the guard that keeps ids increasing starts over.
- */
-export declare function setClock(nowMs?: () => number): void;
 /**
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
@@ -23,7 +13,9 @@ export declare function setClock(nowMs?: () => number): void;
  * be anything, so decode it inside a try. A post of a kind this version does not know is
  * refused too: it has rules this version cannot check.
  */
-export declare function decodeObject(uri: string, bytes: Uint8Array): T.Decoded;
+export declare function decodeObject<K extends keyof T.Stored>(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
+export declare function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
+export declare function decodeObject(uri: T.PubkyUrl, bytes: Uint8Array | ArrayBuffer): T.Decoded;
 /**
  * The bytes to PUT for an object read and then changed, its unknown members kept. `object` is
  * the `.object` of a `decodeObject` or builder result, never its bytes or the result itself;
@@ -32,10 +24,10 @@ export declare function decodeObject(uri: string, bytes: Uint8Array): T.Decoded;
  * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
  * need no path, for bytes bound somewhere the data model does not name.
  */
-export declare function encodeObject(at: string | {
+export declare function encodeObject(at: T.PubkyUrl | {
     kind: T.ObjectKind;
     root?: T.Root | null;
-}, object: T.Stored[keyof T.Stored] | Uint8Array): T.Bytes;
+}, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes;
 /**
  * The envelope inside the `content` of an article or a collection; null for any other kind.
  * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
@@ -74,7 +66,7 @@ export declare function buildPost(owner: string, input: T.NewPost): T.BuiltPost;
  * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
  * slug is not carried over from the head.
  */
-export declare function editPost(headUri: string, post: T.Post, options?: {
+export declare function editPost(headUri: T.PubkyUrl, post: T.Post, options?: {
     root?: T.Root | null;
     slug?: string | null;
 } | null): T.BuiltPost;
@@ -106,11 +98,7 @@ export declare function buildMute(owner: string, mutee: string): T.Built<T.Mute>
  * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
  * the size is the caller's to check.
  */
-export declare function buildFile(owner: string, input: T.NewFile): {
-    id: string;
-    path: string;
-    url: string;
-};
+export declare function buildFile(owner: string, input: T.NewFile): T.BuiltFile;
 /**
  * A media id fed a chunk at a time, for bytes too large to hold at once or hashed off the main
  * thread. `id()` is what `buildFile` gives for the same bytes, and may be read at any point.
@@ -120,6 +108,12 @@ export declare function createMediaHasher(): {
     id(): string;
 };
 /**
+ * The media id of a `Blob` (a `File` included) or a stream of bytes, read a chunk at a time:
+ * the thread is free between chunks, so a large file does not freeze a page. The same id as
+ * `buildFile` gives for the same bytes; pass it there as `id`.
+ */
+export declare function hashMedia(source: T.MediaSource): Promise<string>;
+/**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
  * path in a plan is owner-relative.
  */
@@ -128,7 +122,7 @@ export declare function planPublish(owner: string, version: {
     editId: string;
     post: T.Post;
 }): {
-    copies: lifecycle.Copy[];
+    copies: T.Copy[];
     put: T.BuiltPost;
 };
 /**
@@ -138,12 +132,12 @@ export declare function planPublish(owner: string, version: {
  */
 export declare function planUnpublish(post: {
     id: string;
-    publicPaths: string[];
-    legacyPaths?: string[] | null;
-    privateHead?: string | null;
+    publicPaths: T.OwnerPath[];
+    legacyPaths?: T.OwnerPath[] | null;
+    privateHead?: T.OwnerPath | null;
 }): {
-    copies: lifecycle.Copy[];
-    deletes: string[];
+    copies: T.Copy[];
+    deletes: T.OwnerPath[];
 };
 /**
  * Deleting a post everywhere: the deletes in order, then the media to consider collecting.
@@ -153,12 +147,12 @@ export declare function planUnpublish(post: {
  */
 export declare function planDelete(owner: string, post: {
     id: string;
-    legacyPaths?: string[] | null;
-    copies?: lifecycle.StoredCopy[] | null;
+    legacyPaths?: T.OwnerPath[] | null;
+    copies?: T.StoredCopy[] | null;
     versions?: T.Post[] | null;
 }): {
-    deletes: string[];
-    mediaGcCandidates: string[];
+    deletes: T.OwnerPath[];
+    mediaGcCandidates: T.OwnerPath[];
 };
 /**
  * The paths to DELETE for one object, legacy first. What the id alone gives is derived: the
@@ -169,8 +163,8 @@ export declare function planDelete(owner: string, post: {
 export declare function deletionPaths(target: {
     kind: T.ObjectKind;
     id: string;
-    listings?: deletion.Listing[] | null;
-}): string[];
+    listings?: T.Listing[] | null;
+}): T.OwnerPath[];
 /**
  * Classifies a URI by its path alone, without the clock. `pubky://<owner>/...` and the short
  * `pubky<owner>/...` are both read. Throws only when the string is neither, or its path holds
@@ -180,11 +174,18 @@ export declare function deletionPaths(target: {
 export declare function parseUri(uri: string): T.ParsedUri;
 /**
  * Where an object of `kind` lives under `owner`. A post URI is versionless, the form a
- * reference takes; a file takes its full `{hash}.{ext}` name; a feed gets its private path.
- * The owner key is checked; the id is spelled as given and not validated.
+ * reference takes; a file takes its full `{hash}.{ext}` name, the `filename` of `parseUri`; a
+ * feed gets its private path. The owner and the id are checked: an id the kind cannot have,
+ * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
+ * comes out.
  */
-export declare function buildUri(owner: string, kind: "user"): string;
-export declare function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): string;
+export declare function buildUri(owner: string, kind: "user"): T.PubkyUrl;
+export declare function buildUri(owner: string, kind: Exclude<T.ObjectKind, "user">, id: string): T.PubkyUrl;
 /** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */
-export declare function listPrefix(owner: string, tree: T.Root | "legacy"): string;
+export declare function listPrefix(owner: string, tree: T.Root | "legacy"): T.PubkyUrl;
+/**
+ * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
+ * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ */
+export declare function toPath(uri: string): T.OwnerPath;
 //# sourceMappingURL=index.d.ts.map
