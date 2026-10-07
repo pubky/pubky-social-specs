@@ -48,6 +48,10 @@ jobs:
           exit 1
         fi
 
+    # npm test replays the recorded vectors and checks the generated tables against the crate
+    - name: Build the surface oracle
+      run: cargo build --release --features surface --bin surface_oracle
+
     - name: Run JS tests
       run: |
         cd ./pkg
@@ -69,15 +73,7 @@ jobs:
         cd ./pkg
         npm run size
 
-    # The package against the crate: recorded answers, then fresh seeded cases per family
-    - name: Build the surface oracle
-      run: cargo build --release --features surface --bin surface_oracle
-
-    - name: The generated tables are the crate's
-      run: |
-        cd ./pkg
-        node qa/data.mjs --check
-
+    # The package against the crate on fresh seeded cases per family
     - name: Parity with the crate
       run: |
         cd ./pkg
