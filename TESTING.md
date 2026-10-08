@@ -141,6 +141,23 @@ own time between them, and `browser.mjs` writes both into each user's report.
 A chaos seed that breaks an invariant is minimized by the harness (`--seed N --verbose` replays
 one); a fuzz failure prints its seed and case so `QA_FUZZ_SEED` reproduces it.
 
+Replaying a seed: `qa/chaos.mjs --seed N` runs at the fault rate the sweep drew for seed N, and
+`--rate` overrides it. Until 2026-10-08 a single seed ran at a fixed 0.05, so a seed noted from an
+older sweep may not fail the same way. Per-run lines print only with `--verbose`. The model fuzz
+(`qa/model.mjs`) shares the chaos harness's warmed xorshift since the same day, so a `--seed` or
+`--path` recorded before it draws other faults and replays a different run.
+
+A chaos finding that looked like a scheduling artefact was a real gap. When the engine read the
+0.x source through one more `await`, `main` seed 0 reported a post as `put_rejected` while its
+1.x copy existed. Two faults on one object cause it, in any schedule: the first PUT lands
+and its answer is lost, the retry is refused. The engine took the refusal as final, though the
+copy from the first try was there, and the flag records `put_rejected` for good. The extra await
+only moved which call drew those two faults; `migration.test.js` reproduces the order on the
+unchanged scheduling. The engine now reads a refused PUT's URL back before recording the
+refusal, and counts the object `written` when this run's bytes are there. A shipped SDK adapter
+rarely meets the order, since its `ifAbsent` HEAD finds the copy and answers `exists`; a port
+that refuses before checking existence does meet it.
+
 ### What the campaign established
 
 849 of 849 replica users verified against the oracle with no reverse finding; a second run is a
