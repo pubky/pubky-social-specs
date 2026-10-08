@@ -12,12 +12,15 @@ export class Hasher {
   free(): void;
 }
 
-/** The embedded wasm's bytes. */
-export function __wbg_bytes(): Uint8Array;
-/** The SHA-256 of those bytes as the build wrote them, lowercase hex. */
+/**
+ * The wasm: its bytes, or a `WebAssembly.Module` the bundler compiled ahead of time where the
+ * runtime compiles none. Typed as an object, since a consumer's lib may not declare WebAssembly.
+ */
+export function __wbg_source(): Uint8Array | object;
+/** The SHA-256 of the bytes as the build wrote them, lowercase hex. */
 export const __wbg_sha256: string;
-/** Compiles and starts `bytes`. Nothing below works before it resolves. */
-export function __wbg_init(bytes: Uint8Array): Promise<void>;
+/** Compiles and starts what `__wbg_source` gave. Nothing below works before it resolves. */
+export function __wbg_init(source: Uint8Array | object): Promise<void>;
 export function createMigration(owner: string): Migration;
 export function migrate(migration: Migration, v0Path: string, bytes: Uint8Array): unknown;
 export function migrateBlob(migration: Migration, v0Path: string, size: number, hash: string): unknown;

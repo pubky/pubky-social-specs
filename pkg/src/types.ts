@@ -259,7 +259,7 @@ export type NewFile = ({ bytes: Uint8Array | ArrayBuffer; id?: never } | { id: s
 
 /** A `ReadableStream` of bytes, as far as `hashMedia` reads one. */
 export interface ByteStream {
-  getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; releaseLock(): void };
+  getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array | undefined }>; releaseLock(): void };
 }
 
 /** A `Blob` or a `File`, as far as `hashMedia` reads one. */

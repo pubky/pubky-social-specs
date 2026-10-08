@@ -10,6 +10,8 @@ import { checkWellFormed } from "../text.js";
 import type { ObjectKind } from "../path.js";
 // The wasm itself, embedded in the module or, under Node, read from the file beside it
 import * as glue from "#glue";
+// Typed through the relative file: a declaration naming `#glue` does not resolve under node10
+import type * as GlueTypes from "./glue.js";
 
 export type SkipReason = (typeof skipReasons)[number];
 
@@ -30,21 +32,23 @@ export type MigrateResult = { writes: MigratedWrite[]; dropped: Dropped[] } | { 
 /** Where a blob goes; its bytes stay with the caller. */
 export type MigrateBlobResult = { writes: { kind: "file"; meta: Meta }[]; dropped: Dropped[] } | { skip: SkipReason; note?: string };
 
-export type Migration = glue.Migration;
+export type Migration = GlueTypes.Migration;
 
 let loading: Promise<void> | null = null;
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
 /**
- * The embedded wasm, once its digest is the one the build recorded. Hashed here, not through
- * `crypto.subtle`, which a page served over plain HTTP does not have.
+ * The wasm, its bytes once their digest is the one the build recorded. Hashed here, not through
+ * `crypto.subtle`, which a page served over plain HTTP does not have. A module compiled ahead
+ * of time was checked by the bundler that compiled it from the shipped file.
  */
-function checkedWasm(): Uint8Array {
-  const bytes = glue.__wbg_bytes();
-  const digest = hex(sha256(bytes));
+function checkedWasm(): Uint8Array | object {
+  const source = glue.__wbg_source();
+  if (!(source instanceof Uint8Array)) return source;
+  const digest = hex(sha256(source));
   if (digest !== glue.__wbg_sha256) throw new Error(`pubky-social-specs/migration: the embedded wasm hashes to ${digest}, not the ${glue.__wbg_sha256} its build recorded`);
-  return bytes;
+  return source;
 }
 
 /** Loads the wasm once, after checking its digest. A failed load can be tried again. */

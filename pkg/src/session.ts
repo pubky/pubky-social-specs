@@ -6,7 +6,7 @@
 export interface SdkResponse {
   headers: { get(name: string): string | null };
   body: {
-    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; cancel(): Promise<void> };
+    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array | undefined }>; cancel(): Promise<void> };
     cancel(): Promise<void>;
   } | null;
   arrayBuffer(): Promise<ArrayBuffer>;
