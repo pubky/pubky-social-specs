@@ -28,7 +28,7 @@ const ordered = <T>(items: T[], legacyRelative: (item: T) => string): { passes: 
   for (const item of items) {
     const bucket = legacyBucket(legacyRelative(item));
     if (bucket === null) rest.push(item);
-    else groups.get(bucket)!.push(item);
+    else groups.get(bucket)?.push(item);
   }
   return { passes: [...groups], rest };
 };

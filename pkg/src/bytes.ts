@@ -2,6 +2,7 @@
 // a subclass may report a length or an offset its memory does not have.
 
 const TypedArray = Object.getPrototypeOf(Uint8Array.prototype) as object;
+// eslint-disable-next-line @typescript-eslint/unbound-method -- an intrinsic getter, only ever called through .call
 const getter = (owner: object, name: string | symbol) => Object.getOwnPropertyDescriptor(owner, name)?.get as (this: unknown) => unknown;
 const tagOf = getter(TypedArray, Symbol.toStringTag);
 const bufferOf = getter(TypedArray, "buffer");

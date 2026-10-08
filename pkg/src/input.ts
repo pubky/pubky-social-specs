@@ -37,7 +37,7 @@ export function snapshot(value: unknown, at: string): unknown {
       // A hole reads as absent, never as what a polluted prototype holds at that index
       out = Array.from({ length }, (_, index) => (Object.hasOwn(js, index) ? copy(js[index], `${where}[${index}]`, depth + 1) : undefined));
     } else {
-      const record: Record<string, unknown> = Object.create(null);
+      const record = Object.create(null) as Record<string, unknown>;
       for (const key of Object.keys(js)) record[key] = copy((js as Record<string, unknown>)[key], `${where}.${key}`, depth + 1);
       out = record;
     }

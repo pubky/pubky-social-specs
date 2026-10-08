@@ -12,7 +12,7 @@ const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-export const utf8 = (s: string): Uint8Array<ArrayBuffer> => encoder.encode(s) as Uint8Array<ArrayBuffer>;
+export const utf8 = (s: string): Uint8Array<ArrayBuffer> => encoder.encode(s);
 
 /** The text of `bytes`, or null when they are not UTF-8. A leading BOM is text like any other. */
 export function utf8Text(bytes: Uint8Array): string | null {

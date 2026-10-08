@@ -204,7 +204,7 @@ export class Reader {
     let start = this.pos;
     // The parser looks at the encoding only at the closing quote, so an error later in the
     // same string comes first
-    let invalid = false;
+    let invalid = false as boolean;
     const flush = () => {
       if (this.pos === start) return;
       const text = utf8Text(this.bytes.subarray(start, this.pos));

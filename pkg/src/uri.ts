@@ -58,9 +58,11 @@ export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky:/
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */
 export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${string}` {
   checkPublicKey(owner);
-  if (tree === "legacy") return `pubky://${owner}${LEGACY_ROOT}`;
-  if (tree !== "public" && tree !== "private") misuse("tree", '"public", "private" or "legacy"');
-  return `pubky://${owner}${socialPath(tree, "")}`;
+  // Typed for a caller, checked for one that is not
+  const given: unknown = tree;
+  if (given === "legacy") return `pubky://${owner}${LEGACY_ROOT}`;
+  if (given !== "public" && given !== "private") return misuse("tree", '"public", "private" or "legacy"');
+  return `pubky://${owner}${socialPath(given, "")}`;
 }
 
 const stripJson = (leaf: string) => json(leaf) ?? leaf;

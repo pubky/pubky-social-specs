@@ -10,10 +10,10 @@ export function radix(bytes: Uint8Array, alphabet: string, bits: number): string
     held += 8;
     while (held >= bits) {
       held -= bits;
-      out += alphabet[(acc >> held) & ((1 << bits) - 1)];
+      out += alphabet.charAt((acc >> held) & ((1 << bits) - 1));
     }
     acc &= (1 << held) - 1;
   }
-  if (held > 0) out += alphabet[(acc << (bits - held)) & ((1 << bits) - 1)];
+  if (held > 0) out += alphabet.charAt((acc << (bits - held)) & ((1 << bits) - 1));
   return out;
 }

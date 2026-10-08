@@ -11,7 +11,10 @@ import { misuse } from "./errors.js";
  * package, so test workers that share one module instance share it too.
  */
 export function setClock(nowMs?: () => number): void {
-  if (nowMs === undefined) return clock.pin(null);
+  if (nowMs === undefined) {
+    clock.pin(null);
+    return;
+  }
   if (typeof nowMs !== "function") misuse("nowMs", "a function giving milliseconds, as Date.now does");
   clock.pin(() => {
     const now = nowMs();

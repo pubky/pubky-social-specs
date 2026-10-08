@@ -25,7 +25,7 @@ interface Models {
 const models: { [K in keyof Models]: Model<Models[K]> } = { user, post, follow, mute, bookmark, tag, feed };
 
 /** The model of a kind known only at run time, its value type erased at this one place. */
-export const modelOf = (kind: Exclude<ObjectKind, "file">): Model<unknown> => models[kind] as unknown as Model<unknown>;
+export const modelOf = (kind: Exclude<ObjectKind, "file">): Model<unknown> => models[kind];
 export const isStoredKind = (kind: string): kind is keyof Models => Object.hasOwn(models, kind);
 
 // What a path names that is no stored object
