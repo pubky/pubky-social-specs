@@ -151,7 +151,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
   // The one place a post's directory is spelled from what a caller gave: checked first, so no
   // id or root can point a LIST anywhere else
-  const versionsOf = (author: string, id: string, root: T.Root) => {
+  // `root` is unknown here: a JS caller may pass anything, whatever the signature says
+  const versionsOf = (author: string, id: string, root: unknown) => {
     if (root !== "public" && root !== "private") throw new ValidationError("unknown_name", `root must be one of public, private, found ${String(root)}`, "root");
     return listed(author, `${roots[root]}posts/${parsePostId(id)}/`);
   };
