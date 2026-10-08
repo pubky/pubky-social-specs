@@ -13,13 +13,14 @@ npx tsc -p .          # src -> dist, the whole core and the engine's TypeScript
 npm test
 ```
 
-`dist/migration/glue.js` (the migrator's wasm) is the one file tsc does not write. Without
-cargo, take it from a published build of the same version, or from the `dist` artifact of the
+The migrator's wasm and its three loaders, `dist/migration/glue.js`, `glue.node.js`,
+`glue.workerd.js`, `glue.wasm` and `glue.d.ts`, are the files tsc does not write. Without
+cargo, take them from a published build of the same version, or from the `dist` artifact of the
 `js-native` workflow:
 
 ```sh
-npm pack pubky-social-specs@<version> && tar -xzf pubky-social-specs-<version>.tgz package/dist/migration/glue.js
-cp package/dist/migration/glue.js dist/migration/glue.js
+npm pack pubky-social-specs@<version> && tar -xzf pubky-social-specs-<version>.tgz 'package/dist/migration/glue*'
+cp package/dist/migration/glue* dist/migration/
 ```
 
 With the Rust toolchain, `npm run build` builds everything; it wipes `dist` first. Never run
@@ -32,6 +33,13 @@ only in CI, from the pinned toolchain, and a job rebuilds it from the tag and co
 check, what it covers and how to run it on a small machine is in the root `TESTING.md`; before
 a pull request, also run `npm run types`, `npm run api`, `npm run lint`, `npm run deps`,
 `npm run format:check` and `npm run coverage`.
+
+The docs are checked like code. `npm run docs:snippets` type-checks every `js` block of the
+README, `MIGRATION.md` and `docs/`, and runs each against `docs/prelude.js`; `npm run docs:check`
+fails when `docs/reference.md` differs from what `qa/docs.mjs` generates from the package; and
+`npm run docs:hover` fails on any export or member whose editor hover is empty, or a number
+whose doc names no unit. A changed limit, member or error code is a regenerated reference:
+`node qa/docs.mjs`.
 
 The lint toolchain lives in `tools/` with its own lockfile: typescript-eslint, dependency-cruiser
 and TypeDoc need the TypeScript compiler API, which TypeScript 7, the compiler of the build, does

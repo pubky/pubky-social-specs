@@ -4,15 +4,20 @@
 
 ```js
 import { runMigration } from "pubky-social-specs/migration";
+import { sdkPort } from "pubky-social-specs/migration/pubky-sdk";
+import { owner, session } from "./docs/prelude.js"; // your SDK session
 
+const controller = new AbortController();
 const report = await runMigration({
   owner,
-  port, // your adapter over the homeserver client, below
-  caps: session.capabilities, // optional, a string or a list of scopes
-  lock: (name, fn) => navigator.locks.request(name, { ifAvailable: true }, fn), // optional
-  onProgress: (event) => progress.set(event),
+  port: sdkPort(session), // or your own adapter over the homeserver client, below
+  caps: session.info.capabilities, // optional, a string or a list of scopes
+  // optional: one run per owner across a browser's tabs
+  lock: globalThis.navigator?.locks ? (name, fn) => navigator.locks.request(name, { ifAvailable: true }, fn) : undefined,
+  onProgress: (event) => console.log(event.phase, event.done, event.total),
   signal: controller.signal,
 });
+console.log(report.status); // done: an empty 0.x tree migrates at once
 ```
 
 `runMigration` loads the wasm itself. It resolves with a report in every case, an unreadable flag included. Only a programming error rejects: an owner that is not a pubky, an unknown `mode`, a port that answers a GET with something other than a `Uint8Array`, a fault inside the package. The error it rejects with is the one that was thrown.
@@ -28,7 +33,7 @@ const report = await runMigration({
 
 ### One object
 
-An object a finished run listed under `migrated` is not copied again. Its 1.x copy may be missing because its owner deleted it, and a delete leaves the 0.x copy of a mute, a bookmark or a feed in place, so a rescan or a new `transformRev` must not bring it back. It counts `already_present`. What an earlier run skipped is walked again.
+An object a finished run listed under `migrated` is not copied again. Its 1.x copy may be missing because its owner deleted it, and a delete leaves the 0.x copy of a bookmark or a feed in place, so a rescan or a new `transformRev` must not bring it back. It counts `already_present`. What an earlier run skipped is walked again.
 
 An object whose key is present counts `already_present` too. Any other is read with a GET bounded by `maxBytes`: the file cap for a blob, and for a JSON object six times the largest 1.x object, since a byte of the 1.x form is at most a six-byte escape in the 0.x one. An object over its bound skips as `oversize` before the wasm sees it, whether the port stopped reading (`too_large`) or returned the bytes.
 
@@ -113,12 +118,15 @@ What the host implements: the adapter from its homeserver client to the port, th
 
 `pubky-social-specs/migration/pubky-sdk` is the port over a session of the pubky SDK, [`@synonymdev/pubky`](https://www.npmjs.com/package/@synonymdev/pubky) `>=0.11 <1`, whose session storage has the same calls and answers across that range. Install that SDK next to this package to use the adapter or the CLI. The package does not declare it as a dependency, so a host pinned to another SDK line still installs the package, and the engine never loads it. The adapter declares the part of a session it calls (`SdkSession`), so its types compile without the SDK installed.
 
+<!-- no-run: needs a homeserver and a recovery file -->
 ```js
+import { readFile } from "node:fs/promises";
 import { Pubky, Keypair } from "@synonymdev/pubky";
 import { runMigration } from "pubky-social-specs/migration";
 import { sdkPort } from "pubky-social-specs/migration/pubky-sdk";
 
-const keypair = Keypair.fromRecoveryFile(recoveryFileBytes, passphrase);
+const passphrase = "the passphrase of the recovery file";
+const keypair = Keypair.fromRecoveryFile(await readFile("alice.pkarr"), passphrase);
 const session = await new Pubky().signer(keypair).signin("my-app");
 const report = await runMigration({
   owner: session.info.publicKey.z32(),

@@ -84,7 +84,7 @@
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --locked --features migrator --bin bundle_specs_npm",
     "pretest": "tsc -p .",
-    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run model -- --runs 25 --seed 1",
+    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run docs:snippets && npm run model -- --runs 25 --seed 1",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
@@ -99,6 +99,9 @@
     "coverage": "node qa/coverage.mjs",
     "examples": "node qa/examples.mjs",
     "docs": "node tools/node_modules/typedoc/bin/typedoc --options tools/typedoc.json",
+    "docs:check": "node qa/docs.mjs --check",
+    "docs:hover": "node qa/hover.mjs",
+    "docs:snippets": "node qa/snippets.mjs",
     "deps": "node tools/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs --config tools/dependency-cruiser.cjs src",
     "e2e": "mocha e2e/migrate.e2e.js",
     "example": "node example.js",
