@@ -21,9 +21,9 @@ export default {
     "src/lifecycle.ts",
     // keyOf and claimKey; taking the claims in #migrateOne, then #copy, #holds, #landed and
     // #claim, leaving out #fence between them. Line ranges: move them with the code
-    "src/migration/engine.ts:185-196",
-    "src/migration/engine.ts:486-502",
-    "src/migration/engine.ts:518-614",
+    "src/migration/engine.ts:186-197",
+    "src/migration/engine.ts:487-503",
+    "src/migration/engine.ts:519-615",
   ],
   // The mocha runner does not take mocha 12 yet, so each mutant runs the suites as a command,
   // the fastest killers first and stopping at the first failure
