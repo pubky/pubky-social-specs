@@ -52,3 +52,25 @@ fn a_call_leaves_the_process_clock_as_it_found_it() {
     // The wall clock, past the mint before the call, never the pinned instant
     assert!(after > before && after > 1_700_000_000_000_000, "{after}");
 }
+
+/// The pin is the calling thread's: a thread minting while calls run never sees their clock,
+/// and its own guard keeps its ids increasing.
+#[test]
+fn another_thread_never_mints_under_a_call_s_clock() {
+    let calls = std::thread::spawn(|| {
+        for _ in 0..2_000 {
+            let mut env = Env { now: 1, last: 0 };
+            call("frozenTrim", &[Arg::S(" x ".into())], &mut env).unwrap();
+        }
+    });
+    let mut last = 0;
+    for _ in 0..20_000 {
+        let minted = pubky_social_specs::mint_timestamp_micros();
+        assert!(
+            minted > 1_700_000_000_000_000 && minted > last,
+            "{last} then {minted}"
+        );
+        last = minted;
+    }
+    calls.join().unwrap();
+}

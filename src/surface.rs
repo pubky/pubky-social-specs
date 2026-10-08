@@ -31,7 +31,6 @@ use serde::de::{DeserializeOwned, IgnoredAny};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::str::FromStr;
-use std::sync::Mutex;
 
 /// One argument of a call.
 #[derive(Debug, Clone, Deserialize)]
@@ -52,18 +51,14 @@ pub struct Env {
     pub last: i64,
 }
 
-// The clock and the guard are process state, so calls take turns
-static TURN: Mutex<()> = Mutex::new(());
-
 /// Runs `op` under `env`. The answer is the value a JS caller gets, or the message it throws.
 pub fn call(op: &str, args: &[Arg], env: &mut Env) -> Result<Value, String> {
-    let _turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
-    // The pin holds for this call only: the rest of the process keeps its own clock and guard
-    let before = (pinned::clock(), pinned::last_minted());
+    // The pin is this thread's for this call only: every other thread, and this one after,
+    // keeps the wall clock and the process's guard
     pinned::set(env.now, env.last);
     let answer = run(op, &mut Args(args.iter()));
     env.last = pinned::last_minted();
-    pinned::restore(before.0, before.1);
+    pinned::clear();
     answer
 }
 

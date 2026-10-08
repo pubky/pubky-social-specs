@@ -26,33 +26,49 @@ pub fn timestamp() -> i64 {
 }
 
 /// A clock and a mint guard a caller sets, so an answer of the surface depends on its request
-/// alone and can be recorded and replayed.
+/// alone and can be recorded and replayed. Both belong to the thread that set them: another
+/// thread of the same process keeps the wall clock and the process's own guard.
 #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
 pub(crate) mod pinned {
-    use super::{Ordering, LAST_MINTED_MICROS};
-    use std::sync::atomic::AtomicI64;
+    use std::cell::Cell;
+    use std::sync::atomic::{AtomicI64, Ordering};
 
-    // i64::MIN stands for no pin: every real reading is positive
-    static CLOCK: AtomicI64 = AtomicI64::new(i64::MIN);
+    thread_local! {
+        static CLOCK: Cell<Option<i64>> = const { Cell::new(None) };
+        static GUARD: AtomicI64 = const { AtomicI64::new(0) };
+    }
 
     pub(crate) fn clock() -> Option<i64> {
-        Some(CLOCK.load(Ordering::SeqCst)).filter(|now| *now != i64::MIN)
+        CLOCK.with(Cell::get)
     }
 
+    /// Pins this thread's clock and guard until `clear`.
     pub(crate) fn set(now_micros: i64, last_minted: i64) {
-        CLOCK.store(now_micros, Ordering::SeqCst);
-        LAST_MINTED_MICROS.store(last_minted, Ordering::SeqCst);
+        CLOCK.with(|clock| clock.set(Some(now_micros)));
+        GUARD.with(|guard| guard.store(last_minted, Ordering::SeqCst));
     }
 
-    /// Puts back a clock and a guard as `clock` and `last_minted` read them: no pin for `None`.
-    pub(crate) fn restore(clock: Option<i64>, last_minted: i64) {
-        CLOCK.store(clock.unwrap_or(i64::MIN), Ordering::SeqCst);
-        LAST_MINTED_MICROS.store(last_minted, Ordering::SeqCst);
+    pub(crate) fn clear() {
+        CLOCK.with(|clock| clock.set(None));
     }
 
     pub(crate) fn last_minted() -> i64 {
-        LAST_MINTED_MICROS.load(Ordering::SeqCst)
+        GUARD.with(|guard| guard.load(Ordering::SeqCst))
     }
+
+    /// `mint` over this thread's guard.
+    pub(crate) fn with_guard<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
+        GUARD.with(mint)
+    }
+}
+
+/// The mint over the guard of this thread's pin when there is one, else the process's.
+fn minting<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
+    #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+    if pinned::clock().is_some() {
+        return pinned::with_guard(mint);
+    }
+    mint(&LAST_MINTED_MICROS)
 }
 
 /// A JSON error as this crate words it: the parser's message without its position. A position
@@ -212,7 +228,7 @@ const CLOCK_ROLLBACK_TOLERANCE_MICROS: i64 = 1_000_000;
 /// process, or per wasm instance; two tabs each keep their own.
 /// `timestamp()` stays the raw clock for `created_at` fields.
 pub fn mint_timestamp_micros() -> i64 {
-    mint_from(timestamp(), &LAST_MINTED_MICROS)
+    minting(|guard| mint_from(timestamp(), guard))
 }
 
 /// Ids may sit this far ahead of the reader's clock and still validate.
@@ -233,7 +249,7 @@ const SUCCESSOR_SPREAD_MICROS: i64 = 60 * 1_000_000;
 pub fn mint_timestamp_micros_above(floor: i64, salt: u64) -> Result<i64, String> {
     let now = timestamp();
     if now > floor {
-        return Ok(mint_from(now, &LAST_MINTED_MICROS));
+        return Ok(minting(|guard| mint_from(now, guard)));
     }
     (now + MAX_FUTURE_MICROS)
         .checked_sub(floor)
