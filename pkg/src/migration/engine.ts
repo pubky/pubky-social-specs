@@ -423,7 +423,8 @@ class Run {
         throw new Stop({ code: "IO_ERROR", message: `listing ${prefix}: more than ${MAX_OBJECTS} objects` });
       }
       urls.push(...page.urls);
-      if (!page.next) return urls;
+      // Only an absent cursor ends the walk: a port may spell a cursor any way, "" included
+      if (page.next === undefined) return urls;
       // A cursor is opaque, so only a repeat, or empty pages without end, tell a walk that
       // would never finish; either is the port's fault and the run must not record a flag
       emptyPages = page.urls.length === 0 ? emptyPages + 1 : 0;

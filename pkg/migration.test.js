@@ -735,6 +735,23 @@ describe("migration engine", () => {
       assert.deepStrictEqual(tree(port), whole.tree);
     });
 
+    it("a LIST cursor spelled as the empty string is a cursor, not the end", async () => {
+      const port = legacyPort({ pageSize: 2 });
+      // The first page's cursor is spelled "", every later one as the port gave it
+      const real = new Map();
+      const empty = delegate(port, {
+        list: async (prefix, cursor) => {
+          const page = await port.list(prefix, cursor === undefined ? undefined : (real.get(cursor) ?? cursor));
+          if (page.next === undefined || cursor !== undefined) return page;
+          real.set("", page.next);
+          return { urls: page.urls, next: "" };
+        },
+      });
+      assert.strictEqual((await runMigration({ owner, port: empty })).status, "done");
+      assert.ok(real.size > 0);
+      assert.deepStrictEqual(tree(port), whole.tree);
+    });
+
     it("keeps at most two objects in flight", async () => {
       let active = 0;
       let most = 0;
