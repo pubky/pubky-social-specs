@@ -7,7 +7,7 @@ import { plainBytes } from "./bytes.js";
 import { misuse } from "./errors.js";
 
 // No list of the model, and no history a caller walks, comes near this
-export const MAX_ITEMS = 1 << 20;
+const MAX_ITEMS = 1 << 20;
 // The deepest input, a version inside a plan with its attachments, is five levels down
 const MAX_DEPTH = 32;
 

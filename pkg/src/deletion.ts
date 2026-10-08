@@ -18,7 +18,6 @@ export type Listing = string | { path: string; src: string } | { path: string; u
 type V0Tag = { path: string; uri: string; label: string; src: string | null; contentType: string | null };
 type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
 
-const LEGACY = LEGACY_ROOT;
 const maybe = (js: unknown, at: string) => (js === null || js === undefined ? null : string.parse(js, at));
 
 function entryOf(listing: unknown, index: number): Entry {
@@ -38,9 +37,9 @@ const sorted = (paths: string[]) => [...new Set(paths)].sort(compareBytes);
 
 function postPaths(id: string, entries: Entry[]): string[] {
   const paths = sorted(entries.map((e) => (e.file || e.tag ? notACopy("post", id, e.path) : e.path)));
-  const legacy = paths.filter((path) => path.startsWith(LEGACY));
+  const legacy = paths.filter((path) => path.startsWith(LEGACY_ROOT));
   // The root is the path's own first segment; a path under neither is refused by the order
-  const copies = paths.filter((path) => !path.startsWith(LEGACY)).map((path) => ({ root: path.startsWith("/priv/") ? ("private" as const) : ("public" as const), path }));
+  const copies = paths.filter((path) => !path.startsWith(LEGACY_ROOT)).map((path) => ({ root: path.startsWith("/priv/") ? ("private" as const) : ("public" as const), path }));
   return deleteOrder(id, legacy, copies);
 }
 
@@ -74,7 +73,7 @@ function tagPaths(id: string, entries: Entry[]): string[] {
   for (const { path, tag } of entries) {
     if (!tag) return notACopy("tag", id, path);
     // The 0.x id proves the entry is a tag; only the v1 id proves it is this one
-    if (path !== `${LEGACY}tags/${hashText(`${tag.uri}:${tag.label}`)}`) return notACopy("tag", id, path);
+    if (path !== `${LEGACY_ROOT}tags/${hashText(`${tag.uri}:${tag.label}`)}`) return notACopy("tag", id, path);
     if (hashText(`${v1TagTarget(tag)}:${foldLabel(tag.label)}`) !== id) fail(`legacy tag ${path} is not a copy of tag ${id}`);
     deletes.push(path);
   }
@@ -83,7 +82,7 @@ function tagPaths(id: string, entries: Entry[]): string[] {
 
 function filePaths(hash: string, entries: Entry[]): string[] {
   checkHashId(hash);
-  const blob = `${LEGACY}blobs/${hash}`;
+  const blob = `${LEGACY_ROOT}blobs/${hash}`;
   const dirs = [socialPath("public", "files/"), socialPath("private", "files/")];
   const v0Objects: string[] = [];
   const filenames: string[] = [];
@@ -91,7 +90,7 @@ function filePaths(hash: string, entries: Entry[]): string[] {
     if (tag) return notACopy("file", hash, path);
     if (file) {
       // A 0.x File object belongs to this file only when its src resolves to these bytes
-      const tsid = path.startsWith(`${LEGACY}files/`) ? path.slice(`${LEGACY}files/`.length) : null;
+      const tsid = path.startsWith(`${LEGACY_ROOT}files/`) ? path.slice(`${LEGACY_ROOT}files/`.length) : null;
       if (tsid === null || timestampIdFault(tsid) !== null || legacyMediaKey(file.src) !== `files/${hash}`) return notACopy("file", hash, path);
       v0Objects.push(path);
     } else if (path !== blob) {
@@ -127,10 +126,10 @@ export function deletionPaths(kind: ObjectKind, id: string, listings: readonly u
       return [socialPath("public", `feeds/${id}.json`), socialPath("private", `feeds/${id}.json`)];
     case "user":
       if (id !== "") fail(`the profile has no id, found ${id}`);
-      return [`${LEGACY}profile.json`, socialPath("public", "profile.json")];
+      return [`${LEGACY_ROOT}profile.json`, socialPath("public", "profile.json")];
     case "follow":
       checkPublicKey(id);
-      return [`${LEGACY}follows/${id}`, socialPath("public", `follows/${id}.json`)];
+      return [`${LEGACY_ROOT}follows/${id}`, socialPath("public", `follows/${id}.json`)];
     case "mute":
       checkPublicKey(id);
       return [socialPath("private", `mutes/${id}.json`)];

@@ -184,7 +184,7 @@ function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObjec
 }
 
 /** A codec per known member of `T`: a member left out or misspelled does not compile. */
-export type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Codec<T[K]> };
+type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Codec<T[K]> };
 
 /** An object that keeps the members it does not know, under `extra`. */
 export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<T> {
@@ -261,5 +261,3 @@ export function inputOf(js: unknown, at: string, allowed: readonly string[], eac
   for (const key of Object.keys(given)) if (!allowed.includes(key)) each(() => misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`));
   return given;
 }
-
-export type { Json };

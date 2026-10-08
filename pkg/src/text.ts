@@ -92,14 +92,13 @@ export function compareBytes(a: string, b: string): number {
   return a.length - b.length;
 }
 
-/** A Rust string cannot hold a lone surrogate, so text holding one has no reference answer. */
 /** `s`, when it is well-formed: a Rust string cannot hold a lone surrogate, so no rule of the model has an answer for one. */
 export function checkWellFormed(s: string, field?: string): string {
   if (!isWellFormed(s)) fail("text must be well-formed UTF-16", field);
   return s;
 }
 
-export function isWellFormed(s: string): boolean {
+function isWellFormed(s: string): boolean {
   for (let i = 0; i < s.length; i++) {
     const unit = s.charCodeAt(i);
     if (unit < 0xd800 || unit > 0xdfff) continue;

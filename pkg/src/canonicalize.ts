@@ -43,7 +43,7 @@ export function canonicalUniversal(raw: string): string | null {
   return canonical !== null && codePointLen(canonical) <= limits.referenceUriMaxLength ? canonical : null;
 }
 
-export type Schemes = "pubky" | "pubky or web" | "web" | "";
+type Schemes = "pubky" | "pubky or web" | "web" | "";
 
 /**
  * The one reference gate: the canonical form under `schemes` and the cap, then for a pubky

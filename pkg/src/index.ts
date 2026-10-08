@@ -80,9 +80,6 @@ function built<P, Id extends string = string>(owner: string, codec: Codec<never>
 
 const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<T.Post, T.PostId>(owner, posts.post.codec as Codec<never>, made), editId: made.editId as T.EditId });
 
-/** A caller's argument, copied once before any of it is read; `../input.ts` says how. */
-const own = (value: unknown, name: string): unknown => snapshot(value, name);
-
 /**
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
@@ -106,7 +103,7 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): T.Decoded;
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind?: T.ObjectKind): T.Decoded | T.Stored[keyof T.Stored] | T.Bytes {
   const at = url(uri, "uri");
-  bytes = own(bytes, "bytes") as T.Bytes;
+  bytes = snapshot(bytes, "bytes") as T.Bytes;
   if (kind !== undefined) {
     if (typeof kind !== "string" || !isObjectKind(kind)) misuse("kind", "an object kind");
     // Before the bytes are read: the URL alone says what is stored there
@@ -140,8 +137,8 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
  * ```
  */
 export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes {
-  at = own(at, "at") as typeof at;
-  object = own(object, "object") as typeof object;
+  at = snapshot(at, "at") as typeof at;
+  object = snapshot(object, "object") as typeof object;
   const media = plainBytes(object);
   if (typeof at === "string") {
     if (media === null) warnIfUnknownDropped(at, object, "encodeObject");
@@ -166,7 +163,7 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
  * ```
  */
 export function decodeContent(post: T.Post): { kind: "article"; content: T.ArticleContent } | { kind: "collection"; content: T.CollectionContent } | null {
-  const given = own(post, "post");
+  const given = snapshot(post, "post");
   const member = (key: "content" | "kind") => (typeof given === "object" && given !== null && Object.hasOwn(given, key) ? (given as Record<string, unknown>)[key] : undefined);
   const content = text(member("content"), "post.content");
   const kind = member("kind");
@@ -194,7 +191,7 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
  * ```
  */
 export function encodeContent(content: T.ArticleContent | T.CollectionContent): string {
-  const given = own(content, "content");
+  const given = snapshot(content, "content");
   if (typeof given !== "object" || given === null) return misuse("content", "an article or a collection envelope");
   if (Object.hasOwn(given, "title")) return posts.article.write(posts.article.parse(given, "content"));
   if (Object.hasOwn(given, "name")) return posts.collection.write(posts.collection.parse(given, "content"));
@@ -216,7 +213,7 @@ export function encodeContent(content: T.ArticleContent | T.CollectionContent): 
  * ```
  */
 export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.User> {
-  return built(owner, users.user.codec as Codec<never>, users.buildUser(key(owner, "owner"), own(input, "input")));
+  return built(owner, users.user.codec as Codec<never>, users.buildUser(key(owner, "owner"), snapshot(input, "input")));
 }
 
 /**
@@ -236,7 +233,7 @@ export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.
  * ```
  */
 export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, input: I & T.CheckedPost<I>): T.BuiltPost {
-  return builtPost(owner, posts.buildPost(key(owner, "owner"), own(input, "input")));
+  return builtPost(owner, posts.buildPost(key(owner, "owner"), snapshot(input, "input")));
 }
 
 /**
@@ -256,8 +253,8 @@ export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, in
  * ```
  */
 export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
-  post = own(post, "post") as T.Post;
-  options = own(options, "options") as typeof options;
+  post = snapshot(post, "post") as T.Post;
+  options = snapshot(options, "options") as typeof options;
   const head = uris.parse(url(headUri, "headUri"));
   if (head.kind !== "post" || head.editId === undefined) return fail(`not the URI of a stored post version: ${headUri}`);
   warnIfUnknownDropped(headUri, post, "editPost");
@@ -282,7 +279,7 @@ export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { ro
  * ```
  */
 export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.Feed> {
-  return built(owner, feeds.feed.codec as Codec<never>, feeds.buildFeed(key(owner, "owner"), own(input, "input")));
+  return built(owner, feeds.feed.codec as Codec<never>, feeds.buildFeed(key(owner, "owner"), snapshot(input, "input")));
 }
 
 /**
@@ -298,7 +295,7 @@ export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.
  * ```
  */
 export function feedId(feed: T.Feed): string {
-  return feeds.feedId(feeds.feed.codec.parse(own(feed, "feed"), "feed"));
+  return feeds.feedId(feeds.feed.codec.parse(snapshot(feed, "feed"), "feed"));
 }
 
 /**
@@ -387,7 +384,7 @@ export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.B
  * ```
  */
 export function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFile {
-  const given = inputOf(own(input, "input"), "input", ["bytes", "id", "type", "root"]);
+  const given = inputOf(snapshot(input, "input"), "input", ["bytes", "id", "type", "root"]);
   if ((given.bytes === undefined) === (given.id === undefined)) misuse("input", "given either bytes or an id");
   const source = given.bytes !== undefined ? { bytes: bytesOf(given.bytes, "input.bytes") } : { id: text(given.id, "input.id") };
   const made = files.buildFile(key(owner, "owner"), source, text(given.type, "input.type"), rootOf(given.root, "input.root"));
@@ -457,7 +454,7 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  * ```
  */
 export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post }): { copies: T.Copy[]; put: T.BuiltPost } {
-  const given = inputOf(own(version, "version"), "version", ["id", "editId", "post"]);
+  const given = inputOf(snapshot(version, "version"), "version", ["id", "editId", "post"]);
   const value = posts.post.codec.parse(given.post, "version.post");
   const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value);
   return { copies: plan.copies as T.Copy[], put: builtPost(owner, plan.put) };
@@ -482,7 +479,7 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
   copies: T.Copy[];
   deletes: T.OwnerPath[];
 } {
-  const given = inputOf(own(post, "post"), "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
+  const given = inputOf(snapshot(post, "post"), "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
   const head = given.privateHead === undefined || given.privateHead === null ? null : text(given.privateHead, "post.privateHead");
   return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head) as {
     copies: T.Copy[];
@@ -509,7 +506,7 @@ export function planDelete(
   owner: T.Given<"Owner">,
   post: { id: T.Given<"PostId">; legacyPaths?: T.PathArg[] | null; copies?: T.StoredCopy[] | null; versions?: T.Post[] | null },
 ): { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] } {
-  const given = inputOf(own(post, "post"), "post", ["id", "legacyPaths", "copies", "versions"]);
+  const given = inputOf(snapshot(post, "post"), "post", ["id", "legacyPaths", "copies", "versions"]);
   const copies = arrayOf(given.copies ?? [], "post.copies").map((copy, index) => {
     const given = inputOf(copy, `post.copies[${index}]`, ["root", "path"]);
     return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
@@ -535,7 +532,7 @@ export function planDelete(
  * ```
  */
 export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: T.Listing[] | null }): T.OwnerPath[] {
-  const given = inputOf(own(target, "target"), "target", ["kind", "id", "listings"]);
+  const given = inputOf(snapshot(target, "target"), "target", ["kind", "id", "listings"]);
   return deletion.deletionPaths(text(given.kind, "target.kind") as T.ObjectKind, text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings")) as T.OwnerPath[];
 }
 
