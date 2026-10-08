@@ -71,8 +71,8 @@ export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value:
  * The bytes of a caller's object, checked as `read` checks them at `at`. Without a URI the
  * object is checked by the rules that need no id and no author.
  */
-export function write(at: string | { kind: ObjectKind; root?: Root }, js: unknown): Bytes {
-  const { kind, id, root, owner } = typeof at === "string" ? located(at) : { kind: at.kind, id: null, root: at.root ?? "public", owner: null };
+export function write(at: string | { kind: ObjectKind; root: Root }, js: unknown): Bytes {
+  const { kind, id, root, owner } = typeof at === "string" ? located(at) : { ...at, id: null, owner: null };
   const publicRoot = root === "public";
   if (kind === "file") {
     if (!(js instanceof Uint8Array)) return misuse("object", "the bytes of the media");
