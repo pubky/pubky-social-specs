@@ -146,10 +146,12 @@ describe("pubky-social-specs", () => {
       misuse(() => encodeObject({ kind: "user", rot: "private" }, {}), /at\.rot must be one of kind, root/);
       misuse(() => buildFile(OTTO, { bytes: new Uint8Array(1), type: "image/png", name: "a.png" }), /input\.name must be one of bytes, id, type, root/);
       misuse(() => buildFile(OTTO, { type: "image/png" }), /input must be given either bytes or an id/);
-      // A name outside the set is a typo, not a newer writer's value
+      // A name outside the set in a read object is a newer writer's, kept as written; a
+      // builder still refuses one
       const feed = buildFeed(OTTO, { name: "n", icon: "a", reach: "all", layout: "list", sort: "recent", content: "note" });
-      misuse(() => feedId({ ...feed.object, feed: { ...feed.object.feed, content: "vdeo" } }), /feed\.feed\.content must be one of note, article/);
-      misuse(() => encodeContent({ name: "abc", description: null, items: [], cover_image: null, layout: "gird" }), /content\.layout must be one of grid, list, visual/);
+      assert.notStrictEqual(feedId({ ...feed.object, feed: { ...feed.object.feed, content: "podcast" } }), feed.id);
+      assert.match(encodeContent({ name: "abc", description: null, items: [], cover_image: null, layout: "carousel" }), /"layout":"carousel"/);
+      refuses(() => buildFeed(OTTO, { name: "n", icon: "a", reach: "all", layout: "list", sort: "recent", content: "vdeo" }), "Validation Error: Invalid content kind: vdeo");
       misuse(() => encodeContent({ body: "no title" }), /content must be an article envelope, with a title, or a collection envelope, with a name/);
       misuse(() => setClock(T0), /nowMs must be a function/);
       setClock(() => T0 + 0.5);
@@ -655,7 +657,7 @@ describe("pubky-social-specs", () => {
     it("deletionPaths spans both epochs and both roots, legacy first", () => {
       assert.deepStrictEqual(deletionPaths({ kind: "user", id: "" }), ["/pub/pubky.app/profile.json", "/pub/social/v1/profile.json"]);
       assert.deepStrictEqual(deletionPaths({ kind: "follow", id: RIO }), [`/pub/pubky.app/follows/${RIO}`, `/pub/social/v1/follows/${RIO}.json`]);
-      assert.deepStrictEqual(deletionPaths({ kind: "mute", id: RIO, listings: null }), [`/priv/social/v1/mutes/${RIO}.json`]);
+      assert.deepStrictEqual(deletionPaths({ kind: "mute", id: RIO, listings: null }), [`/pub/pubky.app/mutes/${RIO}`, `/priv/social/v1/mutes/${RIO}.json`]);
       const hash = "0000000000000000000000000G";
       assert.deepStrictEqual(
         deletionPaths({

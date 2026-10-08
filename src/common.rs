@@ -220,20 +220,21 @@ const SUCCESSOR_SPREAD_MICROS: i64 = 60 * 1_000_000;
 /// When it is not, as it is when a post was created by a faster clock or edited in the instant
 /// it was created, the successor lands at `floor + 1 + (salt mod room)`: the clock cannot
 /// separate two clients that are both behind the head, so the salt does, and callers derive it
-/// from the bytes being written so only identical writes share a path. `room` is bounded by the
-/// validity window, and a floor with no room left is an error rather than an id no reader
-/// accepts. A salted successor does not move the mint guard.
+/// from the bytes being written so only identical writes share a path. The successor must stay
+/// inside the validity window, so a floor that leaves less than the whole spread below the
+/// future bound is an error: a narrower spread would let two different edits share a path. A
+/// salted successor does not move the mint guard.
 pub fn mint_timestamp_micros_above(floor: i64, salt: u64) -> Result<i64, String> {
     let now = timestamp();
     if now > floor {
         return Ok(mint_from(now, &LAST_MINTED_MICROS));
     }
-    let room = (now + MAX_FUTURE_MICROS)
+    (now + MAX_FUTURE_MICROS)
         .checked_sub(floor)
         .and_then(|r| r.checked_sub(1))
-        .filter(|r| *r > 0)
+        .filter(|r| *r >= SUCCESSOR_SPREAD_MICROS)
         .ok_or("Validation Error: the current version leaves no room for a newer id")?;
-    let spread = room.min(SUCCESSOR_SPREAD_MICROS) as u64;
+    let spread = SUCCESSOR_SPREAD_MICROS as u64;
     // Returned as it is, past the guard: the guard keeps two mints of one instant apart, and a
     // successor is told apart by its salt. Moving the guard up to it would put the guard ahead
     // of the clock, the next plain mint would read that as a clock correction and issue the

@@ -4,12 +4,13 @@
 import { compareBytes } from "../text.js";
 import type { Json, JsonObject } from "./read.js";
 
-const NAMED: Record<string, string> = { '"': '\\"', "\\": "\\\\", "\b": "\\b", "\f": "\\f", "\n": "\\n", "\r": "\\r", "\t": "\\t" };
+// A Map, so no character reaches a prototype
+const NAMED = new Map([['"', '\\"'], ["\\", "\\\\"], ["\b", "\\b"], ["\f", "\\f"], ["\n", "\\n"], ["\r", "\\r"], ["\t", "\\t"]]);
 const ESCAPED = /["\\\u0000-\u001f]/g;
 
 /** Only the quote, the backslash and the C0 controls are escaped. */
 export function writeString(s: string): string {
-  return `"${s.replace(ESCAPED, (c) => NAMED[c] ?? `\\u00${c.charCodeAt(0).toString(16).padStart(2, "0")}`)}"`;
+  return `"${s.replace(ESCAPED, (c) => NAMED.get(c) ?? `\\u00${c.charCodeAt(0).toString(16).padStart(2, "0")}`)}"`;
 }
 
 /**

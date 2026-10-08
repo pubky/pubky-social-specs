@@ -10,26 +10,24 @@ use super::super::PubkySocialPost;
 
 /// Creator-chosen default layout for experiencing a collection.
 ///
-/// Unrecognized values deserialize as `Unknown` so future layouts never
+/// Unrecognized values deserialize as `Unknown`, spelling kept, so future layouts never
 /// invalidate the whole post (same policy as `PubkySocialPostKind`).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[serde(rename_all = "snake_case")]
+#[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialCollectionLayout {
     Grid,
     List,
     Visual,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
-impl PubkySocialCollectionLayout {
-    /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-}
+wire_names!(PubkySocialCollectionLayout {
+    Grid => "grid",
+    List => "list",
+    Visual => "visual",
+});
 
 impl FromStr for PubkySocialCollectionLayout {
     type Err = String;
@@ -168,12 +166,7 @@ fn validate_collection_envelope(envelope: &PubkySocialCollectionContent) -> Resu
             ));
         }
     }
-    if envelope.items.len() > VALIDATION_LIMITS.collection_items_max_count {
-        return Err(format!(
-            "Validation Error: Collection cannot have more than {} items",
-            VALIDATION_LIMITS.collection_items_max_count
-        ));
-    }
+    // The item count is checked with the post's list caps, before any reference is read
     for (index, item) in envelope.items.iter().enumerate() {
         check_extra(&item.extra, &["uri", "note"])?;
         if let Some(note) = &item.note {
@@ -576,7 +569,15 @@ mod tests {
         let id = post.create_id();
         assert!(post.validate(Some(&id), &PUB_CTX).is_ok());
         let envelope: PubkySocialCollectionContent = serde_json::from_str(&post.content).unwrap();
-        assert_eq!(envelope.layout, Some(PubkySocialCollectionLayout::Unknown));
+        assert_eq!(
+            envelope.layout,
+            Some(PubkySocialCollectionLayout::Unknown("spiral".into()))
+        );
+        // written back with its spelling
+        assert_eq!(
+            serde_json::to_string(&envelope).unwrap(),
+            r#"{"name":"X","items":[],"layout":"spiral"}"#
+        );
     }
 
     #[test]

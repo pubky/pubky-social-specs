@@ -144,16 +144,16 @@ pub trait Validatable: Sized + Serialize + DeserializeOwned {
     /// fold, so a reader that rewrote would disagree with the bytes on the homeserver and with
     /// any id derived from them.
     fn try_from(blob: &[u8], id: &str, ctx: &ValidationCtx) -> Result<Self, ValidationError> {
+        // The cap holds the bytes as stored; defaults the reader fills in are not counted
         check_size(blob.len(), Self::MAX_BYTES)?;
         let instance: Self = serde_json::from_slice(blob)
             .map_err(|e| format!("Validation Error: {}", json_error(&e)))?;
-        instance.validate(Some(id), ctx)?;
+        instance.validate_fields(Some(id), ctx)?;
         Ok(instance)
     }
 
-    /// The cap first, then the model's own rules, so no in-memory path (builders, JSON
-    /// import) can skip the cap. On the read path this re-serializes an object whose raw
-    /// bytes already passed; that cost is accepted for one code path.
+    /// The cap on the written form first, then the model's own rules, so no in-memory path
+    /// (builders, JSON import) can skip the cap.
     fn validate(&self, id: Option<&str>, ctx: &ValidationCtx) -> Result<(), ValidationError> {
         self.validate_size()?;
         self.validate_fields(id, ctx)

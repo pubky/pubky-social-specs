@@ -16,12 +16,21 @@ export function canonicalPubky(raw: string): string | null {
   return split.path.split("/").every(isCanonicalSegment) ? `pubky://${split.owner}/${split.path}` : null;
 }
 
-/** The stored form of a web reference is the trimmed raw string. */
+/**
+ * The stored form of a web reference is the trimmed raw string: no host folding and no
+ * normalization, since an id hashes the exact text. Its host, past any userinfo and before any
+ * port, must not be empty.
+ */
 export function canonicalWeb(raw: string): string | null {
   const s = frozenTrim(raw);
   if (hasControlOrWhitespace(s)) return null;
   const rest = s.startsWith("http://") ? s.slice(7) : s.startsWith("https://") ? s.slice(8) : null;
-  return rest && !/^[/?#]/.test(rest) ? s : null;
+  if (rest === null) return null;
+  const end = rest.search(/[/?#]/);
+  const authority = end < 0 ? rest : rest.slice(0, end);
+  const hostPort = authority.slice(authority.lastIndexOf("@") + 1);
+  const host = hostPort.startsWith("[") ? hostPort : (hostPort.split(":")[0] as string);
+  return host === "" ? null : s;
 }
 
 /** Any other scheme: the scheme folds, the rest is opaque. */

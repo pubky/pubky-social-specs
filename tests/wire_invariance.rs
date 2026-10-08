@@ -295,7 +295,7 @@ fn pinned_variants() -> Vec<(String, &'static str)> {
         (json(&Resource::Unknown), r#""Unknown""#),
         (json(&K::Note), r#""note""#), (json(&K::Article), r#""article""#), (json(&K::Image), r#""image""#),
         (json(&K::Video), r#""video""#), (json(&K::Link), r#""link""#), (json(&K::File), r#""file""#),
-        (json(&K::Collection), r#""collection""#), (json(&K::Unknown), r#""unknown""#),
+        (json(&K::Collection), r#""collection""#), (json(&K::Unknown("podcast".into())), r#""podcast""#),
         (json(&R::Following), r#""following""#), (json(&R::Followers), r#""followers""#),
         (json(&R::Friends), r#""friends""#), (json(&R::All), r#""all""#), (json(&R::Wot), r#""wot""#),
         (json(&R::Me), r#""me""#),
@@ -303,7 +303,7 @@ fn pinned_variants() -> Vec<(String, &'static str)> {
         (json(&L::List), r#""list""#),
         (json(&S::Recent), r#""recent""#), (json(&S::Popularity), r#""popularity""#),
         (json(&C::Grid), r#""grid""#), (json(&C::List), r#""list""#), (json(&C::Visual), r#""visual""#),
-        (json(&C::Unknown), r#""unknown""#),
+        (json(&C::Unknown("carousel".into())), r#""carousel""#),
     ]
 }
 

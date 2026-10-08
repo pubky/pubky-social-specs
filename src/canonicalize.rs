@@ -67,11 +67,19 @@ pub fn canonicalize_web_uri(raw: &str) -> Result<String, ()> {
     let after = s
         .strip_prefix("http://")
         .or_else(|| s.strip_prefix("https://"));
-    // The authority runs to the first `/`, `?` or `#` and must not be empty
-    match after {
-        Some(rest) if !rest.starts_with(['/', '?', '#']) && !rest.is_empty() => Ok(s.to_string()),
-        _ => Err(()),
+    let rest = after.ok_or(())?;
+    // The authority runs to the first `/`, `?` or `#`; its host, past any userinfo and before
+    // any port, must not be empty
+    let authority = &rest[..rest.find(['/', '?', '#']).unwrap_or(rest.len())];
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    let host = match host_port.strip_prefix('[') {
+        Some(_) => host_port,
+        None => host_port.split(':').next().unwrap_or(""),
+    };
+    if host.is_empty() {
+        return Err(());
     }
+    Ok(s.to_string())
 }
 
 /// The universal tier's third arm: any scheme-shaped URI that is not pubky, http or https
@@ -319,6 +327,14 @@ mod tests {
             canonicalize_web_uri("http://x.com/"),
             Ok("http://x.com/".into())
         );
+        // The host is kept as written, case and all, since an id hashes the exact text
+        for good in [
+            "https://Example.COM/a",
+            "https://u:p@x.com:8080/",
+            "http://[::1]:80/",
+        ] {
+            assert_eq!(canonicalize_web_uri(good), Ok(good.into()));
+        }
         // U+200B is not whitespace and survives, pinned.
         assert_eq!(
             canonicalize_web_uri("http://x\u{200B}y"),
@@ -332,6 +348,10 @@ mod tests {
             "https:///path",
             "https://?q=1",
             "https://#frag",
+            "https://:",
+            "https://:443/path",
+            "https://user@",
+            "https://user@:80",
             "ftp://x",
             "",
         ] {

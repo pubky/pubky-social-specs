@@ -1,8 +1,9 @@
-// The closed name sets. A stored name this version does not know reads as "unknown", so a
-// reader survives a newer writer; a builder takes only the names it knows.
+// The closed name sets. A stored name this version does not know is kept as it was read, so a
+// reader survives a newer writer and writes its name back; a builder takes only the names it
+// knows.
 
 import { fail } from "../errors.js";
-import { string, variant } from "../json/schema.js";
+import { type Codec, string } from "../json/schema.js";
 
 /**
  * @example
@@ -50,17 +51,24 @@ export type KnownFeedReach = (typeof feedReaches)[number];
 export type KnownFeedLayout = (typeof feedLayouts)[number];
 export type KnownFeedSort = (typeof feedSorts)[number];
 export type KnownCollectionLayout = (typeof collectionLayouts)[number];
-export type PostKind = KnownPostKind | "unknown";
-export type FeedReach = KnownFeedReach | "unknown";
-export type FeedLayout = KnownFeedLayout | "unknown";
-export type FeedSort = KnownFeedSort | "unknown";
-export type CollectionLayout = KnownCollectionLayout | "unknown";
+/** A name of the set, or one a newer writer used, kept with its spelling. */
+export type OrNewer<T extends string> = T | (string & {});
+export type PostKind = OrNewer<KnownPostKind>;
+export type FeedReach = OrNewer<KnownFeedReach>;
+export type FeedLayout = OrNewer<KnownFeedLayout>;
+export type FeedSort = OrNewer<KnownFeedSort>;
+export type CollectionLayout = OrNewer<KnownCollectionLayout>;
 
-export const postKind = variant(postKinds);
-export const feedReach = variant(feedReaches);
-export const feedLayout = variant(feedLayouts);
-export const feedSort = variant(feedSorts);
-export const collectionLayout = variant(collectionLayouts);
+// A name is read and written as a string; the model's rules decide whether one this version
+// does not know is valid where it stands
+export const postKind: Codec<PostKind> = string;
+export const feedReach: Codec<FeedReach> = string;
+export const feedLayout: Codec<FeedLayout> = string;
+export const feedSort: Codec<FeedSort> = string;
+export const collectionLayout: Codec<CollectionLayout> = string;
+
+/** Whether `name` is one of `names`, not one a newer writer used. */
+export const isKnown = (names: readonly string[], name: string): boolean => names.includes(name);
 
 /** A name a builder was given at `input.{field}`: one of `names`, or a refusal naming `what`. */
 export function known<T extends string>(names: readonly T[], what: string, js: unknown, field: string): T {

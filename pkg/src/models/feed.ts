@@ -7,7 +7,7 @@ import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
 import { socialPath } from "../path.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./label.js";
-import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, known, postKind, type PostKind, postKinds } from "./kinds.js";
+import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface FeedConfig extends Extra {
   tags: string[] | null;
@@ -72,13 +72,13 @@ export const feed: Model<Feed> = {
     const f = value.feed;
     // reach, layout and sort define the feed; an unknown content filter only means no filter
     each(() => {
-      if (f.reach === "unknown") fail("feed reach is unknown", "reach");
+      if (!isKnown(feedReaches, f.reach)) fail("feed reach is unknown", "reach");
     });
     each(() => {
-      if (f.layout === "unknown") fail("feed layout is unknown", "layout");
+      if (!isKnown(feedLayouts, f.layout)) fail("feed layout is unknown", "layout");
     });
     each(() => {
-      if (f.sort === "unknown") fail("feed sort is unknown", "sort");
+      if (!isKnown(feedSorts, f.sort)) fail("feed sort is unknown", "sort");
     });
     each(() => checkExtra(f.extra));
     each(() => checkTagList(f.tags, "tags"));
@@ -93,11 +93,8 @@ export const feed: Model<Feed> = {
     if (id !== null)
       each(() => {
         checkHashId(id, "id");
-        // A reader that does not know the content filter cannot rebuild the writer's id input
-        if (f.content !== "unknown") {
-          const expected = idOf(value);
-          if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
-        }
+        const expected = idOf(value);
+        if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
       });
   },
 };
@@ -105,7 +102,6 @@ export const feed: Model<Feed> = {
 /** The id of a feed object, so an edited feed finds its new path with its unknown members kept. */
 export function feedId(value: Feed): string {
   validate(feed, value, null, false);
-  if (value.feed.content === "unknown") fail("a feed carrying an unknown content kind has no derivable id; keep the id it was read under");
   return idOf(value);
 }
 

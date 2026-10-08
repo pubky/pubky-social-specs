@@ -109,7 +109,7 @@ function isWellFormed(s: string): boolean {
   return true;
 }
 
-const NAMED_DEBUG: Record<string, string> = { "\t": "\\t", "\n": "\\n", "\r": "\\r", "\0": "\\0", "\\": "\\\\", '"': '\\"' };
+const NAMED_DEBUG = new Map([["\t", "\\t"], ["\n", "\\n"], ["\r", "\\r"], ["\0", "\\0"], ["\\", "\\\\"], ['"', '\\"']]);
 
 function isDebugEscaped(codePoint: number): boolean {
   for (let i = 0; i < DEBUG_ESCAPED.length; i += 2) {
@@ -124,7 +124,7 @@ export function debugQuote(s: string): string {
   let out = '"';
   for (const c of s) {
     const codePoint = c.codePointAt(0) as number;
-    out += NAMED_DEBUG[c] ?? (isDebugEscaped(codePoint) ? `\\u{${codePoint.toString(16)}}` : c);
+    out += NAMED_DEBUG.get(c) ?? (isDebugEscaped(codePoint) ? `\\u{${codePoint.toString(16)}}` : c);
   }
   return `${out}"`;
 }

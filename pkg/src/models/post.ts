@@ -12,7 +12,7 @@ import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, 
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
 import { checkExtra, type Model, parse, validate } from "./common.js";
-import { collectionLayout, type CollectionLayout, collectionLayouts, known, postKind, type PostKind, postKinds } from "./kinds.js";
+import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {
   uri: string;
@@ -66,11 +66,17 @@ const MIN_MICROS = 1_727_740_800_000_000n;
 const MAX_FUTURE = 7_200_000_000n;
 
 /** A TimestampId in its canonical spelling and inside the time bounds. */
-export function checkTimestampId(id: string): bigint {
-  const micros = timestampIdMicros(id);
-  if (micros < MIN_MICROS) fail("Invalid ID, timestamp must be on or after October 1st, 2024", "id");
-  if (micros > nowMicros() + MAX_FUTURE) fail("Invalid ID, timestamp is too far in the future", "id");
+export function checkTimestampId(id: string, field = "id"): bigint {
+  const micros = timestampIdMicros(id, field);
+  if (micros < MIN_MICROS) fail("Invalid ID, timestamp must be on or after October 1st, 2024", field);
+  if (micros > nowMicros() + MAX_FUTURE) fail("Invalid ID, timestamp is too far in the future", field);
   return micros;
+}
+
+/** The version a path names: a TimestampId of its own, never older than the post. */
+export function checkVersion(id: string, editId: string): void {
+  checkTimestampId(editId, "editId");
+  if (compareBytes(editId, id) < 0) fail(`version ${editId} is older than the post id ${id}`, "editId");
 }
 
 /** Every reference of a post through the one gate. With an owner the ownership rule runs too. */
@@ -86,28 +92,73 @@ export function checkReferences(value: Post, publicRoot: boolean, owner: string 
   items.forEach((uri, index) => each(() => checkReference(`items[${index}].uri`, uri, "", max, publicRoot, owner)));
 }
 
+/** What the envelope of an article or a collection reads as: its cover, and the envelope or why it does not parse. */
+interface Envelope {
+  kind: string;
+  content: string;
+  cover: string | null;
+  parsed: ArticleContent | CollectionContent | ValidationError;
+}
+
+const ENVELOPE_PREFIX = { article: "Article content must be a valid JSON envelope: ", collection: "Collection content must be a valid JSON envelope: " } as const;
+
+// One read per post: the references, the caps and the kind's own rules all look at it
+const envelopes = new WeakMap<Post, Envelope>();
+
+function envelopeOf(value: Post): Envelope | null {
+  const { kind, content } = value;
+  if (kind !== "article" && kind !== "collection") return null;
+  const known = envelopes.get(value);
+  if (known !== undefined && known.kind === kind && known.content === content) return known;
+  // The cover is read from any object, so a cover beside a member of the wrong type still counts
+  let json: Json | undefined;
+  try {
+    json = readJson(content);
+  } catch (e) {
+    if (!(e instanceof JsonError)) throw e;
+  }
+  const member = json instanceof Map ? json.get("cover_image") : undefined;
+  let parsed: Envelope["parsed"];
+  try {
+    parsed = kind === "article" ? parse(article, content, ENVELOPE_PREFIX.article) : parse(collection, content, ENVELOPE_PREFIX.collection);
+  } catch (e) {
+    if (!(e instanceof ValidationError)) throw e;
+    parsed = e;
+  }
+  const envelope = { kind, content, cover: typeof member === "string" ? member : null, parsed };
+  envelopes.set(value, envelope);
+  return envelope;
+}
+
+/** The envelope of an article or a collection as its kind reads it, or the refusal. */
+function strictEnvelope<K extends "article" | "collection">(value: Post & { kind: K }): K extends "article" ? ArticleContent : CollectionContent {
+  const { parsed } = envelopeOf(value) as Envelope;
+  if (parsed instanceof ValidationError) throw parsed;
+  return parsed as K extends "article" ? ArticleContent : CollectionContent;
+}
+
 /**
  * The references inside the envelope of an article or a collection: its cover, and a
  * collection's item URIs. Content that does not parse references nothing here; its own rule
  * refuses it after.
  */
 export function envelopeRefs(value: Post): { cover: string | null; items: string[] } {
-  if (value.kind !== "article" && value.kind !== "collection") return { cover: null, items: [] };
-  let envelope: Json | undefined;
-  try {
-    envelope = readJson(value.content);
-  } catch (e) {
-    if (!(e instanceof JsonError)) throw e;
-  }
-  const member = envelope instanceof Map ? envelope.get("cover_image") : undefined;
-  const cover = typeof member === "string" ? member : null;
-  if (value.kind !== "collection") return { cover, items: [] };
-  try {
-    return { cover, items: parse(collection, value.content).items.map((entry) => entry.uri) };
-  } catch (e) {
-    if (!(e instanceof ValidationError)) throw e;
-    return { cover, items: [] };
-  }
+  const envelope = envelopeOf(value);
+  if (envelope === null) return { cover: null, items: [] };
+  const items = value.kind === "collection" && !(envelope.parsed instanceof ValidationError) ? (envelope.parsed as CollectionContent).items.map((entry) => entry.uri) : [];
+  return { cover: envelope.cover, items };
+}
+
+/**
+ * The content of an article or a collection with `cover` as its cover, written as the kind
+ * writes it so only the cover changes; null when the content does not parse as that envelope.
+ */
+export function withCover(value: Post, cover: string): string | null {
+  const envelope = envelopeOf(value);
+  if (envelope === null || envelope.parsed instanceof ValidationError) return null;
+  return value.kind === "article"
+    ? article.write({ ...(envelope.parsed as ArticleContent), cover_image: cover })
+    : collection.write({ ...(envelope.parsed as CollectionContent), cover_image: cover });
 }
 
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
@@ -118,7 +169,7 @@ function checkArticle(post: Post, each: Each): void {
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
-    const envelope = parse(article, post.content, "Article content must be a valid JSON envelope: ");
+    const envelope = strictEnvelope(post as Post & { kind: "article" });
     each(() => checkExtra(envelope.extra));
     // Other controls escape to six characters and would break the bound on the content
     each(() => {
@@ -148,7 +199,7 @@ function checkCollection(post: Post, each: Each): void {
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
-    const envelope = parse(collection, post.content, "Collection content must be a valid JSON envelope: ");
+    const envelope = strictEnvelope(post as Post & { kind: "collection" });
     each(() => checkExtra(envelope.extra));
     each(() => {
       if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters", "name");
@@ -161,9 +212,6 @@ function checkCollection(post: Post, each: Each): void {
       if (envelope.description === null) return;
       if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank", "description");
       if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description");
-    });
-    each(() => {
-      if (envelope.items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
     });
     envelope.items.forEach((entry, index) => {
       each(() => checkExtra(entry.extra));
@@ -190,14 +238,18 @@ export const post: Model<Post> = {
   check(value, id, publicRoot, each) {
     if (id !== null) each(() => void checkTimestampId(id));
     each(() => checkExtra(value.extra));
-    // "unknown" is what a newer kind reads as: readable, never valid to write
+    // A kind a newer writer used defines what the post is, so this version refuses it
     each(() => {
-      if (value.kind === "unknown") fail("post kind is unknown", "kind");
+      if (!isKnown(postKinds, value.kind)) fail("post kind is unknown", "kind");
     });
-    checkReferences(value, publicRoot, null, each);
+    // A list is bounded before any of its items is read
     each(() => {
       if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments");
     });
+    each(() => {
+      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
+    });
+    checkReferences(value, publicRoot, null, each);
     value.attachments.forEach((a, index) => {
       each(() => checkExtra(a.extra));
       each(() => {
@@ -249,7 +301,7 @@ function mint(value: Post, id: string, editId: string, root: Root, owner: string
   const publicRoot = root === "public";
   const body = validate(post, value, id, publicRoot, each);
   // The editId is a TimestampId too, so the validity bound applies to it
-  each(() => void checkTimestampId(editId));
+  each(() => void checkTimestampId(editId, "editId"));
   // The ownership rule, which the plain rules have no author for
   if (owner !== null) checkReferences(value, publicRoot, owner, each);
   return { id, editId, path: socialPath(root, `posts/${id}/${editId}${slug === null ? "" : `-${slug}`}.json`), value, body };
@@ -275,17 +327,18 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
   const hasher = blake3.create();
   hasher.update(utf8(head));
   hasher.update(utf8(post.codec.write(value)));
-  const salt = new DataView(hasher.digest().buffer).getBigUint64(0, true);
+  const digest = hasher.digest();
+  const salt = new DataView(digest.buffer, digest.byteOffset, digest.byteLength).getBigUint64(0, true);
   const floor = checkTimestampId(head);
   const now = nowMicros();
   let minted: bigint;
   if (now > floor) minted = mintFrom(now);
   else {
-    const room = now + MAX_FUTURE - floor - 1n;
-    if (room <= 0n) fail("the current version leaves no room for a newer id");
+    // A narrower spread than the whole would let two different edits share a path
+    if (now + MAX_FUTURE - floor - 1n < SPREAD) fail("the current version leaves no room for a newer id");
     // Past the guard: the salt tells successors apart, and a guard moved ahead of the clock
     // would make the next new post read the clock as corrected and reuse an id
-    minted = floor + 1n + (salt % (room < SPREAD ? room : SPREAD));
+    minted = floor + 1n + (salt % SPREAD);
   }
   return mint(value, id, timestampId(minted), root, owner, slug);
 }

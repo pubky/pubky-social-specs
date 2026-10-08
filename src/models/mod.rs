@@ -27,8 +27,8 @@
 //!    `validate`, so builders and JSON import cannot skip it. It bounds the open-ended `extra`
 //!    without counting newer known fields against the extension budget.
 //!
-//! Every enum that appears as a value inside a stored JSON object carries a
-//! `#[serde(other)] Unknown` catch-all and an `is_known()` helper. (`Resource`,
+//! Every enum that appears as a value inside a stored JSON object carries an
+//! `Unknown(name)` catch-all that keeps the spelling, and an `is_known()` helper. (`Resource`,
 //! the URI parse result, is not a stored object; its serde shape is pinned by
 //! the wire fixture and changing it is an API break.) `Unknown` in an object's PRIMARY enum (for
 //! example `post.kind` or `feed.reach`) fails validation, so consumers skip
@@ -39,12 +39,52 @@
 //! variant added later is a minor release: downstream matches must carry a
 //! wildcard arm, which is the same discipline `Unknown` already asks for.
 //!
-//! A derived id is a write-side guarantee, not a read-side one: a reader that
-//! meets a value it does not know cannot rebuild the writer's id input around
-//! it, so it takes the id as named and applies the rule above to the value.
+//! A derived id holds on read too: a value this version does not know keeps
+//! its spelling, so a reader rebuilds the writer's id input around it.
 
 use crate::uri::media_stem;
-use crate::{traits::HasIdPath, traits::Validatable, traits::ValidationCtx, ParsedUri, Resource};
+
+/// The wire names of an enum stored inside an object, and the catch-all that keeps a name this
+/// version does not know with its spelling, so an object read and written back says what its
+/// writer said.
+macro_rules! wire_names {
+    ($ty:ident { $($variant:ident => $name:literal),* $(,)? }) => {
+        impl $ty {
+            /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
+            pub fn is_known(&self) -> bool {
+                !matches!(self, Self::Unknown(_))
+            }
+
+            /// The wire spelling. One function, so an id input and every other text rendering
+            /// of a value can never disagree.
+            pub fn wire_name(&self) -> &str {
+                match self {
+                    $(Self::$variant => $name,)*
+                    Self::Unknown(name) => name,
+                }
+            }
+        }
+
+        impl From<String> for $ty {
+            fn from(name: String) -> Self {
+                match name.as_str() {
+                    $($name => Self::$variant,)*
+                    _ => Self::Unknown(name),
+                }
+            }
+        }
+
+        impl From<$ty> for String {
+            fn from(value: $ty) -> Self {
+                value.wire_name().to_string()
+            }
+        }
+    };
+}
+use crate::{
+    traits::HasIdPath, traits::TimestampId, traits::Validatable, traits::ValidationCtx, ParsedUri,
+    Resource,
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -109,6 +149,12 @@ pub enum PubkySocialObject {
     Feed(feed::PubkySocialFeed),
 }
 
+/// Whether a URI the parser classified as the user spells the profile's path, not the bare owner.
+fn is_profile_path(uri: &str) -> bool {
+    crate::canonicalize_pubky_uri(uri)
+        .is_ok_and(|canonical| canonical["pubky://".len()..].contains('/'))
+}
+
 impl PubkySocialObject {
     pub fn kind(&self) -> ObjectKind {
         match self {
@@ -136,6 +182,12 @@ impl PubkySocialObject {
 
     fn from_uri_cow(uri: &str, blob: Cow<'_, [u8]>) -> Result<Self, String> {
         let parsed_uri = ParsedUri::try_from(uri)?;
+        // `pubky://<pk>` is a reference to the user; their profile is stored at a path
+        if parsed_uri.resource == Resource::User && !is_profile_path(uri) {
+            return Err(format!(
+                "Validation Error: a bare owner URL names a user, not a stored object: {uri}"
+            ));
+        }
         let ctx = ValidationCtx {
             root: parsed_uri.visibility.root(),
         };
@@ -172,10 +224,17 @@ impl PubkySocialObject {
             }
             Resource::Post {
                 id,
-                version: Some(_),
+                version: Some(version),
                 ..
             } => {
                 let post = <PubkySocialPost as Validatable>::try_from(&blob, id, ctx)?;
+                // The version is a TimestampId of its own, never older than the post
+                post.validate_id(version)?;
+                if version.as_bytes() < id.as_bytes() {
+                    return Err(format!(
+                        "Validation Error: version {version} is older than the post id {id}"
+                    ));
+                }
                 Ok(PubkySocialObject::Post(post))
             }
             Resource::Post { version: None, .. } => Err(
@@ -226,10 +285,9 @@ impl PubkySocialObject {
             Resource::UnsupportedVersion { .. } => {
                 Err("Validation Error: an unsupported epoch is a skip, not an object".to_string())
             }
-            Resource::Unknown => Err(format!(
-                "Validation Error: Unrecognized resource {:?}",
-                resource
-            )),
+            Resource::Unknown => {
+                Err("Validation Error: the path names no social object".to_string())
+            }
         }
     }
 }
@@ -506,7 +564,7 @@ mod tests {
         );
         let err = result.err().unwrap();
         assert!(
-            err.contains("Validation Error: Unrecognized resource"),
+            err.contains("Validation Error: the path names no social object"),
             "Error message does not contain expected text: {}",
             err
         );

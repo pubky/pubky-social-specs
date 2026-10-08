@@ -6,7 +6,7 @@ import { type Model, readStored, validate } from "./models/common.js";
 import { type Feed, feed } from "./models/feed.js";
 import { checkFile } from "./models/file.js";
 import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from "./models/graph.js";
-import { checkReferences, post, type Post } from "./models/post.js";
+import { checkReferences, checkVersion, post, type Post } from "./models/post.js";
 import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
 import type { ObjectKind, Root } from "./path.js";
@@ -30,43 +30,47 @@ export const modelOf = (kind: Exclude<ObjectKind, "file">): Model<unknown> => mo
 const isStoredKind = (kind: string): kind is keyof Models => Object.hasOwn(models, kind);
 
 // What a path names that is no stored object
-function stored(parsed: Parsed): { kind: ObjectKind; id: string } {
+function stored(parsed: Parsed, uri: string): { kind: ObjectKind; id: string; editId: string | null } {
   switch (parsed.kind) {
     case "foreign":
       return fail("a foreign namespace is not a social object");
     case "unsupportedVersion":
       return fail("an unsupported epoch is a skip, not an object");
     case "unknown":
-      return fail("Unrecognized resource Unknown");
+      return fail("the path names no social object");
     case "user":
-      return { kind: "user", id: "" };
+      // `pubky://<pk>` is a reference to the user; their profile is stored at a path
+      if (parsed.path === "") fail(`a bare owner URL names a user, not a stored object: ${uri}`);
+      return { kind: "user", id: "", editId: null };
     case "post":
       if (parsed.editId === undefined) fail("a versionless post reference is never a stored object");
+      return { kind: "post", id: parsed.id, editId: parsed.editId };
   }
-  return { kind: parsed.kind, id: parsed.id };
+  return { kind: parsed.kind, id: parsed.id, editId: null };
 }
 
-function located(uri: string): { kind: ObjectKind; id: string; root: Root; owner: string } {
+function located(uri: string): { kind: ObjectKind; id: string; editId: string | null; root: Root; owner: string } {
   const parsed = parse(uri);
-  const { kind, id } = stored(parsed);
+  const { kind, id, editId } = stored(parsed, uri);
   // Field by field: spreading the result of stored() made a decode about 10 us slower in V8
-  return { kind, id, root: parsed.root, owner: parsed.owner };
+  return { kind, id, editId, root: parsed.root, owner: parsed.owner };
 }
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-/** The object stored at `uri`: its kind, its value and its bytes as the package writes them. */
-export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value: unknown; body: Bytes } {
-  const { kind, id, root, owner } = located(uri);
+/** The object stored at `uri`, its kind and its value; for media the value is the bytes. */
+export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value: unknown } {
+  const { kind, id, editId, root, owner } = located(uri);
   if (kind === "file") {
     checkFile(bytes, id);
-    return { kind, value: bytes, body: bytes as Bytes };
+    return { kind, value: bytes };
   }
   const publicRoot = root === "public";
-  const { value, body } = readStored(modelOf(kind), bytes, id, publicRoot);
+  const value = readStored(modelOf(kind), bytes, id, publicRoot);
+  if (editId !== null) checkVersion(id, editId);
   // The URI names the author, so the ownership rule can run here
   if (kind === "post") checkReferences(value as Post, publicRoot, owner);
-  return { kind, value, body: utf8(body) };
+  return { kind, value };
 }
 
 /**

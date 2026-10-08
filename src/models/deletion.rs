@@ -2,9 +2,10 @@
 //!
 //! Pure: the caller LISTs, this orders. Every PUBLIC kind is deleted in every epoch: on resync
 //! the highest understood epoch with a surviving copy wins, so a surviving legacy copy
-//! resurrects the object. The private tier (mutes, bookmarks) deletes its v1 file alone: its
-//! legacy copy is a frozen public snapshot nothing surfaces any more, and migration never
-//! deletes. A path that is not there is a skip for the caller, never an error.
+//! resurrects the object. A mute also deletes its legacy copy, which its id names and which
+//! would otherwise stay world-readable; a bookmark deletes its v1 file alone, since its legacy
+//! id hashes a target the migration respells and only a listing with proof could name it. A
+//! path that is not there is a skip for the caller, never an error.
 
 use super::post::lifecycle::delete_order;
 use super::ObjectKind;
@@ -84,9 +85,10 @@ impl Listing {
 ///   `uri` and `label` (it differs from the v1 id) and whose target and label, respelled as
 ///   v1 writes them, must derive this v1 id; a tag on a v0 File object also carries that
 ///   object's `src` and `content_type`, which spell the v1 media target; then the v1 path;
-/// - the profile and a follow take no listings: their legacy path is known, so it comes first;
-/// - a feed takes none and is its two v1 copies, public first; a mute and a bookmark take none
-///   and are their one private path.
+/// - the profile, a follow and a mute take no listings: their legacy path is known, so it
+///   comes first;
+/// - a feed takes none and is its two v1 copies, public first; a bookmark takes none and is
+///   its one private path.
 pub fn deletion_paths(
     kind: ObjectKind,
     id: &str,
@@ -119,7 +121,10 @@ pub fn deletion_paths(
         }
         ObjectKind::Mute => {
             PubkyId::try_from(id)?;
-            Ok(vec![PubkySocialMute::create_path(id)])
+            Ok(vec![
+                format!("{LEGACY_PREFIX}mutes/{id}"),
+                PubkySocialMute::create_path(id),
+            ])
         }
         ObjectKind::Bookmark if is_bookmark_filename(id) => {
             Ok(vec![PubkySocialBookmark::create_path(id)])
@@ -628,22 +633,18 @@ mod tests {
     }
 
     #[test]
-    fn the_private_tier_is_its_one_v1_path() {
-        let cases = [
-            (
-                ObjectKind::Mute,
-                PK,
+    fn a_mute_deletes_its_legacy_copy_and_a_bookmark_its_one_v1_path() {
+        assert_eq!(
+            deletion_paths(ObjectKind::Mute, PK, &[]).unwrap(),
+            vec![
+                format!("/pub/pubky.app/mutes/{PK}"),
                 format!("/priv/social/v1/mutes/{PK}.json"),
-            ),
-            (
-                ObjectKind::Bookmark,
-                "~8Z8CWH8NVYQY39ZEBFGKQWWEKG",
-                "/priv/social/v1/bookmarks/~8Z8CWH8NVYQY39ZEBFGKQWWEKG.json".to_string(),
-            ),
-        ];
-        for (kind, id, path) in cases {
-            assert_eq!(deletion_paths(kind, id, &[]).unwrap(), vec![path]);
-        }
+            ]
+        );
+        assert_eq!(
+            deletion_paths(ObjectKind::Bookmark, "~8Z8CWH8NVYQY39ZEBFGKQWWEKG", &[]).unwrap(),
+            vec!["/priv/social/v1/bookmarks/~8Z8CWH8NVYQY39ZEBFGKQWWEKG.json".to_string()]
+        );
     }
 
     #[test]

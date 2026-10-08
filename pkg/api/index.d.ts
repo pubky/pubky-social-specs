@@ -272,7 +272,8 @@ export declare function createMediaHasher(): {
 export declare function hashMedia(source: T.MediaSource): Promise<T.MediaId>;
 /**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
- * path in a plan is owner-relative.
+ * path in a plan is owner-relative. `slug` is the one the private version's path carries
+ * (`parseUri(url).slug`), so the public leaf keeps it.
  *
  * @example
  * ```ts
@@ -288,6 +289,7 @@ export declare function planPublish(owner: T.Given<"Owner">, version: {
     id: T.Given<"PostId">;
     editId: T.Given<"EditId">;
     post: T.Post;
+    slug?: string | null;
 }): {
     copies: T.Copy[];
     put: T.BuiltPost;

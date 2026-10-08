@@ -111,7 +111,7 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
     if (named !== kind) fail(`${at} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
   }
   const read = objects.read(at, bytesOf(bytes, "bytes"));
-  if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.body } : read.body;
+  if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.value as T.Bytes } : (read.value as T.Bytes);
   const object = objects.modelOf(read.kind).codec.plain(read.value) as T.Stored[keyof T.Stored];
   rememberUnknown(at, object);
   return kind === undefined ? ({ kind: read.kind, object } as T.Decoded) : object;
@@ -441,7 +441,8 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
 
 /**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
- * path in a plan is owner-relative.
+ * path in a plan is owner-relative. `slug` is the one the private version's path carries
+ * (`parseUri(url).slug`), so the public leaf keeps it.
  *
  * @example
  * ```ts
@@ -453,10 +454,14 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  * console.log(plan.copies.length, plan.put.path);
  * ```
  */
-export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post }): { copies: T.Copy[]; put: T.BuiltPost } {
-  const given = inputOf(snapshot(version, "version"), "version", ["id", "editId", "post"]);
+export function planPublish(
+  owner: T.Given<"Owner">,
+  version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post; slug?: string | null },
+): { copies: T.Copy[]; put: T.BuiltPost } {
+  const given = inputOf(snapshot(version, "version"), "version", ["id", "editId", "post", "slug"]);
   const value = posts.post.codec.parse(given.post, "version.post");
-  const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value);
+  const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "version.slug");
+  const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value, slug);
   return { copies: plan.copies as T.Copy[], put: builtPost(owner, plan.put) };
 }
 

@@ -1,0 +1,114 @@
+// Invariants a consumer relies on that no single rule states: bytes a hostile prototype cannot
+// change, a clock that never steps back, round trips that hold byte for byte, and one meaning
+// for each URL.
+
+import assert from "assert";
+import * as specs from "./dist/index.js";
+import { setClock } from "./dist/testing.js";
+import { OTTO, RIO, T0, caught, refuses, text, utf8 } from "./core.fixture.js";
+
+const { buildFile, buildFollow, buildPost, buildUser, decodeObject, encodeObject, planPublish } = specs;
+
+// One of everything a builder writes or a reader accepts, as bytes
+function corpus() {
+  const user = buildUser(OTTO, { name: 'Ann "the" \\ \n\t\u0001', bio: "é😀" });
+  const post = buildPost(OTTO, { content: 'quote " back \\ nl \n tab \t ctl \u0002', parent: `pubky://${RIO}/pub/social/v1/posts/0035QZPT4QG00` });
+  const article = buildPost(OTTO, { kind: "article", title: "T\"", body: "b\\\n", slug: "a-b" });
+  const decoded = decodeObject(post.url, post.body, "post");
+  return [user.body, post.body, article.body, encodeObject(post.url, decoded)].map(text);
+}
+
+describe("invariants", () => {
+  beforeEach(() => setClock(() => T0));
+  after(() => setClock());
+
+  it("a polluted Object.prototype changes no byte written and no value read", () => {
+    const clean = corpus();
+    const keys = [...Array.from({ length: 256 }, (_, i) => String.fromCharCode(i)), ...Array.from({ length: 256 }, (_, i) => String(i))];
+    const added = keys.filter((key) => !(key in Object.prototype));
+    try {
+      for (const key of added) Object.prototype[key] = "POLLUTED";
+      assert.deepStrictEqual(corpus(), clean);
+      const bytes = utf8('{"content":"a\\"b\\\\c\\/d\\n","kind":"note","parent":null,"embed":null,"attachments":[]}');
+      const read = decodeObject(`pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`, bytes, "post");
+      assert.strictEqual(read.content, 'a"b\\c/d\n');
+    } finally {
+      for (const key of added) delete Object.prototype[key];
+    }
+  });
+
+  it("created_at never steps back between two reads of the wall clock", () => {
+    setClock();
+    let last = 0;
+    for (let i = 0; i < 20_000; i++) {
+      const at = buildFollow(OTTO, RIO).object.created_at;
+      assert.ok(at >= last, `created_at stepped back from ${last} to ${at}`);
+      last = at;
+    }
+  });
+
+  it("a bare owner URL names a user, never a stored object", () => {
+    const user = buildUser(OTTO, { name: "Ann" });
+    for (const url of [`pubky://${OTTO}`, `pubky${OTTO}`]) {
+      refuses(() => decodeObject(url, user.body), `Validation Error: a bare owner URL names a user, not a stored object: ${url}`);
+      refuses(() => encodeObject(url, user.object), `Validation Error: a bare owner URL names a user, not a stored object: ${url}`);
+    }
+    // The short form of the profile's own path is the same object
+    assert.strictEqual(decodeObject(`pubky${OTTO}/pub/social/v1/profile.json`, user.body, "user").name, "Ann");
+  });
+
+  it("a version is never older than its post nor past the future bound", () => {
+    const post = buildPost(OTTO, { content: "x" });
+    const at = (editId) => `pubky://${OTTO}/pub/social/v1/posts/${post.id}/${editId}.json`;
+    const older = "0032SSN7Q4EVG";
+    refuses(() => decodeObject(at(older), post.body), `Validation Error: version ${older} is older than the post id ${post.id}`);
+    const ahead = "0036000000000"; // 2027, far past now + 2h
+    const e = caught(() => decodeObject(at(ahead), post.body));
+    assert.strictEqual(e.message, "Validation Error: Invalid ID, timestamp is too far in the future");
+    assert.strictEqual(e.field, "editId");
+  });
+
+  it("publishing keeps the slug and writes the envelope as its kind writes it", () => {
+    const media = buildFile(OTTO, { bytes: utf8("cover"), type: "image/png", root: "private" });
+    const draft = buildPost(OTTO, { kind: "article", title: "T", body: "B", cover_image: media.url, root: "private", slug: "my-post" });
+    const { slug } = specs.parseUri(draft.url);
+    const plan = planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object, slug });
+    assert.ok(plan.put.path.endsWith(`/${draft.editId}-my-post.json`), plan.put.path);
+    assert.strictEqual(plan.put.object.content, draft.object.content.replace("/priv/social/v1/files/", "/pub/social/v1/files/"));
+    refuses(() => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object, slug: "Not A Slug" }), /slug must be/);
+  });
+
+  it("a list is refused by its count before any item is read", () => {
+    const items = Array.from({ length: 101 }, () => ({ uri: "not a uri" }));
+    refuses(() => buildPost(OTTO, { kind: "collection", name: "List", items }), "Validation Error: Collection cannot have more than 100 items");
+    const attachments = Array.from({ length: 11 }, () => ({ uri: "not a uri" }));
+    refuses(() => buildPost(OTTO, { content: "x", attachments }), "Validation Error: Too many attachments (max: 10)");
+  });
+
+  it("a caller's array past the input bound is refused before it is walked", () => {
+    const attachments = new Array(1_000_000).fill({ uri: "https://x.y" });
+    const start = performance.now();
+    assert.throws(() => buildPost(OTTO, { content: "x", attachments }), TypeError);
+    assert.ok(performance.now() - start < 50, "a million items were walked");
+  });
+
+  it("a name this version does not know is written back as it was read", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
+    const envelope = '{"name":"List","items":[],"layout":"carousel"}';
+    const bytes = utf8(JSON.stringify({ content: envelope, kind: "collection", parent: null, embed: null, attachments: [] }));
+    const post = decodeObject(url, bytes, "post");
+    assert.deepStrictEqual(specs.decodeContent(post), { kind: "collection", content: { name: "List", description: null, items: [], cover_image: null, layout: "carousel" } });
+    assert.strictEqual(text(encodeObject(url, post)), text(bytes));
+  });
+
+  it("a number in an unknown member reads back to itself over any number of rewrites", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/follows/${RIO}.json`;
+    for (const n of ["2.2250738585072011e-308", "9007199254740993.5", "1.7976931348623157e308", "4.9e-324", "0.30000000000000004", "123456789012345678901234567890", "1e22"]) {
+      let bytes = utf8(`{"created_at":${T0 * 1000},"x":${n}}`);
+      const once = text(encodeObject(url, decodeObject(url, bytes, "follow")));
+      for (let i = 0; i < 5; i++) bytes = encodeObject(url, decodeObject(url, bytes, "follow"));
+      assert.strictEqual(text(bytes), once, n);
+      assert.strictEqual(JSON.parse(once).x, Number(n), n);
+    }
+  });
+});

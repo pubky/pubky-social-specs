@@ -130,7 +130,7 @@ export function deletionPaths(kind: ObjectKind, id: string, listings: readonly u
       return [`${LEGACY_ROOT}follows/${id}`, socialPath("public", `follows/${id}.json`)];
     case "mute":
       checkPublicKey(id);
-      return [socialPath("private", `mutes/${id}.json`)];
+      return [`${LEGACY_ROOT}mutes/${id}`, socialPath("private", `mutes/${id}.json`)];
     case "bookmark":
       if (!isBookmarkId(id)) fail(`not a bookmark filename: ${id}`);
       return [socialPath("private", `bookmarks/${id}.json`)];

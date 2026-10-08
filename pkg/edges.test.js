@@ -78,18 +78,14 @@ describe("edges", () => {
     const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
     const post = (kind) => utf8(`{"content":"x","kind":${kind},"parent":null,"embed":null,"attachments":[]}`);
 
-    it("reads a kind in serde's one-member object form, and refuses it as serde does", () => {
-      assert.strictEqual(specs.decodeObject(url, post('{"image":null}'), "post").kind, "image");
+    it("reads a kind as a string only, keeping a name it does not know", () => {
+      assert.strictEqual(specs.decodeObject(url, post('"image"'), "post").kind, "image");
       // The crate's answers, from its surface oracle
       const refusals = [
-        ['{"note":1}', "invalid type: integer `1`, expected unit"],
-        ["{1}", "invalid type: integer `1`, expected variant identifier"],
-        ['{"note" null}', "expected `:`"],
-        ['{"note":null,', "expected value"],
-        ['{"note"', "expected `:`"],
-        ["{", "expected value"],
-        ['{"zzz":null}', "post kind is unknown"],
-        ['{"note":nul}', "expected ident"],
+        ['{"image":null}', "invalid type: map, expected a string"],
+        ["1", "invalid type: integer `1`, expected a string"],
+        ["null", "invalid type: null, expected a string"],
+        ['"zzz"', "post kind is unknown"],
       ];
       for (const [kind, reason] of refusals) refuses(() => specs.decodeObject(url, post(kind)), `Validation Error: ${reason}`);
     });
@@ -294,7 +290,7 @@ describe("edges", () => {
       const content = `${draft.object.content.slice(0, -1)},"x":1152921504606846976}`;
       refuses(
         () => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: { ...draft.object, content } }),
-        "Validation Error: cannot publish: integer 1152921504606846976 outside the JSON-safe range",
+        "Validation Error: integer 1152921504606846976 outside the JSON-safe range (in extra member x)",
       );
     });
 

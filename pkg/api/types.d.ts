@@ -67,7 +67,7 @@ export interface User extends Open, Omit<Plain<users.User>, "links"> {
 export interface Attachment extends Open, Plain<posts.Attachment> {
 }
 export interface Post extends Open, Omit<Plain<posts.Post>, "kind" | "attachments"> {
-    /** A post of a kind this version does not know is refused on read, so never `"unknown"`. */
+    /** A post of a kind this version does not know is refused on read, so always one of `postKinds`. */
     kind: KnownPostKind;
     attachments: Attachment[];
 }

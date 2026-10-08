@@ -58,9 +58,13 @@ export function validate<T>(model: Model<T>, value: T, id: string | null, public
   return body;
 }
 
-/** Accepts the stored bytes as written or refuses them; a reader never rewrites. */
-export function readStored<T>(model: Model<T>, bytes: Uint8Array, id: string, publicRoot: boolean): { value: T; body: string } {
+/**
+ * Accepts the stored bytes as written or refuses them; a reader never rewrites. The cap holds
+ * the bytes as stored, so defaults the reader fills in are not counted against it.
+ */
+export function readStored<T>(model: Model<T>, bytes: Uint8Array, id: string, publicRoot: boolean): T {
   checkSize(bytes.length, model.maxBytes);
   const value = parse(model.codec, bytes);
-  return { value, body: validate(model, value, id, publicRoot) };
+  model.check(value, id, publicRoot, throwing);
+  return value;
 }

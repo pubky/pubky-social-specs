@@ -54,10 +54,11 @@ const ops = {
   // untouched, has to give the same bytes
   decode(a, stored) {
     const read = objects.read(a.s, bytes(stored));
+    const body = read.kind === "file" ? read.value : text.utf8(objects.modelOf(read.kind).codec.write(read.value));
     const decoded = api.decodeObject(a.s, bytes(stored));
     const again = api.encodeObject(a.s, decoded.kind === "file" ? decoded.bytes : decoded.object);
-    if (!sameBytes(again, read.body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
-    return { kind: read.kind, body: b64(read.body) };
+    if (!sameBytes(again, body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
+    return { kind: read.kind, body: b64(body) };
   },
   encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.modelOf(kind.s).codec, stored))),
   // `filename` is the package's addition, so `buildUri` takes back what this gives
@@ -78,7 +79,7 @@ const ops = {
   createBookmark: (a, b) => built(api.buildBookmark(a.s, b.s)),
   bookmarkTarget(a, content) {
     const blank = { created_at: 0n, target: null, extra: new Map() };
-    return graph.targetOf(a.s, json(content) === "null" ? blank : readStored(graph.bookmark, text.utf8(content.j), a.s, false).value);
+    return graph.targetOf(a.s, json(content) === "null" ? blank : readStored(graph.bookmark, text.utf8(content.j), a.s, false));
   },
   createFollow: (a, b) => built(api.buildFollow(a.s, b.s)),
   createMute: (a, b) => built(api.buildMute(a.s, b.s)),
@@ -86,8 +87,8 @@ const ops = {
 
   planPublish(a, version) {
     ids.checkPublicKey(a.s);
-    const { id, editId, post } = JSON.parse(version.j);
-    const plan = api.planPublish(a.s, { id, editId, post: held(posts.post.codec, { j: JSON.stringify(post) }) });
+    const { id, editId, post, slug } = JSON.parse(version.j);
+    const plan = api.planPublish(a.s, { id, editId, post: held(posts.post.codec, { j: JSON.stringify(post) }), slug });
     return { copies: plan.copies, put: built(plan.put) };
   },
   planUnpublish: (post) => api.planUnpublish(JSON.parse(post.j)),

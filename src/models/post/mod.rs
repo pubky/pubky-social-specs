@@ -28,7 +28,7 @@ const POSTS_SEGMENT: &str = "posts/";
 /// Represents the type of pubky-app posted data
 /// Used primarily to best display the content in UI
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(from = "String", into = "String")]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
 pub enum PubkySocialPostKind {
@@ -40,8 +40,7 @@ pub enum PubkySocialPostKind {
     Link,
     File,
     Collection,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
 impl fmt::Display for PubkySocialPostKind {
@@ -67,34 +66,15 @@ impl FromStr for PubkySocialPostKind {
     }
 }
 
-impl PubkySocialPostKind {
-    /// Returns `true` for every variant this crate version knows, `false` for `Unknown`.
-    ///
-    /// `Unknown` is the forwards-compat catch-all variant (via `#[serde(other)]`)
-    /// that captures any post-kind string this crate version doesn't
-    /// recognize yet. Most consumers, indexers, stream filters, search ranking,
-    /// want to skip such posts, and this helper lets them write
-    /// `if kind.is_known() { ... }` rather than
-    /// `if !matches!(kind, PubkySocialPostKind::Unknown) { ... }`.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, PubkySocialPostKind::Unknown)
-    }
-
-    /// The frozen wire spelling. One function, so the feed id input, `Display` and every
-    /// other text rendering of a kind can never disagree.
-    pub fn wire_name(&self) -> &'static str {
-        match self {
-            PubkySocialPostKind::Note => "note",
-            PubkySocialPostKind::Article => "article",
-            PubkySocialPostKind::Image => "image",
-            PubkySocialPostKind::Video => "video",
-            PubkySocialPostKind::Link => "link",
-            PubkySocialPostKind::File => "file",
-            PubkySocialPostKind::Collection => "collection",
-            PubkySocialPostKind::Unknown => "unknown",
-        }
-    }
-}
+wire_names!(PubkySocialPostKind {
+    Note => "note",
+    Article => "article",
+    Image => "image",
+    Video => "video",
+    Link => "link",
+    File => "file",
+    Collection => "collection",
+});
 
 /// One attached media reference. An object rather than a string so per-item metadata can
 /// grow without a break. `name` is per reference: two posts may attach the same bytes under
@@ -154,8 +134,8 @@ pub trait PostKind: Serialize + DeserializeOwned + Clone + Default {
     fn is_known(&self) -> bool;
 
     /// The per-kind rules on `content` and on how the envelope positions combine with it,
-    /// after the envelope's own rules (the id, `extra`, `is_known`, the reference gate over
-    /// every position and the attachment caps) have passed. An error message starts with
+    /// after the envelope's own rules (the id, `extra`, `is_known`, the list caps and the
+    /// reference gate over every position) have passed. An error message starts with
     /// `Validation Error: `; the envelope hands it through unchanged.
     fn validate_content(
         &self,
@@ -170,6 +150,12 @@ pub trait PostKind: Serialize + DeserializeOwned + Clone + Default {
     /// method's: it reports what it can read.
     fn content_references(&self, _post: &PostEnvelope<Self>) -> Vec<ContentReference> {
         Vec::new()
+    }
+
+    /// The caps on the lists inside `content`, run before any of their items is read. An
+    /// unparsable content is the kind's validation error, not this method's.
+    fn check_counts(&self, _post: &PostEnvelope<Self>) -> Result<(), String> {
+        Ok(())
     }
 }
 
@@ -500,6 +486,16 @@ impl PostKind for PubkySocialPostKind {
 
     /// Either envelope's cover, then the collection items; an unparsable envelope is that
     /// validator's error.
+    fn check_counts(&self, post: &PubkySocialPost) -> Result<(), String> {
+        let max = VALIDATION_LIMITS.collection_items_max_count;
+        if post.collection_item_uris().len() > max {
+            return Err(format!(
+                "Validation Error: Collection cannot have more than {max} items"
+            ));
+        }
+        Ok(())
+    }
+
     fn content_references(&self, post: &PubkySocialPost) -> Vec<ContentReference> {
         let mut refs = Vec::new();
         if let Some(cover) = post.envelope_cover() {
@@ -543,14 +539,17 @@ impl<K: PostKind> Validatable for PostEnvelope<K> {
             return Err("Validation Error: post kind is unknown".into());
         }
 
-        self.check_references(ctx, None)?;
-
+        // A list is bounded before any of its items is read
         if self.attachments.len() > VALIDATION_LIMITS.post_attachments_max_count {
             return Err(format!(
                 "Validation Error: Too many attachments (max: {})",
                 VALIDATION_LIMITS.post_attachments_max_count
             ));
         }
+        self.kind.check_counts(self)?;
+
+        self.check_references(ctx, None)?;
+
         for (index, attachment) in self.attachments.iter().enumerate() {
             check_extra(&attachment.extra, &["uri", "alt", "name"])?;
             if let Some(alt) = &attachment.alt {
@@ -932,10 +931,13 @@ mod tests {
         }
         for retired in ["\"short\"", "\"long\"", "\"hologram\""] {
             let kind: PubkySocialPostKind = serde_json::from_str(retired).unwrap();
-            assert_eq!(kind, PubkySocialPostKind::Unknown);
+            assert_eq!(
+                kind,
+                PubkySocialPostKind::Unknown(retired.trim_matches('"').into())
+            );
             assert!(!kind.is_known());
+            assert_eq!(serde_json::to_string(&kind).unwrap(), retired);
         }
-        assert_eq!(PubkySocialPostKind::Unknown.to_string(), "unknown");
     }
 
     #[test]
@@ -962,7 +964,7 @@ mod tests {
         let post_json =
             r#"{"content":"hello","kind":"short","parent":null,"embed":null,"attachments":[]}"#;
         let post: PubkySocialPost = serde_json::from_str(post_json).unwrap();
-        assert_eq!(post.kind, PubkySocialPostKind::Unknown);
+        assert_eq!(post.kind, PubkySocialPostKind::Unknown("short".into()));
         assert!(err(&post).contains("post kind is unknown"));
     }
 

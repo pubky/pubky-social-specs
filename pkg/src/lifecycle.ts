@@ -3,14 +3,12 @@
 
 import { reference } from "./canonicalize.js";
 import { limits } from "./data.js";
-import { fail, ValidationError } from "./errors.js";
+import { fail } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
-import { type JsonObject, readJson } from "./json/read.js";
-import { writeJson } from "./json/write.js";
-import { checkSafeNumbers, validate } from "./models/common.js";
-import { checkReferences, checkTimestampId, envelopeRefs, post, type Post } from "./models/post.js";
+import { validate } from "./models/common.js";
+import { checkReferences, checkTimestampId, envelopeRefs, post, type Post, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
-import { isPrivatePath, LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
+import { isPrivatePath, isSlug, LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
 interface Copy {
   from: string;
@@ -61,29 +59,21 @@ function toPublic(uri: string, owner: string): string {
  * Publishing one private version: the media copies to run first, then the post to PUT, its
  * private media references respelled to their public form in the reference positions only.
  */
-export function planPublish(owner: string, id: string, editId: string, value: Post) {
+export function planPublish(owner: string, id: string, editId: string, value: Post, slug: string | null) {
   checkPublicKey(owner);
+  if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
   checkTimestampId(id);
-  checkTimestampId(editId);
-  if (compareBytes(editId, id) < 0) fail(`editId ${editId} predates the post id ${id}`);
+  checkTimestampId(editId, "editId");
+  if (compareBytes(editId, id) < 0) fail(`editId ${editId} predates the post id ${id}`, "editId");
   const copies: Copy[] = privateMediaRefs(value, owner).map((uri) => ({ from: toPath(uri, owner), to: toPath(toPublic(uri, owner), owner) }));
-  const published: Post = { ...value, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
-  const { cover } = envelopeRefs(published);
-  if (cover !== null && toPublic(cover, owner) !== cover) {
-    // A cover is only ever read out of an envelope that parsed as an object
-    const envelope = readJson(published.content) as JsonObject;
-    try {
-      checkSafeNumbers(envelope);
-    } catch (e) {
-      if (e instanceof ValidationError) fail(`cannot publish: ${e.reason}`, e.field);
-      throw e;
-    }
-    envelope.set("cover_image", toPublic(cover, owner));
-    published.content = writeJson(envelope);
-  }
+  // The cover lives inside the envelope; one that does not parse is left for validation to refuse
+  const { cover } = envelopeRefs(value);
+  const content = cover !== null && toPublic(cover, owner) !== cover ? (withCover(value, toPublic(cover, owner)) ?? value.content) : value.content;
+  const published: Post = { ...value, content, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
   const body = validate(post, published, id, true);
   checkReferences(published, true, owner);
-  return { copies, put: { id, editId, path: socialPath("public", `posts/${id}/${editId}.json`), value: published, body } };
+  const leaf = `${editId}${slug === null ? "" : `-${slug}`}.json`;
+  return { copies, put: { id, editId, path: socialPath("public", `posts/${id}/${leaf}`), value: published, body } };
 }
 
 function editIdOf(id: string, root: Root, path: string): string {

@@ -15,8 +15,8 @@
 //
 // One resurrection is counted apart, not failed: a deleted key coming back from a 0.x copy that
 // is still there and that no finished run recorded. Nothing in this package can tell that copy
-// from one never migrated: `deletionPaths` does not reach the 0.x copy of a mute, a bookmark
-// or a feed (the reference defines it so), a client may skip the 0.x listing of a post or a
+// from one never migrated: `deletionPaths` does not reach the 0.x copy of a bookmark or a feed,
+// whose 0.x id the v1 id cannot name, a client may skip the 0.x listing of a post or a
 // tag, and only a finished run writes the record. `--strict` fails on it too.
 //
 //   node --max-old-space-size=1536 qa/model.mjs [--runs 1000] [--seed N] [--path P] [--commands 30] [--verbose]
@@ -266,7 +266,7 @@ function check(model, tree) {
       const legacy = unrecordedLegacy(tree, key, model.recordBefore);
       if (legacy === undefined || args.strict) problems.push(`deleted ${key} is back at ${p}`);
       else {
-        const why = /^(mutes|bookmarks|feeds)\//.test(key) ? "deletionPaths does not reach its 0.x copy" : "the client left its 0.x copy";
+        const why = /^(bookmarks|feeds)\//.test(key) ? "deletionPaths does not reach its 0.x copy" : "the client left its 0.x copy";
         known.set(why, (known.get(why) ?? 0) + 1);
         // Counted once: the user deletes it again
         model.deleted.delete(key);

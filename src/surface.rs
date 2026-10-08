@@ -299,6 +299,7 @@ struct PublishInput {
     id: String,
     edit_id: String,
     post: PubkySocialPost,
+    slug: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -655,7 +656,7 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "planPublish" => {
             let owner = PubkyId::try_from(a.s()?)?;
             let i: PublishInput = a.parsed()?;
-            let plan = crate::plan_publish(&i.id, &i.edit_id, &i.post, &owner)?;
+            let plan = crate::plan_publish(&i.id, &i.edit_id, &i.post, i.slug.as_deref(), &owner)?;
             let minted = crate::MintedVersion {
                 id: i.id,
                 edit_id: i.edit_id,

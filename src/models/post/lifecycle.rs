@@ -11,7 +11,7 @@ use crate::limits::VALIDATION_LIMITS;
 use crate::models::file::PubkySocialFile;
 use crate::traits::{HasIdPath, Root, TimestampId, Validatable, ValidationCtx};
 use crate::types::PubkyId;
-use crate::uri::parse_version_leaf;
+use crate::uri::{is_valid_label, parse_version_leaf};
 use serde::Serialize;
 
 /// Publish: media copies first, then the post PUT. Skip-if-exists on a copy is the caller's,
@@ -72,15 +72,25 @@ fn is_priv_rooted(uri: &str) -> bool {
 
 /// The envelope as a JSON object, for the kinds that carry one and when it parses. An
 /// unparsable envelope is validation's error, not the planner's.
-fn envelope_of(post: &PubkySocialPost) -> Option<serde_json::Map<String, serde_json::Value>> {
-    if !matches!(
-        post.kind,
-        PubkySocialPostKind::Article | PubkySocialPostKind::Collection
-    ) {
-        return None;
-    }
-    match serde_json::from_str(&post.content) {
-        Ok(serde_json::Value::Object(map)) => Some(map),
+/// The envelope of an article or a collection with `cover` as its cover, written as the kind
+/// writes it; `None` when the content does not parse as that envelope.
+fn with_cover(post: &PubkySocialPost, cover: String) -> Option<String> {
+    use super::content::{
+        article::PubkySocialArticleContent, collection::PubkySocialCollectionContent,
+    };
+    match post.kind {
+        PubkySocialPostKind::Article => {
+            let mut envelope: PubkySocialArticleContent =
+                serde_json::from_str(&post.content).ok()?;
+            envelope.cover_image = Some(cover);
+            serde_json::to_string(&envelope).ok()
+        }
+        PubkySocialPostKind::Collection => {
+            let mut envelope: PubkySocialCollectionContent =
+                serde_json::from_str(&post.content).ok()?;
+            envelope.cover_image = Some(cover);
+            serde_json::to_string(&envelope).ok()
+        }
         _ => None,
     }
 }
@@ -175,15 +185,25 @@ fn to_path(uri: &str, owner: &PubkyId) -> String {
         .to_string()
 }
 
-/// Publish one chosen version of a private post. Rewrites private media references to their
-/// public spelling in the reference positions only, never over the content text, and
-/// re-validates the result as a public object with the author in scope.
+/// Publish one chosen version of a private post, under the same leaf: `slug` is the one its
+/// private path carries. Rewrites private media references to their public spelling in the
+/// reference positions only, never over the content text, and re-validates the result as a
+/// public object with the author in scope.
 pub fn plan_publish(
     post_id: &str,
     chosen_edit_id: &str,
     chosen_version: &PubkySocialPost,
+    slug: Option<&str>,
     owner: &PubkyId,
 ) -> Result<PublishPlan, String> {
+    if let Some(slug) = slug {
+        if !is_valid_label(slug) {
+            return Err(format!(
+                "Validation Error: slug must be 1..={} chars of a-z, 0-9 and -: {slug}",
+                VALIDATION_LIMITS.post_slug_max_length
+            ));
+        }
+    }
     chosen_version.validate_id(post_id)?;
     chosen_version.validate_id(chosen_edit_id)?;
     if chosen_edit_id.as_bytes() < post_id.as_bytes() {
@@ -201,23 +221,15 @@ pub fn plan_publish(
     for attachment in &mut post.attachments {
         attachment.uri = to_public(&attachment.uri, owner);
     }
-    // The cover lives inside the envelope: respell it in place and re-serialize the object as
-    // parsed, so every other member comes back with its value (validation already bounded the
-    // integers to the JSON-safe range); only when the cover changes
+    // The cover lives inside the envelope: respell it there and write the envelope back as
+    // its kind writes it, so only the cover changes. An envelope that does not parse is left
+    // as it is, for validation to refuse below
     if let Some(cover) = cover_of(&post) {
         let public = to_public(&cover, owner);
         if public != cover {
-            let mut envelope = envelope_of(&post)
-                .ok_or("Validation Error: cannot publish: the cover did not parse")?;
-            // Until every envelope validates its unknown members, the planner refuses to
-            // re-emit an integer a JSON engine cannot carry back
-            crate::common::check_safe_numbers(&serde_json::Value::Object(envelope.clone()))
-                .map_err(|e| {
-                    let e = e.strip_prefix("Validation Error: ").unwrap_or(&e);
-                    format!("Validation Error: cannot publish: {e}")
-                })?;
-            envelope.insert("cover_image".into(), serde_json::Value::String(public));
-            post.content = serde_json::Value::Object(envelope).to_string();
+            if let Some(content) = with_cover(&post, public) {
+                post.content = content;
+            }
         }
     }
     let ctx = ValidationCtx { root: Root::Pub };
@@ -226,7 +238,7 @@ pub fn plan_publish(
     Ok(PublishPlan {
         media_copies,
         rewritten_post_json: serde_json::to_string(&post).map_err(|e| e.to_string())?,
-        dest_path: PubkySocialPost::create_path_in(Root::Pub, post_id, chosen_edit_id, None),
+        dest_path: PubkySocialPost::create_path_in(Root::Pub, post_id, chosen_edit_id, slug),
     })
 }
 
@@ -430,7 +442,7 @@ mod tests {
         // prose that mentions a private URI must survive byte for byte
         draft.content = format!("see {a}");
         let id = post_id();
-        let plan = plan_publish(&id, &id, &draft, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &draft, None, &owner()).unwrap();
         assert_eq!(
             plan.media_copies,
             vec![
@@ -488,7 +500,7 @@ mod tests {
             vec![uri.clone()]
         );
 
-        let plan = plan_publish(TS, TS, &draft, &owner).unwrap();
+        let plan = plan_publish(TS, TS, &draft, None, &owner).unwrap();
         assert_eq!(
             plan.media_copies,
             vec![(
@@ -535,7 +547,7 @@ mod tests {
             None,
         );
         let id = post_id();
-        let plan = plan_publish(&id, &id, &article, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &article, None, &owner()).unwrap();
         assert_eq!(plan.media_copies.len(), 1);
         let out: PubkySocialPost = serde_json::from_str(&plan.rewritten_post_json).unwrap();
         let e: PubkySocialArticleContent = serde_json::from_str(&out.content).unwrap();
@@ -554,7 +566,7 @@ mod tests {
             vec![],
             None,
         );
-        let plan = plan_publish(&id, &id, &public, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &public, None, &owner()).unwrap();
         let out: PubkySocialPost = serde_json::from_str(&plan.rewritten_post_json).unwrap();
         assert_eq!(out.content, public.content);
         assert!(plan.media_copies.is_empty());
@@ -570,13 +582,13 @@ mod tests {
             None,
             vec![],
         );
-        let e = plan_publish(&id, &id, &reply, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &reply, None, &owner()).unwrap_err();
         assert!(e.contains("private object"), "{e}");
         reply.parent = None;
         let foreign = image(vec![att(&format!(
             "pubky://{OTHER}/priv/social/v1/files/PZBQ010FF079VVZPQG1RNFN6DR.png"
         ))]);
-        let e = plan_publish(&id, &id, &foreign, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &foreign, None, &owner()).unwrap_err();
         assert!(
             e.contains(
                 "Validation Error: cannot publish: media uri must not reference a private object of another user: "
@@ -587,7 +599,7 @@ mod tests {
         let not_media = image(vec![att(&format!(
             "pubky://{PK}/priv/social/v1/posts/{TS}"
         ))]);
-        let e = plan_publish(&id, &id, &not_media, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &not_media, None, &owner()).unwrap_err();
         assert!(e.contains("not media"), "{e}");
         // a same-owner private files/ leaf the parser does not read as media is refused, not copied
         for leaf in [
@@ -598,14 +610,14 @@ mod tests {
             let junk = image(vec![att(&format!(
                 "pubky://{PK}/priv/social/v1/files/{leaf}"
             ))]);
-            let e = plan_publish(&id, &id, &junk, &owner()).unwrap_err();
+            let e = plan_publish(&id, &id, &junk, None, &owner()).unwrap_err();
             assert!(e.contains("not a media object"), "{leaf}: {e}");
         }
-        assert!(plan_publish("not-an-id", &id, &reply, &owner()).is_err());
-        assert!(plan_publish(&id, "not-an-id", &reply, &owner()).is_err());
+        assert!(plan_publish("not-an-id", &id, &reply, None, &owner()).is_err());
+        assert!(plan_publish(&id, "not-an-id", &reply, None, &owner()).is_err());
         // a canonical editId outside the validity window, or older than the post, is refused
-        assert!(plan_publish(&id, "FZZZZZZZZZZZY", &reply, &owner()).is_err());
-        assert!(plan_publish(&id, TS, &reply, &owner()).is_err());
+        assert!(plan_publish(&id, "FZZZZZZZZZZZY", &reply, None, &owner()).is_err());
+        assert!(plan_publish(&id, TS, &reply, None, &owner()).is_err());
     }
 
     #[test]
@@ -617,7 +629,7 @@ mod tests {
         let collection =
             PubkySocialPost::new(content, PubkySocialPostKind::Collection, None, None, vec![]);
         let id = post_id();
-        let plan = plan_publish(&id, &id, &collection, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &collection, None, &owner()).unwrap();
         assert_eq!(plan.media_copies.len(), 1);
         let out: PubkySocialPost = serde_json::from_str(&plan.rewritten_post_json).unwrap();
         let e: serde_json::Value = serde_json::from_str(&out.content).unwrap();
@@ -626,17 +638,26 @@ mod tests {
         assert_eq!(e["future"], 1);
         assert_eq!(e["name"], "n");
         assert_eq!(e["items"][0]["rating"], 5);
+        // written as the builder writes the envelope: only the cover changed
+        assert_eq!(
+            out.content,
+            collection
+                .content
+                .replace(&cover, &pub_file("PZBQ010FF079VVZPQG1RNFN6DR.png"))
+        );
+        // the slug of the private leaf is kept on the public one
+        let plan = plan_publish(&id, &id, &collection, Some("my-list"), &owner()).unwrap();
+        assert!(plan.dest_path.ends_with(&format!("/{id}-my-list.json")));
+        assert!(plan_publish(&id, &id, &collection, Some("Bad"), &owner())
+            .unwrap_err()
+            .contains("slug"));
         // an integer no JSON engine carries back is refused, not re-spelled
         let content =
             format!(r#"{{"name":"n","items":[],"cover_image":"{cover}","big":9007199254740992}}"#);
         let collection =
             PubkySocialPost::new(content, PubkySocialPostKind::Collection, None, None, vec![]);
-        let e = plan_publish(&id, &id, &collection, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &collection, None, &owner()).unwrap_err();
         assert!(e.contains("JSON-safe"), "{e}");
-        assert!(
-            e.starts_with("Validation Error: cannot publish: integer"),
-            "{e}"
-        );
         assert_eq!(e.matches("Validation Error").count(), 1, "{e}");
     }
 
@@ -650,13 +671,13 @@ mod tests {
         let collection =
             PubkySocialPost::new(content, PubkySocialPostKind::Collection, None, None, vec![]);
         let id = post_id();
-        let e = plan_publish(&id, &id, &collection, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &collection, None, &owner()).unwrap_err();
         assert!(e.contains("private object"), "{e}");
         // the same file as the cover publishes, and copies
         let content = format!(r#"{{"name":"n","items":[],"cover_image":"{file}"}}"#);
         let collection =
             PubkySocialPost::new(content, PubkySocialPostKind::Collection, None, None, vec![]);
-        let plan = plan_publish(&id, &id, &collection, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &collection, None, &owner()).unwrap();
         assert_eq!(plan.media_copies.len(), 1);
     }
 
@@ -673,7 +694,7 @@ mod tests {
             None,
         );
         let id = post_id();
-        let plan = plan_publish(&id, &id, &article, &owner()).unwrap();
+        let plan = plan_publish(&id, &id, &article, None, &owner()).unwrap();
         assert_eq!(plan.media_copies.len(), 1);
     }
 
@@ -683,7 +704,7 @@ mod tests {
         let shouting = image(vec![att(&format!(
             "PUBKY://{PK}/priv/social/v1/files/PZBQ010FF079VVZPQG1RNFN6DR.png"
         ))]);
-        let e = plan_publish(&id, &id, &shouting, &owner()).unwrap_err();
+        let e = plan_publish(&id, &id, &shouting, None, &owner()).unwrap_err();
         assert!(
             e.contains(
                 "Validation Error: cannot publish: media uri must be a canonical pubky or web URI"

@@ -78,7 +78,8 @@ export function stableKey(ownerRelativePath: string): { key: string } | { needsD
     if (parsed.kind === "user") return { key: "profile" };
     return "id" in parsed ? { key: `${parsed.kind}s/${parsed.id}` } : null;
   }
-  if (namespace !== LEGACY_NAMESPACE) return null;
+  // The 0.x tree was public only, so a private path is never one of its objects
+  if (namespace !== LEGACY_NAMESPACE || root !== "pub") return null;
   // The 0.x reader matched `[resource, id, ..]` and ignored what follows
   const [segment, leaf] = rest as [string, string | undefined];
   const hasLeaf = rest.length > 1 && rest.slice(1).join("/") !== "";

@@ -116,52 +116,6 @@ export function list<T>(inner: Codec<T>): Codec<T[]> {
   };
 }
 
-/**
- * One of a closed set of names. A name this version does not know reads as "unknown" and is
- * written back as that, which is how a reader survives a newer writer.
- */
-export function variant<T extends string>(names: readonly T[]): Codec<T | "unknown"> {
-  const named = (name: string): T | "unknown" => ((names as readonly string[]).includes(name) ? (name as T) : "unknown");
-  return {
-    read(r: Reader) {
-      const b = r.peekToken();
-      if (b === undefined) r.fail("EOF while parsing a value");
-      if (b === 0x22) {
-        r.pos++;
-        return named(r.string());
-      }
-      if (b !== 0x7b) r.fail("expected value");
-      // The parser also takes the one-member object form, `{"name": null}`
-      r.enter();
-      r.pos++;
-      if (r.peekToken() !== 0x22) invalidType(r, "variant identifier");
-      r.pos++;
-      const value = named(r.string());
-      const colon = r.peekToken();
-      if (colon === undefined) r.fail("EOF while parsing an object");
-      if (colon !== 0x3a) r.fail("expected `:`");
-      r.pos++;
-      if (r.peekToken() !== 0x6e) invalidType(r, "unit");
-      r.pos++;
-      r.ident("ull");
-      r.leave();
-      const close = r.peekToken();
-      if (close === undefined) r.fail("EOF while parsing an object");
-      if (close !== 0x7d) r.fail("expected value");
-      r.pos++;
-      return value;
-    },
-    write: writeString,
-    plain: (value) => value,
-    // A caller's name is one of the set, or the "unknown" a read gave it: a typo is not stored
-    parse(js, at) {
-      const name = string.parse(js, at);
-      if (name !== "unknown" && !(names as readonly string[]).includes(name)) misuse(at, `one of ${names.join(", ")}`);
-      return name as T | "unknown";
-    },
-  };
-}
-
 /** The members an object carries beyond the ones its type names, kept by value. */
 export type Extra = { extra: JsonObject };
 
@@ -173,7 +127,7 @@ function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObjec
   checkWellFormed(js);
   let members: Json;
   try {
-    members = readJson(js, true);
+    members = readJson(js);
   } catch (e) {
     if (e instanceof JsonError) return misuse(`${at}.$unknown`, "the text it was read with");
     throw e;

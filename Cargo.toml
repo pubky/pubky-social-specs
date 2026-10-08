@@ -42,7 +42,7 @@ required-features = ["replay"]
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+serde_json = { version = "1.0.145", features = ["float_roundtrip"] }
 # url and mime are quarantined: the frozen v0 reader is their only consumer, the v1
 # surface parses paths itself.
 url = "2.5.8"

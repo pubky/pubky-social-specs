@@ -6,8 +6,9 @@
 import { plainBytes } from "./bytes.js";
 import { misuse } from "./errors.js";
 
-// No list of the model, and no history a caller walks, comes near this
-const MAX_ITEMS = 1 << 20;
+// No list of the model (at most 100 items) and no history a caller walks comes near this, and
+// walking this many costs milliseconds
+const MAX_ITEMS = 10_000;
 // The deepest input, a version inside a plan with its attachments, is five levels down
 const MAX_DEPTH = 32;
 

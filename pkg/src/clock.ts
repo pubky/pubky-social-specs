@@ -4,11 +4,20 @@
 let clock: (() => bigint) | null = null;
 let lastMinted = 0n;
 
+// A clock this far behind the last reading is a correction, not jitter or a burst
+const ROLLBACK_TOLERANCE = 1_000_000n;
+
 // The wall clock gives the millisecond and a random draw the microsecond inside it: a browser
 // coarsens its monotonic clock to 100 us or more, so two copies of the package minting in one
 // millisecond would read the same fraction. The draw only spreads ids, so Math.random serves.
-// The guard keeps one copy's ids increasing.
-const wallMicros = (): bigint => BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
+// The guard keeps one copy's ids increasing; the reading itself never steps back inside a
+// millisecond, so two `created_at` read in a row keep their order.
+let lastWall = 0n;
+function wallMicros(): bigint {
+  const read = BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
+  lastWall = read > lastWall || lastWall - read > ROLLBACK_TOLERANCE ? read : lastWall;
+  return lastWall;
+}
 
 /** Microseconds since the epoch. */
 export const nowMicros = (): bigint => (clock ? clock() : wallMicros());
@@ -22,9 +31,6 @@ export function pin(now: (() => bigint) | null, last = 0n): void {
 // The guard read back and the `last` of `pin` are for the scoreboard, which replays the
 // reference's answers under a given clock and guard; nothing in the package reads them
 export const lastMint = (): bigint => lastMinted;
-
-// A clock this far behind the last mint is a correction, not a burst
-const ROLLBACK_TOLERANCE = 1_000_000n;
 
 /** Strictly increasing: a burst runs a microsecond ahead per mint, a corrected clock is followed. */
 export function mintFrom(now: bigint): bigint {

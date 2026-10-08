@@ -12,8 +12,6 @@ export type Json = null | boolean | string | number | bigint | Json[] | JsonObje
 export type JsonObject = Map<string, Json>;
 
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
-const I32_MAX = 2147483647;
-const POW10 = Array.from({ length: 309 }, (_, i) => Number(`1e${i}`));
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
@@ -24,15 +22,9 @@ export class Reader {
   readonly bytes: Uint8Array;
   // Arrays and objects still open; the parser gives up at 128
   private depth = 0;
-  private readonly exactFloats: boolean;
 
-  /**
-   * `exactFloats` reads a double correctly rounded, where the reference parser's own
-   * arithmetic can land a unit away: for text this package wrote and must read back unchanged.
-   */
-  constructor(bytes: Uint8Array, exactFloats = false) {
+  constructor(bytes: Uint8Array) {
     this.bytes = bytes;
-    this.exactFloats = exactFloats;
   }
 
   fail(message: string): never {
@@ -225,7 +217,7 @@ export class Reader {
       if (b < 0x20) this.fail("control character (\\u0000-\\u001F) found while parsing a string");
       const escape = this.byteOrEof();
       this.pos++;
-      const plain = ESCAPES[escape];
+      const plain = ESCAPES.get(escape);
       if (plain !== undefined) out += plain;
       else if (escape === 0x75) out += this.unicodeEscape();
       else this.fail("invalid escape");
@@ -255,145 +247,81 @@ export class Reader {
   /** A number whose sign is read: a bigint for an integer in 64 bits, else a double. */
   number(positive: boolean): bigint | number {
     const start = positive ? this.pos : this.pos - 1;
-    const value = this.scanNumber(positive);
-    if (!this.exactFloats || typeof value === "bigint") return value;
-    // A number is ASCII; decoded, not spread, since a token has no bound on its length
-    return Number(utf8Text(this.bytes.subarray(start, this.pos)));
+    const integer = this.scanNumber();
+    if (integer !== null) {
+      if (positive) return integer;
+      // A negative past 64 bits signed, and minus zero, are doubles
+      const negated = BigInt.asIntN(64, -integer);
+      if (negated < 0n) return negated;
+    }
+    // Correctly rounded, as the reference reads a double. A number is ASCII; decoded, not
+    // spread, since a token has no bound on its length
+    const f = Number(utf8Text(this.bytes.subarray(start, this.pos)));
+    if (!Number.isFinite(f)) this.fail("number out of range");
+    return f;
   }
 
-  private scanNumber(positive: boolean): bigint | number {
+  /** The digits of a number, refused where the parser refuses them: the integer when the token is one that fits 64 bits, else null. */
+  private scanNumber(): bigint | null {
     const first = this.bytes[this.pos++];
     if (first === undefined) this.fail("EOF while parsing a value");
+    if (!isDigit(first)) this.fail("invalid number");
+    let significand: bigint | null = BigInt(first - 0x30);
     if (first === 0x30) {
       const next = this.peek();
       if (next !== undefined && isDigit(next)) this.fail("invalid number");
-      return this.afterInteger(positive, 0n);
-    }
-    if (!isDigit(first)) this.fail("invalid number");
-    let significand = BigInt(first - 0x30);
-    for (;;) {
-      const b = this.peek();
-      if (b === undefined || !isDigit(b)) return this.afterInteger(positive, significand);
-      const next = significand * 10n + BigInt(b - 0x30);
-      // Past 64 bits the remaining digits only scale the value
-      if (next > U64_MAX) return this.longInteger(positive, significand);
-      this.pos++;
-      significand = next;
-    }
-  }
-
-  private afterInteger(positive: boolean, significand: bigint): bigint | number {
-    const b = this.peek();
-    if (b === 0x2e) return this.decimal(positive, significand, 0);
-    if (b === 0x65 || b === 0x45) return this.exponent(positive, significand, 0);
-    if (positive) return significand;
-    // A negative past 64 bits signed, and minus zero, are doubles
-    const negated = BigInt.asIntN(64, -significand);
-    return negated >= 0n ? -Number(significand) : negated;
-  }
-
-  private longInteger(positive: boolean, significand: bigint): number {
-    let exponent = 0;
-    for (;;) {
-      const b = this.peek();
-      if (b !== undefined && isDigit(b)) {
+    } else {
+      for (let b = this.peek(); b !== undefined && isDigit(b); b = this.peek()) {
         this.pos++;
-        exponent++;
-      } else if (b === 0x2e) return this.decimal(positive, significand, exponent);
-      else return this.scaled(positive, significand, exponent);
-    }
-  }
-
-  private decimal(positive: boolean, significand: bigint, before: number): number {
-    this.pos++;
-    let after = 0;
-    for (;;) {
-      const b = this.peek();
-      if (b === undefined || !isDigit(b)) break;
-      const next = significand * 10n + BigInt(b - 0x30);
-      if (next > U64_MAX) {
-        // The digits that do not fit are dropped, not rounded
-        while (isDigit(this.peek() ?? 0)) this.pos++;
-        return this.scaled(positive, significand, before + after);
+        if (significand !== null) {
+          significand = significand * 10n + BigInt(b - 0x30);
+          if (significand > U64_MAX) significand = null;
+        }
       }
-      this.pos++;
-      significand = next;
-      after--;
     }
-    if (after === 0) this.fail(this.peek() === undefined ? "EOF while parsing a value" : "invalid number");
-    return this.scaled(positive, significand, before + after);
+    let b = this.peek();
+    if (b === 0x2e) {
+      this.pos++;
+      if (!this.digits()) this.fail(this.peek() === undefined ? "EOF while parsing a value" : "invalid number");
+      significand = null;
+      b = this.peek();
+    }
+    if (b === 0x65 || b === 0x45) {
+      this.pos++;
+      const sign = this.peek();
+      if (sign === 0x2b || sign === 0x2d) this.pos++;
+      const digit = this.peek();
+      if (digit === undefined) this.fail("EOF while parsing a value");
+      if (!isDigit(digit)) this.fail("invalid number");
+      this.digits();
+      significand = null;
+    }
+    return significand;
   }
 
-  /** The value so far, through the exponent when one follows. */
-  private scaled(positive: boolean, significand: bigint, exponent: number): number {
-    const e = this.peek();
-    return e === 0x65 || e === 0x45 ? this.exponent(positive, significand, exponent) : this.fromParts(positive, significand, exponent);
-  }
-
-  private exponent(positive: boolean, significand: bigint, starting: number): number {
-    this.pos++;
-    let positiveExp = true;
-    const sign = this.peek();
-    if (sign === 0x2b || sign === 0x2d) {
-      this.pos++;
-      positiveExp = sign === 0x2b;
-    }
-    const first = this.bytes[this.pos++];
-    if (first === undefined) this.fail("EOF while parsing a value");
-    if (!isDigit(first)) this.fail("invalid number");
-    let exp = first - 0x30;
-    for (;;) {
-      const b = this.peek();
-      if (b === undefined || !isDigit(b)) break;
-      this.pos++;
-      if (exp * 10 + (b - 0x30) > I32_MAX) {
-        if (significand !== 0n && positiveExp) this.fail("number out of range");
-        while (isDigit(this.peek() ?? 0)) this.pos++;
-        return positive ? 0 : -0;
-      }
-      exp = exp * 10 + (b - 0x30);
-    }
-    const clamp = (n: number) => Math.max(-I32_MAX - 1, Math.min(I32_MAX, n));
-    return this.fromParts(positive, significand, clamp(positiveExp ? starting + exp : starting - exp));
-  }
-
-  // The parser's own arithmetic, not a correctly rounded conversion: a long significand or a
-  // large exponent lands a unit away from what `Number()` gives, and the bytes written back
-  // follow this value
-  private fromParts(positive: boolean, significand: bigint, exponent: number): number {
-    let f = Number(significand);
-    for (;;) {
-      const pow = POW10[Math.abs(exponent)];
-      if (pow !== undefined) {
-        if (exponent >= 0) {
-          f *= pow;
-          if (f === Infinity) this.fail("number out of range");
-        } else f /= pow;
-        break;
-      }
-      if (f === 0) break;
-      if (exponent >= 0) this.fail("number out of range");
-      f /= 1e308;
-      exponent += 308;
-    }
-    return positive ? f : -f;
+  /** Reads a run of digits; false when there was none. */
+  private digits(): boolean {
+    const start = this.pos;
+    while (isDigit(this.peek() ?? 0)) this.pos++;
+    return this.pos > start;
   }
 }
 
-const ESCAPES: Record<number, string> = {
-  0x22: '"',
-  0x5c: "\\",
-  0x2f: "/",
-  0x62: "\b",
-  0x66: "\f",
-  0x6e: "\n",
-  0x72: "\r",
-  0x74: "\t",
-};
+// A Map, so no key reaches a prototype
+const ESCAPES = new Map<number, string>([
+  [0x22, '"'],
+  [0x5c, "\\"],
+  [0x2f, "/"],
+  [0x62, "\b"],
+  [0x66, "\f"],
+  [0x6e, "\n"],
+  [0x72, "\r"],
+  [0x74, "\t"],
+]);
 
 /** One document: a value and nothing after it. */
-export function readJson(input: Uint8Array | string, exactFloats = false): Json {
-  const reader = new Reader(typeof input === "string" ? utf8(input) : input, exactFloats);
+export function readJson(input: Uint8Array | string): Json {
+  const reader = new Reader(typeof input === "string" ? utf8(input) : input);
   const value = reader.value();
   reader.end();
   return value;
