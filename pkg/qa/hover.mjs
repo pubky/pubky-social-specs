@@ -7,7 +7,7 @@
 // Exits 1 and names each export or member that hovers empty.
 
 import path from "node:path";
-import { ENTRIES, PKG, declarations } from "./lib.mjs";
+import { ENTRIES, PKG, declarations, flags } from "./lib.mjs";
 
 const dist = path.join(PKG, "dist");
 const UNIT = /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP)\b/i;
@@ -60,7 +60,7 @@ for (const [entry, module] of Object.entries(ENTRIES)) {
   }
 }
 
-if (process.argv.includes("--list")) for (const key of [...seen].filter((k) => typeof k === "string").sort()) console.log(key);
+if (flags({ list: { type: "boolean", default: false } }).list) for (const key of [...seen].filter((k) => typeof k === "string").sort()) console.log(key);
 if (empty.length > 0) console.error(`hover is empty for ${empty.length}:\n  ${empty.join("\n  ")}`);
 if (unitless.length > 0) console.error(`a number with no unit in its doc, ${unitless.length}:\n  ${unitless.join("\n  ")}`);
 if (empty.length + unitless.length > 0) process.exit(1);

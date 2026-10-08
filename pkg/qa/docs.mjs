@@ -8,10 +8,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { PKG as pkg, declarations } from "./lib.mjs";
+import { PKG as pkg, declarations, flags } from "./lib.mjs";
 
 const file = path.join(pkg, "docs/reference.md");
-const check = process.argv.includes("--check");
+const { check } = flags({ check: { type: "boolean", default: false } });
 
 const { limits, validMimeTypes, MIME_TO_EXT } = await import(pathToFileURL(path.join(pkg, "dist/data.js")));
 const entry = path.join(pkg, "dist/index.d.ts");

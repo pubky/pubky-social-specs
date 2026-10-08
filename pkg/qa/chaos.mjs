@@ -94,6 +94,13 @@ const expectedWrites = (tree) => {
   return out;
 };
 
+/** Each 1.x URL to the 0.x paths whose writes land there. */
+const sourcesOf = (writes) => {
+  const sources = new Map();
+  for (const [path, r] of writes) for (const w of r.writes ?? []) sources.set(w.url, [...(sources.get(w.url) ?? []), path]);
+  return sources;
+};
+
 const v1Of = (store) => new Map([...store].filter(([u]) => !u.startsWith(LEGACY) && u !== FLAG));
 const legacyOf = (store) => new Map([...store].filter(([u]) => u.startsWith(LEGACY)));
 
@@ -194,7 +201,7 @@ class ChaosPort {
    * seed draws one per call and `trace` records what it drew.
    */
   constructor(store, { seed, profile, rate, schedule, sourcesOfUrl }) {
-    this.sourcesOfUrl = sourcesOfUrl ?? new Map();
+    this.sourcesOfUrl = sourcesOfUrl;
     this.inner = new MemoryPort();
     this.inner.store = store;
     this.store = store;
@@ -476,12 +483,11 @@ const checkEndState = (tree, store, port, original, status) => {
       violations.push({ invariant: "flag-skipped-consistent", detail: `${reason}: flag ${JSON.stringify(got)} vs tree ${JSON.stringify(expectedLeft)}` });
     }
   }
-  const sourcesOf = new Map();
-  for (const [p, r] of now) for (const w of r.writes ?? []) sourcesOf.set(w.url, [...(sourcesOf.get(w.url) ?? []), p]);
+  const sourcesNow = sourcesOf(now);
   for (const path of skipped.put_rejected ?? []) {
     for (const w of now.get(path)?.writes ?? []) {
       // Another 0.x object folding to the same key may have landed it
-      if (v1.has(w.url) && !port.harnessWritten.has(w.url) && sourcesOf.get(w.url).length === 1) {
+      if (v1.has(w.url) && !port.harnessWritten.has(w.url) && sourcesNow.get(w.url).length === 1) {
         violations.push({ invariant: "flag-skipped-consistent", detail: `${path} is put_rejected but ${w.url} exists` });
       }
     }
@@ -499,8 +505,7 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   const store = new Map();
   for (const [path, bytes] of tree) store.set(url(path), bytes);
   const original = expectedWrites(tree);
-  const sourcesOfUrl = new Map();
-  for (const [p, r] of original) for (const w of r.writes ?? []) sourcesOfUrl.set(w.url, [...(sourcesOfUrl.get(w.url) ?? []), p]);
+  const sourcesOfUrl = sourcesOf(original);
   const port = new ChaosPort(store, { seed, profile, rate, schedule, sourcesOfUrl });
   const violations = port.violations;
   const runs = [];
