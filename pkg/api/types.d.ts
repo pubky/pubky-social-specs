@@ -248,7 +248,7 @@ export interface ByteStream {
     getReader(): {
         read(): Promise<{
             done: boolean;
-            value?: Uint8Array;
+            value?: Uint8Array | undefined;
         }>;
         releaseLock(): void;
     };

@@ -7,7 +7,7 @@ export interface SdkResponse {
         getReader(): {
             read(): Promise<{
                 done: boolean;
-                value?: Uint8Array;
+                value?: Uint8Array | undefined;
             }>;
             cancel(): Promise<void>;
         };
