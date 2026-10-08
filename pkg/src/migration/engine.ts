@@ -226,6 +226,9 @@ interface Flag {
   migrated: Set<string>;
 }
 
+/** The 0.x tree by pass, and what no pass takes. */
+type Walk = ReturnType<typeof ordered<string>>;
+
 /** A claim this object holds on a key: settle it once, with whether its copy exists. */
 interface Claim {
   write: MigratedWrite;
@@ -297,61 +300,11 @@ class Run {
         return this.#finish("already_migrated");
       }
       if (flag) this.#before = flag.migrated;
-
-      this.#phase = "listing";
-      this.#emit();
-      for (const prefix of this.#roots) {
-        for (const url of await this.#listAll(prefix)) {
-          const id = stableKey(this.#relative(url));
-          if (id === null || !("key" in id)) continue;
-          this.#claims.set(id.key.startsWith("files/") ? url : id.key, LANDED);
-        }
-      }
-      const legacyPrefix = listPrefix(owner, "legacy");
-      const legacy = await this.#listAll(legacyPrefix);
-      this.#total = legacy.length;
-      const { passes, rest } = ordered(legacy, (url) => url.slice(legacyPrefix.length));
-      for (const [bucket, urls] of passes) {
-        if (bucket !== "blobs") continue;
-        for (const url of urls) this.#pendingBlobs.add(keyOf(this.#relative(url)));
-      }
-
-      this.#phase = "migrating";
-      this.#handle = transforms.createMigration(owner);
-      for (const [bucket, urls] of passes) {
-        this.#pass = bucket;
-        await pool(
-          urls,
-          IN_FLIGHT,
-          (url) => this.#object(bucket, url),
-          () => this.#aborted(),
-        );
-        this.#checkAbort();
-      }
-      this.#pass = undefined;
-      // settings.json, last_read and anything else no 1.x type takes
-      for (const url of rest) {
-        this.#count("not_migrated", this.#relative(url));
-        this.#done++;
-        this.#emit(url);
-      }
+      await this.#walk(await this.#list());
 
       // Only a walk where every object reached an outcome of its own is recorded as done
       if (this.#counts.io_error > 0) return this.#finish("incomplete");
-      if (!this.#dry) {
-        this.#phase = "flag";
-        this.#emit();
-        const flagObject = {
-          migrated_at: Date.now() * 1000,
-          transform_rev: transformRev,
-          skipped: this.#skippedSorted(),
-          migrated: [...this.#migrated].sort(),
-        };
-        const put = await this.#attempt(() => this.#port.putJson(flagUrl, flagObject));
-        if (isFailure(put)) {
-          throw new Stop({ code: "IO_ERROR", message: `writing ${FLAG}: ${put.message}` });
-        }
-      }
+      if (!this.#dry) await this.#writeFlag(flagUrl);
       return this.#finish("done");
     } catch (error) {
       if (!(error instanceof Stop)) throw error;
@@ -364,6 +317,65 @@ class Run {
   /** The report of a run that could not start. */
   refuse(code: "ALREADY_RUNNING"): MigrationReport {
     return this.#finish("aborted", { code, message: MESSAGES[code] });
+  }
+
+  /** Claims every key the 1.x roots hold, and lists the 0.x tree in walk order. */
+  async #list(): Promise<Walk> {
+    this.#phase = "listing";
+    this.#emit();
+    for (const prefix of this.#roots) {
+      for (const url of await this.#listAll(prefix)) {
+        const id = stableKey(this.#relative(url));
+        if (id === null || !("key" in id)) continue;
+        this.#claims.set(id.key.startsWith("files/") ? url : id.key, LANDED);
+      }
+    }
+    const legacyPrefix = listPrefix(this.#options.owner, "legacy");
+    const legacy = await this.#listAll(legacyPrefix);
+    this.#total = legacy.length;
+    const walk = ordered(legacy, (url) => url.slice(legacyPrefix.length));
+    for (const [bucket, urls] of walk.passes) {
+      if (bucket !== "blobs") continue;
+      for (const url of urls) this.#pendingBlobs.add(keyOf(this.#relative(url)));
+    }
+    return walk;
+  }
+
+  async #walk({ passes, rest }: Walk): Promise<void> {
+    this.#phase = "migrating";
+    this.#handle = transforms.createMigration(this.#options.owner);
+    for (const [bucket, urls] of passes) {
+      this.#pass = bucket;
+      await pool(
+        urls,
+        IN_FLIGHT,
+        (url) => this.#object(bucket, url),
+        () => this.#aborted(),
+      );
+      this.#checkAbort();
+    }
+    this.#pass = undefined;
+    // settings.json, last_read and anything else no 1.x type takes
+    for (const url of rest) {
+      this.#count("not_migrated", this.#relative(url));
+      this.#done++;
+      this.#emit(url);
+    }
+  }
+
+  async #writeFlag(flagUrl: string): Promise<void> {
+    this.#phase = "flag";
+    this.#emit();
+    const flagObject = {
+      migrated_at: Date.now() * 1000,
+      transform_rev: transformRev,
+      skipped: this.#skippedSorted(),
+      migrated: [...this.#migrated].sort(),
+    };
+    const put = await this.#attempt(() => this.#port.putJson(flagUrl, flagObject));
+    if (isFailure(put)) {
+      throw new Stop({ code: "IO_ERROR", message: `writing ${FLAG}: ${put.message}` });
+    }
   }
 
   /** The flag, when this homeserver has a private root and a run has finished before. */
@@ -464,16 +476,7 @@ class Run {
       return this.#count("invalid", path, error.message);
     }
     if ("skip" in result) return this.#count(result.skip, path, result.note);
-    // The port can write the whole tree, the 0.x one included, which the run must never touch
-    for (const write of result.writes) {
-      if (!fenced(write.meta.url, this.#options.owner, this.#roots)) {
-        throw new Error(`pubky-social-specs/migration: a write to ${write.meta.url}, outside ${this.#roots.join(" and ")}`);
-      }
-      const derived = derivedUrl(this.#options.owner, write);
-      if (derived !== write.meta.url) {
-        throw new Error(`pubky-social-specs/migration: a ${write.kind} ${write.meta.id} written to ${write.meta.url}, where the package puts it at ${derived ?? "no URL"}`);
-      }
-    }
+    this.#fence(result.writes);
     if (bucket === "files") {
       this.#learnFile(bytes);
       return undefined;
@@ -494,6 +497,20 @@ class Run {
     } finally {
       // A stop or a fault mid-copy must not leave another object waiting on a claim
       claims.forEach((claim) => claim.settle(false));
+    }
+  }
+
+  /** The write fence: a write the package would not spell itself is a fault, not data. */
+  #fence(writes: MigratedWrite[]): void {
+    // The port can write the whole tree, the 0.x one included, which the run must never touch
+    for (const write of writes) {
+      if (!fenced(write.meta.url, this.#options.owner, this.#roots)) {
+        throw new Error(`pubky-social-specs/migration: a write to ${write.meta.url}, outside ${this.#roots.join(" and ")}`);
+      }
+      const derived = derivedUrl(this.#options.owner, write);
+      if (derived !== write.meta.url) {
+        throw new Error(`pubky-social-specs/migration: a ${write.kind} ${write.meta.id} written to ${write.meta.url}, where the package puts it at ${derived ?? "no URL"}`);
+      }
     }
   }
 
