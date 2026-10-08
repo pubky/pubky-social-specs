@@ -157,6 +157,18 @@ describe("edges", () => {
       );
     });
 
+    it("remembers the last thousand URLs read, the oldest forgotten first", () => {
+      const first = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG04.json`;
+      specs.decodeObject(first, stored, "post");
+      const read = specs.decodeObject(first, stored, "post");
+      for (let i = 0; i < 1000; i++) specs.decodeObject(`pubky://${OTTO}/pub/social/v1/follows/${fakeOwner(i)}.json`, utf8('{"created_at":1,"x":1}'), "follow");
+      const { $unknown, ...rest } = read;
+      assert.deepStrictEqual(
+        warnings(() => specs.encodeObject(first, rest)),
+        [],
+      );
+    });
+
     it("is silent in production", () => {
       const script = `import * as s from "./dist/index.js"; const u = ${JSON.stringify(url)}; const r = s.decodeObject(u, new TextEncoder().encode(${JSON.stringify(new TextDecoder().decode(stored))}), "post"); console.warn = () => { throw new Error("warned"); }; const { $unknown, ...rest } = r; s.encodeObject(u, rest); console.log("quiet");`;
       const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], { env: { ...process.env, NODE_ENV: "production" } }).toString();

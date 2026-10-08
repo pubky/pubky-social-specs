@@ -49,6 +49,8 @@ const FLOORS = [
   ["src/migration/wasm.ts", [96, 87]],
   ["src/migration/", [99, 97]],
   ["src/objects.ts", [98, 88]],
+  // The branch for a host with no process never runs under Node
+  ["src/dev.ts", [100, 88]],
   ["src/", [98, 90]],
 ];
 const summary = JSON.parse(fs.readFileSync(`${out}/coverage-summary.json`, "utf8"));
