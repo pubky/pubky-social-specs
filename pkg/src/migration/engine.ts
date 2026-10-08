@@ -126,7 +126,7 @@ const readFlag = (bytes: Uint8Array): Flag => {
     if (!OUTCOMES.includes(outcome as Outcome) || !strings(paths)) return unreadFlag();
     kept[outcome as Outcome] = paths;
   }
-  return { transformRev: Number.isSafeInteger(rev) ? (rev as number) : 0, skipped: kept, migrated: new Set(migrated) };
+  return { transformRev: typeof rev === "number" && Number.isSafeInteger(rev) ? rev : 0, skipped: kept, migrated: new Set(migrated) };
 };
 
 /** Whether `url` names an object of `owner` under one of `roots`, by canonical segments only. */

@@ -102,9 +102,9 @@ const MAPPED: Partial<Record<number, PortErrorKind>> = {
 };
 
 /**
- * The error for a homeserver answer `status`, mapped as the kinds above say. A 400 or 405 that
- * means the root does not exist is `unsupported` only where the adapter knows that; here it
- * is `rejected`.
+ * The error for a homeserver answer `status`, mapped as the kinds above say. A 403 that means
+ * the root does not exist is `unsupported` only where the adapter can tell from its text; here
+ * it is `unauthorized`.
  *
  * @example
  * ```ts
