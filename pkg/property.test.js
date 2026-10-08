@@ -28,6 +28,7 @@ import {
   ValidationError,
 } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
+import { T0, text } from "./core.fixture.js";
 
 const SEED = Number(process.env.FC_SEED ?? 20261008);
 const RUNS = Number(process.env.FC_RUNS ?? 200);
@@ -35,9 +36,6 @@ fc.configureGlobal({ seed: SEED, numRuns: RUNS });
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
-// 2026-09-22, inside the window every stored id has to be in
-const T0 = 1_790_000_000_000;
-const text = (bytes) => new TextDecoder().decode(bytes);
 
 const chars = (alphabet, length) => fc.array(fc.constantFrom(...alphabet), { minLength: length, maxLength: length }).map((a) => a.join(""));
 // The spare bits of the last character are zero in the one canonical spelling
@@ -122,7 +120,12 @@ describe("properties", function () {
     };
 
     it("every built object decodes at its url to itself and encodes back to its bytes", () => {
-      fc.assert(fc.property(owner, newUser, (o, input) => void (accepted(() => buildUser(o, input)) && roundTrip(buildUser(o, input)))));
+      fc.assert(
+        fc.property(owner, newUser, (o, input) => {
+          const built = accepted(() => buildUser(o, input));
+          if (built) roundTrip(built);
+        }),
+      );
       fc.assert(
         fc.property(owner, newPost, (o, input) => {
           const built = accepted(() => buildPost(o, input));
