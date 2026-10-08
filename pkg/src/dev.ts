@@ -1,8 +1,7 @@
 // Development only: warn when an object read with members another client added is written back
 // without them, which is what copying it field by field does, and when a timestamp looks like
-// milliseconds. A bundler replaces
-// `process.env.NODE_ENV`, so a production build folds this to nothing; outside Node, with no
-// bundler, there is no `process` and no warning.
+// milliseconds. A bundler replaces `process.env.NODE_ENV`, so a production build folds this to
+// nothing; outside Node, with no bundler, there is no `process` and no warning.
 
 declare const process: { env: Record<string, string | undefined> } | undefined;
 declare const console: { warn(message: string): void };
