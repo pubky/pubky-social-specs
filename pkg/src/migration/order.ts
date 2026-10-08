@@ -55,4 +55,4 @@ const bucketOf = (ownerRelativePathOrUrl: string): Bucket | "rest" => {
   return legacyBucket(path.slice(LEGACY_NAMESPACE.length)) ?? "rest";
 };
 
-export { BUCKETS, bucketOf, ordered };
+export { bucketOf, ordered };

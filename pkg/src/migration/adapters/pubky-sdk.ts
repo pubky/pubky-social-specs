@@ -61,6 +61,17 @@ const portError = (error: unknown): MigrationPortError => {
   return refusal(status, message);
 };
 
+// `absent` where the homeserver has nothing; any other failure goes on as its port error
+const orAbsent = async <T, A>(call: Promise<T>, absent: A): Promise<T | A> => {
+  try {
+    return await call;
+  } catch (error) {
+    const failure = portError(error);
+    if (failure.kind === "not_found") return absent;
+    throw failure;
+  }
+};
+
 class SdkPort implements MigrationPort {
   readonly #storage: SdkSession["storage"];
   readonly #owner: string;
@@ -88,14 +99,10 @@ class SdkPort implements MigrationPort {
     if (!path.endsWith("/")) {
       throw new MigrationPortError("rejected", `${prefixUrl}: a LIST prefix must end with /`);
     }
-    let urls: string[];
-    try {
-      urls = await this.#call(() => this.#storage.list(path, cursor ?? null, false, this.#pageSize, false));
-    } catch (error) {
-      const failure = portError(error);
-      if (failure.kind === "not_found") return { urls: [] };
-      throw failure;
-    }
+    const urls = await orAbsent(
+      this.#call(() => this.#storage.list(path, cursor ?? null, false, this.#pageSize, false)),
+      [],
+    );
     // A server or a proxy may cap the page below the size asked, so only an empty page ends the walk
     const last = urls.at(-1);
     return last === undefined ? { urls } : { urls, next: last };
@@ -104,16 +111,10 @@ class SdkPort implements MigrationPort {
   async get(url: string, options?: GetOptions): Promise<Uint8Array | null> {
     const path = this.#path(url);
     const max = options?.maxBytes;
-    try {
-      // A blob's download grows with its size and the SDK gives no progress, so only an
-      // object's GET has the deadline
-      const read = () => (max === undefined ? this.#storage.getBytes(path) : this.#capped(path, max));
-      return await this.#call(read, !isBlobPath(path));
-    } catch (error) {
-      const failure = portError(error);
-      if (failure.kind === "not_found") return null;
-      throw failure;
-    }
+    const read = () => (max === undefined ? this.#storage.getBytes(path) : this.#capped(path, max));
+    // A blob's download grows with its size and the SDK gives no progress, so only an
+    // object's GET has the deadline
+    return orAbsent(this.#call(read, !isBlobPath(path)), null);
   }
 
   async head(url: string): Promise<boolean> {
@@ -125,15 +126,11 @@ class SdkPort implements MigrationPort {
       if (failure.status !== 403) throw failure;
       // A HEAD carries no body, so the reason of the refusal is read from a GET, whose body is
       // dropped unread when it succeeds
-      try {
-        const response = await this.#call(() => this.#storage.get(path));
+      const read = this.#call(() => this.#storage.get(path)).then(async (response) => {
         await response.body?.cancel();
         return true;
-      } catch (retry) {
-        const refused = portError(retry);
-        if (refused.kind === "not_found") return false;
-        throw refused;
-      }
+      });
+      return orAbsent(read, false);
     }
   }
 
@@ -205,18 +202,12 @@ class SdkPort implements MigrationPort {
    * exit before it fires; it is cleared as soon as the call settles.
    */
   async #call<T>(call: () => Promise<T>, bounded = true): Promise<T> {
-    if (!bounded) {
-      try {
-        return await call();
-      } catch (error) {
-        throw portError(error);
-      }
-    }
     let timer: unknown;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)), this.#deadlineMs);
-    });
     try {
+      if (!bounded) return await call();
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)), this.#deadlineMs);
+      });
       return await Promise.race([call(), deadline]);
     } catch (error) {
       throw portError(error);
