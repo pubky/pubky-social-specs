@@ -555,7 +555,10 @@ class Run {
       return this.#written(path, dropped);
     }
     for (const [i, claim] of made.entries()) {
-      // Over a check-then-write port another device may have written there since; theirs stays
+      // Over a check-then-write port another device may have written there since; theirs stays.
+      // The read-back and the DELETE are two requests, and with no conditional DELETE a write
+      // landing between them goes too: the window SECURITY.md names, taken over bringing back
+      // an object the owner deleted
       const ours = await this.#holds(claim.write);
       const deleted = ours === true ? await this.#attempt(() => this.#port.delete(claim.write.meta.url)) : ours;
       if (isFailure(deleted) && deleted.failed !== "not_found") {

@@ -72,8 +72,9 @@ What the package defends, against whom, and what it leaves to others.
   and reading those gives the same object again. A name this version does not know (a newer
   post kind in a feed filter, a newer collection layout) is written back with its spelling, and
   a number in an unknown member reads back to itself over any number of rewrites.
-- **A cleanup deletes only its own copy**: before deleting a copy whose source vanished, the
-  engine reads it back and deletes it only when the bytes are the ones it wrote.
+- **A cleanup deletes only a copy it read back as its own**: before deleting a copy whose source
+  vanished, the engine reads it back and deletes it only when the bytes are the ones it wrote.
+  The read and the DELETE are two requests (see the conditional writes below).
 - **The CLI's secrets**: the passphrase is asked on the terminal with echo off or read once from
   an environment variable that is then removed; never from the arguments. A recovery file
   readable by others is refused; the file's bytes and a typed passphrase are zeroed after use;
@@ -81,10 +82,14 @@ What the package defends, against whom, and what it leaves to others.
 
 ### What it does not defend
 
-- **Create-only writes.** The homeserver does not honour `If-None-Match` on PUT, so `ifAbsent` is
-  a HEAD then a PUT and a write landing between the two is overwritten. Two copies of the package
-  minting in the same microsecond can mint the same id; the client re-mints on a taken path,
-  within the same window.
+- **Conditional writes.** The homeserver honours neither `If-None-Match` on PUT nor `If-Match` on
+  DELETE. So `ifAbsent` is a HEAD then a PUT, and a write landing between the two is overwritten.
+  And the migration's cleanup of a copy whose 0.x source the owner deleted mid-run is a read-back
+  then a DELETE: a different write to that path landing between the two is deleted with it. An
+  identical one is the same deleted source copied by another run, which should go too. Leaving
+  the copy instead would bring back, as a 1.x object, something the owner deleted. Two copies of
+  the package minting in the same microsecond can mint the same id; the client re-mints on a
+  taken path, within the same window. A conditional DELETE on the homeserver would close both.
 - **References that render dangerously.** A reference may use any URI scheme the reference model
   accepts, `javascript:` and `data:` included. A renderer allow-lists schemes before making a
   link.
