@@ -139,6 +139,21 @@ describe("pubky-social-migrate arguments", () => {
     assert.deepStrictEqual(written, ["Recovery passphrase: ", "\n"], "nothing typed is echoed");
   });
 
+  it("wipes each chunk the terminal gave, also when Enter or Ctrl-C ends it", async () => {
+    for (const ending of ["\r", "\x03"]) {
+      const { input, output } = terminal();
+      const asked = askPassphrase(input, output).catch(() => null);
+      const chunk = Buffer.from(`secret${ending}`);
+      input.emit("data", chunk);
+      const typed = await asked;
+      assert.ok(
+        chunk.every((byte) => byte === 0),
+        JSON.stringify(ending),
+      );
+      typed?.fill(0);
+    }
+  });
+
   it("gives up on Ctrl-C, and asks nothing where there is no terminal", async () => {
     const { input, output } = terminal();
     const asked = askPassphrase(input, output);

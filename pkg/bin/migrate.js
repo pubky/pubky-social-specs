@@ -137,15 +137,19 @@ const askPassphrase = (input, output) =>
         reject(error);
       } else resolve(typed);
     };
+    // The chunk is wiped on every way out, the early ones included: it holds what was typed
     const onData = (chunk) => {
-      for (const byte of chunk) {
-        if (byte === 0x0d || byte === 0x0a) return done();
-        if (byte === 0x03 || byte === 0x04) return done(new UsageError("no passphrase given"));
-        const grown = byte === 0x7f || byte === 0x08 ? Buffer.from(typed.subarray(0, Math.max(0, typed.length - 1))) : Buffer.concat([typed, Buffer.from([byte])]);
-        typed.fill(0);
-        typed = grown;
+      try {
+        for (const byte of chunk) {
+          if (byte === 0x0d || byte === 0x0a) return done();
+          if (byte === 0x03 || byte === 0x04) return done(new UsageError("no passphrase given"));
+          const grown = byte === 0x7f || byte === 0x08 ? Buffer.from(typed.subarray(0, Math.max(0, typed.length - 1))) : Buffer.concat([typed, Buffer.from([byte])]);
+          typed.fill(0);
+          typed = grown;
+        }
+      } finally {
+        chunk.fill(0);
       }
-      chunk.fill(0);
     };
     input.setRawMode(true);
     input.resume();
