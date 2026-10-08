@@ -138,6 +138,9 @@ export function ownedPath(url: string, owner: string, directory = false): string
   return clean ? url.slice(prefix.length - 1) : null;
 }
 
+/** Whether a path split off by `splitPubky` is under the private root. */
+export const isPrivatePath = (path: string | null): boolean => path === "priv" || path?.startsWith("priv/") === true;
+
 /** A full `pubky://` URI split after its owner: the path without its leading `/`, null for none. */
 export function splitPubky(uri: string): { owner: string; path: string | null } | null {
   if (!uri.startsWith("pubky://")) return null;

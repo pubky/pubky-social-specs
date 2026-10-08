@@ -5,7 +5,7 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { isPublicKey } from "./ids.js";
 import { asciiFold, codePointLen, frozenTrim, hasControlOrWhitespace } from "./text.js";
-import { isCanonicalSegment, parsePath, splitPubky } from "./path.js";
+import { isCanonicalSegment, isPrivatePath, parsePath, splitPubky } from "./path.js";
 
 /** The full form `pubky://<pk>[/<path>]` of either spelling, or null. */
 export function canonicalPubky(raw: string): string | null {
@@ -60,7 +60,7 @@ export function reference(uri: string, schemes: Schemes, max: number, publicRoot
   if (canonical === null || codePointLen(canonical) > max) return shape;
   if (!isPubky) return { canonical };
   const { owner: host, path } = splitPubky(canonical) as { owner: string; path: string | null };
-  if (path === "priv" || path?.startsWith("priv/")) {
+  if (isPrivatePath(path)) {
     if (publicRoot) return { refusal: `must not reference a private object: ${uri}` };
     if (owner !== null && host !== owner) return { refusal: `must not reference a private object of another user: ${uri}` };
   }
