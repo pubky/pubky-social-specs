@@ -2,18 +2,13 @@
 // (vectors/semantic/v0_to_v1.json): a behaviour of the transforms ships with a vector row.
 
 import assert from "assert";
-import { createRequire } from "node:module";
-import { buildUri, decodeObject, encodeObject, feedId, limits as validationLimits, ValidationError } from "./dist/index.js";
-
-const fileUriBuilder = (owner, filename) => buildUri(owner, "file", filename);
+import { buildUri, decodeObject, encodeObject, feedId, limits, ValidationError } from "./dist/index.js";
 import { skipReasons } from "./dist/migration/index.js";
 import { init, transforms } from "./dist/migration/wasm.js";
-import * as glue from "./dist/migration/glue.js";
+import { RIO } from "./core.fixture.js";
+import { bytesOf, corpus } from "./migration.fixture.js";
 
 const { createMigration, migrate, migrateBlob, mediaId } = transforms;
-const { Migration } = glue;
-const require = createRequire(import.meta.url);
-const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
 
 function rejects(fn, check) {
   assert.throws(fn, (err) => {
@@ -30,9 +25,7 @@ const stored = (object) => new TextEncoder().encode(JSON.stringify(object));
 before(() => init());
 
 describe("migration", () => {
-  const corpus = require("../vectors/semantic/v0_to_v1.json");
   const owner = corpus.owner;
-  const bytesOf = (input) => ("raw" in input ? new TextEncoder().encode(input.raw) : stored(input.body));
   // A vector row by the start of its name, as `migrate` takes it
   const vector = (prefix) => {
     const { input } = corpus.vectors.find((v) => v.name.startsWith(prefix));
@@ -90,7 +83,7 @@ describe("migration", () => {
     assert.strictEqual(write.kind, "post");
     assert.strictEqual(write.meta.id, "0034A0X7NJ52J");
     assert.deepStrictEqual(write.object.attachments[0], {
-      uri: fileUriBuilder(owner, "AKSZ57W2RFKHV1EHK007FQQ8TW.png"),
+      uri: buildUri(owner, "file", "AKSZ57W2RFKHV1EHK007FQQ8TW.png"),
       name: "photo.png",
     });
     // A File the run never read stays as written: the legacy URI keeps resolving
@@ -107,12 +100,11 @@ describe("migration", () => {
   });
 
   it("migrateBlob gives the blob's destination from its size and hash, the write without its bytes", () => {
-    const hashOf = mediaId;
     let blobs = 0;
     let refused = 0;
     for (const { name, input, expected } of corpus.vectors.filter((v) => v.kind === "blob")) {
       const bytes = bytesOf(input);
-      const result = migrateBlob(run, input.path, bytes.length, hashOf(bytes));
+      const result = migrateBlob(run, input.path, bytes.length, mediaId(bytes));
       const byBytes = migrate(run, input.path, bytes);
       if ("skip" in expected) {
         // Both doors refuse the same way; the note is each door's own
@@ -123,16 +115,16 @@ describe("migration", () => {
       }
       assert.deepStrictEqual(result, { writes: byBytes.writes.map(({ kind, meta }) => ({ kind, meta })), dropped: [] }, name);
       assert.ok(!("object" in result.writes[0]), name);
-      assert.deepStrictEqual(migrateBlob(run, `pubky://${owner}/${input.path}`, bytes.length, hashOf(bytes)), result, name);
+      assert.deepStrictEqual(migrateBlob(run, `pubky://${owner}/${input.path}`, bytes.length, mediaId(bytes)), result, name);
       blobs++;
     }
     assert.ok(blobs >= 3 && refused >= 2);
 
     const [path, bytes] = vector("blob: same bytes");
-    const hash = hashOf(bytes);
-    assert.deepStrictEqual(migrateBlob(run, path, validationLimits.maxFileSizeBytes + 1, hash), { skip: "oversize" });
+    const hash = mediaId(bytes);
+    assert.deepStrictEqual(migrateBlob(run, path, limits.maxFileSizeBytes + 1, hash), { skip: "oversize" });
     const unhashed = { skip: "invalid", note: "blob bytes do not hash to the id in the path" };
-    assert.deepStrictEqual(migrateBlob(run, path, bytes.length, hashOf(new Uint8Array([1]))), unhashed);
+    assert.deepStrictEqual(migrateBlob(run, path, bytes.length, mediaId(new Uint8Array([1]))), unhashed);
     assert.deepStrictEqual(migrateBlob(run, path, 0, hash), unhashed);
     assert.deepStrictEqual(migrateBlob(run, "pub/pubky.app/files/0033000000000", bytes.length, hash), { skip: "not_migrated" });
     rejects(() => migrateBlob(run, path, 1.5, hash), "pubky-social-specs/migration: migrateBlob() argument 3 must be a non-negative integer");
@@ -143,7 +135,7 @@ describe("migration", () => {
   it("a tag, a bookmark and a feed re-derive their ids; the bookmark and the feed go private", () => {
     const [tag] = migrate(run, ...vector("tag: a media target")).writes;
     assert.match(tag.meta.path, /^\/pub\/social\/v1\/tags\/[0-9A-Z]{26}\.json$/);
-    assert.strictEqual(tag.object.uri, fileUriBuilder(owner, "AKSZ57W2RFKHV1EHK007FQQ8TW.png"));
+    assert.strictEqual(tag.object.uri, buildUri(owner, "file", "AKSZ57W2RFKHV1EHK007FQQ8TW.png"));
     const [bookmark] = migrate(run, ...vector("bookmark: the rewritten")).writes;
     assert.ok(bookmark.meta.path.startsWith("/priv/social/v1/bookmarks/"), bookmark.meta.path);
     const [feed] = migrate(run, ...vector("feed: private")).writes;
@@ -185,7 +177,6 @@ describe("migration", () => {
   });
 
   it("a freed handle is refused, an owner that is not a pubky too", () => {
-    rejects(() => createMigration("nope"), /52 ASCII characters/);
     assert.throws(
       () => createMigration("nope"),
       (e) => e instanceof ValidationError && e.reason === "the string is not 52 ASCII characters",
