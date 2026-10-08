@@ -4,8 +4,22 @@
 import { DEBUG_ESCAPED } from "./data.js";
 import { fail } from "./errors.js";
 
-// The 25 code points that were whitespace at Unicode 15.1, spelled out: `\s` follows the engine
-const WS = "\\t-\\r \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+// The 25 code points that were whitespace at Unicode 15.1, as ranges: `\s` follows the engine.
+// All in the BMP, so a UTF-16 unit is a code point here
+const WHITESPACE: readonly (readonly [number, number])[] = [
+  [0x09, 0x0d],
+  [0x20, 0x20],
+  [0x85, 0x85],
+  [0xa0, 0xa0],
+  [0x1680, 0x1680],
+  [0x2000, 0x200a],
+  [0x2028, 0x2029],
+  [0x202f, 0x202f],
+  [0x205f, 0x205f],
+  [0x3000, 0x3000],
+];
+const unit = (n: number) => `\\u${n.toString(16).padStart(4, "0")}`;
+const WS = WHITESPACE.map(([lo, hi]) => (lo === hi ? unit(lo) : `${unit(lo)}-${unit(hi)}`)).join("");
 const ANY_WS = new RegExp(`[${WS}]`);
 const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
 
@@ -36,9 +50,7 @@ export function trimWhere(s: string, strip: (unit: number) => boolean): string {
   return s.slice(start, end);
 }
 
-const FROZEN = new Set([0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000]);
-// The whole set is in the BMP, so a UTF-16 unit is a code point here
-const isFrozenWhitespace = (unit: number) => (unit >= 0x09 && unit <= 0x0d) || unit === 0x20 || (unit >= 0x2000 && unit <= 0x200a) || FROZEN.has(unit);
+const isFrozenWhitespace = (code: number) => WHITESPACE.some(([lo, hi]) => code >= lo && code <= hi);
 
 /** Not `String.prototype.trim`, whose set follows the engine's Unicode version. */
 export const frozenTrim = (s: string): string => trimWhere(s, isFrozenWhitespace);
@@ -111,10 +123,16 @@ function isWellFormed(s: string): boolean {
 
 const NAMED_DEBUG = new Map([["\t", "\\t"], ["\n", "\\n"], ["\r", "\\r"], ["\0", "\\0"], ["\\", "\\\\"], ['"', '\\"']]);
 
+// A binary search over the sorted, disjoint [first, last] pairs: a hostile string quoted in an
+// error costs a few steps per character, not a walk of every range
 function isDebugEscaped(codePoint: number): boolean {
-  for (let i = 0; i < DEBUG_ESCAPED.length; i += 2) {
-    if (codePoint < (DEBUG_ESCAPED[i] as number)) return false;
-    if (codePoint <= (DEBUG_ESCAPED[i + 1] as number)) return true;
+  let lo = 0;
+  let hi = DEBUG_ESCAPED.length / 2 - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (codePoint < (DEBUG_ESCAPED[2 * mid] as number)) hi = mid - 1;
+    else if (codePoint > (DEBUG_ESCAPED[2 * mid + 1] as number)) lo = mid + 1;
+    else return true;
   }
   return false;
 }

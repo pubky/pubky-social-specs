@@ -9,6 +9,7 @@ import * as text from "../dist/text.js";
 import * as ids from "../dist/ids.js";
 import * as canon from "../dist/canonicalize.js";
 import * as uri from "../dist/uri.js";
+import * as legacy from "../dist/legacy.js";
 import { mimeToExt } from "../dist/mime.js";
 import { JsonError, readJson } from "../dist/json/read.js";
 import { writeJson } from "../dist/json/write.js";
@@ -47,8 +48,8 @@ const ops = {
   canonicalUniversal: plain(canon.canonicalUniversal),
   json: (a) => b64(text.utf8(writeJson(readJson(a.j)))),
   mimeToExt: plain(mimeToExt),
-  stableKey: plain(uri.stableKey),
-  legacyMediaKey: plain(uri.legacyMediaKey),
+  stableKey: plain(legacy.stableKey),
+  legacyMediaKey: plain(legacy.legacyMediaKey),
 
   // The reader's answer, and on top of it what a caller gets: read, then written back
   // untouched, has to give the same bytes

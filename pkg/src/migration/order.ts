@@ -2,7 +2,8 @@
 // to rewrite every media reference after them; the rest is leaf first, so a reference tends
 // to land after its target, and the private types last.
 
-import { LEGACY_ROOT, splitPubky } from "../path.js";
+import { LEGACY_ROOT } from "../legacy.js";
+import { splitPubky } from "../path.js";
 
 const BUCKETS = ["files", "blobs", "posts", "tags", "follows", "profile", "feeds", "bookmarks", "mutes"] as const;
 

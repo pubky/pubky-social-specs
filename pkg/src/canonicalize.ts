@@ -60,13 +60,13 @@ type Schemes = "pubky" | "pubky or web" | "web" | "";
  * form, or the fragment of the refusal that follows the field name.
  */
 export function reference(uri: string, schemes: Schemes, max: number, publicRoot: boolean, owner: string | null): { canonical: string } | { refusal: string } {
-  const shape = { refusal: `must be a canonical${schemes && " "}${schemes} URI of at most ${max} code points: ${uri}` };
+  const shape = () => ({ refusal: `must be a canonical${schemes && " "}${schemes} URI of at most ${max} code points: ${uri}` });
   const isPubky = uri.startsWith("pubky");
   let canonical: string | null;
   if (isPubky) canonical = schemes === "web" ? null : canonicalPubky(uri);
   else if (uri.startsWith("http://") || uri.startsWith("https://")) canonical = schemes === "pubky" ? null : canonicalWeb(uri);
   else canonical = schemes === "" ? canonicalExternal(uri) : null;
-  if (canonical === null || codePointLen(canonical) > max) return shape;
+  if (canonical === null || codePointLen(canonical) > max) return shape();
   if (!isPubky) return { canonical };
   const { owner: host, path } = splitPubky(canonical) as { owner: string; path: string | null };
   if (isPrivatePath(path)) {

@@ -27,7 +27,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import fc from "fast-check";
 import { bytesOf, corpus, legacyTree } from "../migration.fixture.js";
-import { stableKey } from "../dist/uri.js";
+import { stableKey } from "../dist/legacy.js";
 import { init, transforms } from "../dist/migration/wasm.js";
 import { NOW_MS, OTHER, OWNER, flags, noSleep, sameBytes, xorshift } from "./lib.mjs";
 

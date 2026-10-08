@@ -28,8 +28,11 @@ export function pin(now: (() => bigint) | null, last = 0n): void {
   lastMinted = last;
 }
 
-// The guard read back and the `last` of `pin` are for the scoreboard, which replays the
-// reference's answers under a given clock and guard; nothing in the package reads them
+/**
+ * The guard read back, for the scoreboard, which replays the reference's answers under a given
+ * clock and guard; nothing in the package reads it.
+ * @internal
+ */
 export const lastMint = (): bigint => lastMinted;
 
 /** Strictly increasing: a burst runs a microsecond ahead per mint, a corrected clock is followed. */

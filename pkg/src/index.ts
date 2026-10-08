@@ -279,7 +279,7 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
 
 /**
  * A feed at its private path. The id is derived from the filter alone (reach, layout, sort,
- * content, tags), so two feeds with one filter are one feed whatever their names, and an
+ * content, tags, domain tags), so two feeds with one filter are one feed whatever their names, and an
  * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  *
  * @example

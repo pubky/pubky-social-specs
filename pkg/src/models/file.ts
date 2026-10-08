@@ -22,6 +22,9 @@ export function buildFile(owner: string, source: { bytes: Uint8Array } | { id: s
   checkPublicKey(owner);
   let id: string;
   if ("bytes" in source) id = checkFile(source.bytes, null);
-  else checkHashId((id = source.id));
+  else {
+    id = source.id;
+    checkHashId(id);
+  }
   return { id, path: socialPath(root, `files/${id}.${mimeToExt(declaredType)}`) };
 }

@@ -9,8 +9,8 @@ import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
 import { foldLabel } from "./models/label.js";
 import { compareBytes } from "./text.js";
-import { isBookmarkId, LEGACY_ROOT, OBJECT_KINDS, mediaStem, type ObjectKind, socialPath, splitPubky } from "./path.js";
-import { legacyMediaKey, stableKey } from "./uri.js";
+import { isBookmarkId, isPrivatePath, OBJECT_KINDS, mediaStem, type ObjectKind, socialPath, splitPubky } from "./path.js";
+import { LEGACY_ROOT, legacyMediaKey, stableKey } from "./legacy.js";
 
 type V0Tag = { path: string; uri: string; label: string; src: string | null; contentType: string | null };
 type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
@@ -36,7 +36,7 @@ function postPaths(id: string, entries: Entry[]): string[] {
   const paths = sorted(entries.map((e) => (e.file || e.tag ? notACopy("post", id, e.path) : e.path)));
   const legacy = paths.filter((path) => path.startsWith(LEGACY_ROOT));
   // The root is the path's own first segment; a path under neither is refused by the order
-  const copies = paths.filter((path) => !path.startsWith(LEGACY_ROOT)).map((path) => ({ root: path.startsWith("/priv/") ? ("private" as const) : ("public" as const), path }));
+  const copies = paths.filter((path) => !path.startsWith(LEGACY_ROOT)).map((path) => ({ root: isPrivatePath(path.slice(1)) ? ("private" as const) : ("public" as const), path }));
   return deleteOrder(id, legacy, copies);
 }
 

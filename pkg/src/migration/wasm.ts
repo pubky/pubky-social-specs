@@ -5,7 +5,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
-import { ValidationError } from "../errors.js";
+import { PREFIX, ValidationError } from "../errors.js";
 import { checkWellFormed } from "../text.js";
 import type { ObjectKind } from "../path.js";
 // The wasm itself, embedded in the module or, under Node, read from the file beside it
@@ -91,7 +91,6 @@ function live(call: string, value: unknown): Migration {
 }
 
 const HASH_CHUNK = 4 * 1024 * 1024;
-const PREFIX = "Validation Error: ";
 
 // The crate words a refusal of its rules with the prefix; the glue throws it as a plain Error
 function refused<T>(call: () => T): T {

@@ -142,7 +142,7 @@ const MUTATIONS = [
     id: "M18",
     what: "a mute delete names no path",
     file: "src/deletion.ts",
-    from: 'return [socialPath("private", `mutes/${id}.json`)];',
+    from: 'return [`${LEGACY_ROOT}mutes/${id}`, socialPath("private", `mutes/${id}.json`)];',
     to: "return [];",
   },
   {
@@ -156,7 +156,7 @@ const MUTATIONS = [
     id: "M20",
     what: "a publish takes an editId older than its post",
     file: "src/lifecycle.ts",
-    from: "if (compareBytes(editId, id) < 0) fail(`editId ${editId} predates the post id ${id}`);",
+    from: 'if (compareBytes(editId, id) < 0) fail("id", `editId ${editId} predates the post id ${id}`, "editId");',
     to: "",
   },
   {

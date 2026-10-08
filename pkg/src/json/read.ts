@@ -90,7 +90,7 @@ export class Reader {
         return this.string();
       case 0x5b: {
         const items: Json[] = [];
-        this.array(() => items.push(this.value()));
+        this.array(() => void items.push(this.value()));
         return items;
       }
       case 0x7b: {
@@ -105,13 +105,12 @@ export class Reader {
     }
   }
 
-  /** An array, `element` reading each item. It may stop early by returning false. */
-  array(element: () => unknown): void {
+  /** An array, `element` reading each item. */
+  array(element: () => void): void {
     this.pos++;
     this.enter();
     let first = true;
-    let more = true;
-    while (more) {
+    for (;;) {
       let b = this.peekToken();
       if (b === 0x5d) break;
       if (b === undefined) this.fail("EOF while parsing a list");
@@ -123,20 +122,10 @@ export class Reader {
         if (b === undefined) this.fail("EOF while parsing a value");
       }
       first = false;
-      more = element() !== false;
+      element();
     }
     this.leave();
-    const b = this.peekToken();
-    if (b === 0x5d) {
-      this.pos++;
-      return;
-    }
-    if (b === undefined) this.fail("EOF while parsing a list");
-    if (b === 0x2c) {
-      this.pos++;
-      if (this.peekToken() === 0x5d) this.fail("trailing comma");
-    }
-    this.fail("trailing characters");
+    this.pos++;
   }
 
   /** An object, `member` reading the value of each key. */

@@ -105,7 +105,7 @@ export function list<T>(inner: Codec<T>): Codec<T[]> {
     read(r: Reader) {
       if (r.peekToken() !== 0x5b) invalidType(r, "a sequence");
       const items: T[] = [];
-      r.array(() => items.push(inner.read(r)));
+      r.array(() => void items.push(inner.read(r)));
       return items;
     },
     write: (items) => `[${items.map((item) => inner.write(item)).join(",")}]`,

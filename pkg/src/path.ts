@@ -43,7 +43,10 @@ export function mediaStem(filename: string): string | null {
 // 187 bytes of target are 250 characters of unpadded base64url
 const BOOKMARK_ID_MAX = Math.ceil((limits.bookmarkTargetUriMaxBytes * 4) / 3);
 
-/** The form only: the round trip that recovers the target runs when the object is read. */
+/**
+ * The form only: the round trip that recovers the target runs when the object is read. A leaf
+ * starting with `_` is reserved in every directory, as the parser reads it.
+ */
 export function isBookmarkId(name: string): boolean {
   if (name.startsWith("~")) return isHashId(name.slice(1));
   return !name.startsWith("_") && name.length <= BOOKMARK_ID_MAX && name.length % 4 !== 1 && /^[A-Za-z0-9_-]+$/.test(name);
@@ -108,9 +111,6 @@ export function parsePath(path: string | null): Located | null {
 
 export const SEGMENT = { private: "priv", public: "pub" } as const;
 
-/** The 0.x namespace, and where the 0.x tree kept everything, public only. */
-export const LEGACY_NAMESPACE = "pubky.app";
-export const LEGACY_ROOT = `/pub/${LEGACY_NAMESPACE}/`;
 
 /** `/{root}/social/v1/{leaf}`, the one place a path is assembled. */
 export function socialPath(root: Root, leaf: string): OwnerPath {

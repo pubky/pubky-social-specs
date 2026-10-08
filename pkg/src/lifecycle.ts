@@ -8,7 +8,8 @@ import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { validate } from "./models/common.js";
 import { checkReferences, checkTimestampId, envelopeRefs, post, type Post, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
-import { isPrivatePath, isSlug, LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
+import { LEGACY_ROOT } from "./legacy.js";
+import { isPrivatePath, isSlug, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
 interface Copy {
   from: string;

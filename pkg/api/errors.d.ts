@@ -1,4 +1,6 @@
 declare const BRAND: unique symbol;
+/** What the reference prefixes every refusal of its rules with. */
+export declare const PREFIX = "Validation Error: ";
 /**
  * What kind of rule a `ValidationError` names, stable across releases where the message text is
  * not:

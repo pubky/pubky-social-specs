@@ -4,7 +4,8 @@
 // engine never loads it, and these declarations compile without it. The package does not
 // declare it as a peer dependency, since a host on another SDK line would fail to install.
 
-import { LEGACY_ROOT, ownedPath, socialPath } from "../../path.js";
+import { LEGACY_ROOT } from "../../legacy.js";
+import { ownedPath, socialPath } from "../../path.js";
 import { MigrationPortError, refusal } from "../port.js";
 import type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "../port.js";
 import type { SdkSession } from "../../session.js";

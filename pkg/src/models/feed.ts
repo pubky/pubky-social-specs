@@ -127,6 +127,8 @@ export function buildFeed(owner: string | null, input: unknown, each: Each = thr
   const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", i.sort, "sort"), "recent");
   const tags = member(each, () => filter(given.tags, "tags"), null);
   const domainTags = member(each, () => filter(given.domain, "domain_tags"), null);
+  // The config is checked as the builder makes it, before the feed's own rules run it again:
+  // the reference builds the config first, so its refusal is the first one
   each(() => checkTagList(tags, "tags"));
   each(() => checkTagList(domainTags, "domain_tags"));
   const value: Feed = {

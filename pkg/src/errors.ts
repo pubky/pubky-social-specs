@@ -1,5 +1,6 @@
 const BRAND = Symbol.for("pubky-social-specs.ValidationError");
-const PREFIX = "Validation Error: ";
+/** What the reference prefixes every refusal of its rules with. */
+export const PREFIX = "Validation Error: ";
 
 /**
  * What kind of rule a `ValidationError` names, stable across releases where the message text is
