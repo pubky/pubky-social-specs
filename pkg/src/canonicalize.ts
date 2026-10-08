@@ -9,8 +9,6 @@ import { isCanonicalSegment, parsePath, splitPubky } from "./path.js";
 
 const isPublicKey = (key: string) => publicKeyFault(key) === null;
 
-export { isCanonicalSegment };
-
 /** The full form `pubky://<pk>[/<path>]` of either spelling, or null. */
 export function canonicalPubky(raw: string): string | null {
   // The scheme is case-sensitive; the SDK short form has no `://`

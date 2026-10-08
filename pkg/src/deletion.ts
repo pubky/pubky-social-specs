@@ -9,7 +9,8 @@ import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
 import { foldLabel } from "./models/label.js";
 import { compareBytes } from "./text.js";
-import { isBookmarkId, isObjectKind, LEGACY_ROOT, legacyMediaKey, mediaStem, type ObjectKind, socialPath, splitPubky, stableKey } from "./uri.js";
+import { isBookmarkId, isObjectKind, LEGACY_ROOT, mediaStem, type ObjectKind, socialPath, splitPubky } from "./path.js";
+import { legacyMediaKey, stableKey } from "./uri.js";
 
 /** A path as a LIST gives it, or a 0.x object with what proves it belongs to the target. */
 export type Listing = string | { path: string; src: string } | { path: string; uri: string; label: string; src?: string | null; contentType?: string | null };

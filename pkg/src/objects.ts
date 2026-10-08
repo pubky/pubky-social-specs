@@ -9,7 +9,8 @@ import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from 
 import { checkReferences, post, type Post } from "./models/post.js";
 import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
-import { type ObjectKind, parse, type Parsed, type Root } from "./uri.js";
+import type { ObjectKind, Root } from "./path.js";
+import { parse, type Parsed } from "./uri.js";
 
 interface Models {
   user: User;

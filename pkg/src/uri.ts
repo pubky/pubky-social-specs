@@ -6,8 +6,6 @@ import { checkPublicKey, publicKeyFault } from "./ids.js";
 import { isCanonicalSegment, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
 
-export * from "./path.js";
-
 const isPublicKey = (key: string) => publicKeyFault(key) === null;
 const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 

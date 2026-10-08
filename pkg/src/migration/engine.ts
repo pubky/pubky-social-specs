@@ -1,7 +1,8 @@
 import { limits, skipReasons, transformRev } from "../data.js";
 import { viewBytes } from "../bytes.js";
 import { ValidationError } from "../errors.js";
-import { buildChecked, legacyMediaKey, listPrefix, mediaStem, ownedPath, stableKey } from "../uri.js";
+import { mediaStem, ownedPath } from "../path.js";
+import { buildChecked, legacyMediaKey, listPrefix, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
 import type { Dropped, MigrateBlobResult, MigrateResult, MigratedWrite, Migration } from "./wasm.js";
 import { portErrorKind } from "./port.js";

@@ -34,6 +34,7 @@ import * as graph from "./models/graph.js";
 import * as posts from "./models/post.js";
 import * as users from "./models/user.js";
 import * as objects from "./objects.js";
+import { isCanonicalSegment, isObjectKind, parsePath } from "./path.js";
 import { checkWellFormed, utf8 } from "./text.js";
 import type * as T from "./types.js";
 import * as uris from "./uri.js";
@@ -107,10 +108,10 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
   const at = url(uri, "uri");
   bytes = own(bytes, "bytes") as T.Bytes;
   if (kind !== undefined) {
-    if (typeof kind !== "string" || !uris.isObjectKind(kind)) misuse("kind", "an object kind");
+    if (typeof kind !== "string" || !isObjectKind(kind)) misuse("kind", "an object kind");
     // Before the bytes are read: the URL alone says what is stored there
     const named = uris.parse(at).kind;
-    if (named !== kind) fail(`${at} names ${uris.isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
+    if (named !== kind) fail(`${at} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
   }
   const read = objects.read(at, bytesOf(bytes, "bytes"));
   if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.body } : read.body;
@@ -695,7 +696,7 @@ export function parseMediaId(value: string): T.MediaId {
  */
 export function parsePubkyUrl(value: string): T.PubkyUrl {
   const parsed = uris.parse(text(value, "uri"));
-  if (!uris.isObjectKind(parsed.kind) || (parsed.kind === "post" && parsed.editId === undefined)) fail(`not the URL of a stored object: ${value}`, "uri");
+  if (!isObjectKind(parsed.kind) || (parsed.kind === "post" && parsed.editId === undefined)) fail(`not the URL of a stored object: ${value}`, "uri");
   return `pubky://${parsed.owner}${parsed.path}` as T.PubkyUrl;
 }
 
@@ -713,7 +714,7 @@ export function parsePubkyUrl(value: string): T.PubkyUrl {
 export function parseOwnerPath(value: string): T.OwnerPath {
   const path = text(value, "path");
   const segments = path.slice(1).split("/");
-  if (!path.startsWith("/") || !segments.every(uris.isCanonicalSegment) || uris.parsePath(path.slice(1)) === null) fail(`not an owner-relative path: ${path}`, "path");
+  if (!path.startsWith("/") || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail(`not an owner-relative path: ${path}`, "path");
   return path as T.OwnerPath;
 }
 

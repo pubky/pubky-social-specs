@@ -4,7 +4,7 @@ import { type Each, fail, member, throwing } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
 import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
-import { socialPath } from "../uri.js";
+import { socialPath } from "../path.js";
 import { checkExtra, type Model, validate } from "./common.js";
 
 export interface UserLink extends Extra {
