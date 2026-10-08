@@ -57,6 +57,23 @@ describe("pubky-social-specs/client", () => {
     await assert.rejects(all(createSocialClient(session).posts.list(OTTO)), (e) => e.data.statusCode === 500);
   });
 
+  it("walks past a server that caps the page lower, and refuses a cursor that does not advance", async () => {
+    const hs = fakeHomeserver();
+    const session = hs.session(OTTO);
+    const social = createSocialClient(session);
+    for (let i = 0; i < 3; i++) {
+      setClock(() => T0 + i);
+      await social.posts.create({ content: `post ${i}` });
+    }
+    // A proxy that answers one URL a page, whatever the limit asked
+    const list = session.storage.list;
+    session.storage.list = async (...args) => (await list(...args)).slice(0, 1);
+    assert.strictEqual((await all(social.posts.list(OTTO))).length, 3);
+    // A server that ignores the cursor answers the same page forever
+    session.storage.list = async (path, _cursor, ...rest) => list(path, null, ...rest);
+    await assert.rejects(all(social.posts.list(OTTO)), /does not advance/);
+  });
+
   it("the head of a post with no version is null", async () => {
     assert.strictEqual(await createSocialClient(fakeHomeserver().session(OTTO)).posts.head(OTTO, "0034A0X7NJ52C"), null);
   });

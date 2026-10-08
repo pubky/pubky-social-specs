@@ -100,8 +100,10 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       const page: string[] | null = await orMissing(read.list(prefix, cursor), null);
       if (page === null) return;
       yield* page;
+      // A server or a proxy may cap the page below the size asked, so only an empty page ends the walk
       const last = page.at(-1);
-      if (last === undefined || page.length < pageSize) return;
+      if (last === undefined) return;
+      if (last === cursor) throw new Error(`pubky-social-specs/client: listing ${prefix} of ${author}: the cursor ${cursor} does not advance`);
       cursor = last;
     }
   }
