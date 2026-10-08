@@ -3,11 +3,9 @@
 
 import { limits } from "./data.js";
 import { fail } from "./errors.js";
-import { publicKeyFault } from "./ids.js";
+import { isPublicKey } from "./ids.js";
 import { asciiFold, codePointLen, frozenTrim, hasControlOrWhitespace } from "./text.js";
 import { isCanonicalSegment, parsePath, splitPubky } from "./path.js";
-
-const isPublicKey = (key: string) => publicKeyFault(key) === null;
 
 /** The full form `pubky://<pk>[/<path>]` of either spelling, or null. */
 export function canonicalPubky(raw: string): string | null {

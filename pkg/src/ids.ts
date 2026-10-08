@@ -4,7 +4,7 @@ import { radix } from "./radix.js";
 import { utf8, utf8Len } from "./text.js";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
+export const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 
 // Exported for the vector generator as well
 export const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
@@ -28,6 +28,8 @@ export function publicKeyFault(key: string): string | null {
   for (const c of key) if (!ZBASE32.includes(c)) return "invalid public key encoding";
   return key.endsWith("y") || key.endsWith("o") ? null : "invalid public key encoding";
 }
+
+export const isPublicKey = (key: string): boolean => publicKeyFault(key) === null;
 
 const checked = (fault: (value: string) => string | null) => (value: string, field?: string) => {
   const found = fault(value);

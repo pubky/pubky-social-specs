@@ -2,12 +2,9 @@
 
 import { canonicalPubky } from "./canonicalize.js";
 import { fail, misuse } from "./errors.js";
-import { checkPublicKey, publicKeyFault } from "./ids.js";
-import { isCanonicalSegment, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
+import { checkPublicKey, isPublicKey } from "./ids.js";
+import { isCanonicalSegment, jsonStem, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
-
-const isPublicKey = (key: string) => publicKeyFault(key) === null;
-const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 
 export type Parsed = { owner: string } & Located;
 
@@ -63,7 +60,7 @@ export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${str
   return `pubky://${owner}${socialPath(given, "")}`;
 }
 
-const stripJson = (leaf: string) => json(leaf) ?? leaf;
+const stripJson = (leaf: string) => jsonStem(leaf) ?? leaf;
 
 /**
  * The key one object has under both epochs of a tree, from its owner-relative path:

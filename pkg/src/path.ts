@@ -2,7 +2,7 @@
 // place a path is assembled. No URI parsing here, so the canonicalizers can build on it.
 
 import { limits } from "./data.js";
-import { hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
+import { hashIdFault, isPublicKey, timestampIdFault } from "./ids.js";
 import { MEDIA_EXTENSIONS } from "./mime.js";
 import { hasControlOrWhitespace } from "./text.js";
 
@@ -26,9 +26,9 @@ export type Located = { root: Root; path: OwnerPath | "" } & Resource;
 
 const isTimestampId = (id: string) => timestampIdFault(id) === null;
 const isHashId = (id: string) => hashIdFault(id) === null;
-const isPublicKey = (key: string) => publicKeyFault(key) === null;
 const isEpoch = (segment: string) => /^v[0-9]+$/.test(segment);
-const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
+/** The stem of a `.json` leaf, or null for any other leaf. */
+export const jsonStem = (leaf: string): string | null => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 
 export function isSlug(slug: string): boolean {
   return slug.length <= limits.postSlugMaxLength && /^[a-z0-9-]+$/.test(slug);
@@ -51,7 +51,7 @@ export function isBookmarkId(name: string): boolean {
 
 /** The `{editId}[-{slug}].json` leaf of a post version, or null for any other leaf. */
 export function versionOf(leaf: string): { editId: string; slug?: string } | null {
-  const stem = json(leaf);
+  const stem = jsonStem(leaf);
   if (stem === null) return null;
   const dash = stem.indexOf("-");
   const editId = dash < 0 ? stem : stem.slice(0, dash);
@@ -74,7 +74,7 @@ function dispatch(root: Root, rest: string[]): Resource {
     const stem = mediaStem(a);
     return stem !== null && isHashId(stem) ? { kind: "file", id: stem } : unknown;
   }
-  const id = json(a);
+  const id = jsonStem(a);
   if (id === null) return unknown;
   if (segment === "feeds") return isHashId(id) ? { kind: "feed", id } : unknown;
   if (root === "public") {
