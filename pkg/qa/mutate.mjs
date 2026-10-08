@@ -10,12 +10,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { SUITES, flags, writeOut } from "./lib.mjs";
+import { PKG as source, SUITES, flags, writeOut } from "./lib.mjs";
 
 const args = flags({ seeds: { type: "string", default: "150" }, only: { type: "string" }, out: { type: "string" } });
 
-const source = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 // The copy keeps the tree's shape, so the tests find ../vectors as they do from pkg/
 const work = path.join(source, "qa/out/mutant");
 const pkg = path.join(work, "pkg");

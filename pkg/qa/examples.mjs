@@ -4,14 +4,10 @@
 //
 //   node qa/examples.mjs   (after a build; in npm test)
 
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const pkg = fileURLToPath(new URL("..", import.meta.url));
-const out = path.join(pkg, "qa/out/examples");
-const ENTRIES = { ".": "index", "./testing": "testing", "./migration": "migration/index", "./migration/pubky-sdk": "migration/adapters/pubky-sdk", "./client": "client/index" };
+import { pathToFileURL } from "node:url";
+import { ENTRIES, PKG as pkg, scratch, tsc } from "./lib.mjs";
 
 // name -> the example blocks of its declaration, from every declaration file of the build
 const examples = new Map();
@@ -26,8 +22,7 @@ for (const file of walk(path.join(pkg, "dist"))) {
 
 const missing = [];
 const written = [];
-fs.rmSync(out, { recursive: true, force: true });
-fs.mkdirSync(out, { recursive: true });
+const out = scratch("examples");
 for (const [entry, module] of Object.entries(ENTRIES)) {
   const exported = Object.keys(await import(pathToFileURL(path.join(pkg, "dist", `${module}.js`))));
   for (const name of exported) {
@@ -53,10 +48,9 @@ fs.writeFileSync(
   path.join(out, "tsconfig.json"),
   JSON.stringify({ compilerOptions: { target: "es2022", lib: ["es2022", "dom"], module: "nodenext", strict: true, types: [], skipLibCheck: false, outDir: "js" }, include: ["*.ts"] }),
 );
-try {
-  execFileSync(process.execPath, [path.join(pkg, "node_modules/typescript/bin/tsc"), "-p", out], { stdio: "pipe" });
-} catch (e) {
-  console.error(`an example does not compile:\n${e.stdout}${e.stderr}`);
+const compiled = tsc(out);
+if (compiled !== "") {
+  console.error(`an example does not compile:\n${compiled}`);
   process.exit(1);
 }
 

@@ -8,10 +8,8 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { PKG as pkg, scratch, tsc } from "./lib.mjs";
 
-const pkg = fileURLToPath(new URL("..", import.meta.url));
-const out = path.join(pkg, "qa/out/snippets");
 const DOCS = [
   "README.md",
   "MIGRATION.md",
@@ -21,8 +19,7 @@ const DOCS = [
     .map((f) => `docs/${f}`),
 ];
 
-fs.rmSync(out, { recursive: true, force: true });
-fs.mkdirSync(out, { recursive: true });
+const out = scratch("snippets");
 const blocks = [];
 for (const doc of DOCS) {
   const lines = fs.readFileSync(path.join(pkg, doc), "utf8").split("\n");
@@ -55,10 +52,9 @@ fs.writeFileSync(
     include: ["*.mjs", "node.d.ts"],
   }),
 );
-try {
-  execFileSync(process.execPath, [path.join(pkg, "node_modules/typescript/bin/tsc"), "-p", out], { stdio: "pipe" });
-} catch (e) {
-  console.error(`a docs block does not type-check:\n${`${e.stdout}${e.stderr}`.replaceAll(`${out}/`, "")}`);
+const checked = tsc(out);
+if (checked !== "") {
+  console.error(`a docs block does not type-check:\n${checked.replaceAll(`${out}/`, "")}`);
   process.exit(1);
 }
 
