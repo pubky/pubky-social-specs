@@ -89,8 +89,11 @@ jobs:
             echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
 
+      # The version js-native.yml pins, so the published glue is the one its checks ran
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: wasm-pack@0.13.1
 
       - name: Install Node.js
         uses: actions/setup-node@v4
