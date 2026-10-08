@@ -12,6 +12,8 @@ export type Json = null | boolean | string | number | bigint | Json[] | JsonObje
 export type JsonObject = Map<string, Json>;
 
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
+// The containers open at once at which the parser gives up
+const MAX_DEPTH = 128;
 
 const QUOTE = 0x22;
 const BACKSLASH = 0x5c;
@@ -104,7 +106,7 @@ export class Reader {
 
   private open(): void {
     this.pos++;
-    if (++this.depth === 128) this.fail("recursion limit exceeded");
+    if (++this.depth === MAX_DEPTH) this.fail("recursion limit exceeded");
   }
 
   private close(): void {
@@ -350,4 +352,24 @@ export function readJson(text: string): Json {
   const value = reader.value();
   reader.end();
   return value;
+}
+
+/**
+ * Whether JSON text this package wrote nests deeper than the reader takes: a caller's `$unknown`
+ * is read on its own, so only the whole document shows how deep it sits.
+ */
+export function nestsTooDeep(text: string): boolean {
+  let depth = 0;
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (inString) {
+      if (c === BACKSLASH) i++;
+      else if (c === QUOTE) inString = false;
+    } else if (c === QUOTE) inString = true;
+    else if (c === 0x5b || c === 0x7b) {
+      if (++depth === MAX_DEPTH) return true;
+    } else if (c === 0x5d || c === 0x7d) depth--;
+  }
+  return false;
 }

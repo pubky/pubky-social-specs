@@ -2,7 +2,7 @@
 // how a builder reads a caller's members.
 
 import { type Each, fail, throwing, ValidationError } from "../errors.js";
-import { type Json, JsonError, type JsonObject, Reader } from "../json/read.js";
+import { type Json, JsonError, type JsonObject, nestsTooDeep, Reader } from "../json/read.js";
 import type { Codec } from "../json/schema.js";
 import { compareBytes, utf8Len } from "../text.js";
 
@@ -56,6 +56,8 @@ function checkSize(bytes: number, max: number): void {
 /** The cap on the written form first, then the rules, so no in-memory path skips the cap. */
 export function validate<T>(model: Model<T>, value: T, id: string | null, publicRoot: boolean, each: Each = throwing): string {
   const body = model.codec.write(value);
+  // What decodeObject would refuse is never written; the reference refuses it as it reads it
+  if (nestsTooDeep(body)) fail("json", "recursion limit exceeded");
   each(() => checkSize(utf8Len(body), model.maxBytes));
   model.check(value, id, publicRoot, each);
   return body;

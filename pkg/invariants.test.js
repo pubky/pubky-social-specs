@@ -56,6 +56,24 @@ describe("invariants", () => {
     );
   });
 
+  it("an encode never writes what a decode refuses, however deep an unknown member nests", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
+    const post = (n) => ({
+      content: "x",
+      kind: "note",
+      parent: null,
+      embed: null,
+      lock: null,
+      attachments: [{ uri: "https://a.example", alt: null, name: null, $unknown: `{"x":${"[".repeat(n)}${"]".repeat(n)}}` }],
+    });
+    assert.ok(decodeObject(url, encodeObject(url, post(124))));
+    refuses(() => encodeObject(url, post(125)), "Validation Error: recursion limit exceeded");
+  });
+
+  it("every refusal of an edit's head names it", () => {
+    for (const head of ["https://example.com/x", `pubky://${OTTO}/pub/social/v1/../x`]) assert.strictEqual(caught(() => specs.editPost(OTTO, head, {})).field, "headUri");
+  });
+
   it("bytes in shared memory are copied before they are read", () => {
     const user = buildUser(OTTO, { name: "Ann" });
     const shared = new Uint8Array(new SharedArrayBuffer(user.body.length));
