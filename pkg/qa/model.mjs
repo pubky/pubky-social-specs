@@ -150,8 +150,8 @@ class Tree extends MemoryPort {
 }
 
 /**
- * What the user expects: the keys they deleted, the posts that must have no public version,
- * and the posts they made, to pick from. The 1.x tree itself is read from the port, since
+ * What the user expects: the keys they deleted and the posts that must have no public version,
+ * with the clock and the steps so far. The 1.x tree itself is read from the port, since
  * migrated objects get their ids from the 0.x tree.
  */
 const freshModel = () => ({ deleted: new Set(), privatePosts: new Set(), clock: T0, latest: T0, steps: [] });
@@ -287,7 +287,6 @@ function check(model, tree) {
 // ---- the commands ----
 
 const pick = (items, i) => (items.length === 0 ? undefined : items[i % items.length]);
-const instanceOf = (i) => instances[i];
 
 /** A step that cannot apply to the tree as it is leaves it alone. */
 class Step {
@@ -312,7 +311,7 @@ class BuildPost extends Step {
   }
 
   async apply(model, tree) {
-    const { api: a } = instanceOf(this.inst);
+    const { api: a } = instances[this.inst];
     const attachments = [];
     if (this.media) {
       const bytes = encoder.encode(`media ${model.steps.length}`);
@@ -343,7 +342,7 @@ class EditPost extends Step {
     const root = model.privatePosts.has(id) ? "private" : "public";
     const head = headOf(tree, id, root);
     if (head === null) return;
-    const { api: a } = instanceOf(this.inst);
+    const { api: a } = instances[this.inst];
     let edit;
     try {
       edit = a.editPost(owner, head.url, { ...head.object, content: `edit ${model.steps.length}` }, { root });
@@ -477,7 +476,7 @@ class Graph extends Step {
   }
 
   async apply(model, tree) {
-    const { api: a } = instanceOf(this.inst);
+    const { api: a } = instances[this.inst];
     const other = pick(OTHERS, this.i);
     const ids = postIds(tree).filter((id) => !model.privatePosts.has(id));
     const target = ids.length > 0 && this.i % 2 === 0 ? a.buildUri(owner, "post", pick(ids, this.i)) : `https://example.com/${this.i % 5}`;
@@ -507,7 +506,7 @@ class Migrate extends Step {
   }
 
   async apply(model, tree) {
-    const { runMigration } = instanceOf(this.inst).migration;
+    const { runMigration } = instances[this.inst].migration;
     tree.faults = this.rate > 0 ? { rand: xorshift(this.faultSeed), rate: this.rate, kinds: this.kinds, lose: null } : null;
     try {
       const report = await runMigration({ owner, port: tree, mode: this.mode, rescan: this.rescan, sleep: noSleep });
