@@ -29,14 +29,16 @@ export interface User extends Extra {
 
 const link = object<UserLink>("PubkySocialUserLink", { title: string, url: string });
 
+// Display text, absent or not blank and at most `max` code points
+function checkText(text: string | null, field: string, max: number): void {
+  if (text === null) return;
+  if (frozenTrim(text) === "") fail("blank", `${field} must not be blank`, field);
+  if (codePointLen(text) > max) fail("length", `${field} must be at most ${max} code points`, field, max);
+}
+
 function checkLink(value: UserLink, index: number, each: Each): void {
   each(() => checkExtra(value.extra, `links[${index}].`));
-  each(() => {
-    if (frozenTrim(value.title) === "") fail("blank", `links[${index}].title must not be blank`, `links[${index}].title`);
-    if (codePointLen(value.title) > limits.userLinkTitleMaxLength) {
-      fail("length", `links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`, limits.userLinkTitleMaxLength);
-    }
-  });
+  each(() => checkText(value.title, `links[${index}].title`, limits.userLinkTitleMaxLength));
   each(() => checkReference(`links[${index}].url`, value.url, "web", limits.userLinkUrlMaxLength, true, null));
 }
 
@@ -64,11 +66,7 @@ export const user: Model<User> = {
           length < limits.userNameMinLength ? limits.userNameMinLength : limits.userNameMaxLength,
         );
     });
-    each(() => {
-      if (value.bio === null) return;
-      if (frozenTrim(value.bio) === "") fail("blank", "bio must not be blank", "bio");
-      if (codePointLen(value.bio) > limits.userBioMaxLength) fail("length", `bio must be at most ${limits.userBioMaxLength} code points`, "bio", limits.userBioMaxLength);
-    });
+    each(() => checkText(value.bio, "bio", limits.userBioMaxLength));
     const { image, links } = value;
     if (image !== null) each(() => checkReference("image", image, "pubky or web", limits.imageUrlMaxLength, true, null));
     if (links !== null) {
@@ -77,11 +75,7 @@ export const user: Model<User> = {
       });
       links.forEach((link, index) => checkLink(link, index, each));
     }
-    each(() => {
-      if (value.status === null) return;
-      if (frozenTrim(value.status) === "") fail("blank", "status must not be blank", "status");
-      if (codePointLen(value.status) > limits.userStatusMaxLength) fail("length", `status must be at most ${limits.userStatusMaxLength} code points`, "status", limits.userStatusMaxLength);
-    });
+    each(() => checkText(value.status, "status", limits.userStatusMaxLength));
   },
 };
 
