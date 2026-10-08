@@ -258,7 +258,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
     /** The owner's follows: add, remove, list. */
     follows: {
-      async add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>> {
+      async add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner, "follow">> {
         return stored(buildFollow(owner, followee));
       },
       remove: (followee: T.Given<"Owner">) => remove(deletionPaths({ kind: "follow", id: followee })),
@@ -267,7 +267,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
     /** The owner's mutes, private: add, remove, list. */
     mutes: {
-      async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>> {
+      async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner, "mute">> {
         return stored(buildMute(owner, mutee));
       },
       remove: (mutee: T.Given<"Owner">) => remove(deletionPaths({ kind: "mute", id: mutee })),

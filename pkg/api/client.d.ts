@@ -70,13 +70,13 @@ export declare function createSocialClient(session: SdkSession, options?: Client
     };
     /** The owner's follows: add, remove, list. */
     follows: {
-        add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>>;
+        add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner, "follow">>;
         remove: (followee: T.Given<"Owner">) => Promise<void>;
         list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow, "follow">, any, any>;
     };
     /** The owner's mutes, private: add, remove, list. */
     mutes: {
-        add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>>;
+        add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner, "mute">>;
         remove: (mutee: T.Given<"Owner">) => Promise<void>;
         list: () => AsyncGenerator<Read<T.Mute, "mute">, any, any>;
     };

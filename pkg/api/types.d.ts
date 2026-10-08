@@ -157,16 +157,19 @@ export type Decoded = {
     /** The bytes as given, checked against the hash the filename carries. */
     bytes: Bytes;
 };
-/** The kind of a stored object type: a post's URL names a version, every other one the object. */
+/**
+ * The kind of a stored object type: a post's URL names a version, every other one the object.
+ * A follow and a mute share one type, so their builders name the kind outright.
+ */
 type KindOf<T> = T extends Post ? "post" : T extends User ? "user" : T extends Feed ? "feed" : T extends Tag ? "tag" : T extends Bookmark ? "bookmark" : "follow" | "mute";
-/** A built object: where it goes, what it is, and the exact bytes to PUT there. */
-export interface Built<T, Id extends string = string> {
+/** A built object: where it goes, what it is, and the exact bytes to PUT there. `K` is its kind. */
+export interface Built<T, Id extends string = string, K extends ObjectKind = KindOf<T>> {
     /** What the path names: empty for the profile, the followee for a follow. */
     id: Id;
     /** Owner-relative, as the SDK's storage calls take it. */
     path: OwnerPath;
     /** The full `pubky://` URL of the stored object. For a post it names this version: a reference to the post is `buildUri(owner, "post", id)`. */
-    url: PubkyUrl<KindOf<T>>;
+    url: PubkyUrl<K>;
     /** The object as stored, every known member present. Keep it for local state; PUT `body`, not this. */
     object: T;
     /** The exact bytes to PUT at `path`: UTF-8 JSON the package spelled. `fetch`, `Blob` and the SDK take it as it is. */

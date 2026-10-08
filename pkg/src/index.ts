@@ -85,11 +85,12 @@ const urlOf = (owner: string, path: string): string => `pubky://${owner}${path}`
 
 type Made<V> = { id: string; path: string; value: V; body: string };
 
-function built<V, P, Id extends string = string>(owner: string, codec: Codec<V>, made: Made<V>): T.Built<P, Id> {
-  return { id: made.id as Id, path: made.path as T.OwnerPath, url: urlOf(owner, made.path) as T.Built<P, Id>["url"], object: codec.plain(made.value) as P, body: utf8(made.body) };
+// `K` is read from the caller's declared result: a follow and a mute share one object type
+function built<V, P, Id extends string = string, K extends T.ObjectKind = T.ObjectKind>(owner: string, codec: Codec<V>, made: Made<V>): T.Built<P, Id, K> {
+  return { id: made.id as Id, path: made.path as T.OwnerPath, url: urlOf(owner, made.path) as T.PubkyUrl<K>, object: codec.plain(made.value) as P, body: utf8(made.body) };
 }
 
-const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<posts.Post, T.Post, T.PostId>(owner, posts.post.codec, made), editId: made.editId as T.EditId });
+const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<posts.Post, T.Post, T.PostId, "post">(owner, posts.post.codec, made), editId: made.editId as T.EditId });
 
 /**
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
@@ -406,7 +407,7 @@ export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.B
  * console.log(follow.path);
  * ```
  */
-export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner> {
+export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner, "follow"> {
   return built(owner, graph.follow.codec, graph.buildFollow(key(owner, "owner"), key(followee, "followee")));
 }
 
@@ -425,7 +426,7 @@ export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">)
  * console.log(mute.path);
  * ```
  */
-export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner> {
+export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner, "mute"> {
   return built(owner, graph.mute.codec, graph.buildMute(key(owner, "owner"), key(mutee, "mutee")));
 }
 
@@ -956,10 +957,12 @@ export function dateToMicros(date: Date | number): number {
  * ```
  */
 export function tryDecodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): { ok: true; value: T.Stored[K] } | { ok: false; error: ValidationError };
+export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): { ok: true; value: T.Bytes } | { ok: false; error: ValidationError };
 export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): { ok: true; value: T.Decoded } | { ok: false; error: ValidationError };
-export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind?: keyof T.Stored): { ok: true; value: unknown } | { ok: false; error: ValidationError } {
+export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind?: T.ObjectKind): { ok: true; value: unknown } | { ok: false; error: ValidationError } {
   try {
-    return { ok: true, value: kind === undefined ? decodeObject(uri, bytes) : decodeObject(uri, bytes, kind) };
+    if (kind === undefined) return { ok: true, value: decodeObject(uri, bytes) };
+    return { ok: true, value: kind === "file" ? decodeObject(uri, bytes, kind) : decodeObject(uri, bytes, kind) };
   } catch (e) {
     if (e instanceof ValidationError) return { ok: false, error: e };
     throw e;

@@ -252,7 +252,7 @@ export declare function buildBookmark(owner: T.Given<"Owner">, target: T.Referen
  * console.log(follow.path);
  * ```
  */
-export declare function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner>;
+export declare function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner, "follow">;
 /**
  * A mute, stored under the private root.
  *
@@ -268,7 +268,7 @@ export declare function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"
  * console.log(mute.path);
  * ```
  */
-export declare function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner>;
+export declare function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner, "mute">;
 /**
  * Where media goes: content addressed, so the id is the hash of the bytes. Pass the bytes, or
  * an id from `createMediaHasher` when they were hashed elsewhere, as in a worker. The bytes are
@@ -680,6 +680,13 @@ export declare function dateToMicros(date: Date | number): number;
 export declare function tryDecodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): {
     ok: true;
     value: T.Stored[K];
+} | {
+    ok: false;
+    error: ValidationError;
+};
+export declare function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): {
+    ok: true;
+    value: T.Bytes;
 } | {
     ok: false;
     error: ValidationError;

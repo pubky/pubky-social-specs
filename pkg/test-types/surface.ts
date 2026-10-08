@@ -222,3 +222,14 @@ for await (const follow of social.follows.list()) if (follow.ok) follow.url sati
 for await (const feed of social.feeds.list()) if (feed.ok) feed.object satisfies Feed;
 const profile = await social.profile.get();
 if (profile?.ok) profile.url satisfies PubkyUrl<"user">;
+
+// A builder's URL is its own kind's, a follow's and a mute's included
+buildFollow(owner, alice).url satisfies PubkyUrl<"follow">;
+import { buildMute } from "pubky-social-specs";
+buildMute(owner, alice).url satisfies PubkyUrl<"mute">;
+// @ts-expect-error a follow's URL is no mute's
+buildFollow(owner, alice).url satisfies PubkyUrl<"mute">;
+// The non-throwing decode takes media as the throwing one does
+declare const mediaUrl: PubkyUrl<"file">;
+const triedFile = tryDecodeObject(mediaUrl, bytes, "file");
+if (triedFile.ok) triedFile.value satisfies Bytes;
