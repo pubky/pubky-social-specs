@@ -20,6 +20,7 @@ import {
   encodeObject,
   listPrefix,
   parseOwner,
+  parsePostId,
   parseUri,
   ValidationError,
 } from "../index.js";
@@ -148,7 +149,12 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     for (const path of paths) await orMissing(storage.delete(path), undefined);
   };
 
-  const versionsOf = (author: string, id: string, root: T.Root) => listed(author, `${roots[root]}posts/${id}/`);
+  // The one place a post's directory is spelled from what a caller gave: checked first, so no
+  // id or root can point a LIST anywhere else
+  const versionsOf = (author: string, id: string, root: T.Root) => {
+    if (root !== "public" && root !== "private") throw new ValidationError("unknown_name", `root must be one of public, private, found ${String(root)}`, "root");
+    return listed(author, `${roots[root]}posts/${parsePostId(id)}/`);
+  };
 
   /** The newest version of post `id` of `author` under `root`, read, or null when it has none. */
   async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post, "post"> | null> {

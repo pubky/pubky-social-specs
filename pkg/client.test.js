@@ -186,6 +186,20 @@ describe("pubky-social-specs/client", () => {
 });
 
 describe("the client over memoryHomeserver", () => {
+  it("checks a post id and a root before a LIST names a directory with them", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { ValidationError } = await import("./dist/index.js");
+    const { owner, session } = memoryHomeserver();
+    const listed = [];
+    const list = session.storage.list;
+    session.storage.list = (path, ...rest) => (listed.push(path), list(path, ...rest));
+    const social = createSocialClient(session);
+    for (const call of [() => social.posts.head(owner, "../../priv"), () => social.posts.delete("0034A0X7NJ52C/.."), () => social.posts.head(owner, "0034A0X7NJ52C", "elsewhere")]) {
+      await assert.rejects(call(), (e) => e instanceof ValidationError);
+    }
+    assert.deepStrictEqual(listed, []);
+  });
+
   it("reads another user's tree through public storage, addressed as the SDK takes it", async () => {
     const { memoryHomeserver } = await import("./dist/testing.js");
     const { createSocialClient } = await import("./dist/client/index.js");
