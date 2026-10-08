@@ -1,0 +1,286 @@
+// pubky-social-specs/client: the glue every app writes, over a signed-in SDK session. Build,
+// PUT the exact bytes, LIST, pick the newest version, GET, decode. Only the public entry is
+// used, so the core stays I/O free; all I/O goes through the session (and, for other users'
+// trees, the SDK's public storage). A stored object that does not decode comes back as a value,
+// never as a throw: other people's data can be anything.
+
+import {
+  buildBookmark,
+  buildFeed,
+  buildFile,
+  buildFollow,
+  buildMute,
+  buildPost,
+  buildTag,
+  buildUser,
+  decodeObject,
+  deletionPaths,
+  editPost,
+  encodeObject,
+  parseOwner,
+  parseUri,
+  ValidationError,
+} from "../index.js";
+import type { SdkPublicStorage, SdkSession } from "../session.js";
+import type * as T from "../types.js";
+
+/** One stored object read: decoded, or why it could not be. */
+export type Read<O> = { ok: true; url: T.PubkyUrl; path: T.OwnerPath; object: O } | { ok: false; url: string; error: ValidationError };
+
+export interface ClientOptions {
+  /** `pubky.publicStorage` of the SDK, for reading other users' trees. Without it only the owner's own tree is read. */
+  publicStorage?: SdkPublicStorage;
+  /** URLs per LIST page, 1000 at most. */
+  pageSize?: number;
+}
+
+const PAGE = 1000;
+// A post id another copy of the package minted first: build again, which mints the next one
+const MINT_ATTEMPTS = 5;
+
+const isNotFound = (error: unknown): boolean => (error as { data?: { statusCode?: unknown } } | null)?.data?.statusCode === 404;
+
+/**
+ * A social client for the owner of `session`.
+ *
+ * @example
+ * ```ts
+ * import { createSocialClient } from "pubky-social-specs/client";
+ * declare const session: import("pubky-social-specs/client").SocialSession;
+ * const social = createSocialClient(session);
+ * const post = await social.posts.create({ content: "Hello" });
+ * const head = await social.posts.head(social.owner, post.id);
+ * if (head?.ok) await social.posts.edit(head, { ...head.object, content: "Hello, edited" });
+ * ```
+ */
+export function createSocialClient(session: SdkSession, options: ClientOptions = {}) {
+  const owner = parseOwner(session.info.publicKey.z32());
+  const storage = session.storage;
+  const pageSize = options.pageSize ?? PAGE;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > PAGE) throw new RangeError(`createSocialClient: pageSize must be an integer from 1 to ${PAGE}, not ${pageSize}`);
+
+  const pathOf = (author: string, url: string): string => url.slice(`pubky://${author}`.length);
+  const reader = (author: string) => {
+    if (author === owner) return { list: (path: string, cursor: string | null) => storage.list(path, cursor, false, pageSize, false), get: (path: string) => storage.getBytes(path) };
+    const pub = options.publicStorage;
+    if (pub === undefined) throw new TypeError("pubky-social-specs/client: reading another user's tree needs options.publicStorage, the SDK's pubky.publicStorage");
+    return { list: (path: string, cursor: string | null) => pub.list(`${author}${path}`, cursor, false, pageSize, false), get: (path: string) => pub.getBytes(`${author}${path}`) };
+  };
+
+  /** Every URL under `prefix` (owner-relative, ending in `/`) of `author`'s tree, a page at a time. */
+  async function* listed(author: string, prefix: string): AsyncGenerator<string> {
+    const read = reader(author);
+    let cursor: string | null = null;
+    for (;;) {
+      let page: string[];
+      try {
+        page = await read.list(prefix, cursor);
+      } catch (error) {
+        if (isNotFound(error)) return;
+        throw error;
+      }
+      yield* page;
+      const last = page.at(-1);
+      if (last === undefined || page.length < pageSize) return;
+      cursor = last;
+    }
+  }
+
+  async function readAt<O>(author: string, url: string, kind: keyof T.Stored): Promise<Read<O> | null> {
+    let bytes: Uint8Array;
+    try {
+      bytes = await reader(author).get(pathOf(author, url));
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw error;
+    }
+    try {
+      const object = decodeObject(url as T.UrlArg, bytes, kind) as O;
+      return { ok: true, url: url as T.PubkyUrl, path: pathOf(author, url) as T.OwnerPath, object };
+    } catch (error) {
+      if (error instanceof ValidationError) return { ok: false, url, error };
+      throw error;
+    }
+  }
+
+  async function* readAll<O>(author: string, prefix: string, kind: keyof T.Stored): AsyncGenerator<Read<O>> {
+    for await (const url of listed(author, prefix)) {
+      const read = await readAt<O>(author, url, kind);
+      if (read !== null) yield read;
+    }
+  }
+
+  const put = (built: { path: string; body: Uint8Array }) => storage.putBytes(built.path, built.body);
+  const remove = async (paths: readonly string[]) => {
+    for (const path of paths) {
+      try {
+        await storage.delete(path);
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
+      }
+    }
+  };
+
+  /** The newest version of post `id` of `author` under `root`, read, or null when it has none. */
+  async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post> | null> {
+    let head: { editId: string; url: string } | null = null;
+    for await (const url of listed(author, `/${root === "public" ? "pub" : "priv"}/social/v1/posts/${id}/`)) {
+      let parsed: T.ParsedUri;
+      try {
+        parsed = parseUri(url);
+      } catch (error) {
+        if (error instanceof ValidationError) continue;
+        throw error;
+      }
+      if (parsed.kind === "post" && parsed.editId !== undefined && (head === null || parsed.editId > head.editId)) head = { editId: parsed.editId, url };
+    }
+    return head === null ? null : readAt<T.Post>(author, head.url, "post");
+  }
+
+  /** A post id is taken by a version of it in either root, by this copy of the package or another. */
+  const taken = async (id: string) => (await listOwn(`/pub/social/v1/posts/${id}/`)) || (await listOwn(`/priv/social/v1/posts/${id}/`));
+  const listOwn = async (prefix: string) => {
+    for await (const _ of listed(owner, prefix)) return true;
+    return false;
+  };
+
+  return {
+    owner,
+
+    posts: {
+      /** Builds a post and PUTs it. An id already used in either root is minted again. */
+      async create<const I extends T.NewPost>(input: I & T.CheckedPost<I>): Promise<T.BuiltPost> {
+        for (let attempt = 0; attempt < MINT_ATTEMPTS; attempt++) {
+          // The reference check ran on this method's own signature
+          const built = buildPost(owner, input as never);
+          if (await taken(built.id)) continue;
+          await put(built);
+          return built;
+        }
+        throw new Error(`pubky-social-specs/client: ${MINT_ATTEMPTS} post ids in a row were taken`);
+      },
+      /** The newest public version of a post, or of a draft with `root: "private"` (the owner's only). */
+      head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root: T.Root = "public") => newest(parseOwner(author), id, root),
+      /** A new version of the post read as `head`, PUT where `editPost` puts it. */
+      async edit(head: { url: T.UrlArg<"post"> }, post: T.Post, editOptions?: { root?: T.Root | null; slug?: string | null }): Promise<T.BuiltPost> {
+        const built = editPost(head.url, post, editOptions);
+        await put(built);
+        return built;
+      },
+      /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
+      async *list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post>> {
+        const key = parseOwner(author);
+        const ids = new Set<string>();
+        for await (const url of listed(key, "/pub/social/v1/posts/")) {
+          const id = url.slice(`pubky://${key}/pub/social/v1/posts/`.length).split("/")[0];
+          if (id !== undefined && id !== "") ids.add(id);
+        }
+        for (const id of ids) {
+          const read = await newest(key, id, "public");
+          if (read !== null) yield read;
+        }
+      },
+      /** Deletes every version of an own post in both roots, newest last. */
+      async delete(id: T.Given<"PostId">): Promise<void> {
+        const listings: string[] = [];
+        for (const root of ["pub", "priv"]) for await (const url of listed(owner, `/${root}/social/v1/posts/${id}/`)) listings.push(pathOf(owner, url));
+        await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
+      },
+    },
+
+    profile: {
+      get: (author: T.Given<"Owner"> = owner) => readAt<T.User>(parseOwner(author), `pubky://${parseOwner(author)}/pub/social/v1/profile.json`, "user"),
+      /** Writes a fresh profile from `input`. To keep members another client added, `update` a read one. */
+      async set(input: T.NewUser): Promise<T.Built<T.User>> {
+        const built = buildUser(owner, input);
+        await put(built);
+        return built;
+      },
+      /** Writes back a profile read with `get` and changed, its unknown members kept. */
+      async update(user: T.User): Promise<void> {
+        const url = `pubky://${owner}/pub/social/v1/profile.json` as const;
+        await storage.putBytes("/pub/social/v1/profile.json", encodeObject(url, user));
+      },
+    },
+
+    follows: {
+      async add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>> {
+        const built = buildFollow(owner, followee);
+        await put(built);
+        return built;
+      },
+      remove: (followee: T.Given<"Owner">) => remove(deletionPaths({ kind: "follow", id: followee })),
+      list: (author: T.Given<"Owner"> = owner) => readAll<T.Follow>(parseOwner(author), "/pub/social/v1/follows/", "follow"),
+    },
+
+    mutes: {
+      async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>> {
+        const built = buildMute(owner, mutee);
+        await put(built);
+        return built;
+      },
+      remove: (mutee: T.Given<"Owner">) => remove(deletionPaths({ kind: "mute", id: mutee })),
+      list: () => readAll<T.Mute>(owner, "/priv/social/v1/mutes/", "mute"),
+    },
+
+    tags: {
+      async add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>> {
+        const built = buildTag(owner, uri, label);
+        await put(built);
+        return built;
+      },
+      remove: (id: string) => remove(deletionPaths({ kind: "tag", id })),
+      list: (author: T.Given<"Owner"> = owner) => readAll<T.Tag>(parseOwner(author), "/pub/social/v1/tags/", "tag"),
+    },
+
+    bookmarks: {
+      async add(target: T.Reference): Promise<T.Built<T.Bookmark>> {
+        const built = buildBookmark(owner, target);
+        await put(built);
+        return built;
+      },
+      remove: (id: string) => remove(deletionPaths({ kind: "bookmark", id })),
+      list: () => readAll<T.Bookmark>(owner, "/priv/social/v1/bookmarks/", "bookmark"),
+    },
+
+    feeds: {
+      async add(input: T.NewFeed): Promise<T.Built<T.Feed>> {
+        const built = buildFeed(owner, input);
+        await put(built);
+        return built;
+      },
+      remove: (id: string) => remove(deletionPaths({ kind: "feed", id })),
+      list: () => readAll<T.Feed>(owner, "/priv/social/v1/feeds/", "feed"),
+    },
+
+    files: {
+      /** PUTs media where its hash names it, public unless `root` says otherwise. */
+      async upload(bytes: Uint8Array, type: T.MimeType | (string & {}), root: T.Root = "public"): Promise<T.BuiltFile> {
+        const built = buildFile(owner, { bytes, type, root });
+        await storage.putBytes(built.path, bytes);
+        return built;
+      },
+      /** The bytes of media at `url`, checked against the hash that names them; null when absent. */
+      async get(url: T.UrlArg<"file">): Promise<Read<T.Bytes> | null> {
+        const parsed = parseUri(url);
+        let bytes: Uint8Array;
+        try {
+          bytes = await reader(parsed.owner).get(parsed.path);
+        } catch (error) {
+          if (isNotFound(error)) return null;
+          throw error;
+        }
+        try {
+          return { ok: true, url: url as T.PubkyUrl, path: parsed.path as T.OwnerPath, object: decodeObject(url, bytes, "file") };
+        } catch (error) {
+          if (error instanceof ValidationError) return { ok: false, url, error };
+          throw error;
+        }
+      },
+    },
+  };
+}
+
+/** What `createSocialClient` gives. */
+export type SocialClient = ReturnType<typeof createSocialClient>;
+export type { SdkPublicStorage, SdkSession as SocialSession } from "../session.js";

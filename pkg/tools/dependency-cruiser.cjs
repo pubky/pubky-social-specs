@@ -3,7 +3,7 @@
 //   cd pkg && npm run deps
 
 const layer = {
-  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input)\\.ts$",
+  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input|session)\\.ts$",
   json: "^src/json/",
   places: "^src/(path|canonicalize|uri)\\.ts$",
   models: "^src/models/",
@@ -44,7 +44,7 @@ module.exports = {
       comment: "the client is I/O over the public entry, so the core stays I/O free",
       severity: "error",
       from: { path: "^src/client/" },
-      to: { path: "^src/", pathNot: "^src/(client/|index\\.ts$|types\\.ts$)" },
+      to: { path: "^src/", pathNot: "^src/(client/|index\\.ts$|types\\.ts$|session\\.ts$)" },
     },
     {
       name: "migration-past-the-core",

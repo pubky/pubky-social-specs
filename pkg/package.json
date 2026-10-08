@@ -19,6 +19,10 @@
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
     },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
     "./migration": {
       "types": "./dist/migration/index.d.ts",
       "default": "./dist/migration/index.js"
@@ -44,7 +48,7 @@
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --features migrator --bin bundle_specs_npm",
     "build:ts": "tsc -p .",
     "pretest": "tsc -p .",
-    "test": "mocha vectors.test.js edges.test.js test.js property.test.js validate.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/data.mjs --check && node --max-old-space-size=1536 qa/model.mjs --runs 25 --seed 1",
+    "test": "mocha vectors.test.js edges.test.js test.js property.test.js validate.test.js client.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/data.mjs --check && node --max-old-space-size=1536 qa/model.mjs --runs 25 --seed 1",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "node --max-old-space-size=1536 qa/score.mjs",
@@ -54,7 +58,7 @@
     "deps": "node tools/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs --config tools/dependency-cruiser.cjs src",
     "e2e": "mocha e2e/migrate.e2e.js",
     "example": "node example.js",
-    "api": "diff -u api/index.d.ts dist/index.d.ts && diff -u api/types.d.ts dist/types.d.ts && diff -u api/validate.d.ts dist/validate.d.ts && diff -u api/testing.d.ts dist/testing.d.ts && diff -u api/migration.d.ts dist/migration/index.d.ts && diff -u api/pubky-sdk.d.ts dist/migration/adapters/pubky-sdk.d.ts"
+    "api": "diff -u api/index.d.ts dist/index.d.ts && diff -u api/types.d.ts dist/types.d.ts && diff -u api/validate.d.ts dist/validate.d.ts && diff -u api/testing.d.ts dist/testing.d.ts && diff -u api/migration.d.ts dist/migration/index.d.ts && diff -u api/pubky-sdk.d.ts dist/migration/adapters/pubky-sdk.d.ts && diff -u api/client.d.ts dist/client/index.d.ts && diff -u api/session.d.ts dist/session.d.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.0"
