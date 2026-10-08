@@ -1,11 +1,11 @@
 import { checkReference } from "../canonicalize.js";
 import { limits } from "../data.js";
-import { type Each, fail, member, throwing } from "../errors.js";
+import { type Each, fail, throwing } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
 import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
 import { socialPath } from "../path.js";
-import { checkExtra, type Model, validate } from "./common.js";
+import { checkExtra, inputReads, type Model, validate } from "./common.js";
 
 export interface UserLink extends Extra {
   /** The link's label, trimmed by the builder: 1 to 100 code points, not blank. */
@@ -86,30 +86,23 @@ export const user: Model<User> = {
   },
 };
 
-const maybe = option(string);
-
 /**
  * A fresh profile. The builder trims the display text; references are stored as written. A
  * validator passes a collecting `each` and no owner.
  */
 export function buildUser(owner: string | null, input: unknown, each: Each = throwing) {
   if (owner !== null) checkPublicKey(owner);
+  const { str, opt, items } = inputReads(each);
   const i = inputOf(input, "input", ["name", "bio", "image", "links", "status"], each);
-  const links = option(
-    list({
-      ...link,
-      parse: (js, at) => {
-        const l = inputOf(js, at, ["title", "url"], each);
-        return { title: frozenTrim(member(each, () => string.parse(l.title, `${at}.title`), "")), url: member(each, () => string.parse(l.url, `${at}.url`), ""), extra: new Map() };
-      },
-    }),
-  );
   const value: User = {
-    name: frozenTrim(member(each, () => string.parse(i.name, "input.name"), "")),
-    bio: trimmedOrNull(member(each, () => maybe.parse(i.bio, "input.bio"), null)),
-    image: member(each, () => maybe.parse(i.image, "input.image"), null),
-    links: member(each, () => links.parse(i.links, "input.links"), null),
-    status: trimmedOrNull(member(each, () => maybe.parse(i.status, "input.status"), null)),
+    name: frozenTrim(str(i.name, "input.name")),
+    bio: trimmedOrNull(opt(i.bio, "input.bio")),
+    image: opt(i.image, "input.image"),
+    links: items(i.links, "input.links", (js, at) => {
+      const l = inputOf(js, at, ["title", "url"], each);
+      return { title: frozenTrim(str(l.title, `${at}.title`)), url: str(l.url, `${at}.url`), extra: new Map() };
+    }),
+    status: trimmedOrNull(opt(i.status, "input.status")),
     extra: new Map(),
   };
   return { id: "", path: socialPath("public", "profile.json"), value, body: validate(user, value, null, true, each) };

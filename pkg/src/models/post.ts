@@ -11,7 +11,7 @@ import { type Json, JsonError, readJson } from "../json/read.js";
 import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
-import { checkExtra, type Model, parse, validate } from "./common.js";
+import { checkExtra, inputReads, type Model, parse, validate } from "./common.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {
@@ -369,41 +369,24 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
   return mint(value, id, timestampId(minted), root, owner, slug);
 }
 
-const maybe = option(string);
-
 /**
  * A new post. The builder trims the display text and writes the envelope of a typed kind. A
  * validator passes a collecting `each`, `unminted` and, when it has one, the owner.
  */
 export function buildPost(owner: string | null, input: unknown, each: Each = throwing, newId: () => string = minted): Minted {
   if (owner !== null) checkPublicKey(owner);
-  const str = (js: unknown, at: string) => member(each, () => string.parse(js, at), "");
-  const opt = (js: unknown, at: string) => member(each, () => maybe.parse(js, at), null);
+  const { str, opt, items } = inputReads(each);
   const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: member<Root>(each, () => rootOf(i.root, "input.root"), "public"), slug: opt(i.slug, "input.slug") });
-  const attachments = option(
-    list({
-      ...attachment,
-      parse: (js: unknown, at: string): Attachment => {
-        const a = inputOf(js, at, ["uri", "alt", "name"], each);
-        const name = opt(a.name, `${at}.name`);
-        return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
-      },
-    }),
-  );
-  const items = option(
-    list({
-      ...item,
-      parse: (js: unknown, at: string): CollectionItem => {
-        const entry = inputOf(js, at, ["uri", "note"], each);
-        return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
-      },
-    }),
-  );
   // What a post that can reply, quote and carry media takes, in the order a builder reads it
   const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
     parent: opt(i.parent, "input.parent"),
     embed: opt(i.embed, "input.embed"),
-    attachments: member(each, () => attachments.parse(i.attachments, "input.attachments"), null) ?? [],
+    attachments:
+      items(i.attachments, "input.attachments", (js, at): Attachment => {
+        const a = inputOf(js, at, ["uri", "alt", "name"], each);
+        const name = opt(a.name, `${at}.name`);
+        return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
+      }) ?? [],
     lock: opt(i.lock, "input.lock"),
   });
   const create = (value: Post, root: Root, slug: string | null): Minted => {
@@ -428,12 +411,16 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"], each);
     const name = frozenTrim(str(i.name, "input.name"));
     const description = trimmedOrNull(opt(i.description, "input.description"));
-    const entries = member(each, () => items.parse(i.items, "input.items"), null) ?? [];
+    const entries =
+      items(i.items, "input.items", (js, at): CollectionItem => {
+        const entry = inputOf(js, at, ["uri", "note"], each);
+        return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
+      }) ?? [];
     const cover = opt(i.cover_image, "input.cover_image");
     // Every member's shape before the layout's name is judged: the reference reads the whole input first
     const layoutName = opt(i.layout, "input.layout");
     const { root, slug } = placement(i);
-    const layout: CollectionLayout | null = layoutName === null ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", layoutName, "layout"), null);
+    const layout = layoutName === null ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", layoutName, "layout"), null);
     const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
