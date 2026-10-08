@@ -7,6 +7,7 @@
 // Exits 1 when a shape is over budget or superlinear.
 
 import { decodeObject, parseUri } from "../dist/index.js";
+import { flags } from "./lib.mjs";
 
 const OWNER = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
 const POST = `pubky://${OWNER}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
@@ -18,7 +19,7 @@ const NS_PER_BYTE = 1000;
 // linear is 8, quadratic 64, and the slack absorbs a collection landing in one run
 const MAX_GROWTH = 16;
 const SIZES = [64, 128, 256, 512].map((k) => k * 1024);
-const verbose = process.argv.includes("--verbose");
+const args = flags({ verbose: { type: "boolean", default: false } });
 
 const fill = (unit, bytes) => unit.repeat(Math.max(1, Math.floor(bytes / unit.length)));
 // A post whose unknown member `x` holds `json`; the post cap is 512 KB, so the largest size is
@@ -48,6 +49,7 @@ const SHAPES = {
 
 const encoder = new TextEncoder();
 const collect = globalThis.gc ?? (() => {});
+// The median of seven runs after a warm one
 const time = (fn) => {
   const runs = [];
   fn();
@@ -59,15 +61,15 @@ const time = (fn) => {
   }
   return runs.sort((a, b) => a - b)[3];
 };
-const attempt = (bytes) => () => {
+// A refusal is an answer; anything else thrown is a fault
+const refusedOrRead = (call) => () => {
   try {
-    decodeObject(POST, bytes);
+    call();
   } catch (e) {
     if (e?.name !== "ValidationError") throw e;
   }
 };
 
-let failed = false;
 // The largest input is refused by the cap before it is read, so growth is judged up to the last
 // input that was read, against the first, scaled to their sizes
 const grows = (rows) => {
@@ -77,47 +79,31 @@ const grows = (rows) => {
   // Below a couple of milliseconds a run is mostly timer and collector noise
   return last.ms / Math.max(first.ms, 2) > (MAX_GROWTH * last.size) / (8 * first.size);
 };
-const report = (name, ms, bytes) => {
-  const nsPerByte = (ms * 1e6) / bytes;
-  return { ms, nsPerByte, over: nsPerByte > NS_PER_BYTE };
-};
 
-for (const [name, make] of Object.entries(SHAPES)) {
+let failed = false;
+/** Times `call(input)` on an input of each size, and judges the worst cost a byte and the growth. */
+const judge = (name, inputOf, call) => {
   const rows = SIZES.map((size) => {
-    const bytes = encoder.encode(make(size));
-    return { size: bytes.length, ...report(name, time(attempt(bytes)), bytes.length) };
-  });
-  const superlinear = grows(rows);
-  const over = rows.some((row) => row.over);
-  failed ||= over || superlinear;
-  const worst = Math.max(...rows.map((row) => row.nsPerByte));
-  console.log(`${over || superlinear ? "FAIL" : "ok  "} ${name.padEnd(40)} worst ${worst.toFixed(0).padStart(4)} ns/byte${superlinear ? ", superlinear" : ""}`);
-  if (verbose) for (const row of rows) console.log(`       ${String(row.size).padStart(7)} B  ${row.ms.toFixed(2).padStart(8)} ms`);
-}
-
-// The URI parser on any string: linear, and refused without quoting more than it read
-for (const [name, text] of [
-  ["parseUri, a long path", (n) => `pubky://${OWNER}/pub/social/v1/${fill("a/", n)}x`],
-  ["parseUri, a long garbage string", (n) => fill("%zz?#", n)],
-]) {
-  const rows = SIZES.map((size) => {
-    const uri = text(size);
-    return {
-      size,
-      ms: time(() => {
-        try {
-          parseUri(uri);
-        } catch (e) {
-          if (e?.name !== "ValidationError") throw e;
-        }
-      }),
-    };
+    const input = inputOf(size);
+    return { size: input.length, ms: time(refusedOrRead(() => call(input))) };
   });
   const worst = Math.max(...rows.map((row) => (row.ms * 1e6) / row.size));
   const over = worst > NS_PER_BYTE;
   const superlinear = grows(rows);
   failed ||= over || superlinear;
   console.log(`${over || superlinear ? "FAIL" : "ok  "} ${name.padEnd(40)} worst ${worst.toFixed(0).padStart(4)} ns/byte${superlinear ? ", superlinear" : ""}`);
+  if (args.verbose) for (const row of rows) console.log(`       ${String(row.size).padStart(7)} B  ${row.ms.toFixed(2).padStart(8)} ms`);
+};
+
+for (const [name, make] of Object.entries(SHAPES)) {
+  judge(
+    name,
+    (size) => encoder.encode(make(size)),
+    (bytes) => decodeObject(POST, bytes),
+  );
 }
+// The URI parser on any string: linear, and refused without quoting more than it read
+judge("parseUri, a long path", (size) => `pubky://${OWNER}/pub/social/v1/${fill("a/", size)}x`, parseUri);
+judge("parseUri, a long garbage string", (size) => fill("%zz?#", size), parseUri);
 
 process.exit(failed ? 1 : 0);
