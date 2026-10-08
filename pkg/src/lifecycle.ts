@@ -12,7 +12,7 @@ import { checkReferences, checkTimestampId, envelopeRefs, post, type Post } from
 import { compareBytes } from "./text.js";
 import { isPrivatePath, LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
-export interface Copy {
+interface Copy {
   from: string;
   to: string;
 }
@@ -118,7 +118,7 @@ export function planUnpublish(id: string, publicPaths: string[], legacyPaths: st
   };
 }
 
-export interface StoredCopy {
+interface StoredCopy {
   root: Root;
   path: string;
 }

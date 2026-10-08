@@ -23,7 +23,7 @@ export const timestampIdFault = (id: string): string | null => idFault(id, 13, 1
 export const hashIdFault = (id: string): string | null => idFault(id, 26, 3);
 
 /** Format only: 52 z-base32 characters whose four spare bits are zero. No curve check. */
-export function publicKeyFault(key: string): string | null {
+function publicKeyFault(key: string): string | null {
   if (utf8Len(key) !== 52) return "the string is not 52 ASCII characters";
   for (const c of key) if (!ZBASE32.includes(c)) return "invalid public key encoding";
   return key.endsWith("y") || key.endsWith("o") ? null : "invalid public key encoding";
