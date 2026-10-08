@@ -33,7 +33,7 @@ fn main() {
             .args(["build", &root, "--release", "--target", "nodejs"])
             .args(["--out-dir", "pkg/nodejs", "--no-pack"])
             // The wasm is the migrator and nothing else
-            .args(["--", "--features", "migrator"])
+            .args(["--", "--features", "migrator", "--locked"])
             .status(),
     );
     check(

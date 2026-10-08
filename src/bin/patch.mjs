@@ -7,6 +7,7 @@
 // evaluated. The tail of the generated file is replaced by an async `__wbg_init()`, and the
 // CommonJS exports by ES ones.
 
+import { createHash } from "node:crypto";
 import { copyFile, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,17 +27,27 @@ if (!tail.test(glue)) {
   throw new Error("patch.mjs: the wasm-bindgen glue tail changed; update the loader patch");
 }
 
-const base64 = await readFile(path.join(built, `${name}_bg.wasm`), "base64");
+const wasm = await readFile(path.join(built, `${name}_bg.wasm`));
+const base64 = wasm.toString("base64");
+// Checked by migration/wasm.ts before the bytes are compiled: a glue whose bytes were changed
+// after the build, or cut short, never runs
+const sha256 = createHash("sha256").update(wasm).digest("hex");
 const esm =
   glue.replace(/^exports\.(\w+) = (\w+);$/gm, "export { $2 as $1 };").replace(
     tail,
     () => `
 let wasm;
-async function __wbg_init() {
-  const { instance } = await WebAssembly.instantiate(__toBinary(${JSON.stringify(base64)}), __wbg_get_imports());
+/** The embedded wasm, decoded. */
+function __wbg_bytes() {
+  return __toBinary(${JSON.stringify(base64)});
+}
+/** Compiles and starts \`bytes\`, the ones \`__wbg_bytes\` gave once their digest was checked. */
+async function __wbg_init(bytes) {
+  const { instance } = await WebAssembly.instantiate(bytes, __wbg_get_imports());
   wasm = instance.exports;
   wasm.__wbindgen_start();
 }
+const __wbg_sha256 = ${JSON.stringify(sha256)};
 `,
   ) +
   `
@@ -54,7 +65,7 @@ function __toBinary(base64) {
   }
   return bytes;
 }
-export { __wbg_init };
+export { __wbg_bytes, __wbg_init, __wbg_sha256 };
 `;
 if (/\bexports\.|\brequire\(|\bmodule\.exports\b/.test(esm)) {
   throw new Error("patch.mjs: CommonJS left in the ESM glue");

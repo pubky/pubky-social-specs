@@ -2,6 +2,7 @@
 // through its frozen reader, whose URL and MIME parsing no JS engine reproduces. Nothing
 // outside this subpath loads a wasm.
 
+import { sha256 } from "@noble/hashes/sha2.js";
 import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
 import { ValidationError } from "../errors.js";
@@ -32,12 +33,27 @@ export type Migration = glue.Migration;
 
 let loading: Promise<void> | null = null;
 
-/** Loads the wasm once. A failed load can be tried again. */
+const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+/**
+ * The embedded wasm, once its digest is the one the build recorded. Hashed here, not through
+ * `crypto.subtle`, which a page served over plain HTTP does not have.
+ */
+function checkedWasm(): Uint8Array {
+  const bytes = glue.__wbg_bytes();
+  const digest = hex(sha256(bytes));
+  if (digest !== glue.__wbg_sha256) throw new Error(`pubky-social-specs/migration: the embedded wasm hashes to ${digest}, not the ${glue.__wbg_sha256} its build recorded`);
+  return bytes;
+}
+
+/** Loads the wasm once, after checking its digest. A failed load can be tried again. */
 export function init(): Promise<void> {
-  loading ??= glue.__wbg_init().catch((e: unknown) => {
-    loading = null;
-    throw e;
-  });
+  loading ??= Promise.resolve()
+    .then(() => glue.__wbg_init(checkedWasm()))
+    .catch((e: unknown) => {
+      loading = null;
+      throw e;
+    });
   return loading;
 }
 
