@@ -28,14 +28,13 @@ export type PortErrorKind =
    */
   | "rejected";
 
+const BRAND = Symbol.for("pubky-social-specs.MigrationPortError");
+
 /**
  * The one error type a port throws. Anything else it throws counts as `network`. A 5xx other
  * than 507 is `network` too, never `rejected`: the server failed and the same call may succeed
  * later, while a refusal is recorded as final. `refusal(status)` maps a status this way.
- */
-const BRAND = Symbol.for("pubky-social-specs.MigrationPortError");
-
-/**
+ *
  * @example
  * ```ts
  * import { MemoryPort, MigrationPortError, runMigration } from "pubky-social-specs/migration";
@@ -115,6 +114,4 @@ const MAPPED: Partial<Record<number, PortErrorKind>> = {
  */
 const refusal = (status: number, message?: string): MigrationPortError => new MigrationPortError(MAPPED[status] ?? (status >= 500 ? "network" : "rejected"), message, status);
 
-const portErrorKind = (error: unknown): PortErrorKind => (error instanceof MigrationPortError ? error.kind : "network");
-
-export { MigrationPortError, portErrorKind, refusal };
+export { MigrationPortError, refusal };

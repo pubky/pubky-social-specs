@@ -4,7 +4,7 @@ import { ValidationError } from "../errors.js";
 import { buildChecked, legacyMediaKey, listPrefix, mediaStem, ownedPath, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
 import type { Dropped, MigrateBlobResult, MigrateResult, MigratedWrite, Migration } from "./wasm.js";
-import { portErrorKind } from "./port.js";
+import { MigrationPortError } from "./port.js";
 import type { MigrationPort, PortErrorKind } from "./port.js";
 import { ordered } from "./order.js";
 import type { Bucket } from "./order.js";
@@ -56,7 +56,7 @@ const FLAG_MAX_BYTES = 64 * 1024 * 1024;
 // The largest 1.x object with every byte spelled as a six-byte escape: no 0.x object a client
 // wrote is larger, and a larger one would hold wasm memory for the rest of the run
 const LEGACY_OBJECT_MAX = 6 * limits.postMaxBytes;
-const OUTCOMES: readonly string[] = [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"];
+const OUTCOMES: readonly Outcome[] = [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"];
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
   PRIV_UNSUPPORTED: "This homeserver has no private storage (/priv/), which the migration needs. Ask its operator to upgrade it, then run the migration again.",
@@ -80,12 +80,9 @@ class Stop extends Error {
 interface Failure {
   failed: PortErrorKind;
   message: string;
-  status?: number;
 }
 
 const isFailure = (value: unknown): value is Failure => typeof value === "object" && value !== null && "failed" in value;
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 const decoder = new TextDecoder();
 
@@ -106,25 +103,27 @@ const covers = (granted: string | string[], required: string): boolean => {
   );
 };
 
-/** What a finished run recorded, or rev 0 and nothing for a flag this build cannot read. */
+/** A flag this build cannot read, so the tree is walked again. */
+const unreadFlag = (): Flag => ({ transformRev: 0, skipped: {}, migrated: new Set() });
+
+/** What a finished run recorded, or the unread flag. */
 const readFlag = (bytes: Uint8Array): Flag => {
-  const unread: Flag = { transformRev: 0, skipped: {}, migrated: new Set() };
   const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
   let flag: unknown;
   try {
     flag = JSON.parse(decoder.decode(bytes));
   } catch {
-    return unread;
+    return unreadFlag();
   }
-  if (typeof flag !== "object" || flag === null || Array.isArray(flag)) return unread;
+  if (typeof flag !== "object" || flag === null || Array.isArray(flag)) return unreadFlag();
   const own = (key: string): unknown => (Object.hasOwn(flag, key) ? (flag as Record<string, unknown>)[key] : undefined);
   const rev = own("transform_rev");
   const skipped: unknown = own("skipped") ?? {};
   const migrated = own("migrated") ?? [];
-  if (typeof skipped !== "object" || skipped === null || Array.isArray(skipped) || !strings(migrated)) return unread;
+  if (typeof skipped !== "object" || skipped === null || Array.isArray(skipped) || !strings(migrated)) return unreadFlag();
   const kept: Partial<Record<Outcome, string[]>> = {};
   for (const [outcome, paths] of Object.entries(skipped)) {
-    if (!OUTCOMES.includes(outcome) || !strings(paths)) return unread;
+    if (!OUTCOMES.includes(outcome as Outcome) || !strings(paths)) return unreadFlag();
     kept[outcome as Outcome] = paths;
   }
   return { transformRev: Number.isSafeInteger(rev) ? (rev as number) : 0, skipped: kept, migrated: new Set(migrated) };
@@ -242,11 +241,11 @@ class Run {
   #roots: string[] = [];
   #handle?: Migration;
   #phase: Phase = "probe";
-  #kind: Bucket | undefined;
+  #pass: Bucket | undefined;
   #done = 0;
   #total = 0;
   #dropped = 0;
-  readonly #counts = Object.fromEntries([...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"].map((outcome) => [outcome, 0])) as Counts;
+  readonly #counts = Object.fromEntries(OUTCOMES.map((outcome) => [outcome, 0])) as Counts;
   #skipped: Partial<Record<Outcome, string[]>> = {};
   /**
    * The 0.x paths a finished run copied or found present. A later walk leaves them alone: a
@@ -301,7 +300,7 @@ class Run {
 
       this.#phase = "listing";
       this.#emit();
-      for (const prefix of [publicPrefix, privatePrefix]) {
+      for (const prefix of this.#roots) {
         for (const url of await this.#listAll(prefix)) {
           const id = stableKey(this.#relative(url));
           if (id === null || !("key" in id)) continue;
@@ -320,7 +319,7 @@ class Run {
       this.#phase = "migrating";
       this.#handle = transforms.createMigration(owner);
       for (const [bucket, urls] of passes) {
-        this.#kind = bucket;
+        this.#pass = bucket;
         await pool(
           urls,
           IN_FLIGHT,
@@ -329,7 +328,7 @@ class Run {
         );
         this.#checkAbort();
       }
-      this.#kind = undefined;
+      this.#pass = undefined;
       // settings.json, last_read and anything else no 1.x type takes
       for (const url of rest) {
         this.#count("not_migrated", this.#relative(url));
@@ -381,14 +380,13 @@ class Run {
     const bytes = await this.#attempt(() => this.#port.get(flagUrl, { maxBytes: FLAG_MAX_BYTES }));
     if (isFailure(bytes)) {
       if (bytes.failed === "not_found") return null;
-      if (bytes.failed === "too_large") return readFlag(new Uint8Array());
+      if (bytes.failed === "too_large") return unreadFlag();
       throw new Stop({ code: "IO_ERROR", message: `reading ${FLAG}: ${bytes.message}` });
     }
     if (bytes === null) return null;
-    // A flag this build cannot read is treated as older, so the tree is walked again
     const view = viewBytes(bytes);
     // A port that does not bound its read: the cap holds all the same
-    return view === null || view.length > FLAG_MAX_BYTES ? readFlag(new Uint8Array()) : readFlag(view);
+    return view === null || view.length > FLAG_MAX_BYTES ? unreadFlag() : readFlag(view);
   }
 
   async #listAll(prefix: string): Promise<string[]> {
@@ -611,7 +609,8 @@ class Run {
       try {
         return await call();
       } catch (error) {
-        const kind = portErrorKind(error);
+        // Anything but a port error never got an answer
+        const kind = error instanceof MigrationPortError ? error.kind : "network";
         if (kind === "quota") {
           throw new Stop({ code: "QUOTA", message: MESSAGES.QUOTA });
         }
@@ -623,12 +622,7 @@ class Run {
           backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
           continue;
         }
-        const status = (error as { status?: unknown } | null)?.status;
-        return {
-          failed: kind,
-          message: messageOf(error),
-          ...(typeof status === "number" ? { status } : {}),
-        };
+        return { failed: kind, message: error instanceof Error ? error.message : String(error) };
       }
     }
   }
@@ -675,9 +669,7 @@ class Run {
   #count(outcome: Outcome, path: string, note?: string): Outcome {
     this.#counts[outcome]++;
     if (outcome === "written" || outcome === "already_present") this.#migrated.push(path);
-    if (outcome !== "written" && outcome !== "already_present") {
-      (this.#skipped[outcome] ??= []).push(path);
-    }
+    else (this.#skipped[outcome] ??= []).push(path);
     if (note !== undefined) this.#notes.push({ path, message: note });
     return outcome;
   }
@@ -685,7 +677,7 @@ class Run {
   #emit(current?: string, error?: MigrationError): void {
     this.#options.onProgress?.({
       phase: this.#phase,
-      ...(this.#kind ? { pass: this.#kind } : {}),
+      ...(this.#pass ? { pass: this.#pass } : {}),
       done: this.#done,
       total: this.#total,
       counts: { ...this.#counts },
@@ -702,7 +694,7 @@ class Run {
       error = { ...error, needBytes };
     }
     this.#phase = status === "already_migrated" ? "done" : status;
-    this.#kind = undefined;
+    this.#pass = undefined;
     this.#emit(undefined, error);
     return {
       status,
