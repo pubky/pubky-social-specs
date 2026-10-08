@@ -56,14 +56,14 @@ describe("edges", () => {
       for (const raw of [":x", "x:", "ab!c:x", "1ab:x", "Pubky:x", "HTTPS:x"]) assert.strictEqual(canonicalExternal(raw), null, raw);
     });
 
-    it("the length cap holds at its exact bound", () => {
+    it("a reference exactly at the length cap is taken, one past it is not", () => {
       const max = limits.referenceUriMaxLength;
       const at = (n) => `https://e.com/${"a".repeat(n - "https://e.com/".length)}`;
       assert.strictEqual(canonicalUniversal(at(max)), at(max));
       assert.strictEqual(canonicalUniversal(at(max + 1)), null);
     });
 
-    it("the root, ownership and versionless rules of a pubky reference", () => {
+    it("a pubky reference is refused when private, another user's, or versioned where the member forbids it", () => {
       assert.match(reference(`pubky://${OTTO}/priv`, "", 1000, true, null).refusal, /^must not reference a private object/);
       assert.match(reference(`pubky://${RIO}/priv/social/v1/files/x`, "", 1000, false, OTTO).refusal, /of another user/);
       assert.deepStrictEqual(reference(`pubky://${OTTO}/priv/social/v1/files/x`, "", 1000, false, OTTO), { canonical: `pubky://${OTTO}/priv/social/v1/files/x` });

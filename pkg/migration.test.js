@@ -155,7 +155,7 @@ describe("migration engine", () => {
       assert.deepStrictEqual(new Set(cases.map(([, b]) => b)), new Set([...BUCKETS, "rest"]));
     });
 
-    it("counts a tree the way a run walks it", async () => {
+    it("counts a tree by pass as a run walks it", async () => {
       const port = legacyPort();
       const counts = {};
       for (const u of port.store.keys()) counts[bucketOf(u)] = (counts[bucketOf(u)] ?? 0) + 1;

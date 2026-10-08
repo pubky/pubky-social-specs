@@ -110,7 +110,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(text(built.body), '{"content":"hello","kind":"note","parent":null,"embed":null,"attachments":[]}');
     });
 
-    it("the data is the reference's", () => {
+    it("the exported tables hold the reference's values, frozen", () => {
       assert.strictEqual(limits.postNoteContentMaxLength, 2000);
       assert.strictEqual(limits.maxFileSizeBytes, 100 * 1024 * 1024);
       assert.ok(validMimeTypes.includes("image/png"));
