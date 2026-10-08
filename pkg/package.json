@@ -55,9 +55,8 @@
   ],
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --locked --features migrator --bin bundle_specs_npm",
-    "build:ts": "tsc -p .",
     "pretest": "tsc -p .",
-    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && node qa/examples.mjs && node --max-old-space-size=1536 qa/model.mjs --runs 25 --seed 1",
+    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run model -- --runs 25 --seed 1",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "node --max-old-space-size=1536 qa/score.mjs",
