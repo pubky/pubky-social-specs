@@ -4,7 +4,7 @@ import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedS
 import type * as posts from "./models/post.js";
 import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
-import type { ObjectKind, OwnerPath as PathText, Root } from "./uri.js";
+import type { ObjectKind, OwnerPath as PathText, Root } from "./path.js";
 /** Bytes that `fetch`, `Blob` and the SDK take as they are. */
 export type Bytes = Uint8Array<ArrayBuffer>;
 declare const brand: unique symbol;

@@ -3,6 +3,7 @@
 
 import * as clock from "./clock.js";
 import { misuse } from "./errors.js";
+import { ZBASE32 } from "./ids.js";
 import { buildFeed, buildPost, buildUser } from "./index.js";
 import type { Built, BuiltPost, Feed, Given, NewFeed, NewNote, NewUser, Owner, User } from "./types.js";
 
@@ -34,8 +35,6 @@ export function setClock(nowMs?: () => number): void {
     return BigInt(now) * 1000n;
   });
 }
-
-const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 
 /**
  * A public key for test data, the same for the same `n`: well formed, so every builder takes

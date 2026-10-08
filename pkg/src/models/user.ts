@@ -4,7 +4,7 @@ import { type Each, fail, member, throwing } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
 import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
-import { socialPath } from "../uri.js";
+import { socialPath } from "../path.js";
 import { checkExtra, type Model, validate } from "./common.js";
 
 export interface UserLink extends Extra {
@@ -56,7 +56,8 @@ export const user: Model<User> = {
       if (frozenTrim(value.bio) === "") fail("bio must not be blank", "bio");
       if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length", "bio");
     });
-    if (value.image !== null) each(() => checkReference("image", value.image as string, "pubky or web", limits.imageUrlMaxLength, true, null));
+    const { image } = value;
+    if (image !== null) each(() => checkReference("image", image, "pubky or web", limits.imageUrlMaxLength, true, null));
     if (value.links !== null) {
       const links = value.links;
       each(() => {

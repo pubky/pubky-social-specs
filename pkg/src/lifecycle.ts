@@ -10,9 +10,9 @@ import { writeJson } from "./json/write.js";
 import { checkSafeNumbers, validate } from "./models/common.js";
 import { checkReferences, checkTimestampId, envelopeRefs, post, type Post } from "./models/post.js";
 import { compareBytes } from "./text.js";
-import { LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
+import { isPrivatePath, LEGACY_ROOT, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
-export interface Copy {
+interface Copy {
   from: string;
   to: string;
 }
@@ -24,10 +24,7 @@ const toPath = (uri: string, owner: string) => (uri.startsWith(ownerPrefix(owner
 // Every caller has matched the owner's media prefix first, so the URI has an owner and a path
 const isMediaObject = (uri: string): boolean => parsePath(splitPubky(uri)?.path ?? null)?.kind === "file";
 
-function isPrivRooted(uri: string): boolean {
-  const path = splitPubky(uri)?.path;
-  return path === "priv" || path?.startsWith("priv/") === true;
-}
+const isPrivRooted = (uri: string): boolean => isPrivatePath(splitPubky(uri)?.path ?? null);
 
 function mediaRefs(value: Post): string[] {
   const refs = value.attachments.map((a) => a.uri);
@@ -121,7 +118,7 @@ export function planUnpublish(id: string, publicPaths: string[], legacyPaths: st
   };
 }
 
-export interface StoredCopy {
+interface StoredCopy {
   root: Root;
   path: string;
 }

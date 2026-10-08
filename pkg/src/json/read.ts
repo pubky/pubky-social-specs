@@ -200,42 +200,35 @@ export class Reader {
 
   /** The text of a string whose opening quote is read. */
   string(): string {
+    const bytes = this.bytes;
     let out = "";
-    let start = this.pos;
     // The parser looks at the encoding only at the closing quote, so an error later in the
     // same string comes first
-    let invalid = false as boolean;
-    const flush = () => {
-      if (this.pos === start) return;
-      const text = utf8Text(this.bytes.subarray(start, this.pos));
-      if (text === null) invalid = true;
-      else out += text;
-    };
+    let invalid = false;
     for (;;) {
-      const b = this.byteOrEof();
+      const start = this.pos;
+      let at = start;
+      let b = bytes[at];
+      while (b !== undefined && b !== QUOTE && b !== BACKSLASH && b >= 0x20) b = bytes[++at];
+      this.pos = at;
+      if (at > start) {
+        const text = utf8Text(bytes.subarray(start, at));
+        if (text === null) invalid = true;
+        else out += text;
+      }
+      if (b === undefined) this.fail("EOF while parsing a string");
+      this.pos++;
       if (b === QUOTE) {
-        flush();
-        this.pos++;
         if (invalid) this.fail("invalid unicode code point");
         return out;
       }
-      if (b < 0x20) {
-        this.pos++;
-        this.fail("control character (\\u0000-\\u001F) found while parsing a string");
-      }
-      if (b !== BACKSLASH) {
-        this.pos++;
-        continue;
-      }
-      flush();
-      this.pos++;
+      if (b < 0x20) this.fail("control character (\\u0000-\\u001F) found while parsing a string");
       const escape = this.byteOrEof();
       this.pos++;
       const plain = ESCAPES[escape];
       if (plain !== undefined) out += plain;
       else if (escape === 0x75) out += this.unicodeEscape();
       else this.fail("invalid escape");
-      start = this.pos;
     }
   }
 
@@ -307,8 +300,7 @@ export class Reader {
         this.pos++;
         exponent++;
       } else if (b === 0x2e) return this.decimal(positive, significand, exponent);
-      else if (b === 0x65 || b === 0x45) return this.exponent(positive, significand, exponent);
-      else return this.fromParts(positive, significand, exponent);
+      else return this.scaled(positive, significand, exponent);
     }
   }
 
@@ -322,18 +314,20 @@ export class Reader {
       if (next > U64_MAX) {
         // The digits that do not fit are dropped, not rounded
         while (isDigit(this.peek() ?? 0)) this.pos++;
-        const e = this.peek();
-        if (e === 0x65 || e === 0x45) return this.exponent(positive, significand, before + after);
-        return this.fromParts(positive, significand, before + after);
+        return this.scaled(positive, significand, before + after);
       }
       this.pos++;
       significand = next;
       after--;
     }
     if (after === 0) this.fail(this.peek() === undefined ? "EOF while parsing a value" : "invalid number");
+    return this.scaled(positive, significand, before + after);
+  }
+
+  /** The value so far, through the exponent when one follows. */
+  private scaled(positive: boolean, significand: bigint, exponent: number): number {
     const e = this.peek();
-    if (e === 0x65 || e === 0x45) return this.exponent(positive, significand, before + after);
-    return this.fromParts(positive, significand, before + after);
+    return e === 0x65 || e === 0x45 ? this.exponent(positive, significand, exponent) : this.fromParts(positive, significand, exponent);
   }
 
   private exponent(positive: boolean, significand: bigint, starting: number): number {

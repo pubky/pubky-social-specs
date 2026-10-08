@@ -7,7 +7,7 @@ import { plainBytes } from "./bytes.js";
 import { misuse } from "./errors.js";
 
 // No list of the model, and no history a caller walks, comes near this
-export const MAX_ITEMS = 1 << 20;
+const MAX_ITEMS = 1 << 20;
 // The deepest input, a version inside a plan with its attachments, is five levels down
 const MAX_DEPTH = 32;
 
@@ -26,11 +26,13 @@ export function snapshot(value: unknown, at: string): unknown {
     if (done !== undefined) return done;
     if (open.has(js)) misuse(where, "plain data, not a structure that contains itself");
     if (depth > MAX_DEPTH) misuse(where, `plain data nested at most ${MAX_DEPTH} deep`);
-    const bytes = plainBytes(js);
+    const isArray = Array.isArray(js);
+    // An array is never bytes, and the ArrayBuffer test costs a thrown error
+    const bytes = isArray ? null : plainBytes(js);
     if (bytes !== null) return bytes;
     open.add(js);
     let out: unknown;
-    if (Array.isArray(js)) {
+    if (isArray) {
       // Checked before it is walked: a length is free to claim
       const length = js.length;
       if (length > MAX_ITEMS) misuse(where, `an array of at most ${MAX_ITEMS} items`);

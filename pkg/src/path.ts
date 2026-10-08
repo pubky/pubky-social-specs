@@ -2,7 +2,7 @@
 // place a path is assembled. No URI parsing here, so the canonicalizers can build on it.
 
 import { limits } from "./data.js";
-import { hashIdFault, publicKeyFault, timestampIdFault } from "./ids.js";
+import { hashIdFault, isPublicKey, timestampIdFault } from "./ids.js";
 import { MEDIA_EXTENSIONS } from "./mime.js";
 import { hasControlOrWhitespace } from "./text.js";
 
@@ -10,11 +10,11 @@ export type Root = "public" | "private";
 
 /** An owner-relative path: what the SDK's storage calls and every plan take. */
 export type OwnerPath = `/pub/${string}` | `/priv/${string}`;
-export const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
+const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
 export type ObjectKind = (typeof OBJECT_KINDS)[number];
 export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS as readonly string[]).includes(kind);
 
-export type Resource =
+type Resource =
   | { kind: "user" }
   | { kind: "post"; id: string; editId?: string; slug?: string }
   | { [K in "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]: { kind: K; id: string } }["follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]
@@ -26,9 +26,9 @@ export type Located = { root: Root; path: OwnerPath | "" } & Resource;
 
 const isTimestampId = (id: string) => timestampIdFault(id) === null;
 const isHashId = (id: string) => hashIdFault(id) === null;
-const isPublicKey = (key: string) => publicKeyFault(key) === null;
 const isEpoch = (segment: string) => /^v[0-9]+$/.test(segment);
-const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
+/** The stem of a `.json` leaf, or null for any other leaf. */
+export const jsonStem = (leaf: string): string | null => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 
 export function isSlug(slug: string): boolean {
   return slug.length <= limits.postSlugMaxLength && /^[a-z0-9-]+$/.test(slug);
@@ -51,7 +51,7 @@ export function isBookmarkId(name: string): boolean {
 
 /** The `{editId}[-{slug}].json` leaf of a post version, or null for any other leaf. */
 export function versionOf(leaf: string): { editId: string; slug?: string } | null {
-  const stem = json(leaf);
+  const stem = jsonStem(leaf);
   if (stem === null) return null;
   const dash = stem.indexOf("-");
   const editId = dash < 0 ? stem : stem.slice(0, dash);
@@ -74,7 +74,7 @@ function dispatch(root: Root, rest: string[]): Resource {
     const stem = mediaStem(a);
     return stem !== null && isHashId(stem) ? { kind: "file", id: stem } : unknown;
   }
-  const id = json(a);
+  const id = jsonStem(a);
   if (id === null) return unknown;
   if (segment === "feeds") return isHashId(id) ? { kind: "feed", id } : unknown;
   if (root === "public") {
@@ -137,6 +137,9 @@ export function ownedPath(url: string, owner: string, directory = false): string
   const clean = segments.every((segment, i) => isCanonicalSegment(segment) || (directory && i === last && i > 0 && segment === ""));
   return clean ? url.slice(prefix.length - 1) : null;
 }
+
+/** Whether a path split off by `splitPubky` is under the private root. */
+export const isPrivatePath = (path: string | null): boolean => path === "priv" || path?.startsWith("priv/") === true;
 
 /** A full `pubky://` URI split after its owner: the path without its leading `/`, null for none. */
 export function splitPubky(uri: string): { owner: string; path: string | null } | null {

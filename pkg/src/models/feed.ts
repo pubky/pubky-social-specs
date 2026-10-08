@@ -4,7 +4,7 @@ import { type Each, fail, member, throwing } from "../errors.js";
 import { checkHashId, checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, inputOf, list, object, omitted, option, string } from "../json/schema.js";
 import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
-import { socialPath } from "../uri.js";
+import { socialPath } from "../path.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./label.js";
 import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, known, postKind, type PostKind, postKinds } from "./kinds.js";

@@ -2,14 +2,9 @@
 
 import { canonicalPubky } from "./canonicalize.js";
 import { fail, misuse } from "./errors.js";
-import { checkPublicKey, publicKeyFault } from "./ids.js";
-import { isCanonicalSegment, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
+import { checkPublicKey, isPublicKey } from "./ids.js";
+import { isCanonicalSegment, jsonStem, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
-
-export * from "./path.js";
-
-const isPublicKey = (key: string) => publicKeyFault(key) === null;
-const json = (leaf: string) => (leaf.endsWith(".json") ? leaf.slice(0, -5) : null);
 
 export type Parsed = { owner: string } & Located;
 
@@ -36,7 +31,7 @@ const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
 };
 
 /** Where an object of `kind` lives under `owner`. The owner key is checked, the id is spelled as given. */
-export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
+export function build(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
   checkPublicKey(owner);
   if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
   const [root, leaf] = LEAF[kind](id);
@@ -44,7 +39,7 @@ export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${stri
 }
 
 /** `build`, and only for an id the parser reads back as that object: no other path comes out. */
-export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
+export function buildChecked(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
   const uri = build(owner, kind, id);
   const canonical = canonicalPubky(uri);
   const located = canonical === null ? null : parsePath(splitPubky(canonical)?.path ?? null);
@@ -65,7 +60,7 @@ export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${str
   return `pubky://${owner}${socialPath(given, "")}`;
 }
 
-const stripJson = (leaf: string) => json(leaf) ?? leaf;
+const stripJson = (leaf: string) => jsonStem(leaf) ?? leaf;
 
 /**
  * The key one object has under both epochs of a tree, from its owner-relative path:

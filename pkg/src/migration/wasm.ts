@@ -7,7 +7,7 @@ import { viewBytes } from "../bytes.js";
 import { limits, skipReasons } from "../data.js";
 import { ValidationError } from "../errors.js";
 import { checkWellFormed } from "../text.js";
-import type { ObjectKind } from "../uri.js";
+import type { ObjectKind } from "../path.js";
 // The wasm itself, embedded in the module or, under Node, read from the file beside it
 import * as glue from "#glue";
 

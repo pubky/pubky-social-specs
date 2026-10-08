@@ -4,7 +4,7 @@ import { radix } from "./radix.js";
 import { utf8, utf8Len } from "./text.js";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
+export const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 
 // Exported for the vector generator as well
 export const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
@@ -23,11 +23,13 @@ export const timestampIdFault = (id: string): string | null => idFault(id, 13, 1
 export const hashIdFault = (id: string): string | null => idFault(id, 26, 3);
 
 /** Format only: 52 z-base32 characters whose four spare bits are zero. No curve check. */
-export function publicKeyFault(key: string): string | null {
+function publicKeyFault(key: string): string | null {
   if (utf8Len(key) !== 52) return "the string is not 52 ASCII characters";
   for (const c of key) if (!ZBASE32.includes(c)) return "invalid public key encoding";
   return key.endsWith("y") || key.endsWith("o") ? null : "invalid public key encoding";
 }
+
+export const isPublicKey = (key: string): boolean => publicKeyFault(key) === null;
 
 const checked = (fault: (value: string) => string | null) => (value: string, field?: string) => {
   const found = fault(value);

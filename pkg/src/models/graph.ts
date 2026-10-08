@@ -8,7 +8,7 @@ import { type Each, fail, throwing } from "../errors.js";
 import { checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, object, omitted, string } from "../json/schema.js";
 import { utf8, utf8Len, utf8Text } from "../text.js";
-import { type Root, socialPath } from "../uri.js";
+import { type Root, socialPath } from "../path.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./label.js";
 

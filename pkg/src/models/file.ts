@@ -2,7 +2,7 @@ import { limits } from "../data.js";
 import { fail } from "../errors.js";
 import { checkHashId, checkPublicKey, hashId } from "../ids.js";
 import { mimeToExt } from "../mime.js";
-import { type Root, socialPath } from "../uri.js";
+import { type Root, socialPath } from "../path.js";
 
 /** Media is raw bytes with no JSON form: not empty, under the cap, named by its hash. */
 export function checkFile(bytes: Uint8Array, id: string | null): string {
