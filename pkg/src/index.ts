@@ -922,7 +922,8 @@ export function microsToDate(micros: number): Date {
  * The stored timestamp of a `Date`, or of milliseconds as `Date.now()` gives them: microseconds,
  * which is what every `created_at` holds.
  *
- * @throws `ArgumentError` for an invalid `Date` or a number that is not finite.
+ * @throws `ArgumentError` for an invalid `Date`, a number that is not finite, or a date from
+ * June 2255 on, whose microseconds are no safe integer.
  *
  * @example
  * ```ts
@@ -933,7 +934,10 @@ export function microsToDate(micros: number): Date {
 export function dateToMicros(date: Date | number): number {
   const ms = date instanceof Date ? date.getTime() : date;
   if (!Number.isFinite(ms)) misuse("date", "a valid Date or a number of milliseconds");
-  return Math.floor(ms) * 1000;
+  const micros = Math.floor(ms) * 1000;
+  // Past about the year 2255 a microsecond count is no exact JS integer, and no stored timestamp takes it
+  if (!Number.isSafeInteger(micros)) misuse("date", "a date whose microseconds are a safe integer, before the year 2255");
+  return micros;
 }
 
 /**

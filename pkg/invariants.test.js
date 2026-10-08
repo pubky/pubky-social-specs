@@ -188,6 +188,14 @@ describe("helpers", () => {
     assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
   });
 
+  it("dateToMicros refuses a date whose microseconds are no safe integer", () => {
+    assert.strictEqual(specs.dateToMicros(new Date("2255-01-01T00:00:00Z")), Date.UTC(2255, 0, 1) * 1000);
+    assert.throws(
+      () => specs.dateToMicros(new Date("3000-01-01T00:00:00Z")),
+      (e) => e instanceof specs.ArgumentError && e.field === "date",
+    );
+  });
+
   it("tryDecodeObject returns the refusal of bad bytes and still throws on a bad argument", () => {
     const url = `pubky://${OTTO}/pub/social/v1/profile.json`;
     const bad = specs.tryDecodeObject(url, utf8("{"), "user");
