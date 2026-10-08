@@ -9,7 +9,7 @@ import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
 import { foldLabel } from "./models/label.js";
 import { compareBytes } from "./text.js";
-import { isBookmarkId, isObjectKind, LEGACY_ROOT, legacyMediaKey, mediaStem, type ObjectKind, type Root, socialPath, splitPubky, stableKey } from "./uri.js";
+import { isBookmarkId, isObjectKind, LEGACY_ROOT, legacyMediaKey, mediaStem, type ObjectKind, socialPath, splitPubky, stableKey } from "./uri.js";
 
 /** A path as a LIST gives it, or a 0.x object with what proves it belongs to the target. */
 export type Listing =
@@ -39,7 +39,7 @@ function postPaths(id: string, entries: Entry[]): string[] {
   const paths = sorted(entries.map((e) => (e.file || e.tag ? notACopy("post", id, e.path) : e.path)));
   const legacy = paths.filter((path) => path.startsWith(LEGACY));
   // The root is the path's own first segment; a path under neither is refused by the order
-  const copies = paths.filter((path) => !path.startsWith(LEGACY)).map((path) => ({ root: (path.startsWith("/priv/") ? "private" : "public") as Root, path }));
+  const copies = paths.filter((path) => !path.startsWith(LEGACY)).map((path) => ({ root: path.startsWith("/priv/") ? ("private" as const) : ("public" as const), path }));
   return deleteOrder(id, legacy, copies);
 }
 
@@ -60,7 +60,7 @@ function v1TagTarget(tag: V0Tag): string {
       if (media === null) return fail(`not a legacy blob src: ${tag.src}`);
       key = `${media}.${mimeToExt(tag.contentType)}`;
     }
-    const leaf = key === "profile" ? "profile.json" : key.startsWith("posts/") || key.startsWith("files/") ? key : `${key}.json`;
+    const leaf = key.startsWith("posts/") || key.startsWith("files/") ? key : `${key}.json`;
     return `pubky://${split.owner}${socialPath("public", leaf)}`;
   }
   if (uri.startsWith("http://") || uri.startsWith("https://")) return canonicalUniversal(uri) ?? fail(`not a canonical web uri: ${uri}`);

@@ -5,7 +5,7 @@ import { reference } from "./canonicalize.js";
 import { limits } from "./data.js";
 import { fail, ValidationError } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
-import { JsonError, type JsonObject, readJson } from "./json/read.js";
+import { type JsonObject, readJson } from "./json/read.js";
 import { writeJson } from "./json/write.js";
 import { checkSafeNumbers, validate } from "./models/common.js";
 import { checkReferences, checkTimestampId, envelopeRefs, post, type Post } from "./models/post.js";
@@ -21,26 +21,14 @@ const ownerPrefix = (owner: string) => `pubky://${owner}`;
 const mediaPrefix = (owner: string, root: Root) => ownerPrefix(owner) + socialPath(root, "files/");
 const toPath = (uri: string, owner: string) => (uri.startsWith(ownerPrefix(owner)) ? uri.slice(ownerPrefix(owner).length) : uri);
 
-function isMediaObject(uri: string): boolean {
-  const split = splitPubky(uri);
-  return split !== null && split.owner !== "" && split.path !== null && parsePath(split.path)?.kind === "file";
-}
+// Every caller has matched the owner's media prefix first, so the URI has an owner and a path
+const isMediaObject = (uri: string): boolean => parsePath(splitPubky(uri)?.path ?? null)?.kind === "file";
 
 function isPrivRooted(uri: string): boolean {
   const path = splitPubky(uri)?.path;
   return path === "priv" || path?.startsWith("priv/") === true;
 }
 
-function envelopeOf(value: Post): JsonObject | null {
-  if (value.kind !== "article" && value.kind !== "collection") return null;
-  try {
-    const envelope = readJson(value.content);
-    return envelope instanceof Map ? envelope : null;
-  } catch (e) {
-    if (e instanceof JsonError) return null;
-    throw e;
-  }
-}
 
 function mediaRefs(value: Post): string[] {
   const refs = value.attachments.map((a) => a.uri);
@@ -86,8 +74,8 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
   const published: Post = { ...value, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
   const { cover } = envelopeRefs(published);
   if (cover !== null && toPublic(cover, owner) !== cover) {
-    const envelope = envelopeOf(published);
-    if (envelope === null) return fail("cannot publish: the cover did not parse");
+    // A cover is only ever read out of an envelope that parsed as an object
+    const envelope = readJson(published.content) as JsonObject;
     try {
       checkSafeNumbers(envelope);
     } catch (e) {
@@ -114,11 +102,8 @@ function checkLegacyPaths(id: string, paths: string[]): void {
   if (stray !== undefined) fail(`not a legacy path of post ${id}: ${stray}`);
 }
 
-const under = (root: Root, path: string) => {
-  const trimmed = path.replace(/^\/+/, "");
-  const slash = trimmed.indexOf("/");
-  return `/${SEGMENT[root]}/${slash < 0 ? "" : trimmed.slice(slash + 1)}`;
-};
+// A path `editIdOf` took is under `/pub/`, so only its root segment changes
+const toPrivate = (path: string) => `/${SEGMENT.private}/${path.slice(`/${SEGMENT.public}/`.length)}`;
 
 /**
  * Unpublishing: every public version newer than the private head is copied back, oldest
@@ -132,7 +117,7 @@ export function planUnpublish(id: string, publicPaths: string[], legacyPaths: st
   if (versions.length === 0 && head === null) fail(`nothing to unpublish for post ${id}`);
   const back = head === null ? versions.slice(-1) : versions.filter((v) => compareBytes(v.editId, head) > 0);
   return {
-    copies: back.map((v): Copy => ({ from: v.path, to: under("private", v.path) })),
+    copies: back.map((v): Copy => ({ from: v.path, to: toPrivate(v.path) })),
     deletes: [...legacyPaths, ...versions.map((v) => v.path)],
   };
 }

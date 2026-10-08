@@ -1,5 +1,7 @@
-// Mutation pass over the engine: plants one bug at a time in a copy of the package under
-// qa/out/mutant, recompiles the copy, and runs its Node tests and a slice of the chaos harness.
+// Mutation pass over the engine and the core: plants one bug at a time in a copy of the package
+// under qa/out/mutant, recompiles the copy, and runs its Node tests, and for an engine bug a
+// slice of the chaos harness. Stryker (`npm run mutation`) mutates the same files blindly; these
+// are the bugs a reviewer would expect, each named.
 // The sources are never written, so a crash or a Ctrl-C leaves no planted bug behind. A
 // mutation nothing catches is a gap in the suite.
 //
@@ -18,7 +20,7 @@ fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(path.join(pkg, "qa"), { recursive: true });
 fs.symlinkSync(path.join(source, "../vectors"), path.join(work, "vectors"));
 fs.symlinkSync(path.join(source, "node_modules"), path.join(pkg, "node_modules"));
-for (const entry of ["src", "bin", "tsconfig.json", "package.json", "migration.fixture.js", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js", "qa/chaos.mjs"]) {
+for (const entry of ["src", "bin", "tsconfig.json", "package.json", "migration.fixture.js", "test.js", "vectors.test.js", "edges.test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js", "qa/chaos.mjs", "qa/ops.mjs"]) {
   fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });
 }
 // The wasm glue is the one part of dist that tsc does not write
@@ -126,6 +128,55 @@ const MUTATIONS = [
     from: "const deleted = ours === true ? await this.#attempt(() => this.#port.delete(claim.write.meta.url)) : ours;",
     to: "const deleted = await this.#attempt(() => this.#port.delete(claim.write.meta.url));",
   },
+  {
+    id: "M17",
+    what: "a clock any amount behind the last mint is a burst, never a correction",
+    file: "src/clock.ts",
+    from: "const ROLLBACK_TOLERANCE = 1_000_000n;",
+    to: "const ROLLBACK_TOLERANCE = 1n << 62n;",
+  },
+  {
+    id: "M18",
+    what: "a mute delete names no path",
+    file: "src/deletion.ts",
+    from: 'return [socialPath("private", `mutes/${id}.json`)];',
+    to: "return [];",
+  },
+  {
+    id: "M19",
+    what: "an id with its spare bits set is taken as canonical",
+    file: "src/ids.ts",
+    from: "if (CROCKFORD.indexOf(id[chars - 1] as string) & spare)",
+    to: "if (CROCKFORD.indexOf(id[chars - 1] as string) & 0)",
+  },
+  {
+    id: "M20",
+    what: "a publish takes an editId older than its post",
+    file: "src/lifecycle.ts",
+    from: "if (compareBytes(editId, id) < 0) fail(`editId ${editId} predates the post id ${id}`);",
+    to: "",
+  },
+  {
+    id: "M21",
+    what: "an external reference may spell a pubky or a web scheme",
+    file: "src/canonicalize.ts",
+    from: 'if (folded.startsWith("pubky") || folded === "http" || folded === "https") return null;',
+    to: "",
+  },
+  {
+    id: "M22",
+    what: "buildUri spells any id",
+    file: "src/uri.ts",
+    from: "return named ? uri : fail(",
+    to: "return true ? uri : fail(",
+  },
+  {
+    id: "M23",
+    what: "no input funnel: the caller's value is read where it lies, getters and all",
+    file: "src/input.ts",
+    from: "return copy(value, at, 0);",
+    to: "return value;",
+  },
 ];
 
 const run = (cmd, argv, timeoutMs) => {
@@ -137,7 +188,7 @@ const build = () => {
   execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
-  const r = run("npx", ["--no", "--", "mocha", "test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
+  const r = run("npx", ["--no", "--", "mocha", "vectors.test.js", "edges.test.js", "test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
   const failing = [...r.out.matchAll(/^\s+\d+\) (.+)$/gm)].map((m) => m[1].trim());
   const passing = Number(/(\d+) passing/.exec(r.out)?.[1] ?? 0);
   return { status: r.status, passing, failing: [...new Set(failing)].slice(0, 12), timedOut: r.timedOut };
@@ -160,8 +211,9 @@ for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
   try {
     build();
     const t = tests();
-    const c = chaos();
-    entry = { id: mutation.id, what: mutation.what, tests: t, chaos: c, caughtByTests: t.status !== 0, caughtByChaos: c.status !== 0 || c.violatingSeeds > 0 };
+    // The chaos harness drives the engine; a bug in the core is the suites' to catch
+    const c = mutation.file === undefined || mutation.file.startsWith("src/migration/") ? chaos() : null;
+    entry = { id: mutation.id, what: mutation.what, tests: t, chaos: c, caughtByTests: t.status !== 0, caughtByChaos: c === null ? null : c.status !== 0 || c.violatingSeeds > 0 };
   } catch (e) {
     entry = { id: mutation.id, what: mutation.what, buildError: `${e.stdout ?? ""}${e.stderr ?? ""}${e.message}`.slice(0, 600) };
   } finally {

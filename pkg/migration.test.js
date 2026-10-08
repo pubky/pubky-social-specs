@@ -969,6 +969,267 @@ describe("migration engine", () => {
       assert.ok(!port.calls.some((c) => c.op === "delete" && c.url === destination));
     });
 
+    // The race guard's read-back, each way it can answer: the source goes at its re-check, so
+    // the copy has to go too, unless what is stored there now is not this run's
+    const raceAt = (follow, onReadBack) => {
+      let port;
+      let destination;
+      port = legacyPort({
+        intercept: (op, target) => {
+          if (op === "putJson" && target.includes("/pub/social/v1/follows/")) destination = target;
+          if (op === "head" && target === url(follow)) port.store.delete(target);
+          if (op === "get" && target === destination) onReadBack(port, destination);
+        },
+      });
+      return { port, destination: () => destination };
+    };
+    const follow = () => [...rows.keys()].find((p) => p.includes("/follows/"));
+
+    it("a read-back that fails leaves the copy, counts io_error, and writes no flag", async () => {
+      const { port, destination } = raceAt(follow(), () => {
+        throw new TypeError("fetch failed");
+      });
+      const report = await runMigration({ owner, port, sleep: noSleep });
+      assert.strictEqual(report.status, "incomplete");
+      assert.deepStrictEqual(report.skipped.io_error, [follow()]);
+      assert.match(notesOf(report, follow())[0], /^deleting .*fetch failed/);
+      assert.ok(port.store.has(destination()), "a copy the run cannot read back is not deleted");
+      assert.ok(!port.calls.some((c) => c.op === "delete"));
+    });
+
+    it("a read-back that finds nothing, or bytes that are not JSON, deletes nothing", async () => {
+      for (const onReadBack of [(port, at) => port.store.delete(at), (port, at) => port.store.set(at, encoder.encode("{not json"))]) {
+        const { port } = raceAt(follow(), onReadBack);
+        const report = await runMigration({ owner, port });
+        assert.deepStrictEqual(report.skipped.deleted_mid_run, [follow()]);
+        assert.ok(!port.calls.some((c) => c.op === "delete"));
+      }
+    });
+
+    it("a blob copy is deleted only while it holds the bytes this run wrote", async () => {
+      const blob = [...rows.keys()].find((p) => p.includes("/blobs/"));
+      for (const theirs of [false, true]) {
+        let port;
+        let destination;
+        // A blob's copy is named by its hash, the last segment of its 0.x path
+        const hash = blob.split("/").at(-1);
+        port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putBytes" && target.includes(`/files/${hash}.`)) destination = target;
+            if (op === "head" && target === url(blob)) port.store.delete(target);
+            if (theirs && op === "get" && target === destination) port.store.set(destination, encoder.encode("other bytes"));
+          },
+        });
+        const report = await runMigration({ owner, port });
+        assert.ok(report.skipped.deleted_mid_run.includes(blob));
+        assert.strictEqual(port.store.has(destination), theirs, theirs ? "another device's bytes stay" : "our copy goes");
+      }
+    });
+
+    describe("an object that becomes two writes", () => {
+      // The transforms give one write per object today; the claims are written for several
+      const real = transforms.migrate;
+      const twice = (paths) => (run, v0, bytes) => {
+        const result = real(run, v0, bytes);
+        if (!("writes" in result) || !v0.includes("/follows/")) return result;
+        const [write] = result.writes;
+        return { ...result, writes: paths.map((path) => ({ ...write, meta: { ...write.meta, path, url: url(path.slice(1)) } })) };
+      };
+      const A = `/pub/social/v1/follows/${owner}.json`;
+      const B = `/priv/social/v1/mutes/${owner}.json`;
+      afterEach(() => {
+        transforms.migrate = real;
+      });
+
+      it("writes both, and one found written elsewhere is theirs: no delete when the source goes", async () => {
+        transforms.migrate = twice([A, B]);
+        let port;
+        port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target === url(B.slice(1))) port.store.set(target, encoder.encode('{"created_at":1}'));
+            if (op === "head" && target === url(follow())) port.store.delete(target);
+          },
+        });
+        const report = await runMigration({ owner, port });
+        assert.deepStrictEqual(report.skipped.deleted_mid_run, [follow()]);
+        assert.ok(!port.store.has(url(A.slice(1))), "the copy this run made goes with its source");
+        assert.deepStrictEqual(decoder.decode(port.store.get(url(B.slice(1)))), '{"created_at":1}');
+      });
+
+      it("a refused second PUT counts put_rejected and keeps the first copy", async () => {
+        transforms.migrate = twice([A, B]);
+        const port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target === url(B.slice(1))) throw refusal(400, "refused");
+          },
+        });
+        const report = await runMigration({ owner, port });
+        assert.deepStrictEqual(report.skipped.put_rejected, [follow()]);
+        assert.ok(port.store.has(url(A.slice(1))));
+      });
+
+      it("a cleanup DELETE that fails on the second copy leaves it claimed, and the first released", async () => {
+        transforms.migrate = twice([A, B]);
+        let port;
+        port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "head" && target === url(follow())) port.store.delete(target);
+            if (op === "delete" && target === url(B.slice(1))) throw refusal(400, "refused");
+          },
+        });
+        const report = await runMigration({ owner, port, sleep: noSleep });
+        assert.deepStrictEqual(report.skipped.io_error, [follow()]);
+        assert.ok(!port.store.has(url(A.slice(1))));
+        assert.ok(port.store.has(url(B.slice(1))));
+      });
+    });
+
+    describe("objects folding to one key", () => {
+      // Every 0.x tag of the tree made to write one 1.x tag, as two spellings of a target do
+      const real = transforms.migrate;
+      const T = "/pub/social/v1/tags/0000000000000000000000000G.json";
+      const B = `/priv/social/v1/mutes/${owner}.json`;
+      const fold = (extra = () => []) => {
+        transforms.migrate = (run, v0, bytes) => {
+          const result = real(run, v0, bytes);
+          if (!v0.includes("/tags/") || !("writes" in result)) return result;
+          const [write] = result.writes;
+          const at = (path) => ({ ...write, meta: { ...write.meta, path, url: url(path.slice(1)) } });
+          return { ...result, writes: [at(T), ...extra(v0).map(at)] };
+        };
+      };
+      const putsTo = (port, path) => port.calls.filter((c) => c.op.startsWith("put") && c.url === url(path.slice(1))).length;
+      const tags = [...rows.keys()].filter((p) => p.includes("/tags/") && "writes" in rows.get(p).expected);
+      afterEach(() => {
+        transforms.migrate = real;
+      });
+
+      it("one object copies, every other finds it present, and nothing is PUT twice", async () => {
+        fold();
+        const port = legacyPort();
+        const report = await runMigration({ owner, port });
+        assert.strictEqual(putsTo(port, T), 1);
+        assert.ok(report.counts.already_present >= tags.length - 1);
+      });
+
+      it("a copy found written elsewhere counts as present for every object after it", async () => {
+        fold();
+        let port;
+        port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target === url(T.slice(1))) port.store.set(target, encoder.encode('{"theirs":1}'));
+          },
+        });
+        await runMigration({ owner, port });
+        assert.strictEqual(putsTo(port, T), 1);
+        assert.deepStrictEqual(decoder.decode(port.store.get(url(T.slice(1)))), '{"theirs":1}');
+      });
+
+      it("a refused copy leaves the key to the next object, which copies it", async () => {
+        fold();
+        let refused = false;
+        const port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target === url(T.slice(1)) && !refused) {
+              refused = true;
+              throw refusal(400, "refused");
+            }
+          },
+        });
+        const report = await runMigration({ owner, port });
+        assert.strictEqual(putsTo(port, T), 2);
+        assert.strictEqual(report.counts.put_rejected, 1);
+        assert.ok(port.store.has(url(T.slice(1))));
+      });
+
+      it("a copy that landed beside a refused one stays claimed", async () => {
+        const first = tags[0];
+        fold((v0) => (v0.endsWith(first) ? [B] : []));
+        const port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target === url(B.slice(1))) throw refusal(400, "refused");
+          },
+        });
+        await runMigration({ owner, port });
+        assert.strictEqual(putsTo(port, T), 1);
+      });
+
+      // The source of the first object to reach its re-check goes, so its copies are undone
+      const firstRecheckDeletes = (port) => {
+        let done = false;
+        return (op, target) => {
+          if (!done && op === "head" && target.startsWith(url("pub/pubky.app/tags/"))) {
+            done = true;
+            port.store.delete(target);
+          }
+        };
+      };
+
+      it("a cleanup that deletes the first copy and fails on the second releases only the first", async () => {
+        fold(() => [B]);
+        let port;
+        let recheck;
+        port = legacyPort({
+          intercept: (op, target) => {
+            recheck(op, target);
+            if (op === "delete" && target === url(B.slice(1))) throw refusal(400, "refused");
+          },
+        });
+        recheck = firstRecheckDeletes(port);
+        await runMigration({ owner, port, sleep: noSleep });
+        // The first copy went with its source and a later object made it again; the second stayed claimed
+        assert.strictEqual(putsTo(port, T), 2);
+        assert.strictEqual(putsTo(port, B), 1);
+        assert.ok(port.store.has(url(T.slice(1))) && port.store.has(url(B.slice(1))));
+      });
+
+      it("a copy deleted with its source frees the key for the next object", async () => {
+        fold();
+        let port;
+        let recheck;
+        port = legacyPort({ intercept: (op, target) => recheck(op, target) });
+        recheck = firstRecheckDeletes(port);
+        await runMigration({ owner, port });
+        assert.strictEqual(putsTo(port, T), 2);
+        assert.ok(port.store.has(url(T.slice(1))));
+      });
+    });
+
+    it("a read-back or a cleanup DELETE answering not_found is a copy already gone", async () => {
+      for (const failing of ["get", "delete"]) {
+        let port;
+        let destination;
+        port = legacyPort({
+          intercept: (op, target) => {
+            if (op === "putJson" && target.includes("/pub/social/v1/follows/")) destination = target;
+            if (op === "head" && target === url(follow())) port.store.delete(target);
+            if (op === failing && target === destination) {
+              port.store.delete(target);
+              throw new MigrationPortError("not_found", "gone", 404);
+            }
+          },
+        });
+        const report = await runMigration({ owner, port });
+        assert.deepStrictEqual(report.skipped.deleted_mid_run, [follow()], failing);
+        assert.strictEqual(report.counts.io_error, 0, failing);
+      }
+    });
+
+    it("a blob whose read-back finds nothing deletes nothing", async () => {
+      const blob = [...rows.keys()].find((p) => p.includes("/blobs/"));
+      const hash = blob.split("/").at(-1);
+      let port;
+      port = legacyPort({
+        intercept: (op, target) => {
+          if (op === "head" && target === url(blob)) port.store.delete(target);
+          if (op === "get" && target.includes(`/files/${hash}.`)) port.store.delete(target);
+        },
+      });
+      const report = await runMigration({ owner, port });
+      assert.ok(report.skipped.deleted_mid_run.includes(blob));
+      assert.ok(!port.calls.some((c) => c.op === "delete"));
+    });
+
     it("caps split over several scopes cover what one scope would", async () => {
       const split = ["/pub/social/v1/:r", "/pub/social/v1/:w", "/priv/social/v1/:r,/priv/social/v1/:w"];
       assert.strictEqual((await runMigration({ owner, port: legacyPort(), caps: split })).status, "done");
