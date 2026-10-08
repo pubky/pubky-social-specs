@@ -300,8 +300,7 @@ export class Reader {
         this.pos++;
         exponent++;
       } else if (b === 0x2e) return this.decimal(positive, significand, exponent);
-      else if (b === 0x65 || b === 0x45) return this.exponent(positive, significand, exponent);
-      else return this.fromParts(positive, significand, exponent);
+      else return this.scaled(positive, significand, exponent);
     }
   }
 
@@ -315,18 +314,20 @@ export class Reader {
       if (next > U64_MAX) {
         // The digits that do not fit are dropped, not rounded
         while (isDigit(this.peek() ?? 0)) this.pos++;
-        const e = this.peek();
-        if (e === 0x65 || e === 0x45) return this.exponent(positive, significand, before + after);
-        return this.fromParts(positive, significand, before + after);
+        return this.scaled(positive, significand, before + after);
       }
       this.pos++;
       significand = next;
       after--;
     }
     if (after === 0) this.fail(this.peek() === undefined ? "EOF while parsing a value" : "invalid number");
+    return this.scaled(positive, significand, before + after);
+  }
+
+  /** The value so far, through the exponent when one follows. */
+  private scaled(positive: boolean, significand: bigint, exponent: number): number {
     const e = this.peek();
-    if (e === 0x65 || e === 0x45) return this.exponent(positive, significand, before + after);
-    return this.fromParts(positive, significand, before + after);
+    return e === 0x65 || e === 0x45 ? this.exponent(positive, significand, exponent) : this.fromParts(positive, significand, exponent);
   }
 
   private exponent(positive: boolean, significand: bigint, starting: number): number {
