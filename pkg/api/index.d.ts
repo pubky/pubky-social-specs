@@ -493,9 +493,11 @@ export declare function buildUri(owner: T.Given<"Owner">, kind: Exclude<T.Object
 export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): T.ListPrefix;
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
- * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped. Any canonical
+ * URL with a path has one, an object of another app or a directory included.
  *
- * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object.
+ * @throws `ValidationError` with `code: "path"` for a string that is no canonical pubky URL,
+ * or the bare owner URL, which has no path.
  *
  * @example
  * ```ts

@@ -300,7 +300,7 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
   const me = key(owner, "owner");
   post = snapshot(post, "post") as T.Post;
   options = snapshot(options, "options") as typeof options;
-  const head = uris.parse(url(headUri, "headUri"));
+  const head = parsedAt(url(headUri, "headUri"), "headUri");
   if (head.kind !== "post" || head.editId === undefined) return fail("path", `not the URI of a stored post version: ${headUri}`, "headUri");
   // Only the owner writes their tree: an edit of another user's post is a reply or a quote
   if (head.owner !== me) fail("path", `the head ${headUri} is in another user's tree, not ${me}'s`, "headUri");
@@ -697,11 +697,23 @@ export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): T.
   return uris.listPrefix(key(owner, "owner"), tree) as T.ListPrefix;
 }
 
+/** `uris.parse`, its refusal naming the argument it read. */
+function parsedAt(value: string, field: string): uris.Parsed {
+  try {
+    return uris.parse(value);
+  } catch (e) {
+    if (e instanceof ValidationError && e.field === undefined) throw new ValidationError(e.code, e.reason, field, e.limit, { cause: e });
+    throw e;
+  }
+}
+
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
- * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped. Any canonical
+ * URL with a path has one, an object of another app or a directory included.
  *
- * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object.
+ * @throws `ValidationError` with `code: "path"` for a string that is no canonical pubky URL,
+ * or the bare owner URL, which has no path.
  *
  * @example
  * ```ts

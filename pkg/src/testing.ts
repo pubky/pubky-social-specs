@@ -161,8 +161,10 @@ export function memoryHomeserver(): MemoryHomeserver {
     const urls = [...files.keys()].filter((url) => url.startsWith(prefix)).sort();
     if (urls.length === 0) throw notFound(prefix);
     if (reverse === true) urls.reverse();
-    const after = cursor === undefined || cursor === null ? 0 : urls.indexOf(cursor) + 1;
-    return urls.slice(after, after + (limit ?? 1000));
+    // Keys are compared, as a homeserver does: a cursor deleted since it was handed out still
+    // resumes after where it stood
+    const past = (url: string) => cursor === undefined || cursor === null || (reverse === true ? url < cursor : url > cursor);
+    return urls.filter(past).slice(0, limit ?? 1000);
   };
   const read = (url: string): Uint8Array => {
     const bytes = files.get(url);
