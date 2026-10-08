@@ -5,14 +5,13 @@
 //
 //   node --expose-gc --max-old-space-size=1536 qa/boundary.mjs [--out file.json]
 
-import fs from "node:fs";
 import vm from "node:vm";
 import * as api from "../dist/index.js";
 import { setClock } from "../dist/testing.js";
+import { NOW_MS, OTHER, OWNER, flags, writeOut } from "./lib.mjs";
 
-const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
-const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
-setClock(() => 1_790_000_000_000);
+const args = flags({ out: { type: "string" } });
+setClock(() => NOW_MS);
 
 class Mine extends Error {}
 const mine = () => {
@@ -232,7 +231,7 @@ for (const name of functions) {
     const ms = performance.now() - started;
     if (ms > report.slowest.ms) report.slowest = { ms: Math.round(ms), name, slot };
     if (ms > 5000) report.violations.push({ name, slot, error: `took ${Math.round(ms)} ms` });
-    setClock(() => 1_790_000_000_000);
+    setClock(() => NOW_MS);
   }
 }
 
@@ -242,7 +241,6 @@ report.heapGrowthMb = Math.round((process.memoryUsage().heapUsed - heap) / 10485
 // Nothing is kept between calls, so a run of hostile megabytes leaves the heap where it was
 if (globalThis.gc && report.heapGrowthMb > 16) report.violations.push({ name: "heap", error: `grew ${report.heapGrowthMb} MB` });
 
-const out = process.argv.indexOf("--out");
-if (out >= 0) fs.writeFileSync(process.argv[out + 1], JSON.stringify(report, null, 1));
+writeOut(args.out, report);
 console.log(JSON.stringify({ ...report, violations: report.violations.slice(0, 12), violationCount: report.violations.length }, null, 1));
 process.exit(report.violations.length ? 1 : 0);

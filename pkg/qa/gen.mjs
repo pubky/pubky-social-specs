@@ -2,7 +2,8 @@
 // replayed from three numbers.
 
 import { blake3 } from "@noble/hashes/blake3.js";
-import { crockford, hashText, timestampId } from "../dist/ids.js";
+import { crockford, hashText } from "../dist/ids.js";
+import { NOW_MS, OTHER, OWNER, timestampIdOf } from "./lib.mjs";
 
 // The ids of generated content come from the package's own encoders: a wrong one there makes
 // the oracle refuse where the package accepts, which the scoreboard counts like any mismatch
@@ -28,10 +29,8 @@ export function rng(seed) {
   return r;
 }
 
-export const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
-export const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
-// 2026-09-22, inside every time bound
-export const NOW = 1_790_000_000_000_000;
+// The oracle's clock is in microseconds
+const NOW = NOW_MS * 1000;
 
 // Where the engine and the reference could part: the frozen whitespace set and its
 // neighbours, case pairs outside ASCII, controls, an astral character, a combining mark
@@ -101,8 +100,6 @@ function spelled(r, alphabet, length) {
   if (r.chance(0.05)) id = id.toLowerCase();
   return id;
 }
-
-export const timestampIdOf = (micros) => timestampId(BigInt(micros));
 
 const hashIdText = (r) => Array.from({ length: 25 }, () => r.pick([...CROCKFORD])).join("") + r.pick([..."048CGMRW"]);
 const base64url = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
