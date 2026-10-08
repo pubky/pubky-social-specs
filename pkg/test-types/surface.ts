@@ -214,3 +214,11 @@ if (!tried.ok) tried.error.code satisfies ErrorCode;
 else tried.value satisfies Post;
 declare const thrown: unknown;
 if (thrown instanceof ArgumentError) thrown.field satisfies string;
+
+// A client read keeps the kind it read, so its URL is the one that kind's code takes
+import { createSocialClient } from "pubky-social-specs/client";
+declare const social: ReturnType<typeof createSocialClient>;
+for await (const follow of social.follows.list()) if (follow.ok) follow.url satisfies PubkyUrl<"follow">;
+for await (const feed of social.feeds.list()) if (feed.ok) feed.object satisfies Feed;
+const profile = await social.profile.get();
+if (profile?.ok) profile.url satisfies PubkyUrl<"user">;

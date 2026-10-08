@@ -145,15 +145,15 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     }
   }
 
-  async function readAt<O, K extends T.ObjectKind = T.ObjectKind>(author: string, url: string, kind: keyof T.Stored): Promise<Read<O, K> | null> {
+  async function readAt<K extends keyof T.Stored>(author: string, url: string, kind: K): Promise<Read<T.Stored[K], K> | null> {
     const path = pathOf(author, url);
     const bytes = await orMissing(reader(author).get(path), null);
-    return bytes === null ? null : decoded<O, K>(url, path, () => decodeObject(url as T.UrlArg, bytes, kind) as O);
+    return bytes === null ? null : decoded<T.Stored[K], K>(url, path, () => decodeObject(url as T.UrlArg, bytes, kind));
   }
 
-  async function* readAll<O>(author: string, prefix: string, kind: keyof T.Stored): AsyncGenerator<Read<O>> {
+  async function* readAll<K extends keyof T.Stored>(author: string, prefix: string, kind: K): AsyncGenerator<Read<T.Stored[K], K>> {
     for await (const url of listed(author, prefix)) {
-      const read = await readAt<O>(author, url, kind);
+      const read = await readAt(author, url, kind);
       if (read !== null) yield read;
     }
   }
@@ -181,7 +181,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       const at = versionOf(url);
       if (at !== null && at.id === id && (head === null || at.editId > head.editId)) head = { editId: at.editId, url };
     }
-    return head === null ? null : readAt<T.Post, "post">(author, head.url, "post");
+    return head === null ? null : readAt(author, head.url, "post");
   }
 
   /** Every version of the owner's post `id`, public then private. */
@@ -244,7 +244,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
     /** The owner's profile: get anyone's, set or update the owner's. */
     profile: {
-      get: (author: T.Given<"Owner"> = owner) => readAt<T.User>(parseOwner(author), buildUri(author, "user"), "user"),
+      get: (author: T.Given<"Owner"> = owner) => readAt(parseOwner(author), buildUri(author, "user"), "user"),
       /** Writes a fresh profile from `input`. To keep members another client added, `update` a read one. */
       async set(input: T.NewUser): Promise<T.Built<T.User>> {
         return stored(buildUser(owner, input));
@@ -262,7 +262,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return stored(buildFollow(owner, followee));
       },
       remove: (followee: T.Given<"Owner">) => remove(deletionPaths({ kind: "follow", id: followee })),
-      list: (author: T.Given<"Owner"> = owner) => readAll<T.Follow>(parseOwner(author), `${roots.public}follows/`, "follow"),
+      list: (author: T.Given<"Owner"> = owner) => readAll(parseOwner(author), `${roots.public}follows/`, "follow"),
     },
 
     /** The owner's mutes, private: add, remove, list. */
@@ -271,7 +271,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return stored(buildMute(owner, mutee));
       },
       remove: (mutee: T.Given<"Owner">) => remove(deletionPaths({ kind: "mute", id: mutee })),
-      list: () => readAll<T.Mute>(owner, `${roots.private}mutes/`, "mute"),
+      list: () => readAll(owner, `${roots.private}mutes/`, "mute"),
     },
 
     /** The owner's tags: add, remove, list. */
@@ -280,7 +280,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return stored(buildTag(owner, uri, label));
       },
       remove: (id: string) => remove(deletionPaths({ kind: "tag", id })),
-      list: (author: T.Given<"Owner"> = owner) => readAll<T.Tag>(parseOwner(author), `${roots.public}tags/`, "tag"),
+      list: (author: T.Given<"Owner"> = owner) => readAll(parseOwner(author), `${roots.public}tags/`, "tag"),
     },
 
     /** The owner's bookmarks, private: add, remove, list. */
@@ -289,7 +289,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return stored(buildBookmark(owner, target));
       },
       remove: (id: string) => remove(deletionPaths({ kind: "bookmark", id })),
-      list: () => readAll<T.Bookmark>(owner, `${roots.private}bookmarks/`, "bookmark"),
+      list: () => readAll(owner, `${roots.private}bookmarks/`, "bookmark"),
     },
 
     /** The owner's saved feeds, private: add, remove, list. */
@@ -298,7 +298,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return stored(buildFeed(owner, input));
       },
       remove: (id: string) => remove(deletionPaths({ kind: "feed", id })),
-      list: () => readAll<T.Feed>(owner, `${roots.private}feeds/`, "feed"),
+      list: () => readAll(owner, `${roots.private}feeds/`, "feed"),
     },
 
     /** Media: upload bytes and read them back by URL. */

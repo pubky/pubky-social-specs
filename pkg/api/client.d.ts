@@ -62,7 +62,7 @@ export declare function createSocialClient(session: SdkSession, options?: Client
     };
     /** The owner's profile: get anyone's, set or update the owner's. */
     profile: {
-        get: (author?: T.Given<"Owner">) => Promise<Read<T.User, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user"> | null>;
+        get: (author?: T.Given<"Owner">) => Promise<Read<T.User, "user"> | null>;
         /** Writes a fresh profile from `input`. To keep members another client added, `update` a read one. */
         set(input: T.NewUser): Promise<T.Built<T.User>>;
         /** Writes back a profile read with `get` and changed, its unknown members kept. */
@@ -72,31 +72,31 @@ export declare function createSocialClient(session: SdkSession, options?: Client
     follows: {
         add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>>;
         remove: (followee: T.Given<"Owner">) => Promise<void>;
-        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
+        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow, "follow">, any, any>;
     };
     /** The owner's mutes, private: add, remove, list. */
     mutes: {
         add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>>;
         remove: (mutee: T.Given<"Owner">) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Mute, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
+        list: () => AsyncGenerator<Read<T.Mute, "mute">, any, any>;
     };
     /** The owner's tags: add, remove, list. */
     tags: {
         add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>>;
         remove: (id: string) => Promise<void>;
-        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Tag, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
+        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Tag, "tag">, any, any>;
     };
     /** The owner's bookmarks, private: add, remove, list. */
     bookmarks: {
         add(target: T.Reference): Promise<T.Built<T.Bookmark>>;
         remove: (id: string) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Bookmark, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
+        list: () => AsyncGenerator<Read<T.Bookmark, "bookmark">, any, any>;
     };
     /** The owner's saved feeds, private: add, remove, list. */
     feeds: {
         add(input: T.NewFeed): Promise<T.Built<T.Feed>>;
         remove: (id: string) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Feed, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
+        list: () => AsyncGenerator<Read<T.Feed, "feed">, any, any>;
     };
     /** Media: upload bytes and read them back by URL. */
     files: {
