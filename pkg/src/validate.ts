@@ -54,14 +54,19 @@ class Enough extends Error {}
 function collect<V>(input: unknown, build: (value: unknown, each: Each) => void): Validation<V> {
   const shapes: Issue[] = [];
   const rules: Issue[] = [];
+  // A post's references run twice, the second time with the ownership rule, so a refusal can repeat
+  const said = new Set<string>();
   const each: Each = (rule) => {
     try {
       rule();
     } catch (e) {
       const shape = shapeOf(e);
       if (shape !== undefined) shapes.push({ path: pathOf(shape), code: "invalid_type", message: (e as TypeError).message });
-      else if (e instanceof ValidationError) rules.push({ path: pathOf(e.field), code: "invalid", message: e.reason });
-      else throw e;
+      else if (e instanceof ValidationError) {
+        const issue = `${e.field}\n${e.reason}`;
+        if (!said.has(issue)) rules.push({ path: pathOf(e.field), code: "invalid", message: e.reason });
+        said.add(issue);
+      } else throw e;
       if (shapes.length + rules.length >= MAX_ISSUES) throw new Enough();
     }
   };

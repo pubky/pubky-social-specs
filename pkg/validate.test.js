@@ -51,6 +51,10 @@ describe("validators", function () {
     assert.match(validatePost(input, OTTO).issues[0].message, /of another user/);
   });
 
+  it("with an owner, report a bad reference once", () => {
+    assert.strictEqual(validatePost({ content: "x", parent: "bad uri" }, OTTO).issues.length, 1);
+  });
+
   it("never mint: a validated post leaves the next id where it was", () => {
     buildPost(OTTO, { content: "a" });
     for (let i = 0; i < 5; i++) validatePost({ content: "b" });
