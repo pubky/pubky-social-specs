@@ -97,6 +97,8 @@ jobs:
         run: npm run score -- --fuzz 20000
       - name: Hostile arguments
         run: node --expose-gc --max-old-space-size=3072 qa/boundary.mjs
+      - name: Hostile input in linear time, under the per-byte ceiling
+        run: npm run hostile
       - name: The API reference builds
         run: npm run docs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -133,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["20.19.0", "22", "24"]
+        node: ["20.19.0", "22.12.0", "22", "24"]
     runs-on: ubuntu-latest
     env:
       SURFACE_ORACLE: ${{ github.workspace }}/oracle/surface_oracle
@@ -154,6 +156,23 @@ jobs:
       - run: npm ci --ignore-scripts
       # Skips pretest, so the suites run on the build job's dist and not on one compiled here
       - run: npm test --ignore-scripts
+
+  # The oldest TypeScript the types need, and the one below it, which must fail loudly
+  typescript:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: pkg/.nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - run: npm ci --ignore-scripts
+      - name: A consumer on each floor and resolution
+        run: node qa/ts-floor.mjs
 
   runtimes:
     needs: build
