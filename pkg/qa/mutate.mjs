@@ -68,8 +68,8 @@ const MUTATIONS = [
   {
     id: "M6",
     what: "a copy someone else wrote first counts as made, so the race guard may delete it",
-    from: '} else if (put.failed === "exists") {\n        // Written by someone else since the LIST: theirs stays, and it is not this run\'s to delete\n        claim.settle(true);',
-    to: '} else if (put.failed === "exists") {\n        made.push(claim);',
+    from: 'if (put.failed === "exists") {\n        // Written by someone else since the LIST: theirs stays, and it is not this run\'s to delete\n        claim.settle(true);',
+    to: 'if (put.failed === "exists") {\n        made.push(claim);',
   },
   {
     id: "M7",
