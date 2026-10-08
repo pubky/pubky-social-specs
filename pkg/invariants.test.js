@@ -37,6 +37,13 @@ describe("invariants", () => {
     }
   });
 
+  it("a known key seen twice is refused as it is read, before its colon", () => {
+    // Found by the coverage-guided fuzzer: the reference judges the key before what follows it
+    const url = `pubky://${OTTO}/pub/social/v1/tags/8Z8CWH8NVYQY39ZEBFGKQWWEKG.json`;
+    refuses(() => decodeObject(url, utf8('{"uri":"a","uri"x}')), "Validation Error: duplicate field `uri`");
+    refuses(() => decodeObject(url, utf8('{"x":1,"x"y}')), "Validation Error: expected `:`");
+  });
+
   it("bytes in shared memory are copied before they are read", () => {
     const user = buildUser(OTTO, { name: "Ann" });
     const shared = new Uint8Array(new SharedArrayBuffer(user.body.length));

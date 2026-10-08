@@ -195,8 +195,11 @@ export class Reader {
     this.pos++;
   }
 
-  /** An object, `member` reading the value of each key. */
-  object(member: (key: string) => void): void {
+  /**
+   * An object. `member` is given each key as it is read, before its colon, as the parser
+   * judges a key; it returns what reads the value.
+   */
+  object(member: (key: string) => () => void): void {
     this.pos++;
     this.enter();
     let first = true;
@@ -214,12 +217,12 @@ export class Reader {
       if (b === undefined) this.fail("EOF while parsing a value");
       if (b !== QUOTE) this.fail("key must be a string");
       this.pos++;
-      const key = this.string();
+      const read = member(this.string());
       const colon = this.peekToken();
       if (colon === undefined) this.fail("EOF while parsing an object");
       if (colon !== 0x3a) this.fail("expected `:`");
       this.pos++;
-      member(key);
+      read();
     }
     this.leave();
     this.pos++;

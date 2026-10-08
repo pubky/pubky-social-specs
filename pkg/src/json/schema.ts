@@ -152,9 +152,10 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
       const extra: JsonObject = new Map();
       r.object((key) => {
         const codec = Object.hasOwn(fields, key) ? (fields as Record<string, Codec<unknown>>)[key] : undefined;
-        if (!codec) return void extra.set(key, r.value());
+        if (!codec) return () => void extra.set(key, r.value());
+        // A known key seen twice is refused as it is read, before its colon
         if (Object.hasOwn(out, key)) r.fail(`duplicate field \`${key}\``);
-        out[key] = codec.read(r);
+        return () => void (out[key] = codec.read(r));
       });
       for (const [key, codec] of entries) {
         if (!Object.hasOwn(out, key)) out[key] = absent(codec, () => r.fail(`missing field \`${key}\``));
