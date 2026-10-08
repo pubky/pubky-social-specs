@@ -92,12 +92,14 @@ const progress = (write) => {
   };
 };
 
+const escaped = (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`;
+
 // Paths, flag contents and error messages come from the homeserver, so no control character
 // reaches the terminal as one: C0, DEL and C1 are printed as escapes
-const visible = (text) => String(text).replace(/\p{Cc}/gu, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+const visible = (text) => String(text).replace(/\p{Cc}/gu, escaped);
 
 // JSON.stringify escapes C0 but writes DEL and C1 raw
-const jsonText = (value) => JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+const jsonText = (value) => JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, escaped);
 
 const reportText = (report) => {
   const lines = [`${report.status} (${report.mode}): ${report.done}/${report.total} objects`];

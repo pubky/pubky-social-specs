@@ -2,13 +2,12 @@
 //
 //   node qa/bench-entry.mjs [--out file.json]
 
-import fs from "node:fs";
 import * as api from "../dist/index.js";
 import { setClock } from "../dist/testing.js";
+import { NOW_MS, OTHER, OWNER, flags, writeOut } from "./lib.mjs";
 
-const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
-const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
-setClock(() => 1_790_000_000_000);
+const args = flags({ out: { type: "string" } });
+setClock(() => NOW_MS);
 
 const note = api.buildPost(OWNER, { content: "A note of ordinary length, with a reference.", parent: api.buildUri(OTHER, "post", "0034A0X7NJ52G") });
 const article = api.buildPost(OWNER, { kind: "article", title: "A title", body: "word ".repeat(2000), cover_image: "https://example.com/c.png" });
@@ -44,5 +43,4 @@ for (const [name, run] of Object.entries(CASES)) {
   results[name] = { usPerCall: +micros.toFixed(1), perSecond: Math.round(1e6 / micros) };
   console.log(`${name.padEnd(30)} ${micros.toFixed(1).padStart(9)} us  ${String(Math.round(1e6 / micros)).padStart(8)} /s`);
 }
-const out = process.argv.indexOf("--out");
-if (out >= 0) fs.writeFileSync(process.argv[out + 1], JSON.stringify(results, null, 1));
+writeOut(args.out, results);

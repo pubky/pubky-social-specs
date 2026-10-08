@@ -25,21 +25,19 @@ import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseArgs } from "node:util";
 import fc from "fast-check";
 import { bytesOf, corpus, legacyTree } from "../migration.fixture.js";
 import { stableKey } from "../dist/uri.js";
 import { init, transforms } from "../dist/migration/wasm.js";
+import { NOW_MS, OTHER, OWNER, flags, noSleep, sameBytes, xorshift } from "./lib.mjs";
 
-const { values: args } = parseArgs({
-  options: {
-    runs: { type: "string", default: "1000" },
-    seed: { type: "string" },
-    path: { type: "string" },
-    commands: { type: "string", default: "30" },
-    verbose: { type: "boolean", default: false },
-    strict: { type: "boolean", default: false },
-  },
+const args = flags({
+  runs: { type: "string", default: "1000" },
+  seed: { type: "string" },
+  path: { type: "string" },
+  commands: { type: "string", default: "30" },
+  verbose: { type: "boolean", default: false },
+  strict: { type: "boolean", default: false },
 });
 
 // A second copy of the package, as a page that bundles it twice has: its own clock, its own
@@ -70,22 +68,9 @@ const FLAG = url("/priv/social/v1/_migrated.json");
 const PROFILE = url("/pub/social/v1/profile.json");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const noSleep = () => Promise.resolve();
-const T0 = 1_790_000_000_000;
-const OTHERS = ["pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy", "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo"];
-const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-
-const xorshift = (seed) => {
-  let s = (seed ^ 0x9e3779b9) >>> 0 || 1;
-  return () => {
-    s ^= s << 13;
-    s >>>= 0;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    s >>>= 0;
-    return s / 0x100000000;
-  };
-};
+const T0 = NOW_MS;
+// Pubkys to follow and mute, both other than the owner
+const OTHERS = [OTHER, OWNER];
 
 /** The port the user's tree lives in, recording every write so an overwrite is seen. */
 class Tree extends MemoryPort {
@@ -98,7 +83,7 @@ class Tree extends MemoryPort {
 
   #record(u, bytes) {
     const before = this.store.get(u);
-    if (before !== undefined && !same(before, bytes) && u !== FLAG && u !== PROFILE) this.overwrites.push(rel(u));
+    if (before !== undefined && !sameBytes(before, bytes) && u !== FLAG && u !== PROFILE) this.overwrites.push(rel(u));
   }
 
   async putJson(u, object, options) {

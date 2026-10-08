@@ -5,7 +5,10 @@
 
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { flags } from "./lib.mjs";
 import { ask } from "./oracle.mjs";
+
+const args = flags({ check: { type: "boolean", default: false } });
 
 const [{ ok: data }] = await ask([{ op: "data", now: 0, last: 0 }]);
 const literal = (value) => JSON.stringify(value, null, 2);
@@ -78,7 +81,7 @@ if (JSON.stringify(derived) !== JSON.stringify([...data.stripSet].sort())) {
   process.exit(1);
 }
 const file = fileURLToPath(new URL("../src/data.ts", import.meta.url));
-if (process.argv.includes("--check")) {
+if (args.check) {
   if (fs.readFileSync(file, "utf8") !== source) {
     console.error("src/data.ts is stale: run node qa/data.mjs");
     process.exit(1);

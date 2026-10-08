@@ -18,11 +18,11 @@ import * as posts from "../dist/models/post.js";
 import { feed } from "../dist/models/feed.js";
 import { parse, readStored } from "../dist/models/common.js";
 import { lastMint, pin } from "../dist/clock.js";
+import { sameBytes } from "./lib.mjs";
 
 const b64 = (bytes) => Buffer.from(bytes).toString("base64");
 const bytes = (arg) => ("j" in arg ? text.utf8(arg.j) : new Uint8Array(Buffer.from(arg.b, "base64")));
 const json = (arg) => arg?.j ?? "null";
-const same = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[i]);
 // A built object as the oracle reports it: no `object`, the body as base64
 const built = ({ object, body, ...where }) => ({ ...where, body: b64(body) });
 // Stored text as a caller would hold it after a read
@@ -56,7 +56,7 @@ const ops = {
     const read = objects.read(a.s, bytes(stored));
     const decoded = api.decodeObject(a.s, bytes(stored));
     const again = api.encodeObject(a.s, decoded.kind === "file" ? decoded.bytes : decoded.object);
-    if (!same(again, read.body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
+    if (!sameBytes(again, read.body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
     return { kind: read.kind, body: b64(read.body) };
   },
   encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.modelOf(kind.s).codec, stored))),

@@ -2,7 +2,7 @@
 // did, and how many of N fresh seeded cases it answers differently from the oracle. Exits 0
 // only when every family is implemented and clean.
 //
-//   node qa/score.mjs [--fuzz 2000] [--seed 1] [--family text] [--record]
+//   node qa/score.mjs [--fuzz 2000] [--seed 1] [--family text] [--stats] [--record]
 //
 // --record writes the vectors (vectors/js/<family>.jsonl) from the oracle instead of scoring.
 
@@ -11,15 +11,19 @@ import { fileURLToPath } from "node:url";
 import { ask } from "./oracle.mjs";
 import { answer } from "./ops.mjs";
 import { families, rng } from "./gen.mjs";
+import { flags } from "./lib.mjs";
 
-const flag = (name, fallback) => {
-  const at = process.argv.indexOf(`--${name}`);
-  return at < 0 ? fallback : (process.argv[at + 1] ?? true);
-};
-const cases = Number(flag("fuzz", 2000));
-const seed = Number(flag("seed", 1));
-const only = flag("family");
-const record = process.argv.includes("--record");
+const args = flags({
+  fuzz: { type: "string", default: "2000" },
+  seed: { type: "string", default: "1" },
+  family: { type: "string" },
+  stats: { type: "boolean", default: false },
+  record: { type: "boolean", default: false },
+});
+const cases = Number(args.fuzz);
+const seed = Number(args.seed);
+const only = args.family;
+const record = args.record;
 const vectorsDir = fileURLToPath(new URL("../../vectors/js/", import.meta.url));
 const failuresDir = fileURLToPath(new URL("./failures/", import.meta.url));
 // Recorded at a fixed seed, so a regenerated file differs only where an answer moved
@@ -71,7 +75,8 @@ for (const family of Object.keys(families)) {
   );
   // In batches, so a long run holds one batch of requests and answers at a time
   const BATCH = 50_000;
-  const fuzz = { missing: 0, wrong: [] };
+  // The first 50 mismatches are kept, the rest only counted
+  const fuzz = { missing: 0, wrong: 0, kept: [] };
   const stats = {};
   const refusals = new Set();
   for (let done = 0; done < cases; done += BATCH) {
@@ -89,20 +94,20 @@ for (const family of Object.keys(families)) {
         );
     const batch = differing(asked, reference);
     fuzz.missing += batch.missing;
-    if (fuzz.wrong.length < 50) fuzz.wrong.push(...batch.wrong.slice(0, 50));
-    else fuzz.wrong.length += batch.wrong.length;
+    fuzz.wrong += batch.wrong.length;
+    fuzz.kept.push(...batch.wrong.slice(0, 50 - fuzz.kept.length));
   }
-  if (process.argv.includes("--stats")) {
+  if (args.stats) {
     for (const [op, [ok, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  refused ${err}`);
     console.log(`  ${refusals.size} distinct refusals`);
   }
-  const wrong = [...vectors.wrong, ...fuzz.wrong];
+  const wrong = [...vectors.wrong, ...fuzz.kept];
   const missing = vectors.missing + fuzz.missing;
   if (wrong.length || missing || !rows.length) clean = false;
   if (wrong.length) {
     fs.mkdirSync(failuresDir, { recursive: true });
-    fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.filter(Boolean).slice(0, 50), null, 1));
+    fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.slice(0, 50), null, 1));
   } else fs.rmSync(`${failuresDir}${family}.json`, { force: true });
-  console.log(`${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}` + `  fuzz ${fuzz.wrong.length} wrong of ${cases}  unimplemented ${missing}`);
+  console.log(`${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}  fuzz ${fuzz.wrong} wrong of ${cases}  unimplemented ${missing}`);
 }
 process.exit(clean ? 0 : 1);

@@ -10,6 +10,19 @@ import { gzipSync } from "node:zlib";
 
 const at = (file) => new URL(`../dist/${file}`, import.meta.url).pathname;
 const entry = at("index.js");
+/** `names` imported from `file` and kept, bundled and minified as a caller's bundler would. */
+const bundled = async (file, names, define = {}) => {
+  const { outputFiles } = await build({
+    stdin: { contents: `import ${names} from ${JSON.stringify(file)}; globalThis.keep = [${names.replace(/[{}* ]|as /g, "")}];`, resolveDir: "." },
+    bundle: true,
+    minify: true,
+    format: "esm",
+    write: false,
+    logLevel: "silent",
+    define,
+  });
+  return outputFiles[0].text;
+};
 
 const PROBES = [
   // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
@@ -29,15 +42,7 @@ const PROBES = [
 
 let failed = false;
 for (const [file, names, budget, absent] of PROBES) {
-  const { outputFiles } = await build({
-    stdin: { contents: `import ${names} from ${JSON.stringify(at(file))}; globalThis.keep = ${names.replace(/[{}* ]|as /g, "")};`, resolveDir: "." },
-    bundle: true,
-    minify: true,
-    format: "esm",
-    write: false,
-    logLevel: "silent",
-  });
-  const code = outputFiles[0].text;
+  const code = await bundled(at(file), names);
   const gzipped = gzipSync(code).length;
   const dragged = absent.filter((marker) => code.includes(marker));
   const ok = gzipped <= budget && dragged.length === 0;
@@ -48,20 +53,10 @@ for (const [file, names, budget, absent] of PROBES) {
 }
 
 // A production build drops the development warnings, code and text
-{
-  const { outputFiles } = await build({
-    stdin: { contents: `import { decodeObject, encodeObject, editPost } from ${JSON.stringify(entry)}; globalThis.keep = [decodeObject, encodeObject, editPost];`, resolveDir: "." },
-    bundle: true,
-    minify: true,
-    format: "esm",
-    write: false,
-    logLevel: "silent",
-    define: { "process.env.NODE_ENV": '"production"' },
-  });
-  const kept = outputFiles[0].text.includes("$unknown members the object was read with");
-  failed ||= kept;
-  console.log(`${kept ? "FAIL" : "ok  "} a production build drops the development warning`);
-}
+const production = await bundled(entry, "{ decodeObject, encodeObject, editPost }", { "process.env.NODE_ENV": '"production"' });
+const kept = production.includes("$unknown members the object was read with");
+failed ||= kept;
+console.log(`${kept ? "FAIL" : "ok  "} a production build drops the development warning`);
 
 // A cold process: load the entry, build one post. No init, so this is the whole start
 const cold = `const t=performance.now();const m=await import(${JSON.stringify(entry)});const l=performance.now();m.buildPost("8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo",{content:"hi"});console.log((l-t).toFixed(1),(performance.now()-l).toFixed(2))`;

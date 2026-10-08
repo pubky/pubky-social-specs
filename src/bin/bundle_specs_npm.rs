@@ -7,8 +7,6 @@ use std::io;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
 
-// If the process hangs, try `cargo clean` to remove all locks.
-
 fn main() {
     let root = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let pkg = Path::new(&root).join("pkg");

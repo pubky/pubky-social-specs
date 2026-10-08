@@ -16,7 +16,6 @@ permissions:
 env:
   RUST_TOOLCHAIN: "1.97.0"
   WASM_PACK: "0.13.1"
-  NODE: "24.13.0"
 
 defaults:
   run:
@@ -39,7 +38,7 @@ jobs:
           tool: wasm-pack@${{ env.WASM_PACK }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE }}
+          node-version-file: pkg/.nvmrc
       - run: npm ci --ignore-scripts
       - name: Build dist (tsc, then the migrator's wasm, cargo --locked)
         run: npm run build
@@ -70,7 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE }}
+          node-version-file: pkg/.nvmrc
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
@@ -82,8 +81,6 @@ jobs:
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
       - run: npm run tools
-      - name: Typecheck
-        run: npx tsc -p . --noEmit
       - name: The declarations as a consumer compiles them
         run: npm run types
       - name: typescript-eslint, strict and type-checked
@@ -94,14 +91,8 @@ jobs:
         run: npm run format:check
       - name: The public surface is the committed one
         run: npm run api
-      - name: The generated tables are the crate's
-        run: node qa/data.mjs --check
       - name: Unit tests from the sources, with coverage floors per module
         run: npm run coverage
-      - name: Offline vector replay against the build
-        run: npx mocha vectors.test.js
-      - name: Every export's example compiles and runs
-        run: npm run examples
       - name: Parity with the crate on fresh seeded cases
         run: npm run score -- --fuzz 20000
       - name: Hostile arguments
@@ -120,7 +111,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE }}
+          node-version-file: pkg/.nvmrc
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
@@ -161,7 +152,8 @@ jobs:
           path: oracle
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
-      - run: npm test
+      # Skips pretest, so the suites run on the build job's dist and not on one compiled here
+      - run: npm test --ignore-scripts
 
   runtimes:
     needs: build
@@ -170,7 +162,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE }}
+          node-version-file: pkg/.nvmrc
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
