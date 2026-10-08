@@ -35,6 +35,8 @@ export type MediaId = Brand<string, "MediaId">;
  * reads at. For a post it names one version, so it is no reference to the post.
  */
 export type PubkyUrl<K extends ObjectKind = ObjectKind> = Brand<`pubky://${string}`, `PubkyUrl.${K}`>;
+/** The prefix to LIST one of an owner's trees, `pubky://<owner>/pub/social/v1/`: no object is stored at it. */
+export type ListPrefix = Brand<`pubky://${string}/`, "ListPrefix">;
 /** An owner-relative path, `/pub/...` or `/priv/...`: what the SDK's storage calls and every plan take. */
 export type OwnerPath = Brand<PathText, "OwnerPath">;
 /** A reference to a post, `buildUri(owner, "post", id)`: versionless, so it names the post and not one version. */
@@ -162,12 +164,24 @@ interface Threaded {
 export type NewNote = {
     kind?: Exclude<KnownPostKind, "article" | "collection"> | null;
     content: string;
+    title?: never;
+    body?: never;
+    cover_image?: never;
+    name?: never;
+    description?: never;
+    items?: never;
+    layout?: never;
 } & Threaded & Placement;
 export type NewArticle = {
     kind: "article";
     title: string;
     body: string;
     cover_image?: string | null;
+    content?: never;
+    name?: never;
+    description?: never;
+    items?: never;
+    layout?: never;
 } & Threaded & Placement;
 export type NewCollection = {
     kind: "collection";
@@ -179,6 +193,13 @@ export type NewCollection = {
     }[] | null;
     cover_image?: string | null;
     layout?: KnownCollectionLayout | null;
+    content?: never;
+    title?: never;
+    body?: never;
+    parent?: never;
+    embed?: never;
+    attachments?: never;
+    lock?: never;
 } & Placement;
 export type NewPost = NewNote | NewArticle | NewCollection;
 /** The version URL a reference member would hold, named where it is refused. */
@@ -213,8 +234,10 @@ export interface NewFeed {
 }
 export type NewFile = ({
     bytes: Uint8Array | ArrayBuffer;
+    id?: never;
 } | {
     id: string;
+    bytes?: never;
 }) & {
     /** The declared media type, which picks the extension and is never stored. */
     type: MimeType | (string & {});

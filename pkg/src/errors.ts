@@ -97,6 +97,13 @@ export function misuse(what: string, expected: string): never {
   throw new ArgumentError(what, `pubky-social-specs: ${what} must be ${expected}`);
 }
 
+/** A name a caller passes as an argument: one of `names`, another string refused, anything else a TypeError. */
+export function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T {
+  if (typeof js !== "string") misuse(at, "a string");
+  if (!(names as readonly string[]).includes(js)) fail("unknown_name", `${at} must be one of ${names.join(", ")}, found ${js}`, at);
+  return js as T;
+}
+
 /**
  * How the rules of a check run, each one a closure. Throwing, the first refusal is the error,
  * in the reference's order. A validator passes one that keeps each refusal and runs the next.

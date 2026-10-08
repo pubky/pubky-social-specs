@@ -112,3 +112,41 @@ describe("invariants", () => {
     }
   });
 });
+
+describe("helpers", () => {
+  beforeEach(() => setClock(() => T0));
+  after(() => setClock());
+
+  it("an edit goes only into the owner's own tree", () => {
+    const theirs = buildPost(RIO, { content: "x" });
+    const e = caught(() => specs.editPost(OTTO, theirs.url, theirs.object));
+    assert.deepStrictEqual([e.code, e.field], ["path", "headUri"]);
+    assert.strictEqual(specs.editPost(RIO, theirs.url, { ...theirs.object, content: "y" }).id, theirs.id);
+  });
+
+  it("isPubkyUrl guards a URL from elsewhere without throwing", () => {
+    const post = buildPost(OTTO, { content: "x" });
+    assert.strictEqual(specs.isPubkyUrl(post.url), true);
+    for (const value of [post.path, `pubky://${OTTO}`, specs.buildUri(OTTO, "post", post.id), specs.listPrefix(OTTO, "public"), `pubky${OTTO}/pub/social/v1/profile.json`, 7, null]) {
+      assert.strictEqual(specs.isPubkyUrl(value), false, String(value));
+    }
+  });
+
+  it("a post id gives its time, and timestamps convert to and from a Date in microseconds", () => {
+    const post = buildPost(OTTO, { content: "x" });
+    assert.strictEqual(specs.idMicros(post.id), T0 * 1000);
+    assert.strictEqual(specs.microsToDate(specs.idMicros(post.id)).getTime(), T0);
+    assert.strictEqual(specs.dateToMicros(new Date(T0)), T0 * 1000);
+    assert.strictEqual(specs.dateToMicros(T0), T0 * 1000);
+    assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
+  });
+
+  it("tryDecodeObject returns the refusal of bad bytes and still throws on a bad argument", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/profile.json`;
+    const bad = specs.tryDecodeObject(url, utf8("{"), "user");
+    assert.deepStrictEqual([bad.ok, bad.error.code], [false, "json"]);
+    const good = specs.tryDecodeObject(url, buildUser(OTTO, { name: "Ann" }).body, "user");
+    assert.deepStrictEqual([good.ok, good.value.name], [true, "Ann"]);
+    assert.throws(() => specs.tryDecodeObject(url, "{}"), TypeError);
+  });
+});

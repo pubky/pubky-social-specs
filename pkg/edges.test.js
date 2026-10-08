@@ -133,7 +133,7 @@ describe("edges", () => {
       const { content, kind, parent, embed, attachments, lock } = read;
       const [warning] = warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock }));
       assert.match(warning, /encodeObject for .* carries 0 of the 1 \$unknown members/);
-      assert.strictEqual(warnings(() => specs.editPost(url, { content, kind, parent, embed, attachments, lock })).length, 1);
+      assert.strictEqual(warnings(() => specs.editPost(OTTO, url, { content, kind, parent, embed, attachments, lock })).length, 1);
       // The latest read at a URL is the one that counts
       specs.decodeObject(url, utf8('{"content":"x","kind":"note","parent":null,"embed":null,"attachments":[]}'), "post");
       assert.deepStrictEqual(
@@ -309,7 +309,7 @@ describe("edges", () => {
         [pub, priv],
       );
       setClock(() => T0 + 1);
-      const edit = specs.editPost(post.url, post.object).editId;
+      const edit = specs.editPost(OTTO, post.url, post.object).editId;
       const at = (root, e) => `/${root}/social/v1/posts/${post.id}/${e}.json`;
       const copies = [
         ["priv", edit],

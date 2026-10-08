@@ -277,7 +277,7 @@ describe("properties", function () {
           let head = buildPost(o, { content: "x" });
           for (const [k, delta] of deltas.entries()) {
             now = Math.max(T0 - 3_600_000, now + delta);
-            const edit = accepted(() => editPost(head.url, { ...head.object, content: `v${k}` }));
+            const edit = accepted(() => editPost(o, head.url, { ...head.object, content: `v${k}` }));
             if (!edit) return;
             assert.ok(edit.editId > head.editId && edit.id === head.id, `${head.editId} then ${edit.editId}`);
             head = edit;
@@ -291,7 +291,7 @@ describe("properties", function () {
         fc.property(owner, fc.integer({ min: -7_000_000, max: 7_000_000 }), (o, skew) => {
           const head = buildPost(o, { content: "x" });
           setClock(() => T0 + skew);
-          const edit = accepted(() => editPost(head.url, { ...head.object, content: "y" }));
+          const edit = accepted(() => editPost(o, head.url, { ...head.object, content: "y" }));
           if (edit) assert.ok(edit.editId > head.editId && edit.id === head.id);
         }),
       );

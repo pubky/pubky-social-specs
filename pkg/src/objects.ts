@@ -1,7 +1,7 @@
 // Reading and writing what is stored at a URI: the path says which object, the object's own
 // rules say whether these bytes are one.
 
-import { fail, misuse } from "./errors.js";
+import { fail, misuse, nameOf } from "./errors.js";
 import { type Model, readStored, validate } from "./models/common.js";
 import { type Feed, feed } from "./models/feed.js";
 import { checkFile } from "./models/file.js";
@@ -9,7 +9,6 @@ import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from 
 import { checkReferences, checkVersion, post, type Post } from "./models/post.js";
 import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
-import { nameOf } from "./json/schema.js";
 import { OBJECT_KINDS, type ObjectKind, type Root } from "./path.js";
 import { parse, type Parsed } from "./uri.js";
 

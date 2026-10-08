@@ -49,7 +49,7 @@ show("A draft", { path: draft.path, id: draft.id });
 // What a GET returns is read back, and an edit is a new version above the head
 const read = decodeObject(draft.url, draft.body);
 assert.strictEqual(read.kind, "post");
-const edited = editPost(draft.url, { ...read.object, content: "A better draft" });
+const edited = editPost(me, draft.url, { ...read.object, content: "A better draft" });
 show("An edit", { path: edited.path, editId: edited.editId });
 
 // Publishing is a plan: copy the private media, then PUT the post with its references made public

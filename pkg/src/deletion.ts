@@ -2,9 +2,9 @@
 // delete them: legacy first.
 
 import { canonicalPubky, canonicalUniversal } from "./canonicalize.js";
-import { fail, misuse } from "./errors.js";
+import { fail, misuse, nameOf } from "./errors.js";
 import { checkHashId, checkPublicKey, hashText, timestampIdFault } from "./ids.js";
-import { inputOf, nameOf, string } from "./json/schema.js";
+import { inputOf, string } from "./json/schema.js";
 import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
 import { foldLabel } from "./models/label.js";

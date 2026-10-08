@@ -20,12 +20,12 @@
 // argument is copied by `snapshot` first, and only the copy is read.
 
 import { plainBytes } from "./bytes.js";
-import { rememberUnknown, warnIfUnknownDropped } from "./dev.js";
+import { rememberUnknown, warnIfMilliseconds, warnIfUnknownDropped } from "./dev.js";
 import { snapshot } from "./input.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
-import { fail, misuse, ValidationError } from "./errors.js";
-import { arrayOf, type Codec, inputOf, nameOf, rootOf } from "./json/schema.js";
+import { fail, misuse, nameOf, ValidationError } from "./errors.js";
+import { arrayOf, type Codec, inputOf, rootOf } from "./json/schema.js";
 import * as lifecycle from "./lifecycle.js";
 import { parse as parseText } from "./models/common.js";
 import * as feeds from "./models/feed.js";
@@ -140,12 +140,17 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
  * console.log(bytes.length);
  * ```
  */
+export function encodeObject<K extends keyof T.Stored>(at: T.UrlArg<K> | { kind: K; root?: T.Root | null }, object: T.Stored[K]): T.Bytes;
+export function encodeObject(at: T.UrlArg<"file"> | { kind: "file"; root?: T.Root | null }, object: Uint8Array | ArrayBuffer): T.Bytes;
 export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes {
   at = snapshot(at, "at") as typeof at;
   object = snapshot(object, "object") as typeof object;
   const media = plainBytes(object);
   if (typeof at === "string") {
-    if (media === null) warnIfUnknownDropped(at, object, "encodeObject");
+    if (media === null) {
+      warnIfUnknownDropped(at, object, "encodeObject");
+      warnIfMilliseconds(object, "encodeObject");
+    }
     return objects.write(url(at, "at"), media ?? object);
   }
   const where = inputOf(at, "at", ["kind", "root"]);
@@ -242,31 +247,34 @@ export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, in
 
 /**
  * An edit of the post whose newest version is at `headUri`: a new version in the same post,
- * with an id above the head's. `headUri` is the URL of that version, in the caller's own
- * storage: the owner and the post id are read from it. `post` is the stored post as it should
- * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
- * slug is not carried over from the head.
+ * with an id above the head's. `headUri` is the URL of that version in `owner`'s own tree,
+ * which is where the edit goes; the post id is read from it. `post` is the stored post as it
+ * should now read, the `.object` of a decode with its changes. `root` defaults to the head's
+ * own; a slug is not carried over from the head.
  *
  * @example
  * ```ts
  * import { buildPost, editPost } from "pubky-social-specs";
  * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
  * const first = buildPost(owner, { content: "Helo" });
- * const fixed = editPost(first.url, { ...first.object, content: "Hello" });
+ * const fixed = editPost(owner, first.url, { ...first.object, content: "Hello" });
  * console.log(fixed.id === first.id, fixed.editId > first.editId);
  * ```
  */
-export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
+export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
+  const me = key(owner, "owner");
   post = snapshot(post, "post") as T.Post;
   options = snapshot(options, "options") as typeof options;
   const head = uris.parse(url(headUri, "headUri"));
-  if (head.kind !== "post" || head.editId === undefined) return fail("path", `not the URI of a stored post version: ${headUri}`);
+  if (head.kind !== "post" || head.editId === undefined) return fail("path", `not the URI of a stored post version: ${headUri}`, "headUri");
+  // Only the owner writes their tree: an edit of another user's post is a reply or a quote
+  if (head.owner !== me) fail("path", `the head ${headUri} is in another user's tree, not ${me}'s`, "headUri");
   warnIfUnknownDropped(headUri, post, "editPost");
   const given = options === undefined || options === null ? {} : inputOf(options, "options", ["root", "slug"]);
   const root = given.root === undefined || given.root === null ? head.root : rootOf(given.root, "options.root");
   const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "options.slug");
   const value = posts.post.codec.parse(post, "post");
-  return builtPost(head.owner, posts.editPost(head.owner, value, head.id, head.editId, root, slug));
+  return builtPost(me, posts.editPost(me, value, head.id, head.editId, root, slug));
 }
 
 /**
@@ -607,8 +615,8 @@ export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string
  * console.log(listPrefix(owner, "public"));
  * ```
  */
-export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `pubky://${string}` {
-  return uris.listPrefix(key(owner, "owner"), tree);
+export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): T.ListPrefix {
+  return uris.listPrefix(key(owner, "owner"), tree) as T.ListPrefix;
 }
 
 /**
@@ -702,8 +710,29 @@ export function parseMediaId(value: string): T.MediaId {
  */
 export function parsePubkyUrl(value: string): T.PubkyUrl {
   const parsed = uris.parse(text(value, "uri"));
-  if (!isObjectKind(parsed.kind) || (parsed.kind === "post" && parsed.editId === undefined)) fail("path", `not the URL of a stored object: ${value}`, "uri");
+  if (!isObjectKind(parsed.kind) || parsed.path === "" || (parsed.kind === "post" && parsed.editId === undefined)) fail("path", `not the URL of a stored object: ${value}`, "uri");
   return `pubky://${parsed.owner}${parsed.path}` as T.PubkyUrl;
+}
+
+/**
+ * Whether `value` is the canonical URL of a stored object, as `parsePubkyUrl` gives it: the
+ * guard for a URL a LIST or another user handed over, with no exception to catch.
+ *
+ * @example
+ * ```ts
+ * import { decodeObject, isPubkyUrl } from "pubky-social-specs";
+ * const url: string = "pubky://8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json";
+ * if (isPubkyUrl(url)) console.log(decodeObject.length, url);
+ * ```
+ */
+export function isPubkyUrl(value: unknown): value is T.PubkyUrl {
+  if (typeof value !== "string") return false;
+  try {
+    return parsePubkyUrl(value) === value;
+  } catch (e) {
+    if (e instanceof ValidationError) return false;
+    throw e;
+  }
 }
 
 /**
@@ -739,4 +768,74 @@ export function parsePostRef(value: string): T.PostRef {
   const parsed = uris.parse(text(value, "uri"));
   if (parsed.kind !== "post" || parsed.editId !== undefined) fail("path", `not a reference to a post: ${value}`, "uri");
   return `pubky://${parsed.owner}${parsed.path}` as T.PostRef;
+}
+
+/**
+ * The time a post id or an edit id was minted, in microseconds since the epoch, the unit of
+ * every stored timestamp.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, idMicros, microsToDate } from "pubky-social-specs";
+ * const post = buildPost("8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto", { content: "Hello" });
+ * console.log(microsToDate(idMicros(post.id)).toISOString());
+ * ```
+ */
+export function idMicros(id: T.Given<"PostId" | "EditId">): number {
+  return Number(ids.timestampIdMicros(text(id, "id"), "id"));
+}
+
+/**
+ * A `Date` for a stored timestamp in microseconds (`created_at`, `idMicros`), to the
+ * millisecond a `Date` holds.
+ *
+ * @example
+ * ```ts
+ * import { buildFollow, microsToDate } from "pubky-social-specs";
+ * const follow = buildFollow("8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto", "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio");
+ * console.log(microsToDate(follow.object.created_at));
+ * ```
+ */
+export function microsToDate(micros: number): Date {
+  if (!Number.isSafeInteger(micros)) misuse("micros", "an integer of microseconds");
+  return new Date(Math.floor(micros / 1000));
+}
+
+/**
+ * The stored timestamp of a `Date`, or of milliseconds as `Date.now()` gives them: microseconds,
+ * which is what every `created_at` holds.
+ *
+ * @example
+ * ```ts
+ * import { dateToMicros } from "pubky-social-specs";
+ * console.log(dateToMicros(new Date("2026-01-01T00:00:00Z"))); // 1767225600000000
+ * ```
+ */
+export function dateToMicros(date: Date | number): number {
+  const ms = date instanceof Date ? date.getTime() : date;
+  if (!Number.isFinite(ms)) misuse("date", "a valid Date or a number of milliseconds");
+  return Math.floor(ms) * 1000;
+}
+
+/**
+ * `decodeObject` with the refusal returned instead of thrown, for a feed of other people's data
+ * where a bad object is routine. A wrong argument still throws.
+ *
+ * @example
+ * ```ts
+ * import { tryDecodeObject } from "pubky-social-specs";
+ * const url = "pubky://8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json";
+ * const result = tryDecodeObject(url, new TextEncoder().encode("{"), "user");
+ * if (!result.ok) console.log(result.error.code); // json
+ * ```
+ */
+export function tryDecodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): { ok: true; value: T.Stored[K] } | { ok: false; error: ValidationError };
+export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): { ok: true; value: T.Decoded } | { ok: false; error: ValidationError };
+export function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind?: keyof T.Stored): { ok: true; value: unknown } | { ok: false; error: ValidationError } {
+  try {
+    return { ok: true, value: kind === undefined ? decodeObject(uri, bytes) : decodeObject(uri, bytes, kind) };
+  } catch (e) {
+    if (e instanceof ValidationError) return { ok: false, error: e };
+    throw e;
+  }
 }

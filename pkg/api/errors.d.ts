@@ -69,6 +69,8 @@ export declare class ArgumentError extends TypeError {
     constructor(field: string, message: string);
 }
 export declare function misuse(what: string, expected: string): never;
+/** A name a caller passes as an argument: one of `names`, another string refused, anything else a TypeError. */
+export declare function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T;
 /**
  * How the rules of a check run, each one a closure. Throwing, the first refusal is the error,
  * in the reference's order. A validator passes one that keeps each refusal and runs the next.

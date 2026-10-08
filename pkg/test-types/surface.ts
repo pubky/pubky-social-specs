@@ -19,6 +19,11 @@ import {
   deletionPaths,
   editPost,
   encodeObject,
+  isPubkyUrl,
+  listPrefix,
+  tryDecodeObject,
+  ArgumentError,
+  type ErrorCode,
   feedReaches,
   limits,
   parseUri,
@@ -82,7 +87,7 @@ if (decoded.kind === "post") {
   post.content = "edited";
   // @ts-expect-error a stored post has no such member; unknown ones travel in $unknown
   post.contnet = "typo";
-  const again: BuiltPost = editPost(built.url, post, { slug: "edited" });
+  const again: BuiltPost = editPost(owner, built.url, post, { slug: "edited" });
   const envelope = decodeContent(post);
   if (envelope?.kind === "article") envelope.content.title.toUpperCase();
   encodeObject(again.url, post) satisfies Bytes;
@@ -185,3 +190,27 @@ buildUri(owner, someKind, "id") satisfies string;
 buildUri(owner, "post", editId);
 // @ts-expect-error not through the kind-agnostic form either
 buildUri(owner, someKind, editId);
+
+// A string from elsewhere becomes a URL through a guard, no cast
+const handed: string = "pubky://x/pub/social/v1/profile.json";
+if (isPubkyUrl(handed)) decodeObject(handed, bytes);
+// @ts-expect-error a LIST prefix names no stored object
+decodeObject(listPrefix(owner, "public"), bytes);
+// The members of another kind do not compile on a post input
+// @ts-expect-error a note has no title
+buildPost(owner, { content: "x", title: "T" });
+// @ts-expect-error an article has no content member
+buildPost(owner, { kind: "article", title: "T", body: "b", content: "x" });
+// @ts-expect-error a file is given its bytes or its id, not both
+buildFile(owner, { bytes: new Uint8Array(1), id: "x", type: "image/png" });
+// The object goes with the kind it is encoded as
+declare const someUser: User;
+encodeObject({ kind: "user" }, someUser);
+// @ts-expect-error a post is no user
+encodeObject({ kind: "user" }, expected);
+// A refusal returned, its code a closed set
+const tried = tryDecodeObject(built.url, bytes, "post");
+if (!tried.ok) tried.error.code satisfies ErrorCode;
+else tried.value satisfies Post;
+declare const thrown: unknown;
+if (thrown instanceof ArgumentError) thrown.field satisfies string;

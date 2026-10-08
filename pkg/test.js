@@ -65,6 +65,7 @@ describe("pubky-social-specs", () => {
           "buildUser",
           "collectionLayouts",
           "createMediaHasher",
+          "dateToMicros",
           "decodeContent",
           "decodeObject",
           "deletionPaths",
@@ -76,8 +77,11 @@ describe("pubky-social-specs", () => {
           "feedReaches",
           "feedSorts",
           "hashMedia",
+          "idMicros",
+          "isPubkyUrl",
           "limits",
           "listPrefix",
+          "microsToDate",
           "parseEditId",
           "parseMediaId",
           "parseOwner",
@@ -91,6 +95,7 @@ describe("pubky-social-specs", () => {
           "planUnpublish",
           "postKinds",
           "toPath",
+          "tryDecodeObject",
           "validMimeTypes",
           "feedSchema",
           "postSchema",
@@ -141,8 +146,8 @@ describe("pubky-social-specs", () => {
       refuses(() => listPrefix(OTTO, "pub"), "Validation Error: tree must be one of public, private, legacy, found pub");
       // A misspelled option is refused, not ignored
       const post = buildPost(OTTO, { content: "x" });
-      misuse(() => editPost(post.url, post.object, { rooot: "private" }), /options\.rooot must be one of root, slug/);
-      misuse(() => editPost(post.url, post.object, "private"), /options must be an object/);
+      misuse(() => editPost(OTTO, post.url, post.object, { rooot: "private" }), /options\.rooot must be one of root, slug/);
+      misuse(() => editPost(OTTO, post.url, post.object, "private"), /options must be an object/);
       misuse(() => deletionPaths({ kind: "mute", id: RIO, listing: [] }), /target\.listing must be one of kind, id, listings/);
       misuse(() => planUnpublish({ id: post.id, publicPaths: [], privatHead: "x" }), /post\.privatHead must be one of/);
       misuse(() => encodeObject({ kind: "user", rot: "private" }, {}), /at\.rot must be one of kind, root/);
@@ -280,7 +285,7 @@ describe("pubky-social-specs", () => {
       const ids = new Set();
       for (let i = 0; i < 200; i++) {
         const post = buildPost(OTTO, { content: `post ${i}` });
-        editPost(post.url, { ...post.object, content: `edited ${i}` });
+        editPost(OTTO, post.url, { ...post.object, content: `edited ${i}` });
         ids.add(post.id);
       }
       assert.strictEqual(ids.size, 200);
@@ -387,7 +392,7 @@ describe("pubky-social-specs", () => {
       const follow = buildFollow(OTTO, RIO);
       refuses(() => decodeObject(follow.path, follow.body), /uri must be a pubky:\/\/ URL, not the path \/pub\/social\/v1\/follows/);
       refuses(() => encodeObject(follow.path, follow.object), /at must be a pubky:\/\/ URL/);
-      refuses(() => editPost(follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
+      refuses(() => editPost(OTTO, follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
       assert.strictEqual(toPath(follow.url), follow.path);
       assert.strictEqual(toPath(`pubky://${OTTO}/pub/pubky.app/follows/${RIO}`), `/pub/pubky.app/follows/${RIO}`);
       refuses(() => toPath(`pubky://${OTTO}`), /not the URL of a stored object/);
@@ -566,13 +571,13 @@ describe("pubky-social-specs", () => {
       const draft = buildPost(OTTO, { content: "draft", attachments: [{ uri: media.url }], root: "private", slug: "first" });
       assert.strictEqual(draft.path, `/priv/social/v1/posts/${draft.id}/${draft.id}-first.json`);
 
-      const edited = editPost(draft.url, { ...draft.object, content: "better" });
+      const edited = editPost(OTTO, draft.url, { ...draft.object, content: "better" });
       assert.strictEqual(edited.id, draft.id);
       assert.ok(edited.editId > draft.editId && edited.path.startsWith("/priv/"), "an edit stays under the head's root");
       assert.strictEqual(text(edited.body), text(draft.body).replace("draft", "better"));
-      refuses(() => editPost(draft.url, draft.object, { root: "public" }), /attachments\[0\]\.uri must not reference a private object/);
-      assert.ok(editPost(draft.url, { ...draft.object, attachments: [] }, { root: "public", slug: "x" }).path.endsWith("-x.json"));
-      refuses(() => editPost(buildUri(OTTO, "post", draft.id), draft.object), /not the URI of a stored post version/);
+      refuses(() => editPost(OTTO, draft.url, draft.object, { root: "public" }), /attachments\[0\]\.uri must not reference a private object/);
+      assert.ok(editPost(OTTO, draft.url, { ...draft.object, attachments: [] }, { root: "public", slug: "x" }).path.endsWith("-x.json"));
+      refuses(() => editPost(OTTO, buildUri(OTTO, "post", draft.id), draft.object), /not the URI of a stored post version/);
 
       const plan = planPublish(OTTO, { id: draft.id, editId: edited.editId, post: edited.object });
       assert.deepStrictEqual(plan.copies, [{ from: media.path, to: media.path.replace("/priv/", "/pub/") }]);
@@ -600,13 +605,13 @@ describe("pubky-social-specs", () => {
     it("a head from a faster clock still gets a successor, the same one for the same edit", () => {
       const head = buildPost(OTTO, { content: "from the future" });
       setClock(() => T0 - 60_000);
-      const a = editPost(head.url, { ...head.object, content: "edit" });
+      const a = editPost(OTTO, head.url, { ...head.object, content: "edit" });
       setClock(() => T0 - 60_000);
-      const b = editPost(head.url, { ...head.object, content: "edit" });
+      const b = editPost(OTTO, head.url, { ...head.object, content: "edit" });
       assert.ok(a.editId > head.editId);
       assert.strictEqual(a.editId, b.editId);
       setClock(() => T0 - 60_000);
-      assert.notStrictEqual(editPost(head.url, { ...head.object, content: "another edit" }).editId, a.editId);
+      assert.notStrictEqual(editPost(OTTO, head.url, { ...head.object, content: "another edit" }).editId, a.editId);
     });
   });
 

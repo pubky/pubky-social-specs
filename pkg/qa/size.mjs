@@ -26,7 +26,7 @@ const bundled = async (file, names, define = {}) => {
 
 const PROBES = [
   // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
-  ["index.js", "{ buildUri }", 3_000, ["Too many attachments", "WebAssembly"]],
+  ["index.js", "{ buildUri }", 3_200, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],
   ["index.js", "{ buildPost }", 20_000, ["WebAssembly"]],

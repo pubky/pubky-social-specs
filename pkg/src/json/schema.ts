@@ -209,13 +209,6 @@ export function rootOf(js: unknown, at: string): "public" | "private" {
   return name;
 }
 
-/** A name a caller passes as an argument: one of `names`, a string outside them refused, anything else a TypeError. */
-export function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T {
-  const name = string.parse(js, at);
-  if (!(names as readonly string[]).includes(name)) fail("unknown_name", `${at} must be one of ${names.join(", ")}, found ${name}`, at);
-  return name as T;
-}
-
 /** The members of a caller's input object, none of them outside `allowed`. */
 export function inputOf(js: unknown, at: string, allowed: readonly string[], each: Each = throwing): Record<string, unknown> {
   if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");

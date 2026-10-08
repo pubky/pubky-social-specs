@@ -1,5 +1,6 @@
 // Development only: warn when an object read with members another client added is written back
-// without them, which is what copying it field by field does. A bundler replaces
+// without them, which is what copying it field by field does, and when a timestamp looks like
+// milliseconds. A bundler replaces
 // `process.env.NODE_ENV`, so a production build folds this to nothing; outside Node, with no
 // bundler, there is no `process` and no warning.
 
@@ -43,5 +44,17 @@ export function warnIfUnknownDropped(url: string, object: unknown, call: string)
     console.warn(
       `pubky-social-specs: ${call} for ${url} carries ${now} of the ${before} $unknown members the object was read with, so what another client added is lost. Spread the decoded object, { ...read, content }, instead of copying it field by field. (Shown outside production only.)`,
     );
+  }
+}
+
+// Microseconds of 1973; a timestamp below it is milliseconds of any date after 1973 or a mistake
+const MILLISECONDS_BELOW = 1e14;
+
+/** Warns when the `created_at` of `object` reads as milliseconds, what `Date.now()` gives. */
+export function warnIfMilliseconds(object: unknown, call: string): void {
+  if (!development || typeof object !== "object" || object === null) return;
+  const at = (object as { created_at?: unknown }).created_at;
+  if (typeof at === "number" && at > 0 && at < MILLISECONDS_BELOW) {
+    console.warn(`pubky-social-specs: ${call} got created_at ${at}, which reads as milliseconds; every stored timestamp is microseconds, dateToMicros(Date.now()) gives one. (Shown outside production only.)`);
   }
 }

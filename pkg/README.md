@@ -165,7 +165,7 @@ const post = decodeObject(headUrl, bytes, "post");
 const envelope = decodeContent(post); // { kind: "article", content: { title, body, cover_image } }, or null for a note
 if (envelope?.kind !== "article") throw new Error("not an article");
 post.content = encodeContent({ ...envelope.content, title: "A better title" });
-const edited = editPost(headUrl, post);
+const edited = editPost(owner, headUrl, post);
 ```
 
 `encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`.
@@ -181,7 +181,7 @@ A post is a directory of versions, `posts/{id}/{editId}[-slug].json`, under the 
 ```js
 // Edit: a new version above the head, under the head's root unless you say otherwise.
 // `post` is the decoded object with its changes; `headUrl` the URL of the newest version.
-const edited = editPost(headUrl, { ...post, content: "Fixed a typo" });
+const edited = editPost(owner, headUrl, { ...post, content: "Fixed a typo" });
 
 // Publish a private version: copy its private media first, then PUT the post
 const publish = planPublish(owner, { id: edited.id, editId: edited.editId, post: edited.object });

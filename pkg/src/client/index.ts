@@ -169,7 +169,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root: T.Root = "public") => newest(parseOwner(author), id, root),
       /** A new version of the post read as `head`, PUT where `editPost` puts it. */
       async edit(head: { url: T.UrlArg<"post"> }, post: T.Post, editOptions?: { root?: T.Root | null; slug?: string | null }): Promise<T.BuiltPost> {
-        return stored(editPost(head.url, post, editOptions));
+        return stored(editPost(owner, head.url, post, editOptions));
       },
       /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
       async *list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post, "post">> {

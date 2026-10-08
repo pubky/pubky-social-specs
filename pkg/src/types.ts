@@ -45,6 +45,9 @@ export type MediaId = Brand<string, "MediaId">;
  */
 export type PubkyUrl<K extends ObjectKind = ObjectKind> = Brand<`pubky://${string}`, `PubkyUrl.${K}`>;
 
+/** The prefix to LIST one of an owner's trees, `pubky://<owner>/pub/social/v1/`: no object is stored at it. */
+export type ListPrefix = Brand<`pubky://${string}/`, "ListPrefix">;
+
 /** An owner-relative path, `/pub/...` or `/priv/...`: what the SDK's storage calls and every plan take. */
 export type OwnerPath = Brand<PathText, "OwnerPath">;
 
@@ -178,9 +181,31 @@ interface Threaded {
 }
 
 /** A post of any kind but an article or a collection: `note` when `kind` is absent. */
-export type NewNote = { kind?: Exclude<KnownPostKind, "article" | "collection"> | null; content: string } & Threaded & Placement;
+export type NewNote = {
+  kind?: Exclude<KnownPostKind, "article" | "collection"> | null;
+  content: string;
+  title?: never;
+  body?: never;
+  cover_image?: never;
+  name?: never;
+  description?: never;
+  items?: never;
+  layout?: never;
+} & Threaded &
+  Placement;
 
-export type NewArticle = { kind: "article"; title: string; body: string; cover_image?: string | null } & Threaded & Placement;
+export type NewArticle = {
+  kind: "article";
+  title: string;
+  body: string;
+  cover_image?: string | null;
+  content?: never;
+  name?: never;
+  description?: never;
+  items?: never;
+  layout?: never;
+} & Threaded &
+  Placement;
 
 export type NewCollection = {
   kind: "collection";
@@ -189,6 +214,13 @@ export type NewCollection = {
   items?: { uri: string; note?: string | null }[] | null;
   cover_image?: string | null;
   layout?: KnownCollectionLayout | null;
+  content?: never;
+  title?: never;
+  body?: never;
+  parent?: never;
+  embed?: never;
+  attachments?: never;
+  lock?: never;
 } & Placement;
 
 export type NewPost = NewNote | NewArticle | NewCollection;
@@ -219,7 +251,7 @@ export interface NewFeed {
   domain_tags?: string[] | null;
 }
 
-export type NewFile = ({ bytes: Uint8Array | ArrayBuffer } | { id: string }) & {
+export type NewFile = ({ bytes: Uint8Array | ArrayBuffer; id?: never } | { id: string; bytes?: never }) & {
   /** The declared media type, which picks the extension and is never stored. */
   type: MimeType | (string & {});
   root?: Root | null;

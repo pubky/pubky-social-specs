@@ -347,7 +347,7 @@ class EditPost extends Step {
     const { api: a } = instanceOf(this.inst);
     let edit;
     try {
-      edit = a.editPost(head.url, { ...head.object, content: `edit ${model.steps.length}` }, { root });
+      edit = a.editPost(owner, head.url, { ...head.object, content: `edit ${model.steps.length}` }, { root });
     } catch (e) {
       // A migrated 0.x post may carry what 1.x refuses on a write; a client shows it read-only
       if (e instanceof a.ValidationError) return;

@@ -1,9 +1,8 @@
 // Paths and URIs: the parser, the builders, and the keys that join the two epochs of a tree.
 
 import { canonicalPubky } from "./canonicalize.js";
-import { fail } from "./errors.js";
+import { fail, nameOf } from "./errors.js";
 import { checkPublicKey, isPublicKey } from "./ids.js";
-import { nameOf } from "./json/schema.js";
 import { isCanonicalSegment, jsonStem, OBJECT_KINDS, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
 

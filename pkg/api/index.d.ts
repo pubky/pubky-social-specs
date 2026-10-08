@@ -1,3 +1,4 @@
+import { ValidationError } from "./errors.js";
 import type * as T from "./types.js";
 export { limits, validMimeTypes } from "./data.js";
 export { ArgumentError, ValidationError } from "./errors.js";
@@ -47,10 +48,14 @@ export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuf
  * console.log(bytes.length);
  * ```
  */
-export declare function encodeObject(at: T.UrlArg | {
-    kind: T.ObjectKind;
+export declare function encodeObject<K extends keyof T.Stored>(at: T.UrlArg<K> | {
+    kind: K;
     root?: T.Root | null;
-}, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes;
+}, object: T.Stored[K]): T.Bytes;
+export declare function encodeObject(at: T.UrlArg<"file"> | {
+    kind: "file";
+    root?: T.Root | null;
+}, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
  * The envelope inside the `content` of an article or a collection; null for any other kind.
  * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
@@ -119,21 +124,21 @@ export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.
 export declare function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, input: I & T.CheckedPost<I>): T.BuiltPost;
 /**
  * An edit of the post whose newest version is at `headUri`: a new version in the same post,
- * with an id above the head's. `headUri` is the URL of that version, in the caller's own
- * storage: the owner and the post id are read from it. `post` is the stored post as it should
- * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
- * slug is not carried over from the head.
+ * with an id above the head's. `headUri` is the URL of that version in `owner`'s own tree,
+ * which is where the edit goes; the post id is read from it. `post` is the stored post as it
+ * should now read, the `.object` of a decode with its changes. `root` defaults to the head's
+ * own; a slug is not carried over from the head.
  *
  * @example
  * ```ts
  * import { buildPost, editPost } from "pubky-social-specs";
  * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
  * const first = buildPost(owner, { content: "Helo" });
- * const fixed = editPost(first.url, { ...first.object, content: "Hello" });
+ * const fixed = editPost(owner, first.url, { ...first.object, content: "Hello" });
  * console.log(fixed.id === first.id, fixed.editId > first.editId);
  * ```
  */
-export declare function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: {
+export declare function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, post: T.Post, options?: {
     root?: T.Root | null;
     slug?: string | null;
 } | null): T.BuiltPost;
@@ -406,7 +411,7 @@ export declare function buildUri(owner: T.Given<"Owner">, kind: Exclude<T.Object
  * console.log(listPrefix(owner, "public"));
  * ```
  */
-export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `pubky://${string}`;
+export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): T.ListPrefix;
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
  * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
@@ -476,6 +481,18 @@ export declare function parseMediaId(value: string): T.MediaId;
  */
 export declare function parsePubkyUrl(value: string): T.PubkyUrl;
 /**
+ * Whether `value` is the canonical URL of a stored object, as `parsePubkyUrl` gives it: the
+ * guard for a URL a LIST or another user handed over, with no exception to catch.
+ *
+ * @example
+ * ```ts
+ * import { decodeObject, isPubkyUrl } from "pubky-social-specs";
+ * const url: string = "pubky://8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json";
+ * if (isPubkyUrl(url)) console.log(decodeObject.length, url);
+ * ```
+ */
+export declare function isPubkyUrl(value: unknown): value is T.PubkyUrl;
+/**
  * An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments.
  *
  * @example
@@ -499,4 +516,65 @@ export declare function parseOwnerPath(value: string): T.OwnerPath;
  * ```
  */
 export declare function parsePostRef(value: string): T.PostRef;
+/**
+ * The time a post id or an edit id was minted, in microseconds since the epoch, the unit of
+ * every stored timestamp.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, idMicros, microsToDate } from "pubky-social-specs";
+ * const post = buildPost("8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto", { content: "Hello" });
+ * console.log(microsToDate(idMicros(post.id)).toISOString());
+ * ```
+ */
+export declare function idMicros(id: T.Given<"PostId" | "EditId">): number;
+/**
+ * A `Date` for a stored timestamp in microseconds (`created_at`, `idMicros`), to the
+ * millisecond a `Date` holds.
+ *
+ * @example
+ * ```ts
+ * import { buildFollow, microsToDate } from "pubky-social-specs";
+ * const follow = buildFollow("8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto", "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio");
+ * console.log(microsToDate(follow.object.created_at));
+ * ```
+ */
+export declare function microsToDate(micros: number): Date;
+/**
+ * The stored timestamp of a `Date`, or of milliseconds as `Date.now()` gives them: microseconds,
+ * which is what every `created_at` holds.
+ *
+ * @example
+ * ```ts
+ * import { dateToMicros } from "pubky-social-specs";
+ * console.log(dateToMicros(new Date("2026-01-01T00:00:00Z"))); // 1767225600000000
+ * ```
+ */
+export declare function dateToMicros(date: Date | number): number;
+/**
+ * `decodeObject` with the refusal returned instead of thrown, for a feed of other people's data
+ * where a bad object is routine. A wrong argument still throws.
+ *
+ * @example
+ * ```ts
+ * import { tryDecodeObject } from "pubky-social-specs";
+ * const url = "pubky://8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json";
+ * const result = tryDecodeObject(url, new TextEncoder().encode("{"), "user");
+ * if (!result.ok) console.log(result.error.code); // json
+ * ```
+ */
+export declare function tryDecodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): {
+    ok: true;
+    value: T.Stored[K];
+} | {
+    ok: false;
+    error: ValidationError;
+};
+export declare function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): {
+    ok: true;
+    value: T.Decoded;
+} | {
+    ok: false;
+    error: ValidationError;
+};
 //# sourceMappingURL=index.d.ts.map

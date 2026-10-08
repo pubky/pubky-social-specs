@@ -26,7 +26,7 @@ const CASES = {
   "decodeObject (10 kB article)": () => api.decodeObject(article.url, article.body),
   "decodeObject (profile)": () => api.decodeObject(user.url, user.body),
   "encodeObject (note)": () => api.encodeObject(note.url, note.object),
-  "editPost (note)": () => api.editPost(note.url, note.object),
+  "editPost (note)": () => api.editPost(OWNER, note.url, note.object),
   "buildFile (1 MB)": () => api.buildFile(OWNER, { bytes: megabyte, type: "image/png" }),
 };
 
