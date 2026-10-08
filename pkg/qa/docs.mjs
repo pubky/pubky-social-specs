@@ -6,27 +6,16 @@
 //   node qa/docs.mjs [--check]   (after tsc -p .)
 
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { PKG as pkg, declarations, flags } from "./lib.mjs";
 
-// The compiler API: TypeScript 7 ships none, so the tools' TypeScript 6 reads the declarations
-const ts = createRequire(new URL("../tools/package.json", import.meta.url))("typescript");
-const pkg = fileURLToPath(new URL("..", import.meta.url));
 const file = path.join(pkg, "docs/reference.md");
-const check = process.argv.includes("--check");
+const { check } = flags({ check: { type: "boolean", default: false } });
 
 const { limits, validMimeTypes, MIME_TO_EXT } = await import(pathToFileURL(path.join(pkg, "dist/data.js")));
 const entry = path.join(pkg, "dist/index.d.ts");
-const program = ts.createProgram([entry], {
-  module: ts.ModuleKind.NodeNext,
-  moduleResolution: ts.ModuleResolutionKind.NodeNext,
-  target: ts.ScriptTarget.ES2022,
-  strict: true,
-  noEmit: true,
-  types: [],
-});
-const checker = program.getTypeChecker();
+const { ts, program, checker } = declarations([entry]);
 const exported = new Map(checker.getExportsOfModule(checker.getSymbolAtLocation(program.getSourceFile(entry))).map((s) => [s.name, s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s]));
 const doc = (symbol) => ts.displayPartsToString(symbol.getDocumentationComment(checker)).replace(/\s+/g, " ").trim();
 const cell = (text) => text.replaceAll("|", "\\|");
@@ -46,6 +35,16 @@ const mimeRows = [...new Set([...validMimeTypes, ...mapped.keys()])].sort().map(
 const OBJECTS = ["User", "UserLink", "Post", "Attachment", "ArticleContent", "CollectionContent", "CollectionItem", "Tag", "Bookmark", "Follow", "Mute", "Feed", "FeedConfig"];
 const limitValues = new Set(Object.values(limits).filter((v) => typeof v === "number"));
 const claims = [];
+// Every bound a doc states is a limit of the model; "0.x" and "1.x" are epochs, "0-9" a range
+const checkBounds = (member, text) => {
+  for (const [, n] of text
+    .replace(/`[^`]*`/g, "")
+    .replace(/\b\d+\.x\b/g, "")
+    .replace(/0-9/g, "")
+    .matchAll(/\b(\d+)\b/g)) {
+    if (!limitValues.has(Number(n)) && n !== "1") claims.push(`${member}: ${n} is no value of limits`);
+  }
+};
 const objectSections = OBJECTS.map((name) => {
   const symbol = exported.get(name);
   const type = checker.getDeclaredTypeOfSymbol(symbol);
@@ -56,14 +55,7 @@ const objectSections = OBJECTS.map((name) => {
     const nullable = t.isUnion() && t.types.some((u) => u.flags & ts.TypeFlags.Null) ? "yes" : "";
     const spelled = checker.typeToString(checker.getNonNullableType(t), undefined, ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope);
     const text = doc(p);
-    // Every bound a doc states is a limit of the model; "0.x" and "1.x" are epochs, "0-9" a range
-    for (const [, n] of text
-      .replace(/`[^`]*`/g, "")
-      .replace(/\b\d+\.x\b/g, "")
-      .replace(/0-9/g, "")
-      .matchAll(/\b(\d+)\b/g)) {
-      if (!limitValues.has(Number(n)) && n !== "1") claims.push(`${name}.${p.name}: ${n} is no value of limits`);
-    }
+    checkBounds(`${name}.${p.name}`, text);
     const optional = p.flags & ts.SymbolFlags.Optional ? " (optional)" : "";
     return `| \`${p.name}\`${optional} | \`${cell(spelled)}\` | ${nullable} | ${cell(text)} |`;
   });
@@ -72,14 +64,7 @@ const objectSections = OBJECTS.map((name) => {
 // The builder inputs state bounds too, and have no table of their own
 for (const name of ["NewUser", "NewAttachment", "NewNote", "NewArticle", "NewCollection", "NewFeed"]) {
   const type = checker.getDeclaredTypeOfSymbol(exported.get(name));
-  for (const p of checker.getPropertiesOfType(type)) {
-    for (const [, n] of doc(p)
-      .replace(/`[^`]*`/g, "")
-      .replace(/0-9/g, "")
-      .matchAll(/\b(\d+)\b/g)) {
-      if (!limitValues.has(Number(n)) && n !== "1") claims.push(`${name}.${p.name}: ${n} is no value of limits`);
-    }
-  }
+  for (const p of checker.getPropertiesOfType(type)) checkBounds(`${name}.${p.name}`, doc(p));
 }
 if (claims.length > 0) {
   console.error(`a member's doc states a bound the data model does not have:\n  ${claims.join("\n  ")}`);

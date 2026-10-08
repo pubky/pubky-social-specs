@@ -5,10 +5,10 @@
 
 import * as api from "../../dist/index.js";
 
-const OWNER = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+export const OWNER = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
 const ID = "0035QZPT4QG00";
 // One stored object of every kind the bytes may claim to be, chosen by the first byte
-const URLS = [
+export const URLS = [
   `pubky://${OWNER}/pub/social/v1/posts/${ID}/${ID}.json`,
   `pubky://${OWNER}/priv/social/v1/posts/${ID}/${ID}-a-slug.json`,
   `pubky://${OWNER}/pub/social/v1/profile.json`,

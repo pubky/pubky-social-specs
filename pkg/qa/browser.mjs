@@ -12,7 +12,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setContent(`<script type="module">${code.replaceAll("</script", "<\\/script")}</script>`);
-  await page.waitForFunction(() => globalThis.smokeResult !== undefined || document.title === "failed", null, { timeout: 60_000 }).catch(() => {});
+  await page.waitForFunction(() => globalThis.smokeResult !== undefined, null, { timeout: 60_000 }).catch(() => {});
   const result = await page.evaluate(() => globalThis.smokeResult);
   if (result !== "ok") throw new Error(`the smoke run in Chromium gave ${result}: ${errors.join("; ")}`);
   console.log(`ok in Chromium ${browser.version()}`);

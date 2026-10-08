@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { ask } from "./oracle.mjs";
 import { answer } from "./ops.mjs";
 import { families, rng } from "./gen.mjs";
-import { flags } from "./lib.mjs";
+import { canonical, flags } from "./lib.mjs";
 
 const args = flags({
   fuzz: { type: "string", default: "2000" },
@@ -28,9 +28,6 @@ const vectorsDir = fileURLToPath(new URL("../../vectors/js/", import.meta.url));
 const failuresDir = fileURLToPath(new URL("./failures/", import.meta.url));
 // Recorded at a fixed seed, so a regenerated file differs only where an answer moved
 const RECORDED = { seed: 20261007, cases: 400 };
-
-// Key order is no part of an answer
-const canonical = (value) => JSON.stringify(value, (_, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
 
 function requests(family, fromSeed, count) {
   const r = rng(fromSeed ^ [...family].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));

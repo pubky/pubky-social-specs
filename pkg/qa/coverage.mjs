@@ -4,10 +4,8 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { SUITES } from "./lib.mjs";
+import { PKG as pkg, SUITES } from "./lib.mjs";
 
-const pkg = fileURLToPath(new URL("..", import.meta.url));
 const out = `${pkg}qa/out/coverage`;
 const run = spawnSync(
   process.execPath,
@@ -36,8 +34,7 @@ const FLOORS = [
   ["src/client/", [95, 90]],
   ["src/migration/engine.ts", [95, 93]],
   ["src/migration/wasm.ts", [96, 87]],
-  // A null body, a chunk with no value and the fallthrough after #call's try stay uncovered;
-  // folding the adapter's duplicates left fewer covered branches around the same three
+  // A null body, a chunk with no value and the fallthrough after #call's try stay uncovered
   ["src/migration/adapters/", [99, 96]],
   ["src/migration/", [99, 97]],
   ["src/objects.ts", [98, 88]],

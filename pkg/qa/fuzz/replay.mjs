@@ -8,22 +8,12 @@ import fs from "node:fs";
 import { Reader } from "../../dist/json/read.js";
 import { answer } from "../ops.mjs";
 import { ask } from "../oracle.mjs";
+import { NOW_MS, canonical } from "../lib.mjs";
+import { OWNER, URLS } from "./targets.mjs";
 
-const OWNER = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-const ID = "0035QZPT4QG00";
 // The instant the targets' ids were minted at, so a time bound reads them as the fuzzer did
-const NOW = 1_790_000_000_000_000;
-// The targets' URLs, in their order
-const URLS = [
-  `pubky://${OWNER}/pub/social/v1/posts/${ID}/${ID}.json`,
-  `pubky://${OWNER}/priv/social/v1/posts/${ID}/${ID}-a-slug.json`,
-  `pubky://${OWNER}/pub/social/v1/profile.json`,
-  `pubky://${OWNER}/pub/social/v1/follows/dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio.json`,
-  `pubky://${OWNER}/priv/social/v1/mutes/dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio.json`,
-  `pubky://${OWNER}/pub/social/v1/tags/8Z8CWH8NVYQY39ZEBFGKQWWEKG.json`,
-  `pubky://${OWNER}/priv/social/v1/bookmarks/~8Z8CWH8NVYQY39ZEBFGKQWWEKG.json`,
-  `pubky://${OWNER}/priv/social/v1/feeds/8Z8CWH8NVYQY39ZEBFGKQWWEKG.json`,
-];
+const NOW = NOW_MS * 1000;
+// The first three of the target's five builders; the tag and bookmark ones take no JSON
 const BUILDERS = ["createPost", "createUser", "createFeed"];
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
@@ -76,7 +66,6 @@ function hasDuplicateKey(json) {
   return duplicate;
 }
 
-const canonical = (value) => JSON.stringify(value, (_, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
 let clean = true;
 for (const [target, make] of Object.entries(TARGETS)) {
   const dir = new URL(`corpus/${target}/`, import.meta.url);

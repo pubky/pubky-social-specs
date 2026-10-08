@@ -98,6 +98,8 @@ const escaped = (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`;
 // reaches the terminal as one: C0, DEL and C1 are printed as escapes
 const visible = (text) => String(text).replace(/\p{Cc}/gu, escaped);
 
+const messageOf = (error) => (error instanceof Error ? error.message : String(error));
+
 // JSON.stringify escapes C0 but writes DEL and C1 raw
 const jsonText = (value) => JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, escaped);
 
@@ -233,7 +235,7 @@ const main = async (argv, env, io = { stdin: process.stdin, stderr: process.stde
   try {
     session = await pubky.signer(keypair).signin(CLIENT_ID);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = messageOf(error);
     console.error(`Sign-in failed: ${visible(message)}\n${signinHint(message)}`);
     return 1;
   } finally {
@@ -246,7 +248,7 @@ const main = async (argv, env, io = { stdin: process.stdin, stderr: process.stde
     });
   // An error thrown outside the run's own promise still signs out before the process ends
   const fatal = (error) => {
-    console.error(visible(error instanceof Error ? error.message : String(error)));
+    console.error(visible(messageOf(error)));
     void signout().finally(() => process.exit(1));
   };
   process.once("uncaughtException", fatal);
@@ -294,7 +296,7 @@ const signinHint = (message) => {
 const invoked = process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
 if (invoked) {
   process.exitCode = await main(process.argv.slice(2), process.env).catch((error) => {
-    console.error(visible(error instanceof Error ? error.message : String(error)));
+    console.error(visible(messageOf(error)));
     return 1;
   });
 }

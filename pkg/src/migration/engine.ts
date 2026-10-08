@@ -198,7 +198,7 @@ const claimKey = (write: MigratedWrite): string => (write.kind === "file" ? writ
 
 /**
  * A blob's writes carry the bytes the run already holds, so its copy is the one PUT of that
- * array and its read-back is the hash that named the destination.
+ * array and a read-back compares against it.
  */
 const blobResult = (result: MigrateBlobResult, bytes: Uint8Array): MigrateResult =>
   "skip" in result
@@ -676,8 +676,9 @@ class Run {
     if (this.#aborted()) throw new Stop({ code: "ABORTED", message: MESSAGES.ABORTED });
   }
 
+  // Every URL the run handles came from a LIST of a prefix in the owner's tree
   #relative(url: string): string {
-    return url.startsWith(this.#ownerPrefix) ? url.slice(this.#ownerPrefix.length) : url;
+    return url.slice(this.#ownerPrefix.length);
   }
 
   #written(path: string, dropped: Dropped[]): Outcome {

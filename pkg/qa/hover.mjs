@@ -6,22 +6,13 @@
 //
 // Exits 1 and names each export or member that hovers empty.
 
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { ENTRIES, PKG, declarations, flags } from "./lib.mjs";
 
-// The compiler API: TypeScript 7 ships none, so the tools' TypeScript 6 reads the declarations
-const ts = createRequire(new URL("../tools/package.json", import.meta.url))("typescript");
-
-const pkg = fileURLToPath(new URL("..", import.meta.url));
-const dist = path.join(pkg, "dist");
-const ENTRIES = { ".": "index", "./testing": "testing", "./migration": "migration/index", "./migration/pubky-sdk": "migration/adapters/pubky-sdk", "./client": "client/index" };
+const dist = path.join(PKG, "dist");
 const UNIT = /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP)\b/i;
 
-const files = Object.values(ENTRIES).map((module) => path.join(dist, `${module}.d.ts`));
-const program = ts.createProgram(files, { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext, target: ts.ScriptTarget.ES2022, strict: true, noEmit: true, types: [] });
-const checker = program.getTypeChecker();
+const { ts, program, checker } = declarations(Object.values(ENTRIES).map((module) => path.join(dist, `${module}.d.ts`)));
 const ours = (symbol) => (symbol.declarations ?? []).some((d) => d.getSourceFile().fileName.startsWith(dist));
 const docOf = (symbol) => ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
 
@@ -64,13 +55,12 @@ for (const [entry, module] of Object.entries(ENTRIES)) {
     if (docOf(symbol) === "") empty.push(name);
     const declaration = symbol.declarations?.[0];
     if (!declaration) continue;
-    if (symbol.flags & (ts.SymbolFlags.Interface | ts.SymbolFlags.TypeAlias)) members(checker.getDeclaredTypeOfSymbol(symbol), name, 0);
-    else if (symbol.flags & ts.SymbolFlags.Class) members(checker.getDeclaredTypeOfSymbol(symbol), name, 0);
+    if (symbol.flags & (ts.SymbolFlags.Interface | ts.SymbolFlags.TypeAlias | ts.SymbolFlags.Class)) members(checker.getDeclaredTypeOfSymbol(symbol), name, 0);
     else if (symbol.flags & ts.SymbolFlags.Variable) members(checker.getTypeOfSymbolAtLocation(symbol, declaration), name, 0);
   }
 }
 
-if (process.argv.includes("--list")) for (const key of [...seen].filter((k) => typeof k === "string").sort()) console.log(key);
+if (flags({ list: { type: "boolean", default: false } }).list) for (const key of [...seen].filter((k) => typeof k === "string").sort()) console.log(key);
 if (empty.length > 0) console.error(`hover is empty for ${empty.length}:\n  ${empty.join("\n  ")}`);
 if (unitless.length > 0) console.error(`a number with no unit in its doc, ${unitless.length}:\n  ${unitless.join("\n  ")}`);
 if (empty.length + unitless.length > 0) process.exit(1);
