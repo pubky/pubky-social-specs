@@ -95,7 +95,7 @@ function refused<T>(call: () => T): T {
     return call();
   } catch (e) {
     if (e instanceof Error && !(e instanceof ValidationError) && e.message.startsWith(PREFIX)) {
-      throw new ValidationError(e.message.slice(PREFIX.length), undefined, { cause: e });
+      throw new ValidationError("migration", e.message.slice(PREFIX.length), undefined, undefined, { cause: e });
     }
     throw e;
   }

@@ -29,15 +29,15 @@ export interface Feed extends Extra {
 
 function checkTagList(tags: string[] | null, field: string): void {
   if (tags === null) return;
-  if (tags.length === 0) fail(`Feed config ${field} cannot be an empty list, omit it for no filter`, field);
-  if (tags.length > limits.feedTagsMaxCount) fail(`Feed config cannot have more than ${limits.feedTagsMaxCount} ${field}`, field);
+  if (tags.length === 0) fail("blank", `Feed config ${field} cannot be an empty list, omit it for no filter`, field);
+  if (tags.length > limits.feedTagsMaxCount) fail("count", `Feed config cannot have more than ${limits.feedTagsMaxCount} ${field}`, field, limits.feedTagsMaxCount);
   for (const tag of tags) {
-    if (tag !== foldLabel(tag)) fail(`Tag '${tag}' must be stored folded (trimmed, ASCII lowercase)`, field);
+    if (tag !== foldLabel(tag)) fail("format", `Tag '${tag}' must be stored folded (trimmed, ASCII lowercase)`, field);
     checkLabel(tag, field);
   }
   for (let i = 1; i < tags.length; i++) {
     if (compareBytes(tags[i - 1] as string, tags[i] as string) >= 0) {
-      fail(`Feed config ${field} must be stored deduplicated and sorted by code point`, field);
+      fail("format", `Feed config ${field} must be stored deduplicated and sorted by code point`, field);
     }
   }
 }
@@ -45,8 +45,8 @@ function checkTagList(tags: string[] | null, field: string): void {
 function checkIcon(icon: string | null): void {
   if (icon === null) return;
   const length = codePointLen(icon);
-  if (length < 1 || length > limits.feedIconMaxLength) fail(`Feed icon '${icon}' must be 1 to ${limits.feedIconMaxLength} characters`, "icon");
-  for (const c of icon) if (!/^[a-z0-9-]$/.test(c)) fail(`Feed icon '${icon}' contains invalid character: ${c}`, "icon");
+  if (length < 1 || length > limits.feedIconMaxLength) fail("length", `Feed icon '${icon}' must be 1 to ${limits.feedIconMaxLength} characters`, "icon", limits.feedIconMaxLength);
+  for (const c of icon) if (!/^[a-z0-9-]$/.test(c)) fail("format", `Feed icon '${icon}' contains invalid character: ${c}`, "icon");
 }
 
 // The id is the filter alone, so name and icon change without moving the feed
@@ -72,29 +72,29 @@ export const feed: Model<Feed> = {
     const f = value.feed;
     // reach, layout and sort define the feed; an unknown content filter only means no filter
     each(() => {
-      if (!isKnown(feedReaches, f.reach)) fail("feed reach is unknown", "reach");
+      if (!isKnown(feedReaches, f.reach)) fail("unknown_name", "feed reach is unknown", "reach");
     });
     each(() => {
-      if (!isKnown(feedLayouts, f.layout)) fail("feed layout is unknown", "layout");
+      if (!isKnown(feedLayouts, f.layout)) fail("unknown_name", "feed layout is unknown", "layout");
     });
     each(() => {
-      if (!isKnown(feedSorts, f.sort)) fail("feed sort is unknown", "sort");
+      if (!isKnown(feedSorts, f.sort)) fail("unknown_name", "feed sort is unknown", "sort");
     });
-    each(() => checkExtra(f.extra));
+    each(() => checkExtra(f.extra, "feed."));
     each(() => checkTagList(f.tags, "tags"));
     each(() => checkTagList(f.domain_tags, "domain_tags"));
     each(() => checkExtra(value.extra));
     each(() => {
-      if (frozenTrim(value.name) === "") fail("Feed name cannot be empty", "name");
-      if (codePointLen(value.name) > limits.feedNameMaxLength) fail(`Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`, "name");
+      if (frozenTrim(value.name) === "") fail("blank", "Feed name cannot be empty", "name");
+      if (codePointLen(value.name) > limits.feedNameMaxLength) fail("length", `Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`, "name", limits.feedNameMaxLength);
     });
     each(() => checkIcon(value.icon));
-    each(() => checkSafeInt(value.created_at));
+    each(() => checkSafeInt(value.created_at, "created_at"));
     if (id !== null)
       each(() => {
         checkHashId(id, "id");
         const expected = idOf(value);
-        if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
+        if (expected !== id) fail("id", `Invalid ID: expected ${expected}, found ${id}`, "id");
       });
   },
 };
@@ -109,8 +109,8 @@ const tagList = option(list(string));
 
 function filter(tags: string[] | null, field: string): string[] | null {
   if (tags === null) return null;
-  if (tags.length === 0) fail(`${field} must not be an empty list; pass None for no filter`, field);
-  if (tags.some((tag) => foldLabel(tag) === "")) fail(`${field} must not contain a blank label`, field);
+  if (tags.length === 0) fail("blank", `${field} must not be an empty list; leave it out for no filter`, field);
+  if (tags.some((tag) => foldLabel(tag) === "")) fail("blank", `${field} must not contain a blank label`, field);
   return [...new Set(tags.map(foldLabel))].sort(compareBytes);
 }
 

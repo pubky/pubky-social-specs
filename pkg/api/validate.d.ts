@@ -1,12 +1,15 @@
+import { type ErrorCode } from "./errors.js";
 import type * as T from "./types.js";
 /** One thing wrong with an input. */
 export interface Issue {
     /** Where, as the input spells it: `["attachments", 0, "uri"]`; empty for the input as a whole. */
     readonly path: (string | number)[];
-    /** `invalid_type` for a value of the wrong JavaScript shape, `invalid` for a rule of the data model. */
-    readonly code: "invalid_type" | "invalid";
+    /** `invalid_type` for a value of the wrong JavaScript shape, else the `code` of the `ValidationError` the rule throws. */
+    readonly code: "invalid_type" | ErrorCode;
     /** The reference's text for a rule, the package's for a shape. */
     readonly message: string;
+    /** The bound a `length`, `count` or `size` issue broke. */
+    readonly limit?: number;
 }
 export type Validation<T> = {
     success: true;

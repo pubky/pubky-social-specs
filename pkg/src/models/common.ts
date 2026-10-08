@@ -8,31 +8,32 @@ import { compareBytes, utf8, utf8Len } from "../text.js";
 const MAX_SAFE = 9007199254740991n;
 
 /** Reads one whole document as `codec`, a refusal of the reader becoming the package's error. */
-export function parse<T>(codec: Codec<T>, input: Uint8Array | string, context = ""): T {
+export function parse<T>(codec: Codec<T>, input: Uint8Array | string, context = "", field?: string): T {
   const reader = new Reader(typeof input === "string" ? utf8(input) : input);
   try {
     const value = codec.read(reader);
     reader.end();
     return value;
   } catch (e) {
-    if (e instanceof JsonError) throw new ValidationError(`${context}${e.message}`, undefined, { cause: e });
+    if (e instanceof JsonError) throw new ValidationError("json", `${context}${e.message}`, field, undefined, { cause: e });
     throw e;
   }
 }
 
 /** An integer past 2^53 would come back changed from any JS caller that reads and rewrites it. */
-export function checkSafeInt(value: bigint, where = ""): void {
-  if (value > MAX_SAFE || value < -MAX_SAFE) fail(`integer ${value} outside the JSON-safe range${where}`);
+export function checkSafeInt(value: bigint, field: string, where = ""): void {
+  if (value > MAX_SAFE || value < -MAX_SAFE) fail("unsafe_integer", `integer ${value} outside the JSON-safe range${where}`, field);
 }
 
-export function checkSafeNumbers(value: Json, where = ""): void {
-  if (typeof value === "bigint") checkSafeInt(value, where);
-  else if (Array.isArray(value)) for (const item of value) checkSafeNumbers(item, where);
-  else if (value instanceof Map) for (const key of [...value.keys()].sort(compareBytes)) checkSafeNumbers(value.get(key) as Json, where);
+function checkSafeNumbers(value: Json, field: string, where: string): void {
+  if (typeof value === "bigint") checkSafeInt(value, field, where);
+  else if (Array.isArray(value)) for (const item of value) checkSafeNumbers(item, field, where);
+  else if (value instanceof Map) for (const key of [...value.keys()].sort(compareBytes)) checkSafeNumbers(value.get(key) as Json, field, where);
 }
 
-export function checkExtra(extra: JsonObject): void {
-  for (const key of [...extra.keys()].sort(compareBytes)) checkSafeNumbers(extra.get(key) as Json, ` (in extra member ${key})`);
+/** The members no version knows: what a JS caller reads back has to be what was stored. `at` is the object they belong to. */
+export function checkExtra(extra: JsonObject, at = ""): void {
+  for (const key of [...extra.keys()].sort(compareBytes)) checkSafeNumbers(extra.get(key) as Json, `${at}$unknown.${key}`, ` (in extra member ${key})`);
 }
 
 /** A stored object: its codec, its cap and its rules. */
@@ -47,7 +48,7 @@ export interface Model<T> {
 }
 
 function checkSize(bytes: number, max: number): void {
-  if (bytes > max) fail(`object exceeds ${max} bytes`);
+  if (bytes > max) fail("size", `object exceeds ${max} bytes`, undefined, max);
 }
 
 /** The cap on the written form first, then the rules, so no in-memory path skips the cap. */

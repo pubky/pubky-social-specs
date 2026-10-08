@@ -52,6 +52,7 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(
         Object.keys(specs).sort(),
         [
+          "ArgumentError",
           "ValidationError",
           "buildBookmark",
           "buildFeed",
@@ -122,7 +123,7 @@ describe("pubky-social-specs", () => {
 
   describe("errors", () => {
     it("a rule refused is a ValidationError with the reference message", () => {
-      refuses(() => buildUser(OTTO, { name: "ab" }), "Validation Error: Invalid name length");
+      refuses(() => buildUser(OTTO, { name: "ab" }), "Validation Error: name must be 3 to 50 code points");
       refuses(() => buildUser("nope", { name: "Alice" }), "Validation Error: the string is not 52 ASCII characters");
     });
 
@@ -132,11 +133,12 @@ describe("pubky-social-specs", () => {
       misuse(() => buildUser(OTTO, null), /input must be an object/);
       misuse(() => buildUser(OTTO, ["Alice"]), /input must be an object/);
       misuse(() => buildUser(1, { name: "Alice" }), /owner must be a string/);
-      misuse(() => buildPost(OTTO, { content: "x", root: "priv" }), /input\.root must be "public" or "private"/);
+      // A string of the right type the model refuses is a rule, not a shape
+      refuses(() => buildPost(OTTO, { content: "x", root: "priv" }), "Validation Error: unknown variant `priv`, expected `public` or `private`");
       misuse(() => buildPost(OTTO, { content: "x", attachments: [{ uri: 1 }] }), /input\.attachments\[0\]\.uri must be a string/);
       misuse(() => decodeObject(buildUri(OTTO, "user"), "{}"), /bytes must be a Uint8Array/);
       misuse(() => decodeObject(buildUri(OTTO, "user"), new DataView(new ArrayBuffer(2))), /bytes must be a Uint8Array/);
-      misuse(() => listPrefix(OTTO, "pub"), /tree must be "public", "private" or "legacy"/);
+      refuses(() => listPrefix(OTTO, "pub"), "Validation Error: tree must be one of public, private, legacy, found pub");
       // A misspelled option is refused, not ignored
       const post = buildPost(OTTO, { content: "x" });
       misuse(() => editPost(post.url, post.object, { rooot: "private" }), /options\.rooot must be one of root, slug/);
@@ -156,12 +158,29 @@ describe("pubky-social-specs", () => {
       misuse(() => setClock(T0), /nowMs must be a function/);
       setClock(() => T0 + 0.5);
       misuse(() => buildFollow(OTTO, RIO), /the clock given to setClock must be returning an integer of milliseconds/);
-      misuse(() => buildUri(OTTO, "posts", "x"), /kind must be an object kind/);
+      refuses(() => buildUri(OTTO, "posts", "x"), /kind must be one of user, post/);
+    });
+
+    it("a refusal carries a stable code, and the bound a length or count broke", () => {
+      const short = caught(() => buildUser(OTTO, { name: "ab" }));
+      assert.deepStrictEqual([short.code, short.field, short.limit], ["length", "name", 3]);
+      const long = caught(() => buildUser(OTTO, { name: "n".repeat(51) }));
+      assert.deepStrictEqual([long.code, long.limit], ["length", 50]);
+      const many = caught(() => buildPost(OTTO, { content: "x", attachments: Array.from({ length: 11 }, () => ({ uri: "https://a.example" })) }));
+      assert.deepStrictEqual([many.code, many.field, many.limit], ["count", "attachments", 10]);
+      assert.strictEqual(caught(() => buildPost(OTTO, { content: "x", parent: "not a uri" })).code, "reference");
+      assert.strictEqual(caught(() => buildUser("pubky://" + OTTO, { name: "Alice" })).message, `Validation Error: owner must be the bare public key, not pubky://${OTTO}: parseOwner reads it out of a pubky:// URL`);
+      // A shape refusal names its member too
+      const shape = caught(() => buildPost(OTTO, { content: "x", attachments: [{ uri: 1 }] }));
+      assert.ok(shape instanceof specs.ArgumentError && shape instanceof TypeError);
+      assert.strictEqual(shape.field, "input.attachments[0].uri");
+      // A well-formedness refusal names its argument wherever it sits
+      assert.strictEqual(caught(() => specs.planUnpublish({ id: "\ud800", publicPaths: [] })).field, "post.id");
     });
 
     it("a refusal carries the reference text as its reason, and the member or argument it is about", () => {
       const name = caught(() => buildUser(OTTO, { name: "ab" }));
-      assert.strictEqual(name.reason, "Invalid name length");
+      assert.strictEqual(name.reason, "name must be 3 to 50 code points");
       assert.strictEqual(name.field, "name");
       assert.strictEqual(name.message, `Validation Error: ${name.reason}`);
       assert.strictEqual(caught(() => buildUser("nope", { name: "Alice" })).field, "owner");
@@ -361,14 +380,14 @@ describe("pubky-social-specs", () => {
         () => decodeObject(follow.url, new Uint8Array(), "post"),
         (e) => e instanceof ValidationError && e.field === "uri" && /names a follow, not a post/.test(e.reason),
       );
-      misuse(() => decodeObject(follow.url, follow.body, "posts"), /kind must be an object kind/);
+      refuses(() => decodeObject(follow.url, follow.body, "posts"), /kind must be one of user, post/);
     });
 
     it("a path passed where a URL goes is named as one, and toPath gives the path of a URL", () => {
       const follow = buildFollow(OTTO, RIO);
-      misuse(() => decodeObject(follow.path, follow.body), /uri must be a pubky:\/\/ URL, not the path \/pub\/social\/v1\/follows/);
-      misuse(() => encodeObject(follow.path, follow.object), /at must be a pubky:\/\/ URL/);
-      misuse(() => editPost(follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
+      refuses(() => decodeObject(follow.path, follow.body), /uri must be a pubky:\/\/ URL, not the path \/pub\/social\/v1\/follows/);
+      refuses(() => encodeObject(follow.path, follow.object), /at must be a pubky:\/\/ URL/);
+      refuses(() => editPost(follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
       assert.strictEqual(toPath(follow.url), follow.path);
       assert.strictEqual(toPath(`pubky://${OTTO}/pub/pubky.app/follows/${RIO}`), `/pub/pubky.app/follows/${RIO}`);
       refuses(() => toPath(`pubky://${OTTO}`), /not the URL of a stored object/);

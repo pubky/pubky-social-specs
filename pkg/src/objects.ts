@@ -9,7 +9,8 @@ import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from 
 import { checkReferences, checkVersion, post, type Post } from "./models/post.js";
 import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
-import type { ObjectKind, Root } from "./path.js";
+import { nameOf } from "./json/schema.js";
+import { OBJECT_KINDS, type ObjectKind, type Root } from "./path.js";
 import { parse, type Parsed } from "./uri.js";
 
 interface Models {
@@ -33,17 +34,17 @@ const isStoredKind = (kind: string): kind is keyof Models => Object.hasOwn(model
 function stored(parsed: Parsed, uri: string): { kind: ObjectKind; id: string; editId: string | null } {
   switch (parsed.kind) {
     case "foreign":
-      return fail("a foreign namespace is not a social object");
+      return fail("path", "a foreign namespace is not a social object");
     case "unsupportedVersion":
-      return fail("an unsupported epoch is a skip, not an object");
+      return fail("path", "an unsupported epoch is a skip, not an object");
     case "unknown":
-      return fail("the path names no social object");
+      return fail("path", "the path names no social object");
     case "user":
       // `pubky://<pk>` is a reference to the user; their profile is stored at a path
-      if (parsed.path === "") fail(`a bare owner URL names a user, not a stored object: ${uri}`);
+      if (parsed.path === "") fail("path", `a bare owner URL names a user, not a stored object: ${uri}`);
       return { kind: "user", id: "", editId: null };
     case "post":
-      if (parsed.editId === undefined) fail("a versionless post reference is never a stored object");
+      if (parsed.editId === undefined) fail("path", "a versionless post reference is never a stored object");
       return { kind: "post", id: parsed.id, editId: parsed.editId };
   }
   return { kind: parsed.kind, id: parsed.id, editId: null };
@@ -85,7 +86,7 @@ export function write(at: string | { kind: ObjectKind; root: Root }, js: unknown
     checkFile(js, id);
     return js as Bytes;
   }
-  if (!isStoredKind(kind)) misuse("kind", "an object kind");
+  if (!isStoredKind(nameOf(kind, "kind", OBJECT_KINDS))) misuse("kind", "an object kind");
   if (ArrayBuffer.isView(js)) misuse("object", `the decoded ${kind}, not its bytes`);
   const model = modelOf(kind);
   const value = model.codec.parse(js, kind);

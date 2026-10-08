@@ -10,7 +10,7 @@ export type Root = "public" | "private";
 
 /** An owner-relative path: what the SDK's storage calls and every plan take. */
 export type OwnerPath = `/pub/${string}` | `/priv/${string}`;
-const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
+export const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
 export type ObjectKind = (typeof OBJECT_KINDS)[number];
 export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS as readonly string[]).includes(kind);
 

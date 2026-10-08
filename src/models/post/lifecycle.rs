@@ -199,7 +199,7 @@ pub fn plan_publish(
     if let Some(slug) = slug {
         if !is_valid_label(slug) {
             return Err(format!(
-                "Validation Error: slug must be 1..={} chars of a-z, 0-9 and -: {slug}",
+                "Validation Error: slug must be 1 to {} chars of a-z, 0-9 and -: {slug}",
                 VALIDATION_LIMITS.post_slug_max_length
             ));
         }

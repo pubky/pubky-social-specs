@@ -1,6 +1,4 @@
-const BRAND = Symbol.for("pubky-social-specs.ValidationError");
-const PREFIX = "Validation Error: ";
-
+declare const BRAND: unique symbol;
 /**
  * What kind of rule a `ValidationError` names, stable across releases where the message text is
  * not:
@@ -19,7 +17,6 @@ const PREFIX = "Validation Error: ";
  * - `migration`: refused by the migrator, see the message.
  */
 export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format" | "id" | "reference" | "unknown_name" | "unsafe_integer" | "path" | "conflict" | "migration";
-
 /**
  * A value the data model refuses. The message is the reference text, "Validation Error: "
  * included, and `reason` the same text without it; `code` says which kind of rule, for a
@@ -39,34 +36,19 @@ export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format
  * }
  * ```
  */
-export class ValidationError extends Error {
-  override name = "ValidationError";
-  readonly code: ErrorCode;
-  readonly reason: string;
-  readonly field?: string;
-  readonly limit?: number;
-  readonly [BRAND] = true;
-
-  constructor(code: ErrorCode, reason: string, field?: string, limit?: number, options?: { cause?: unknown }) {
-    super(PREFIX + reason, options);
-    this.code = code;
-    this.reason = reason;
-    if (field !== undefined) this.field = field;
-    if (limit !== undefined) this.limit = limit;
-  }
-
-  static override [Symbol.hasInstance](value: unknown): boolean {
-    // Own, so a polluted prototype does not make every object one
-    return typeof value === "object" && value !== null && Object.hasOwn(value, BRAND);
-  }
+export declare class ValidationError extends Error {
+    name: string;
+    readonly code: ErrorCode;
+    readonly reason: string;
+    readonly field?: string;
+    readonly limit?: number;
+    readonly [BRAND] = true;
+    constructor(code: ErrorCode, reason: string, field?: string, limit?: number, options?: {
+        cause?: unknown;
+    });
+    static [Symbol.hasInstance](value: unknown): boolean;
 }
-Object.freeze(ValidationError);
-Object.freeze(ValidationError.prototype);
-
-export function fail(code: ErrorCode, reason: string, field?: string, limit?: number): never {
-  throw new ValidationError(code, reason, field, limit);
-}
-
+export declare function fail(code: ErrorCode, reason: string, field?: string, limit?: number): never;
 /**
  * A caller's value of the wrong shape: a bug in the caller, not a rule of the data model.
  * `field` names the argument or member, as the message does.
@@ -81,34 +63,19 @@ export function fail(code: ErrorCode, reason: string, field?: string, limit?: nu
  * }
  * ```
  */
-export class ArgumentError extends TypeError {
-  override name = "ArgumentError";
-  readonly field: string;
-
-  constructor(field: string, message: string) {
-    super(message);
-    this.field = field;
-  }
+export declare class ArgumentError extends TypeError {
+    name: string;
+    readonly field: string;
+    constructor(field: string, message: string);
 }
-Object.freeze(ArgumentError);
-Object.freeze(ArgumentError.prototype);
-
-export function misuse(what: string, expected: string): never {
-  throw new ArgumentError(what, `pubky-social-specs: ${what} must be ${expected}`);
-}
-
+export declare function misuse(what: string, expected: string): never;
 /**
  * How the rules of a check run, each one a closure. Throwing, the first refusal is the error,
  * in the reference's order. A validator passes one that keeps each refusal and runs the next.
  */
 export type Each = (rule: () => void) => void;
-export const throwing: Each = (rule) => rule();
-
+export declare const throwing: Each;
 /** A member parsed under `each`: what `parse` gives, or `fallback` when a collecting `each` kept its refusal. */
-export function member<T>(each: Each, parse: () => T, fallback: T): T {
-  let out = fallback;
-  each(() => {
-    out = parse();
-  });
-  return out;
-}
+export declare function member<T>(each: Each, parse: () => T, fallback: T): T;
+export {};
+//# sourceMappingURL=errors.d.ts.map

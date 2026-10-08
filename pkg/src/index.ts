@@ -25,7 +25,7 @@ import { snapshot } from "./input.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
 import { fail, misuse, ValidationError } from "./errors.js";
-import { arrayOf, type Codec, inputOf, rootOf } from "./json/schema.js";
+import { arrayOf, type Codec, inputOf, nameOf, rootOf } from "./json/schema.js";
 import * as lifecycle from "./lifecycle.js";
 import { parse as parseText } from "./models/common.js";
 import * as feeds from "./models/feed.js";
@@ -34,13 +34,14 @@ import * as graph from "./models/graph.js";
 import * as posts from "./models/post.js";
 import * as users from "./models/user.js";
 import * as objects from "./objects.js";
-import { isCanonicalSegment, isObjectKind, parsePath } from "./path.js";
+import { isCanonicalSegment, isObjectKind, OBJECT_KINDS, parsePath } from "./path.js";
 import { checkWellFormed, utf8 } from "./text.js";
 import type * as T from "./types.js";
 import * as uris from "./uri.js";
 
 export { limits, validMimeTypes } from "./data.js";
-export { ValidationError } from "./errors.js";
+export { ArgumentError, ValidationError } from "./errors.js";
+export type { ErrorCode } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type * from "./types.js";
@@ -49,20 +50,23 @@ export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
 
 function text(value: unknown, name: string): string {
   if (typeof value !== "string") misuse(name, "a string");
-  return checkWellFormed(value, name.includes(".") ? undefined : name);
+  return checkWellFormed(value, name);
 }
 
 /** A URL argument. A path passed for one is the commonest first mistake, so it is named as such. */
 function url(value: unknown, name: string): string {
   const given = text(value, name);
-  if (given.startsWith("/")) misuse(name, `a pubky:// URL, not the path ${given}: pass the url of a builder result`);
+  if (given.startsWith("/")) fail("path", `${name} must be a pubky:// URL, not the path ${given}: pass the url of a builder result`, name);
   return given;
 }
 
 /** A public key argument: refused under its own name, which the reference text does not carry. */
 function key(value: unknown, name: string): string {
-  ids.checkPublicKey(text(value, name), name);
-  return value as string;
+  const given = text(value, name);
+  // The commonest wrong spelling, which the reference words only as a wrong length
+  if (given.startsWith("pubky")) fail("format", `${name} must be the bare public key, not ${given}: parseOwner reads it out of a pubky:// URL`, name);
+  ids.checkPublicKey(given, name);
+  return given;
 }
 
 function bytesOf(value: unknown, name: string): T.Bytes {
@@ -105,10 +109,10 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
   const at = url(uri, "uri");
   bytes = snapshot(bytes, "bytes") as T.Bytes;
   if (kind !== undefined) {
-    if (typeof kind !== "string" || !isObjectKind(kind)) misuse("kind", "an object kind");
+    nameOf(kind, "kind", OBJECT_KINDS);
     // Before the bytes are read: the URL alone says what is stored there
     const named = uris.parse(at).kind;
-    if (named !== kind) fail(`${at} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
+    if (named !== kind) fail("path", `${at} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
   }
   const read = objects.read(at, bytesOf(bytes, "bytes"));
   if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.value as T.Bytes } : (read.value as T.Bytes);
@@ -256,7 +260,7 @@ export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { ro
   post = snapshot(post, "post") as T.Post;
   options = snapshot(options, "options") as typeof options;
   const head = uris.parse(url(headUri, "headUri"));
-  if (head.kind !== "post" || head.editId === undefined) return fail(`not the URI of a stored post version: ${headUri}`);
+  if (head.kind !== "post" || head.editId === undefined) return fail("path", `not the URI of a stored post version: ${headUri}`);
   warnIfUnknownDropped(headUri, post, "editPost");
   const given = options === undefined || options === null ? {} : inputOf(options, "options", ["root", "slug"]);
   const root = given.root === undefined || given.root === null ? head.root : rootOf(given.root, "options.root");
@@ -621,7 +625,7 @@ export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `p
  */
 export function toPath(uri: string): T.OwnerPath {
   const parsed = uris.parse(text(uri, "uri"));
-  return parsed.path === "" ? fail(`not the URL of a stored object: ${uri}`, "uri") : (parsed.path as T.OwnerPath);
+  return parsed.path === "" ? fail("path", `not the URL of a stored object: ${uri}`, "uri") : (parsed.path as T.OwnerPath);
 }
 
 // Where data enters: a string from a form, a LIST or another app, checked once and branded,
@@ -698,7 +702,7 @@ export function parseMediaId(value: string): T.MediaId {
  */
 export function parsePubkyUrl(value: string): T.PubkyUrl {
   const parsed = uris.parse(text(value, "uri"));
-  if (!isObjectKind(parsed.kind) || (parsed.kind === "post" && parsed.editId === undefined)) fail(`not the URL of a stored object: ${value}`, "uri");
+  if (!isObjectKind(parsed.kind) || (parsed.kind === "post" && parsed.editId === undefined)) fail("path", `not the URL of a stored object: ${value}`, "uri");
   return `pubky://${parsed.owner}${parsed.path}` as T.PubkyUrl;
 }
 
@@ -716,7 +720,7 @@ export function parsePubkyUrl(value: string): T.PubkyUrl {
 export function parseOwnerPath(value: string): T.OwnerPath {
   const path = text(value, "path");
   const segments = path.slice(1).split("/");
-  if (!path.startsWith("/") || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail(`not an owner-relative path: ${path}`, "path");
+  if (!path.startsWith("/") || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail("path", `not an owner-relative path: ${path}`, "path");
   return path as T.OwnerPath;
 }
 
@@ -733,6 +737,6 @@ export function parseOwnerPath(value: string): T.OwnerPath {
  */
 export function parsePostRef(value: string): T.PostRef {
   const parsed = uris.parse(text(value, "uri"));
-  if (parsed.kind !== "post" || parsed.editId !== undefined) fail(`not a reference to a post: ${value}`, "uri");
+  if (parsed.kind !== "post" || parsed.editId !== undefined) fail("path", `not a reference to a post: ${value}`, "uri");
   return `pubky://${parsed.owner}${parsed.path}` as T.PostRef;
 }

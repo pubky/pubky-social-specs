@@ -146,7 +146,7 @@ fn canonical_filter(tags: Option<Vec<String>>, field: &str) -> Result<Option<Vec
     };
     if tags.is_empty() {
         return Err(format!(
-            "Validation Error: {field} must not be an empty list; pass None for no filter"
+            "Validation Error: {field} must not be an empty list; leave it out for no filter"
         ));
     }
     if tags.iter().any(|tag| sanitize_tag_label(tag).is_empty()) {

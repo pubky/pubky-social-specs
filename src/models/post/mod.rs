@@ -338,7 +338,7 @@ impl<K: PostKind> PostEnvelope<K> {
         if let Some(slug) = slug {
             if !is_valid_label(slug) {
                 return Err(format!(
-                    "Validation Error: slug must be 1..={} chars of a-z, 0-9 and -: {slug}",
+                    "Validation Error: slug must be 1 to {} chars of a-z, 0-9 and -: {slug}",
                     VALIDATION_LIMITS.post_slug_max_length
                 ));
             }
@@ -564,7 +564,7 @@ impl<K: PostKind> Validatable for PostEnvelope<K> {
                 let max = VALIDATION_LIMITS.attachment_name_max_length;
                 if frozen_trim(name).is_empty() || code_point_len(name) > max {
                     return Err(format!(
-                        "Validation Error: attachments[{index}].name must be 1..={max} code points and not blank"
+                        "Validation Error: attachments[{index}].name must be 1 to {max} code points and not blank"
                     ));
                 }
             }

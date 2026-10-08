@@ -68,15 +68,15 @@ const MAX_FUTURE = 7_200_000_000n;
 /** A TimestampId in its canonical spelling and inside the time bounds. */
 export function checkTimestampId(id: string, field = "id"): bigint {
   const micros = timestampIdMicros(id, field);
-  if (micros < MIN_MICROS) fail("Invalid ID, timestamp must be on or after October 1st, 2024", field);
-  if (micros > nowMicros() + MAX_FUTURE) fail("Invalid ID, timestamp is too far in the future", field);
+  if (micros < MIN_MICROS) fail("id", "Invalid ID, timestamp must be on or after October 1st, 2024", field);
+  if (micros > nowMicros() + MAX_FUTURE) fail("id", "Invalid ID, timestamp is too far in the future", field);
   return micros;
 }
 
 /** The version a path names: a TimestampId of its own, never older than the post. */
 export function checkVersion(id: string, editId: string): void {
   checkTimestampId(editId, "editId");
-  if (compareBytes(editId, id) < 0) fail(`version ${editId} is older than the post id ${id}`, "editId");
+  if (compareBytes(editId, id) < 0) fail("id", `version ${editId} is older than the post id ${id}`, "editId");
 }
 
 /** Every reference of a post through the one gate. With an owner the ownership rule runs too. */
@@ -120,7 +120,7 @@ function envelopeOf(value: Post): Envelope | null {
   const member = json instanceof Map ? json.get("cover_image") : undefined;
   let parsed: Envelope["parsed"];
   try {
-    parsed = kind === "article" ? parse(article, content, ENVELOPE_PREFIX.article) : parse(collection, content, ENVELOPE_PREFIX.collection);
+    parsed = kind === "article" ? parse(article, content, ENVELOPE_PREFIX.article, "content") : parse(collection, content, ENVELOPE_PREFIX.collection, "content");
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
     parsed = e;
@@ -165,7 +165,7 @@ const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
 function checkArticle(post: Post, each: Each): void {
   each(() => {
-    if (codePointLen(post.content) > limits.articleContentMaxLength) fail(`Article content must be at most ${limits.articleContentMaxLength} code points`, "content");
+    if (codePointLen(post.content) > limits.articleContentMaxLength) fail("length", `Article content must be at most ${limits.articleContentMaxLength} code points`, "content", limits.articleContentMaxLength);
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
@@ -174,51 +174,51 @@ function checkArticle(post: Post, each: Each): void {
     // Other controls escape to six characters and would break the bound on the content
     each(() => {
       if (hasOtherControl(envelope.title) || hasOtherControl(envelope.body)) {
-        fail("Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
+        fail("format", "Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
       }
     });
     each(() => {
-      if (frozenTrim(envelope.title) === "") fail("Article title must contain non-whitespace characters", "title");
-      if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail(`Article title must be at most ${limits.articleTitleMaxLength} code points`, "title");
+      if (frozenTrim(envelope.title) === "") fail("blank", "Article title must contain non-whitespace characters", "title");
+      if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail("length", `Article title must be at most ${limits.articleTitleMaxLength} code points`, "title", limits.articleTitleMaxLength);
     });
     each(() => {
-      if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail(`Article body must be at most ${limits.articleBodyMaxLength} code points`, "body");
+      if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail("length", `Article body must be at most ${limits.articleBodyMaxLength} code points`, "body", limits.articleBodyMaxLength);
     });
   });
 }
 
 function checkCollection(post: Post, each: Each): void {
   each(() => {
-    if (post.parent !== null || post.embed !== null) fail("Collection posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
+    if (post.parent !== null || post.embed !== null) fail("conflict", "Collection posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
   });
   each(() => {
-    if (post.attachments.length > 0) fail("Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
+    if (post.attachments.length > 0) fail("conflict", "Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
   });
   each(() => {
-    if (codePointLen(post.content) > limits.collectionContentMaxLength) fail(`Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content");
+    if (codePointLen(post.content) > limits.collectionContentMaxLength) fail("length", `Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content", limits.collectionContentMaxLength);
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
     const envelope = strictEnvelope(post as Post & { kind: "collection" });
     each(() => checkExtra(envelope.extra));
     each(() => {
-      if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters", "name");
+      if (frozenTrim(envelope.name) === "") fail("blank", "Collection name must contain non-whitespace characters", "name");
       const length = codePointLen(envelope.name);
       if (length < limits.collectionNameMinLength || length > limits.collectionNameMaxLength) {
-        fail(`Collection name must be ${limits.collectionNameMinLength}..=${limits.collectionNameMaxLength} characters`, "name");
+        fail("length", `Collection name must be ${limits.collectionNameMinLength} to ${limits.collectionNameMaxLength} characters`, "name", length < limits.collectionNameMinLength ? limits.collectionNameMinLength : limits.collectionNameMaxLength);
       }
     });
     each(() => {
       if (envelope.description === null) return;
-      if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank", "description");
-      if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description");
+      if (frozenTrim(envelope.description) === "") fail("blank", "Collection description must not be blank", "description");
+      if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail("length", `Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description", limits.collectionDescriptionMaxLength);
     });
     envelope.items.forEach((entry, index) => {
-      each(() => checkExtra(entry.extra));
+      each(() => checkExtra(entry.extra, `items[${index}].`));
       each(() => {
         const max = limits.collectionItemNoteMaxLength;
         if (entry.note !== null && (frozenTrim(entry.note) === "" || codePointLen(entry.note) > max)) {
-          fail(`items[${index}].note must be 1..=${max} code points and not blank`, `items[${index}].note`);
+          fail("length", `items[${index}].note must be 1 to ${max} code points and not blank`, `items[${index}].note`, max);
         }
       });
     });
@@ -240,27 +240,27 @@ export const post: Model<Post> = {
     each(() => checkExtra(value.extra));
     // A kind a newer writer used defines what the post is, so this version refuses it
     each(() => {
-      if (!isKnown(postKinds, value.kind)) fail("post kind is unknown", "kind");
+      if (!isKnown(postKinds, value.kind)) fail("unknown_name", "post kind is unknown", "kind");
     });
     // A list is bounded before any of its items is read
     each(() => {
-      if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments");
+      if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
     });
     each(() => {
-      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
+      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount) fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
     });
     checkReferences(value, publicRoot, null, each);
     value.attachments.forEach((a, index) => {
-      each(() => checkExtra(a.extra));
+      each(() => checkExtra(a.extra, `attachments[${index}].`));
       each(() => {
         if (a.alt !== null && codePointLen(a.alt) > limits.attachmentAltMaxLength) {
-          fail(`attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`);
+          fail("length", `attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`, limits.attachmentAltMaxLength);
         }
       });
       each(() => {
         const max = limits.attachmentNameMaxLength;
         if (a.name !== null && (frozenTrim(a.name) === "" || codePointLen(a.name) > max)) {
-          fail(`attachments[${index}].name must be 1..=${max} code points and not blank`, `attachments[${index}].name`);
+          fail("length", `attachments[${index}].name must be 1 to ${max} code points and not blank`, `attachments[${index}].name`, max);
         }
       });
     });
@@ -274,12 +274,12 @@ export const post: Model<Post> = {
     }
     each(() => {
       if (frozenTrim(value.content) === "" && value.embed === null && value.attachments.length === 0) {
-        fail("Post must have content, an embed, or attachments", "content");
+        fail("blank", "Post must have content, an embed, or attachments", "content");
       }
     });
     each(() => {
       if (codePointLen(value.content) > limits.postNoteContentMaxLength) {
-        fail(`content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`, "content");
+        fail("length", `content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`, "content", limits.postNoteContentMaxLength);
       }
     });
   },
@@ -296,7 +296,7 @@ export interface Minted {
 // Where one version goes, after every rule a stored version has to pass
 function mint(value: Post, id: string, editId: string, root: Root, owner: string | null, slug: string | null, each: Each = throwing): Minted {
   each(() => {
-    if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+    if (slug !== null && !isSlug(slug)) fail("format", `slug must be 1 to ${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
   });
   const publicRoot = root === "public";
   const body = validate(post, value, id, publicRoot, each);
@@ -323,7 +323,7 @@ const SPREAD = 60_000_000n;
  */
 export function editPost(owner: string, value: Post, id: string, head: string, root: Root, slug: string | null): Minted {
   timestampIdMicros(id);
-  if (compareBytes(head, id) < 0) fail(`head ${head} is older than the post id ${id}`);
+  if (compareBytes(head, id) < 0) fail("id", `head ${head} is older than the post id ${id}`, "head");
   const hasher = blake3.create();
   hasher.update(utf8(head));
   hasher.update(utf8(post.codec.write(value)));
@@ -335,7 +335,7 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
   if (now > floor) minted = mintFrom(now);
   else {
     // A narrower spread than the whole would let two different edits share a path
-    if (now + MAX_FUTURE - floor - 1n < SPREAD) fail("the current version leaves no room for a newer id");
+    if (now + MAX_FUTURE - floor - 1n < SPREAD) fail("id", "the current version leaves no room for a newer id", "head");
     // Past the guard: the salt tells successors apart, and a guard moved ahead of the clock
     // would make the next new post read the clock as corrected and reuse an id
     minted = floor + 1n + (salt % SPREAD);

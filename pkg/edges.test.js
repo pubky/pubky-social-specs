@@ -213,7 +213,7 @@ describe("edges", () => {
       for (const member of ["path", "uri", "label", "src", "contentType"]) {
         misuse(() => deletionPaths({ kind: "tag", id, listings: [{ ...ok, [member]: 1 }] }), new RegExp(`listings\\[0\\]\\.${member} must be a string`));
       }
-      misuse(() => deletionPaths({ kind: "nope", id }), /target\.kind must be an object kind|kind must be an object kind/);
+      refuses(() => deletionPaths({ kind: "nope", id }), "Validation Error: kind must be one of user, post, follow, mute, bookmark, tag, file, feed, found nope");
     });
   });
 

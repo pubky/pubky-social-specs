@@ -2,7 +2,7 @@
 // nothing here is a second copy of a rule. Each validator also implements Standard Schema
 // (`~standard`), which react-hook-form, TanStack Form, tRPC and Hono take as they are.
 
-import { type Each, member, shapeOf, ValidationError } from "./errors.js";
+import { ArgumentError, type Each, type ErrorCode, member, ValidationError } from "./errors.js";
 import { snapshot } from "./input.js";
 import { inputOf, string } from "./json/schema.js";
 import * as feeds from "./models/feed.js";
@@ -15,10 +15,12 @@ import type * as T from "./types.js";
 export interface Issue {
   /** Where, as the input spells it: `["attachments", 0, "uri"]`; empty for the input as a whole. */
   readonly path: (string | number)[];
-  /** `invalid_type` for a value of the wrong JavaScript shape, `invalid` for a rule of the data model. */
-  readonly code: "invalid_type" | "invalid";
+  /** `invalid_type` for a value of the wrong JavaScript shape, else the `code` of the `ValidationError` the rule throws. */
+  readonly code: "invalid_type" | ErrorCode;
   /** The reference's text for a rule, the package's for a shape. */
   readonly message: string;
+  /** The bound a `length`, `count` or `size` issue broke. */
+  readonly limit?: number;
 }
 
 export type Validation<T> = { success: true; value: T } | { success: false; issues: Issue[] };
@@ -60,11 +62,10 @@ function collect<V>(input: unknown, build: (value: unknown, each: Each) => void)
     try {
       rule();
     } catch (e) {
-      const shape = shapeOf(e);
-      if (shape !== undefined) shapes.push({ path: pathOf(shape), code: "invalid_type", message: (e as TypeError).message });
+      if (e instanceof ArgumentError) shapes.push({ path: pathOf(e.field), code: "invalid_type", message: e.message });
       else if (e instanceof ValidationError) {
         const issue = `${e.field}\n${e.reason}`;
-        if (!said.has(issue)) rules.push({ path: pathOf(e.field), code: "invalid", message: e.reason });
+        if (!said.has(issue)) rules.push({ path: pathOf(e.field), code: e.code, message: e.reason, ...(e.limit === undefined ? {} : { limit: e.limit }) });
         said.add(issue);
       } else throw e;
       if (shapes.length + rules.length >= MAX_ISSUES) throw new Enough();

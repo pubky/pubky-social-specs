@@ -1,6 +1,7 @@
 import type * as T from "./types.js";
 export { limits, validMimeTypes } from "./data.js";
-export { ValidationError } from "./errors.js";
+export { ArgumentError, ValidationError } from "./errors.js";
+export type { ErrorCode } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type * from "./types.js";

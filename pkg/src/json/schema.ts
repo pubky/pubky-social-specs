@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { type Each, misuse, throwing } from "../errors.js";
+import { type Each, fail, misuse, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -201,11 +201,19 @@ export function arrayOf(js: unknown, at: string): unknown[] {
   return js;
 }
 
-/** A caller's root: absent and null are the public one. */
+/** A caller's root: absent and null are the public one; another string is refused as the reference refuses it. */
 export function rootOf(js: unknown, at: string): "public" | "private" {
   if (js === undefined || js === null) return "public";
-  if (js !== "public" && js !== "private") misuse(at, '"public" or "private"');
-  return js;
+  const name = string.parse(js, at);
+  if (name !== "public" && name !== "private") fail("unknown_name", `unknown variant \`${name}\`, expected \`public\` or \`private\``, at);
+  return name;
+}
+
+/** A name a caller passes as an argument: one of `names`, a string outside them refused, anything else a TypeError. */
+export function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T {
+  const name = string.parse(js, at);
+  if (!(names as readonly string[]).includes(name)) fail("unknown_name", `${at} must be one of ${names.join(", ")}, found ${name}`, at);
+  return name as T;
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */

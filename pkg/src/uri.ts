@@ -1,9 +1,10 @@
 // Paths and URIs: the parser, the builders, and the keys that join the two epochs of a tree.
 
 import { canonicalPubky } from "./canonicalize.js";
-import { fail, misuse } from "./errors.js";
+import { fail } from "./errors.js";
 import { checkPublicKey, isPublicKey } from "./ids.js";
-import { isCanonicalSegment, jsonStem, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
+import { nameOf } from "./json/schema.js";
+import { isCanonicalSegment, jsonStem, OBJECT_KINDS, LEGACY_NAMESPACE, LEGACY_ROOT, type Located, type ObjectKind, parsePath, type Root, socialPath, splitPubky } from "./path.js";
 import { trimWhere, utf8 } from "./text.js";
 
 export type Parsed = { owner: string } & Located;
@@ -11,9 +12,9 @@ export type Parsed = { owner: string } & Located;
 /** Classifies a URI. Throws only when it is not a canonical pubky URI with a known root. */
 export function parse(uri: string): Parsed {
   const split = splitPubky(canonicalPubky(uri) ?? "");
-  if (split === null) return fail(`Not a canonical pubky URI: ${uri}`);
+  if (split === null) return fail("path", `Not a canonical pubky URI: ${uri}`);
   const located = parsePath(split.path);
-  if (located === null) fail(`Unknown root in URI: ${uri}`);
+  if (located === null) fail("path", `Unknown root in URI: ${uri}`);
   return { owner: split.owner, ...located };
 }
 
@@ -33,8 +34,7 @@ const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
 /** Where an object of `kind` lives under `owner`. The owner key is checked, the id is spelled as given. */
 export function build(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
   checkPublicKey(owner);
-  if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
-  const [root, leaf] = LEAF[kind](id);
+  const [root, leaf] = LEAF[nameOf(kind, "kind", OBJECT_KINDS)](id);
   return `pubky://${owner}${socialPath(root, leaf)}`;
 }
 
@@ -47,16 +47,14 @@ export function buildChecked(owner: string, kind: ObjectKind, id: string): `pubk
     located !== null &&
     located.kind === kind &&
     (located.kind === "user" || located.kind === "file" || (located.kind === "post" ? located.editId === undefined && located.id === id : "id" in located && located.id === id));
-  return named ? uri : fail(`not ${kind === "file" ? "a media file name" : `the id of a ${kind}`}: ${id}`, "id");
+  return named ? uri : fail("format", `not ${kind === "file" ? "a media file name" : `the id of a ${kind}`}: ${id}`, "id");
 }
 
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */
 export function listPrefix(owner: string, tree: Root | "legacy"): `pubky://${string}` {
   checkPublicKey(owner);
-  // Typed for a caller, checked for one that is not
-  const given: unknown = tree;
+  const given = nameOf(tree, "tree", ["public", "private", "legacy"] as const);
   if (given === "legacy") return `pubky://${owner}${LEGACY_ROOT}`;
-  if (given !== "public" && given !== "private") return misuse("tree", '"public", "private" or "legacy"');
   return `pubky://${owner}${socialPath(given, "")}`;
 }
 

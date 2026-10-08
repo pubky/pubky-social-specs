@@ -23,11 +23,11 @@ export interface User extends Extra {
 const link = object<UserLink>("PubkySocialUserLink", { title: string, url: string });
 
 function checkLink(value: UserLink, index: number, each: Each): void {
-  each(() => checkExtra(value.extra));
+  each(() => checkExtra(value.extra, `links[${index}].`));
   each(() => {
-    if (frozenTrim(value.title) === "") fail(`links[${index}].title must not be blank`, `links[${index}].title`);
+    if (frozenTrim(value.title) === "") fail("blank", `links[${index}].title must not be blank`, `links[${index}].title`);
     if (codePointLen(value.title) > limits.userLinkTitleMaxLength) {
-      fail(`links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`);
+      fail("length", `links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`, limits.userLinkTitleMaxLength);
     }
   });
   each(() => checkReference(`links[${index}].url`, value.url, "web", limits.userLinkUrlMaxLength, true, null));
@@ -47,28 +47,28 @@ export const user: Model<User> = {
     each(() => checkExtra(value.extra));
     // Padding is display text, so it is counted, not removed; only whitespace is still no name
     each(() => {
-      if (frozenTrim(value.name) === "") fail("name must not be blank", "name");
+      if (frozenTrim(value.name) === "") fail("blank", "name must not be blank", "name");
       const length = codePointLen(value.name);
-      if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("Invalid name length", "name");
+      if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("length", `name must be ${limits.userNameMinLength} to ${limits.userNameMaxLength} code points`, "name", length < limits.userNameMinLength ? limits.userNameMinLength : limits.userNameMaxLength);
     });
     each(() => {
       if (value.bio === null) return;
-      if (frozenTrim(value.bio) === "") fail("bio must not be blank", "bio");
-      if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length", "bio");
+      if (frozenTrim(value.bio) === "") fail("blank", "bio must not be blank", "bio");
+      if (codePointLen(value.bio) > limits.userBioMaxLength) fail("length", `bio must be at most ${limits.userBioMaxLength} code points`, "bio", limits.userBioMaxLength);
     });
     const { image } = value;
     if (image !== null) each(() => checkReference("image", image, "pubky or web", limits.imageUrlMaxLength, true, null));
     if (value.links !== null) {
       const links = value.links;
       each(() => {
-        if (links.length > limits.userLinksMaxCount) fail("Too many links", "links");
+        if (links.length > limits.userLinksMaxCount) fail("count", `Too many links (max: ${limits.userLinksMaxCount})`, "links", limits.userLinksMaxCount);
       });
       links.forEach((link, index) => checkLink(link, index, each));
     }
     each(() => {
       if (value.status === null) return;
-      if (frozenTrim(value.status) === "") fail("status must not be blank", "status");
-      if (codePointLen(value.status) > limits.userStatusMaxLength) fail("Status exceeds maximum length", "status");
+      if (frozenTrim(value.status) === "") fail("blank", "status must not be blank", "status");
+      if (codePointLen(value.status) > limits.userStatusMaxLength) fail("length", `status must be at most ${limits.userStatusMaxLength} code points`, "status", limits.userStatusMaxLength);
     });
   },
 };

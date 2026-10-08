@@ -32,9 +32,9 @@ describe("validators", function () {
       result.issues.map(({ path, code }) => [path, code]),
       [
         [["status"], "invalid_type"],
-        [["name"], "invalid"],
-        [["links", 0, "title"], "invalid"],
-        [["links", 0, "url"], "invalid"],
+        [["name"], "blank"],
+        [["links", 0, "title"], "blank"],
+        [["links", 0, "url"], "reference"],
       ],
     );
     assert.strictEqual(result.issues[1].message, "name must not be blank");

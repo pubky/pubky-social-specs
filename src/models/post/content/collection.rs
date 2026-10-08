@@ -150,7 +150,7 @@ fn validate_collection_envelope(envelope: &PubkySocialCollectionContent) -> Resu
     let name_max = VALIDATION_LIMITS.collection_name_max_length;
     if !(name_min..=name_max).contains(&name_chars) {
         return Err(format!(
-            "Validation Error: Collection name must be {}..={} characters",
+            "Validation Error: Collection name must be {} to {} characters",
             name_min, name_max
         ));
     }
@@ -173,7 +173,7 @@ fn validate_collection_envelope(envelope: &PubkySocialCollectionContent) -> Resu
             let max = VALIDATION_LIMITS.collection_item_note_max_length;
             if frozen_trim(note).is_empty() || code_point_len(note) > max {
                 return Err(format!(
-                    "Validation Error: items[{index}].note must be 1..={max} code points and not blank"
+                    "Validation Error: items[{index}].note must be 1 to {max} code points and not blank"
                 ));
             }
         }
@@ -328,7 +328,7 @@ mod tests {
             .validate(Some(&id), &PUB_CTX)
             .expect_err("101-char padded name must fail max length");
         assert!(
-            err.contains("1..=100"),
+            err.contains("1 to 100"),
             "error should report the length range, got: {err}"
         );
     }

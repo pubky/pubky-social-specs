@@ -81,6 +81,6 @@ export function reference(uri: string, schemes: Schemes, max: number, publicRoot
 /** A stored reference is the fixed point of its canonical spelling. */
 export function checkReference(field: string, uri: string, schemes: Schemes, max: number, publicRoot: boolean, owner: string | null): void {
   const result = reference(uri, schemes, max, publicRoot, owner);
-  if ("refusal" in result) fail(`${field} ${result.refusal}`, field);
-  if (result.canonical !== uri) fail(`${field} must be spelled in canonical form: ${uri}`, field);
+  if ("refusal" in result) fail("reference", `${field} ${result.refusal}`, field);
+  if (result.canonical !== uri) fail("format", `${field} must be spelled in canonical form: ${uri}`, field);
 }

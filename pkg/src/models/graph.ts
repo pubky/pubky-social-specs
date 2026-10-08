@@ -24,7 +24,7 @@ function edge(name: string): Model<Edge> {
     check(value, id, _publicRoot, each) {
       if (id !== null) each(() => checkPublicKey(id));
       each(() => checkExtra(value.extra));
-      each(() => checkSafeInt(value.created_at));
+      each(() => checkSafeInt(value.created_at, "created_at"));
     },
   };
 }
@@ -57,16 +57,16 @@ export const tag: Model<Tag> = {
   check(value, id, _publicRoot, each) {
     each(() => {
       const expected = tagId(value);
-      if (id !== null && expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
+      if (id !== null && expected !== id) fail("id", `Invalid ID: expected ${expected}, found ${id}`, "id");
     });
     each(() => checkExtra(value.extra));
     each(() => {
-      if (value.label !== foldLabel(value.label)) fail(`Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
+      if (value.label !== foldLabel(value.label)) fail("format", `Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
       checkLabel(value.label);
     });
     // A tag is public, so a private target fails the root rule under any root
     each(() => checkReference("uri", value.uri, "", limits.referenceUriMaxLength, true, null));
-    each(() => checkSafeInt(value.created_at));
+    each(() => checkSafeInt(value.created_at, "created_at"));
   },
 };
 
@@ -89,7 +89,7 @@ const MAX = limits.bookmarkTargetUriMaxBytes;
 
 function canonicalTarget(target: string): string {
   const result = reference(target, "", limits.referenceUriMaxLength, true, null);
-  return "canonical" in result ? result.canonical : fail(`${TARGET} ${result.refusal}`, "target");
+  return "canonical" in result ? result.canonical : fail("reference", `${TARGET} ${result.refusal}`, "target");
 }
 
 const checkTarget = (target: string) => checkReference(TARGET, target, "", limits.referenceUriMaxLength, true, null);
@@ -99,25 +99,25 @@ const idOf = (canonical: string) => (utf8Len(canonical) <= MAX ? base64url.encod
 
 function checkStoredTarget(target: string): void {
   checkTarget(target);
-  if (utf8Len(target) <= MAX) fail(`a target of ${utf8Len(target)} bytes belongs in the primary bookmark form`);
+  if (utf8Len(target) <= MAX) fail("conflict", `a target of ${utf8Len(target)} bytes belongs in the primary bookmark form`, "target");
 }
 
 /** The target a stored bookmark names. The content is needed only for the `~` form. */
 export function targetOf(id: string, content: Bookmark): string {
   if (id.startsWith("~")) {
-    if (content.target === null) fail("an overflow bookmark requires target in the content");
+    if (content.target === null) fail("conflict", "an overflow bookmark requires target in the content", "target");
     checkStoredTarget(content.target);
-    if (id.slice(1) !== hashText(content.target)) fail(`bookmark filename does not hash its target: ${content.target}`);
+    if (id.slice(1) !== hashText(content.target)) fail("id", `bookmark filename does not hash its target: ${content.target}`, "id");
     return content.target;
   }
-  if (content.target !== null) fail("a primary bookmark carries its target in the filename, not in the content");
+  if (content.target !== null) fail("conflict", "a primary bookmark carries its target in the filename, not in the content", "target");
   const bytes = base64url.decode(id);
-  if (bytes === null) fail(`bookmark filename is not canonical base64url: ${id}`);
+  if (bytes === null) fail("format", `bookmark filename is not canonical base64url: ${id}`, "id");
   const target = utf8Text(bytes);
-  if (target === null) fail(`bookmark filename is not UTF-8: ${id}`);
+  if (target === null) fail("format", `bookmark filename is not UTF-8: ${id}`, "id");
   checkTarget(target);
   // Without the bound one target has a primary spelling and an overflow one
-  if (bytes.length > MAX) fail(`a target over ${MAX} bytes belongs in the overflow bookmark form`);
+  if (bytes.length > MAX) fail("conflict", `a target over ${MAX} bytes belongs in the overflow bookmark form`, "target");
   return target;
 }
 
@@ -126,7 +126,7 @@ export const bookmark: Model<Bookmark> = {
   maxBytes: limits.objectMaxBytes,
   check(value, id, _publicRoot, each) {
     each(() => checkExtra(value.extra));
-    each(() => checkSafeInt(value.created_at));
+    each(() => checkSafeInt(value.created_at, "created_at"));
     each(() => {
       if (id !== null) targetOf(id, value);
       else if (value.target !== null) checkStoredTarget(value.target);

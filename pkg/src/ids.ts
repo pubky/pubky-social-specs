@@ -33,7 +33,7 @@ export const isPublicKey = (key: string): boolean => publicKeyFault(key) === nul
 
 const checked = (fault: (value: string) => string | null) => (value: string, field?: string) => {
   const found = fault(value);
-  if (found !== null) fail(found, field);
+  if (found !== null) fail("format", found, field);
 };
 export const checkHashId = checked(hashIdFault);
 export const checkPublicKey = checked(publicKeyFault);

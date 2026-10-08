@@ -10,8 +10,8 @@ export const foldLabel = (label: string) => asciiFold(frozenTrim(label));
 
 export function checkLabel(label: string, field = "label"): void {
   const length = codePointLen(label);
-  if (length > limits.tagLabelMaxLength) fail(`Tag '${label}' exceeds maximum length of ${limits.tagLabelMaxLength} characters`, field);
-  if (length < limits.tagLabelMinLength) fail(`Tag '${label}' is shorter than minimum length of ${limits.tagLabelMinLength} character`, field);
-  if (hasFrozenWhitespace(label)) fail(`Tag '${label}' contains whitespace characters`, field);
-  for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail(`Tag '${label}' contains invalid character: ${c}`, field);
+  if (length > limits.tagLabelMaxLength) fail("length", `Tag '${label}' exceeds maximum length of ${limits.tagLabelMaxLength} characters`, field, limits.tagLabelMaxLength);
+  if (length < limits.tagLabelMinLength) fail("length", `Tag '${label}' is shorter than minimum length of ${limits.tagLabelMinLength} character`, field, limits.tagLabelMinLength);
+  if (hasFrozenWhitespace(label)) fail("format", `Tag '${label}' contains whitespace characters`, field);
+  for (const c of label) if ((limits.tagInvalidChars as readonly string[]).includes(c)) fail("format", `Tag '${label}' contains invalid character: ${c}`, field);
 }
