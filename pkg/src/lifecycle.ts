@@ -18,7 +18,8 @@ interface Copy {
 
 const ownerPrefix = (owner: string) => `pubky://${owner}`;
 const mediaPrefix = (owner: string, root: Root) => ownerPrefix(owner) + socialPath(root, "files/");
-const toPath = (uri: string, owner: string) => (uri.startsWith(ownerPrefix(owner)) ? uri.slice(ownerPrefix(owner).length) : uri);
+// Every caller passes a URI under the owner's media prefix
+const toPath = (uri: string, owner: string) => uri.slice(ownerPrefix(owner).length);
 
 // Every caller has matched the owner's media prefix first, so the URI has an owner and a path
 const isMediaObject = (uri: string): boolean => parsePath(splitPubky(uri)?.path ?? null)?.kind === "file";
@@ -69,7 +70,8 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
   const copies: Copy[] = privateMediaRefs(value, owner).map((uri) => ({ from: toPath(uri, owner), to: toPath(toPublic(uri, owner), owner) }));
   // The cover lives inside the envelope; one that does not parse is left for validation to refuse
   const { cover } = envelopeRefs(value);
-  const content = cover !== null && toPublic(cover, owner) !== cover ? (withCover(value, toPublic(cover, owner)) ?? value.content) : value.content;
+  const publicCover = cover === null ? null : toPublic(cover, owner);
+  const content = publicCover !== null && publicCover !== cover ? (withCover(value, publicCover) ?? value.content) : value.content;
   const published: Post = { ...value, content, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
   const body = validate(post, published, id, true);
   checkReferences(published, true, owner);

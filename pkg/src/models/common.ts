@@ -1,4 +1,5 @@
-// What every stored object shares: the size cap and the rules on members no version knows.
+// What every stored object shares: the size cap, the rules on members no version knows, and
+// how a builder reads a caller's members.
 
 import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
 import { type Json, JsonError, type JsonObject, Reader } from "../json/read.js";
