@@ -76,4 +76,5 @@ if (failed.length > 0) {
   console.error(`an example threw:\n  ${failed.join("\n  ")}`);
   process.exit(1);
 }
+fs.rmSync(out, { recursive: true, force: true });
 console.log(`examples: ${written.length} compiled, ${written.filter((w) => w.runs).length} ran, every export of every entry has one`);
