@@ -37,6 +37,16 @@ describe("invariants", () => {
     }
   });
 
+  it("bytes in shared memory are copied before they are read", () => {
+    const user = buildUser(OTTO, { name: "Ann" });
+    const shared = new Uint8Array(new SharedArrayBuffer(user.body.length));
+    shared.set(user.body);
+    assert.strictEqual(decodeObject(user.url, shared, "user").name, "Ann");
+    const file = buildFile(OTTO, { bytes: shared, type: "image/png" });
+    shared[0] = 0;
+    assert.strictEqual(file.id, buildFile(OTTO, { bytes: user.body, type: "image/png" }).id);
+  });
+
   it("created_at never steps back between two reads of the wall clock", () => {
     setClock();
     let last = 0;
