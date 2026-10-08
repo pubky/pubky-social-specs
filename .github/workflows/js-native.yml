@@ -205,3 +205,53 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           node qa/browser.mjs
+
+  # The migration CLI against a live testnet homeserver, on the build job's dist
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start the pubky testnet
+        working-directory: .
+        run: |
+          docker run -d --name testnet --network host \
+            -e TEST_PUBKY_CONNECTION_STRING=postgres://postgres:postgres@localhost:5432/postgres \
+            synonymsoft/homeserver-testnet:v0.14.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: pkg/.nvmrc
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - run: npm ci --ignore-scripts
+      - name: Wait for the homeserver and the relays
+        run: |
+          # 6286 is the homeserver's HTTP port, 15411 the pkarr relay, 15412 the HTTP relay. The
+          # ports open before the homeserver publishes its record, and a signup before that fails.
+          up() { (echo > "/dev/tcp/localhost/$1") 2>/dev/null; }
+          record() { curl -sf -o /dev/null http://localhost:15411/8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo; }
+          export -f up record
+          if ! timeout 180 bash -c 'until up 6286 && up 15411 && up 15412 && record; do sleep 2; done'; then
+            echo "The testnet did not open ports 6286, 15411 and 15412 and publish its homeserver within 180 s"
+            docker logs testnet
+            exit 1
+          fi
+      - name: Run the live migration
+        run: npm run e2e
+      - name: Testnet logs
+        if: failure()
+        run: docker logs testnet

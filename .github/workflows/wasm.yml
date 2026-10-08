@@ -12,7 +12,7 @@ env:
 
 jobs:
   # The wasm is the migrator alone; its behaviour is tested through the npm package, which
-  # loads it (js-binding.yml). Here it only has to build clean for its target.
+  # loads it (js-native.yml). Here it only has to build clean for its target.
   wasm-tests:
     runs-on: ubuntu-latest
 
