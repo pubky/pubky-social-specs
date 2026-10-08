@@ -651,7 +651,8 @@ export declare function idMicros(id: T.Given<"PostId" | "EditId">): number;
 export declare function microsToDate(micros: number): Date;
 /**
  * The stored timestamp of a `Date`, or of milliseconds as `Date.now()` gives them: microseconds,
- * which is what every `created_at` holds.
+ * which is what every `created_at` holds. A fraction of a millisecond is kept, to the nearest
+ * microsecond.
  *
  * @throws `ArgumentError` for an invalid `Date`, a number that is not finite, or a date from
  * June 2255 on, whose microseconds are no safe integer.

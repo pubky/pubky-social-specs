@@ -169,7 +169,8 @@ export function memoryHomeserver(): MemoryHomeserver {
   const read = (url: string): Uint8Array => {
     const bytes = files.get(url);
     if (bytes === undefined) throw notFound(url);
-    return bytes;
+    // A copy, as a read over the network gives: changing it changes nothing stored
+    return bytes.slice();
   };
   const response = (bytes: Uint8Array): SdkResponse => {
     let done = false;

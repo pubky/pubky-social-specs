@@ -199,6 +199,21 @@ describe("helpers", () => {
     assert.strictEqual(specs.idMicros(buildPost(OTTO, { content: "x" }).id), T0 * 1000);
   });
 
+  it("dateToMicros keeps a fraction of a millisecond, to the nearest microsecond", () => {
+    assert.strictEqual(specs.dateToMicros(1.5), 1500);
+    assert.strictEqual(specs.dateToMicros(1.005), 1005);
+    assert.strictEqual(specs.dateToMicros(-1.5), -1500);
+  });
+
+  it("memoryHomeserver reads are copies, so changing one changes nothing stored", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { owner, session, publicStorage } = memoryHomeserver();
+    await session.storage.putBytes("/pub/x", new Uint8Array([1, 2]));
+    (await session.storage.getBytes("/pub/x"))[0] = 9;
+    (await publicStorage.getBytes(`pubky://${owner}/pub/x`))[0] = 9;
+    assert.deepStrictEqual([...(await session.storage.getBytes("/pub/x"))], [1, 2]);
+  });
+
   it("dateToMicros refuses a date whose microseconds are no safe integer", () => {
     assert.strictEqual(specs.dateToMicros(new Date("2255-01-01T00:00:00Z")), Date.UTC(2255, 0, 1) * 1000);
     assert.throws(
