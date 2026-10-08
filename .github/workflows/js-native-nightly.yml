@@ -11,11 +11,6 @@ on:
 permissions:
   contents: read
 
-env:
-  RUST_TOOLCHAIN: "1.97.0"
-  WASM_PACK: "0.13.1"
-  NODE: "24.13.0"
-
 defaults:
   run:
     working-directory: pkg
@@ -59,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE }}
+          node-version-file: pkg/.nvmrc
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
