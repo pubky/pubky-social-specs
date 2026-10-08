@@ -12,7 +12,5 @@ declare class TextDecoder {
 
 declare const performance: { readonly timeOrigin: number; now(): number };
 
-declare const crypto: { getRandomValues<T extends Uint16Array>(array: T): T };
-
 declare function setTimeout(handler: () => void, ms: number): unknown;
 declare function clearTimeout(id: unknown): void;

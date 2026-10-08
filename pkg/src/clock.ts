@@ -6,9 +6,9 @@ let lastMinted = 0n;
 
 // The wall clock gives the millisecond and a random draw the microsecond inside it: a browser
 // coarsens its monotonic clock to 100 us or more, so two copies of the package minting in one
-// millisecond would read the same fraction. The guard keeps one copy's ids increasing.
-const draw = new Uint16Array(1);
-const wallMicros = (): bigint => BigInt(Date.now()) * 1000n + BigInt((crypto.getRandomValues(draw)[0] as number) % 1000);
+// millisecond would read the same fraction. The draw only spreads ids, so Math.random serves.
+// The guard keeps one copy's ids increasing.
+const wallMicros = (): bigint => BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
 
 /** Microseconds since the epoch. */
 export const nowMicros = (): bigint => (clock ? clock() : wallMicros());
