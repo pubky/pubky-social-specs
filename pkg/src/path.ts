@@ -6,11 +6,13 @@ import { hashIdFault, isPublicKey, timestampIdFault } from "./ids.js";
 import { MEDIA_EXTENSIONS } from "./mime.js";
 import { hasControlOrWhitespace } from "./text.js";
 
+/** A storage root: `"public"` (`/pub/`, world-readable) or `"private"` (`/priv/`, read by the owner and the apps they grant it). */
 export type Root = "public" | "private";
 
 /** An owner-relative path: what the SDK's storage calls and every plan take. */
 export type OwnerPath = `/pub/${string}` | `/priv/${string}`;
 export const OBJECT_KINDS = Object.freeze(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"] as const);
+/** A kind of stored object: what a URL names and what `decodeObject`, `buildUri` and `deletionPaths` take. */
 export type ObjectKind = (typeof OBJECT_KINDS)[number];
 export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS as readonly string[]).includes(kind);
 

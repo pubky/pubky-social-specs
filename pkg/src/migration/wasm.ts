@@ -13,6 +13,7 @@ import * as glue from "#glue";
 // Typed through the relative file: a declaration naming `#glue` does not resolve under node10
 import type * as GlueTypes from "./glue.js";
 
+/** Why the migration left a 0.x object behind, one of `skipReasons`. */
 export type SkipReason = (typeof skipReasons)[number];
 
 /** What a profile lost on the way: a member 1.x has no valid spelling for. */

@@ -39,10 +39,15 @@ export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format
  * ```
  */
 export declare class ValidationError extends Error {
+    /** `"ValidationError"`, as a stack trace and a log print it. */
     name: string;
+    /** Which kind of rule refused: a member of the closed `ErrorCode` set, stable across releases. */
     readonly code: ErrorCode;
+    /** The reference text without the `Validation Error: ` prefix the `message` carries. */
     readonly reason: string;
+    /** The member or argument refused, as the input spells it: `content`, `attachments[0].uri`, `owner`. Absent when the whole object is refused. */
     readonly field?: string;
+    /** The bound a `size` (bytes), `length` (code points) or `count` (items) refusal broke: the value in `limits`. */
     readonly limit?: number;
     readonly [BRAND] = true;
     constructor(code: ErrorCode, reason: string, field?: string, limit?: number, options?: {
@@ -66,7 +71,9 @@ export declare function fail(code: ErrorCode, reason: string, field?: string, li
  * ```
  */
 export declare class ArgumentError extends TypeError {
+    /** `"ArgumentError"`, as a stack trace and a log print it. */
     name: string;
+    /** The argument or member of the wrong shape, as the message names it: `input.attachments[0].uri`. */
     readonly field: string;
     constructor(field: string, message: string);
 }

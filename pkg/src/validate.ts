@@ -23,10 +23,24 @@ export interface Issue {
   readonly limit?: number;
 }
 
-export type Validation<T> = { success: true; value: T } | { success: false; issues: Issue[] };
+/** What a validator returns: the input as checked, or every issue found, at most 100. */
+export type Validation<T> =
+  | {
+      /** Every rule passed. */
+      success: true;
+      /** The input as checked, plain data, ready for the builder. */
+      value: T;
+    }
+  | {
+      /** At least one rule refused. */
+      success: false;
+      /** Each issue once, shapes first, then rules in the order the builder runs them. */
+      issues: Issue[];
+    };
 
 /** The Standard Schema interface, version 1, as a form library reads it. */
 export interface StandardSchemaV1<Input = unknown, Output = Input> {
+  /** The Standard Schema properties: `validate` runs the validator and returns its issues, or the value. */
   readonly "~standard": {
     readonly version: 1;
     readonly vendor: string;

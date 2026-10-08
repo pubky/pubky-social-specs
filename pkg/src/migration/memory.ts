@@ -4,6 +4,7 @@ import type { GetOptions, MigrationPort, PutOptions } from "./port.js";
 /** A port call, as `intercept` sees it. */
 export type PortOp = "list" | "get" | "head" | "putJson" | "putBytes" | "delete";
 
+/** How a `MemoryPort` plays a homeserver. */
 export interface MemoryPortOptions {
   /**
    * `false` plays a homeserver without the private root: every `/priv/` call throws `unsupported`
@@ -48,6 +49,7 @@ class MemoryPort implements MigrationPort {
     this.#pageSize = options.pageSize ?? 1000;
   }
 
+  /** One page of the stored URLs under `prefixUrl`, as `MigrationPort.list` defines it. */
   async list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }> {
     await this.#enter("list", prefixUrl);
     if (prefixUrl === "") return { urls: [] };
@@ -57,6 +59,7 @@ class MemoryPort implements MigrationPort {
     return matching.length > this.#pageSize && last !== undefined ? { urls, next: last } : { urls };
   }
 
+  /** The stored bytes, or null. */
   async get(url: string, options?: GetOptions): Promise<Uint8Array | null> {
     await this.#enter("get", url);
     const bytes = this.store.get(url);
@@ -65,21 +68,25 @@ class MemoryPort implements MigrationPort {
     return bytes.slice();
   }
 
+  /** Whether `url` is in `store`. */
   async head(url: string): Promise<boolean> {
     await this.#enter("head", url);
     return this.store.has(url);
   }
 
+  /** Stores `object` as its `JSON.stringify` bytes. */
   async putJson(url: string, object: unknown, options?: PutOptions): Promise<void> {
     await this.#enter("putJson", url);
     this.#put(url, encoder.encode(JSON.stringify(object)), options);
   }
 
+  /** Stores a copy of `bytes`. */
   async putBytes(url: string, bytes: Uint8Array, options?: PutOptions): Promise<void> {
     await this.#enter("putBytes", url);
     this.#put(url, bytes.slice(), options);
   }
 
+  /** Removes `url` from `store`. */
   async delete(url: string): Promise<void> {
     await this.#enter("delete", url);
     if (!this.store.delete(url)) throw new MigrationPortError("not_found", undefined, 404);

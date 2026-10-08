@@ -43,7 +43,9 @@ export const buildFollow = (owner: string, followee: string) => buildEdge(follow
 export const buildMute = (owner: string, mutee: string) => buildEdge(mute, "private", "mutes", owner, mutee);
 
 export interface Tag extends Extra {
+  /** What is tagged: a reference on the universal tier, at most 1024 code points. A post is named versionless. */
   uri: string;
+  /** The label as stored: trimmed and ASCII-lowercased, 1 to 20 code points, no whitespace, `,` or `:`. */
   label: string;
   /** Microseconds since the epoch. */
   created_at: bigint;
@@ -80,7 +82,7 @@ export function buildTag(owner: string | null, uri: string, label: string, each:
 export interface Bookmark extends Extra {
   /** Microseconds since the epoch. */
   created_at: bigint;
-  /** Only on a bookmark whose target is too long for its id to carry. */
+  /** What is bookmarked, only on the overflow form (`~{hash}`), whose filename cannot spell a target over 187 bytes; null on the primary form, whose filename is the target in base64url. */
   target: string | null;
 }
 

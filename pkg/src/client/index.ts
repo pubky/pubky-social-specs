@@ -27,8 +27,27 @@ import type { SdkPublicStorage, SdkSession } from "../session.js";
 import type * as T from "../types.js";
 
 /** One stored object read: decoded, or why it could not be. */
-export type Read<O, K extends T.ObjectKind = T.ObjectKind> = { ok: true; url: T.PubkyUrl<K>; path: T.OwnerPath; object: O } | { ok: false; url: string; error: ValidationError };
+export type Read<O, K extends T.ObjectKind = T.ObjectKind> =
+  | {
+      /** The object decoded. */
+      ok: true;
+      /** Where it was read. */
+      url: T.PubkyUrl<K>;
+      /** The same place, owner-relative. */
+      path: T.OwnerPath;
+      /** The decoded object. */
+      object: O;
+    }
+  | {
+      /** The bytes are no valid object there: other people's data can be anything. */
+      ok: false;
+      /** Where it was read. */
+      url: string;
+      /** Why, with its `code` and `field`. */
+      error: ValidationError;
+    };
 
+/** What `createSocialClient` takes besides the session. */
 export interface ClientOptions {
   /** `pubky.publicStorage` of the SDK, for reading other users' trees. Without it only the owner's own tree is read. */
   publicStorage?: SdkPublicStorage;
@@ -152,8 +171,10 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   };
 
   return {
+    /** The session's own key, bare: whose tree the writes go to. */
     owner,
 
+    /** Posts: create, read the head, edit, list an author's posts, delete. */
     posts: {
       /** Builds a post and PUTs it. An id already used in either root is minted again. */
       async create<const I extends T.NewPost>(input: I & T.CheckedPost<I>): Promise<T.BuiltPost> {
@@ -193,6 +214,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       },
     },
 
+    /** The owner's profile: get anyone's, set or update the owner's. */
     profile: {
       get: (author: T.Given<"Owner"> = owner) => readAt<T.User>(parseOwner(author), buildUri(author, "user"), "user"),
       /** Writes a fresh profile from `input`. To keep members another client added, `update` a read one. */
@@ -206,6 +228,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       },
     },
 
+    /** The owner's follows: add, remove, list. */
     follows: {
       async add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>> {
         return stored(buildFollow(owner, followee));
@@ -214,6 +237,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: (author: T.Given<"Owner"> = owner) => readAll<T.Follow>(parseOwner(author), `${roots.public}follows/`, "follow"),
     },
 
+    /** The owner's mutes, private: add, remove, list. */
     mutes: {
       async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>> {
         return stored(buildMute(owner, mutee));
@@ -222,6 +246,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: () => readAll<T.Mute>(owner, `${roots.private}mutes/`, "mute"),
     },
 
+    /** The owner's tags: add, remove, list. */
     tags: {
       async add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>> {
         return stored(buildTag(owner, uri, label));
@@ -230,6 +255,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: (author: T.Given<"Owner"> = owner) => readAll<T.Tag>(parseOwner(author), `${roots.public}tags/`, "tag"),
     },
 
+    /** The owner's bookmarks, private: add, remove, list. */
     bookmarks: {
       async add(target: T.Reference): Promise<T.Built<T.Bookmark>> {
         return stored(buildBookmark(owner, target));
@@ -238,6 +264,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: () => readAll<T.Bookmark>(owner, `${roots.private}bookmarks/`, "bookmark"),
     },
 
+    /** The owner's saved feeds, private: add, remove, list. */
     feeds: {
       async add(input: T.NewFeed): Promise<T.Built<T.Feed>> {
         return stored(buildFeed(owner, input));
@@ -246,6 +273,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: () => readAll<T.Feed>(owner, `${roots.private}feeds/`, "feed"),
     },
 
+    /** Media: upload bytes and read them back by URL. */
     files: {
       /** PUTs media where its hash names it, public unless `root` says otherwise. */
       async upload(bytes: Uint8Array, type: T.MimeType | (string & {}), root: T.Root = "public"): Promise<T.BuiltFile> {

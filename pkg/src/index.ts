@@ -93,6 +93,11 @@ const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...buil
  * be anything, so decode it inside a try. A post of a kind this version does not know is
  * refused too: it has rules this version cannot check.
  *
+ * @throws `ValidationError` when the bytes are no valid object at `uri` (`code` `json` for bytes
+ *  that are not the stored shape, the rule's code otherwise, `field` the member), `code: "path"`
+ *  for a URL that names no stored object or another kind than `kind`; `ArgumentError` for bytes
+ *  that are not a `Uint8Array` or an `ArrayBuffer`.
+ *
  * @example
  * ```ts
  * import { buildPost, decodeObject } from "pubky-social-specs";
@@ -129,6 +134,10 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
  * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
  * need no path, for bytes bound somewhere the data model does not name.
  *
+ * @throws `ValidationError` when `object` breaks a rule of its kind at `at`, with the member as
+ *  `field`; `ArgumentError` for a member the stored object does not have, a value of the wrong
+ *  type, or bytes passed for an object.
+ *
  * @example
  * ```ts
  * import { buildPost, decodeObject, encodeObject } from "pubky-social-specs";
@@ -162,6 +171,9 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
  * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
  * content is not a readable envelope.
  *
+ * @throws `ValidationError` with `code: "json"` when the content of an
+ *  article or a collection is not its envelope.
+ *
  * @example
  * ```ts
  * import { buildPost, decodeContent } from "pubky-social-specs";
@@ -192,6 +204,9 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
  * `name`), for a post about to be edited. It only spells the envelope: the rules run when the
  * post is passed to `editPost` or `encodeObject`.
  *
+ * @throws `ArgumentError` for an envelope that has neither `title` nor `name`, or a member of the
+ *  wrong type.
+ *
  * @example
  * ```ts
  * import { encodeContent } from "pubky-social-specs";
@@ -212,6 +227,10 @@ export function encodeContent(content: T.ArticleContent | T.CollectionContent): 
  * trimmed; `image` and each link `url` are stored as written and must be canonical already.
  * To change a stored profile and keep what this version does not know: decode, edit, encode.
  *
+ * @throws `ValidationError` for a rule of the profile (`code` `length`, `blank` or `reference`,
+ *  `field` the member) or a malformed `owner` (`field: "owner"`); `ArgumentError` for a member of
+ *  the wrong type or one `NewUser` does not have.
+ *
  * @example
  * ```ts
  * import { buildUser } from "pubky-social-specs";
@@ -230,6 +249,10 @@ export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`,
  * and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`.
  * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
+ *
+ * @throws `ValidationError` for a rule of the post (`field` the member: `content`,
+ *  `attachments[0].uri`, `slug`, `title`) or a malformed `owner`; `ArgumentError` for a member of
+ *  the wrong type or one the kind does not take.
  *
  * @example
  * ```ts
@@ -251,6 +274,10 @@ export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, in
  * which is where the edit goes; the post id is read from it. `post` is the stored post as it
  * should now read, the `.object` of a decode with its changes. `root` defaults to the head's
  * own; a slug is not carried over from the head.
+ *
+ * @throws `ValidationError` with `field: "headUri"` when `headUri` is no stored post version or is
+ *  in another user's tree, `field: "head"` when the head leaves no room for a newer id, and any
+ *  rule of the post; `ArgumentError` for an option it does not take.
  *
  * @example
  * ```ts
@@ -282,6 +309,10 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
  * content, tags, domain tags), so two feeds with one filter are one feed whatever their names, and an
  * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  *
+ * @throws `ValidationError` for a rule of the feed (`field` the member: `tags`, `icon`, `name`) or
+ *  an unknown reach, layout, sort or content (`code: "unknown_name"`); `ArgumentError` for a member
+ *  of the wrong type.
+ *
  * @example
  * ```ts
  * import { buildFeed } from "pubky-social-specs";
@@ -296,6 +327,8 @@ export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.
 
 /**
  * The id of a feed object: an edited filter moves the feed, and this is where to.
+ *
+ * @throws `ValidationError` when the feed breaks one of its rules.
  *
  * @example
  * ```ts
@@ -314,6 +347,9 @@ export function feedId(feed: T.Feed): string {
  * A tag on `uri`, a reference: for a post, `buildUri(author, "post", id)`. The builder trims
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  *
+ * @throws `ValidationError` with `field: "uri"` for a target the reference rules refuse (a post
+ *  version included) and `field: "label"` for a label the tag rules refuse.
+ *
  * @example
  * ```ts
  * import { buildTag, buildUri } from "pubky-social-specs";
@@ -329,6 +365,9 @@ export function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: strin
 
 /**
  * A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked.
+ *
+ * @throws `ValidationError` with `field: "target"` for a target the reference rules refuse, a post
+ *  version included.
  *
  * @example
  * ```ts
@@ -346,6 +385,9 @@ export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.B
 /**
  * A follow of `followee`, a bare public key, stored under the public root.
  *
+ * @throws `ValidationError` with `field: "owner"` or `field: "followee"` for a key that is not 52
+ *  z-base32 characters.
+ *
  * @example
  * ```ts
  * import { buildFollow } from "pubky-social-specs";
@@ -361,6 +403,9 @@ export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">)
 
 /**
  * A mute, stored under the private root.
+ *
+ * @throws `ValidationError` with `field: "owner"` or `field: "mutee"` for a key that is not 52
+ *  z-base32 characters.
  *
  * @example
  * ```ts
@@ -383,6 +428,10 @@ export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.B
  * `type` picks the extension of the path; one the package does not map, an empty one included,
  * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
  * the size is the caller's to check.
+ *
+ * @throws `ValidationError` with `field: "bytes"` for empty bytes or bytes over
+ *  `limits.maxFileSizeBytes`, `code: "format"` for an id that is not a hash; `ArgumentError` when both
+ *  or neither of `bytes` and `id` are given.
  *
  * @example
  * ```ts
@@ -407,6 +456,8 @@ export function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFil
  * A media id fed a chunk at a time, for bytes too large to hold at once or hashed off the main
  * thread. `id()` is what `buildFile` gives for the same bytes, and may be read at any point.
  *
+ * @throws `ArgumentError` when a chunk is not a `Uint8Array`.
+ *
  * @example
  * ```ts
  * import { buildFile, createMediaHasher } from "pubky-social-specs";
@@ -426,6 +477,9 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): T.
  * The media id of a `Blob` (a `File` included) or a stream of bytes, read a chunk at a time:
  * the thread is free between chunks, so a large file does not freeze a page. The same id as
  * `buildFile` gives for the same bytes; pass it there as `id`.
+ *
+ * @throws `ArgumentError` when `source` is neither a `Blob` nor a stream of bytes; a rejection of
+ *  the stream itself passes through.
  *
  * @example
  * ```ts
@@ -456,6 +510,10 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  * path in a plan is owner-relative. `slug` is the one the private version's path carries
  * (`parseUri(url).slug`), so the public leaf keeps it.
  *
+ * @throws `ValidationError` for an id out of its time bounds (`field: "id"` or `"editId"`), an
+ *  editId older than the post (`field: "editId"`), a bad `slug`, a private reference the public
+ *  post cannot keep (`code: "reference"`), and any rule of the post.
+ *
  * @example
  * ```ts
  * import { buildPost, planPublish } from "pubky-social-specs";
@@ -481,6 +539,9 @@ export function planPublish(
  * Unpublishing: the copies back into the private root, then the deletes, each in order.
  * `publicPaths` are the paths of the post's public versions as a LIST gave them, `privateHead`
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
+ *
+ * @throws `ValidationError` with `code: "path"` for a path that is no version of the post, and
+ *  `code: "conflict"` when there is nothing to unpublish.
  *
  * @example
  * ```ts
@@ -509,6 +570,9 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
  * `copies` are the stored versions found by LIST, each `{ root, path }`; `versions` the ones
  * that could be read. A media candidate is deleted only once nothing else references it, which
  * only the caller can know.
+ *
+ * @throws `ValidationError` with `code: "path"` for a copy or a legacy path that is no version of
+ *  the post.
  *
  * @example
  * ```ts
@@ -541,6 +605,10 @@ export function planDelete(
  * other copies come from `listings`, the owner-relative paths found by LIST (and for a 0.x
  * File object or tag, what proves it belongs to this one); a post with no listings gives none.
  *
+ * @throws `ValidationError` for an id the kind cannot have (`code: "format"`), a listing that is no
+ *  copy of the object (`code: "path"` or `"id"`), and listings given to a kind that takes none
+ *  (`code: "conflict"`).
+ *
  * @example
  * ```ts
  * import { deletionPaths } from "pubky-social-specs";
@@ -558,6 +626,9 @@ export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings
  * `pubky<owner>/...` are both read. Throws only when the string is neither, or its path holds
  * a segment no canonical path has (`..`, an empty one, `%`, whitespace), or its root is not
  * `pub` or `priv`. A 0.x path reads as `{ kind: "foreign", namespace: "pubky.app" }`.
+ *
+ * @throws `ValidationError` with `code: "path"` for a string that is not a canonical pubky URI
+ *  under `pub` or `priv`. A path it cannot name is a kind, not an error.
  *
  * @example
  * ```ts
@@ -588,6 +659,9 @@ export function parseUri(uri: string): T.ParsedUri {
  * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
  * comes out.
  *
+ * @throws `ValidationError` with `field: "owner"` for a malformed key, `field: "id"` for an id the
+ *  kind cannot have, and `code: "unknown_name"` for an unknown kind.
+ *
  * @example
  * ```ts
  * import { buildUri } from "pubky-social-specs";
@@ -607,6 +681,9 @@ export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string
 /**
  * The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate.
  *
+ * @throws `ValidationError` for a malformed key (`field: "owner"`) or a tree other than the three
+ *  (`code: "unknown_name"`).
+ *
  * @example
  * ```ts
  * import { listPrefix } from "pubky-social-specs";
@@ -622,6 +699,8 @@ export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): T.
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
  * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ *
+ * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object.
  *
  * @example
  * ```ts
@@ -642,6 +721,8 @@ export function toPath(uri: string): T.OwnerPath {
 /**
  * A bare public key as an `Owner`.
  *
+ * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters.
+ *
  * @example
  * ```ts
  * import { parseOwner, buildFollow } from "pubky-social-specs";
@@ -656,6 +737,9 @@ export function parseOwner(value: string): T.Owner {
 
 /**
  * A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule.
+ *
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
+ *  id.
  *
  * @example
  * ```ts
@@ -672,6 +756,9 @@ export function parsePostId(value: string): T.PostId {
 /**
  * A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one.
  *
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
+ *  id.
+ *
  * @example
  * ```ts
  * import { parseEditId } from "pubky-social-specs";
@@ -685,6 +772,8 @@ export function parseEditId(value: string): T.EditId {
 
 /**
  * A media id as a `MediaId`: the canonical spelling of a content hash.
+ *
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical hash id.
  *
  * @example
  * ```ts
@@ -702,6 +791,8 @@ export function parseMediaId(value: string): T.MediaId {
  * name one version. A path under another namespace, an unknown leaf or a post reference is
  * refused.
  *
+ * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object.
+ *
  * @example
  * ```ts
  * import { parsePubkyUrl } from "pubky-social-specs";
@@ -717,6 +808,8 @@ export function parsePubkyUrl(value: string): T.PubkyUrl {
 /**
  * Whether `value` is the canonical URL of a stored object, as `parsePubkyUrl` gives it: the
  * guard for a URL a LIST or another user handed over, with no exception to catch.
+ *
+ * @throws Nothing: a value that is not a URL of a stored object is `false`.
  *
  * @example
  * ```ts
@@ -738,6 +831,9 @@ export function isPubkyUrl(value: unknown): value is T.PubkyUrl {
 /**
  * An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments.
  *
+ * @throws `ValidationError` with `code: "path"` for a string that is no owner-relative path under a
+ *  known root.
+ *
  * @example
  * ```ts
  * import { parseOwnerPath, deletionPaths } from "pubky-social-specs";
@@ -755,6 +851,9 @@ export function parseOwnerPath(value: string): T.OwnerPath {
 
 /**
  * A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless.
+ *
+ * @throws `ValidationError` with `code: "path"` for a string that is no versionless reference to a
+ *  post.
  *
  * @example
  * ```ts
@@ -774,6 +873,9 @@ export function parsePostRef(value: string): T.PostRef {
  * The time a post id or an edit id was minted, in microseconds since the epoch, the unit of
  * every stored timestamp.
  *
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
+ *  id.
+ *
  * @example
  * ```ts
  * import { buildPost, idMicros, microsToDate } from "pubky-social-specs";
@@ -788,6 +890,8 @@ export function idMicros(id: T.Given<"PostId" | "EditId">): number {
 /**
  * A `Date` for a stored timestamp in microseconds (`created_at`, `idMicros`), to the
  * millisecond a `Date` holds.
+ *
+ * @throws `ArgumentError` for a value that is not a safe integer.
  *
  * @example
  * ```ts
@@ -805,6 +909,8 @@ export function microsToDate(micros: number): Date {
  * The stored timestamp of a `Date`, or of milliseconds as `Date.now()` gives them: microseconds,
  * which is what every `created_at` holds.
  *
+ * @throws `ArgumentError` for an invalid `Date` or a number that is not finite.
+ *
  * @example
  * ```ts
  * import { dateToMicros } from "pubky-social-specs";
@@ -820,6 +926,9 @@ export function dateToMicros(date: Date | number): number {
 /**
  * `decodeObject` with the refusal returned instead of thrown, for a feed of other people's data
  * where a bad object is routine. A wrong argument still throws.
+ *
+ * @throws `ArgumentError` for arguments of the wrong type; a refusal of the bytes is returned, not
+ *  thrown.
  *
  * @example
  * ```ts

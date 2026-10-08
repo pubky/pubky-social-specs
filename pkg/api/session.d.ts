@@ -1,8 +1,10 @@
 /** The part of a streamed `Response` the port reads. */
 export interface SdkResponse {
+    /** The response headers; the port reads `content-length`. */
     headers: {
         get(name: string): string | null;
     };
+    /** The body as a stream, or null for none. */
     body: {
         getReader(): {
             read(): Promise<{
@@ -13,15 +15,18 @@ export interface SdkResponse {
         };
         cancel(): Promise<void>;
     } | null;
+    /** The whole body at once. */
     arrayBuffer(): Promise<ArrayBuffer>;
 }
 /** The part of a signed-in SDK `Session` the port calls, as 0.11 to 0.14 declare it. */
 export interface SdkSession {
+    /** Who the session belongs to: `info.publicKey.z32()` is the bare key. */
     info: {
         publicKey: {
             z32(): string;
         };
     };
+    /** Storage of the session's own tree, by absolute path (`/pub/...`, `/priv/...`). */
     storage: {
         list(path: string, cursor: string | null, reverse: boolean, limit: number, shallow: boolean): Promise<string[]>;
         getBytes(path: string): Promise<Uint8Array>;
@@ -34,7 +39,9 @@ export interface SdkSession {
 }
 /** The part of the SDK's `pubky.publicStorage` the client reads other users' trees with. */
 export interface SdkPublicStorage {
+    /** The `pubky://` URLs under an address that ends with `/`, a page at a time. */
     list(address: string, cursor: string | null, reverse: boolean, limit: number, shallow: boolean): Promise<string[]>;
+    /** The bytes stored at a `pubky://` address. */
     getBytes(address: string): Promise<Uint8Array>;
 }
 //# sourceMappingURL=session.d.ts.map

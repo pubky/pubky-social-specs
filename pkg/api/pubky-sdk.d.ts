@@ -1,6 +1,7 @@
 import type { MigrationPort } from "../port.js";
 import type { SdkSession } from "../../session.js";
 export type { SdkResponse, SdkSession } from "../../session.js";
+/** How `sdkPort` talks to the homeserver. */
 export interface SdkPortOptions {
     /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
     pageSize?: number;

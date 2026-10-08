@@ -44,8 +44,11 @@ const BRAND = Symbol.for("pubky-social-specs.MigrationPortError");
  * ```
  */
 class MigrationPortError extends Error {
+  /** `"MigrationPortError"`, as a stack trace and a log print it. */
   override name = "MigrationPortError";
+  /** What went wrong, in the terms the engine acts on: retry, stop, or count the object. */
   readonly kind: PortErrorKind;
+  /** The HTTP status the homeserver answered, when there was one. */
   readonly status?: number;
   readonly [BRAND] = true;
 
@@ -61,6 +64,7 @@ class MigrationPortError extends Error {
   }
 }
 
+/** What the engine asks of a GET. */
 export interface GetOptions {
   /**
    * The most bytes the engine takes. Over it, a port throws `too_large` instead of reading
@@ -69,6 +73,7 @@ export interface GetOptions {
   maxBytes?: number;
 }
 
+/** What the engine asks of a PUT. */
 export interface PutOptions {
   /**
    * Write only when nothing is stored at the URL, and throw `exists` otherwise. Over a
@@ -84,11 +89,17 @@ export interface PutOptions {
  * nothing under it is empty, never an error. `get` gives `null` for a missing object.
  */
 export interface MigrationPort {
+  /** One page of the URLs under `prefixUrl`, after `cursor`; `next` is absent on the last page. */
   list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }>;
+  /** The bytes at `url`, or null when nothing is stored there. */
   get(url: string, options?: GetOptions): Promise<Uint8Array | null>;
+  /** Whether anything is stored at `url`. */
   head(url: string): Promise<boolean>;
+  /** Stores `object` as JSON the port spells; the engine uses it only for the flag. */
   putJson(url: string, object: unknown, options?: PutOptions): Promise<void>;
+  /** Stores `bytes` exactly as given. */
   putBytes(url: string, bytes: Uint8Array, options?: PutOptions): Promise<void>;
+  /** Removes what is stored at `url`; nothing stored there is no error. */
   delete(url: string): Promise<void>;
 }
 

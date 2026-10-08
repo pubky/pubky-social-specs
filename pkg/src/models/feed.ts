@@ -10,16 +10,24 @@ import { checkLabel, foldLabel } from "./label.js";
 import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface FeedConfig extends Extra {
+  /** The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. */
   tags: string[] | null;
+  /** The domain labels a post's links must carry, with the rules of `tags`; null for no domain filter. */
   domain_tags: string[] | null;
+  /** Whose posts the feed shows, one of `feedReaches`. A name this version does not know is refused on read. */
   reach: FeedReach;
+  /** How the client lays the feed out, one of `feedLayouts`. A name this version does not know is refused on read. */
   layout: FeedLayout;
+  /** The order of the posts, one of `feedSorts`. A name this version does not know is refused on read. */
   sort: FeedSort;
+  /** The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; null for every kind. */
   content: PostKind | null;
 }
 
 export interface Feed extends Extra {
+  /** The filter, which is the whole identity of the feed: its id hashes these members. */
   feed: FeedConfig;
+  /** The display name, trimmed by the builder: 1 to 100 code points, not blank. Outside the id. */
   name: string;
   /** 1 to 50 of a-z, 0-9 and `-`: a name for the client's icon set, not an emoji. */
   icon: string | null;

@@ -16,10 +16,13 @@ export type Outcome =
   /** The homeserver refused the PUT. */
   | "put_rejected";
 
+/** How many 0.x objects ended in each outcome. */
 export type Counts = Record<Outcome, number>;
 
+/** Where a run is: `probe`, `listing`, `migrating` and `flag` in order, then how it ended. */
 export type Phase = "probe" | "listing" | "migrating" | "flag" | "done" | "incomplete" | "paused" | "aborted";
 
+/** Why a run stopped before it finished. */
 export type ErrorCode =
   /** Another tab holds the lock for this owner. */
   | "ALREADY_RUNNING"
@@ -38,39 +41,54 @@ export type ErrorCode =
   /** The caller's `signal` fired. */
   | "ABORTED";
 
+/** Why a run stopped, in a report or a progress event. */
 export interface MigrationError {
+  /** Which stop, for a program to act on. */
   code: ErrorCode;
+  /** The detail, for a log. */
   message: string;
+  /** With `QUOTA`: an estimate of the bytes the rest of the media needs. */
   needBytes?: number;
   /** With `CAPS_MISSING`: the scopes to ask for. */
   caps?: string;
 }
 
+/** What `onProgress` receives, after each object and at each phase. */
 export interface ProgressEvent {
+  /** Where the run is. */
   phase: Phase;
   /** The pass being walked, named by its 0.x directory. */
   pass?: Bucket;
   /** 0.x objects finished, out of `total` listed. */
   done: number;
+  /** 0.x objects listed so far, a count. */
   total: number;
+  /** Objects per outcome so far. */
   counts: Counts;
-  /** Values the 1.x rules refused and left out of an object that still migrated. */
+  /** Values the 1.x rules refused and left out of an object that still migrated, a count. */
   dropped: number;
   /** The 0.x URL just finished. */
   current?: string;
+  /** Why the run stopped, on the last event of a run that did. */
   error?: MigrationError;
 }
 
+/** What `runMigration` resolves to: how the run ended and what happened to each object. */
 export interface MigrationReport {
   /**
    * `incomplete`: the walk finished but some objects hit `io_error`, so no flag was written
    * and the next run walks again.
    */
   status: "done" | "already_migrated" | "incomplete" | "paused" | "aborted";
+  /** The mode the run was given. */
   mode: "run" | "dry";
+  /** 0.x objects finished, a count. */
   done: number;
+  /** 0.x objects listed, a count. */
   total: number;
+  /** Objects per outcome. */
   counts: Counts;
+  /** Values left out of objects that still migrated, a count. */
   dropped: number;
   /** Owner-relative 0.x path to the values left out of it. */
   droppedValues: Record<string, Dropped[]>;
@@ -78,13 +96,17 @@ export interface MigrationReport {
   skipped: Partial<Record<Outcome, string[]>>;
   /** Detail for a path in `skipped`: the reader's message, the refusal's status. */
   notes: { path: string; message: string }[];
+  /** Why the run stopped, when it did not finish. */
   error?: MigrationError;
 }
 
 /** The part of an `AbortSignal` the run uses, which browsers and Node share. */
 export interface AbortSignalLike {
+  /** Whether the signal has fired. */
   readonly aborted: boolean;
+  /** Calls `listener` when the signal fires. */
   addEventListener(type: "abort", listener: () => void, options?: { once?: boolean }): void;
+  /** Stops calling `listener`. */
   removeEventListener(type: "abort", listener: () => void): void;
 }
 
@@ -94,14 +116,17 @@ export interface AbortSignalLike {
  */
 export type MigrationLock = <T>(name: string, fn: (lock: unknown) => Promise<T>) => Promise<T>;
 
+/** What `runMigration` takes. */
 export interface RunOptions {
   /** The pubky whose tree migrates; the session must be theirs. */
   owner: string;
+  /** How the run reads and writes the homeserver: `sdkPort(session)`, or `MemoryPort` in a test. */
   port: MigrationPort;
   /** `"dry"` reads and counts, and writes, re-checks and deletes nothing. */
   mode?: "run" | "dry";
   /** Walk the tree even when the flag says this revision already did. */
   rescan?: boolean;
+  /** Called after each object and at each phase; it must not throw. */
   onProgress?: (event: ProgressEvent) => void;
   /** Stops the run after the objects in flight; run again to resume. */
   signal?: AbortSignalLike;

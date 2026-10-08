@@ -15,37 +15,55 @@ import { checkExtra, type Model, parse, validate } from "./common.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {
+  /** The media: a canonical `pubky`, `http` or `https` URI of at most 1024 code points, under the post's root rules. */
   uri: string;
+  /** Text describing the media for a screen reader: at most 1000 code points; null for none. */
   alt: string | null;
+  /** The file name shown, trimmed by the builder: 1 to 255 code points, not blank; null for none. */
   name: string | null;
 }
 
 export interface Post extends Extra {
   /** Text for an untyped kind; for an article or a collection, the envelope `decodeContent` reads. */
   content: string;
+  /** What the post is, one of `postKinds`; it decides what `content` holds. */
   kind: PostKind;
+  /** The post this one replies to: a versionless reference of at most 1024 code points; null for none. */
   parent: string | null;
+  /** The post or URI this one quotes: a versionless reference of at most 1024 code points; null for none. */
   embed: string | null;
+  /** At most 10 media references; empty for none. A collection carries none: its items are in its envelope. */
   attachments: Attachment[];
+  /** A pubky reference to what gates the post (a payment or a membership), at most 1024 code points; null for none. Readers that do not honour it show the post as it is. */
   lock: string | null;
 }
 
 export interface ArticleContent extends Extra {
+  /** The title, trimmed by the builder: 1 to 100 code points, not blank, no control character but tab, newline and carriage return. */
   title: string;
+  /** The text, Markdown by convention: at most 50000 code points, no control character but tab, newline and carriage return. */
   body: string;
+  /** A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. */
   cover_image: string | null;
 }
 
 export interface CollectionItem extends Extra {
+  /** What is curated: a versionless reference on the universal tier, at most 1024 code points. */
   uri: string;
+  /** The curator's note, trimmed by the builder: 1 to 1000 code points, not blank; null for none. */
   note: string | null;
 }
 
 export interface CollectionContent extends Extra {
+  /** The collection's name, trimmed by the builder: 1 to 100 code points, not blank. */
   name: string;
+  /** What it gathers, trimmed by the builder: at most 500 code points, not blank; null for none. */
   description: string | null;
+  /** At most 100 items, in the curator's order; empty for none. */
   items: CollectionItem[];
+  /** A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. */
   cover_image: string | null;
+  /** How the creator would show it, one of `collectionLayouts`, or a newer writer's name kept as written; null for the reader's choice. */
   layout: CollectionLayout | null;
 }
 
