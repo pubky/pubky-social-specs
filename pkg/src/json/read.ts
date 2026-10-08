@@ -200,42 +200,35 @@ export class Reader {
 
   /** The text of a string whose opening quote is read. */
   string(): string {
+    const bytes = this.bytes;
     let out = "";
-    let start = this.pos;
     // The parser looks at the encoding only at the closing quote, so an error later in the
     // same string comes first
-    let invalid = false as boolean;
-    const flush = () => {
-      if (this.pos === start) return;
-      const text = utf8Text(this.bytes.subarray(start, this.pos));
-      if (text === null) invalid = true;
-      else out += text;
-    };
+    let invalid = false;
     for (;;) {
-      const b = this.byteOrEof();
+      const start = this.pos;
+      let at = start;
+      let b = bytes[at];
+      while (b !== undefined && b !== QUOTE && b !== BACKSLASH && b >= 0x20) b = bytes[++at];
+      this.pos = at;
+      if (at > start) {
+        const text = utf8Text(bytes.subarray(start, at));
+        if (text === null) invalid = true;
+        else out += text;
+      }
+      if (b === undefined) this.fail("EOF while parsing a string");
+      this.pos++;
       if (b === QUOTE) {
-        flush();
-        this.pos++;
         if (invalid) this.fail("invalid unicode code point");
         return out;
       }
-      if (b < 0x20) {
-        this.pos++;
-        this.fail("control character (\\u0000-\\u001F) found while parsing a string");
-      }
-      if (b !== BACKSLASH) {
-        this.pos++;
-        continue;
-      }
-      flush();
-      this.pos++;
+      if (b < 0x20) this.fail("control character (\\u0000-\\u001F) found while parsing a string");
       const escape = this.byteOrEof();
       this.pos++;
       const plain = ESCAPES[escape];
       if (plain !== undefined) out += plain;
       else if (escape === 0x75) out += this.unicodeEscape();
       else this.fail("invalid escape");
-      start = this.pos;
     }
   }
 
