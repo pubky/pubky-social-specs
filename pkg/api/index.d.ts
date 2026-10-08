@@ -4,6 +4,8 @@ export { ValidationError } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type * from "./types.js";
+export { feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser } from "./validate.js";
+export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
 /**
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,

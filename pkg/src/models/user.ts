@@ -1,6 +1,6 @@
 import { checkReference } from "../canonicalize.js";
 import { limits } from "../data.js";
-import { fail } from "../errors.js";
+import { type Each, fail, member, throwing } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
 import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
@@ -22,13 +22,15 @@ export interface User extends Extra {
 
 const link = object<UserLink>("PubkySocialUserLink", { title: string, url: string });
 
-function checkLink(value: UserLink, index: number): void {
-  checkExtra(value.extra);
-  if (frozenTrim(value.title) === "") fail(`links[${index}].title must not be blank`, `links[${index}].title`);
-  if (codePointLen(value.title) > limits.userLinkTitleMaxLength) {
-    fail(`links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`);
-  }
-  checkReference(`links[${index}].url`, value.url, "web", limits.userLinkUrlMaxLength, true, null);
+function checkLink(value: UserLink, index: number, each: Each): void {
+  each(() => checkExtra(value.extra));
+  each(() => {
+    if (frozenTrim(value.title) === "") fail(`links[${index}].title must not be blank`, `links[${index}].title`);
+    if (codePointLen(value.title) > limits.userLinkTitleMaxLength) {
+      fail(`links[${index}].title must be at most ${limits.userLinkTitleMaxLength} code points`, `links[${index}].title`);
+    }
+  });
+  each(() => checkReference(`links[${index}].url`, value.url, "web", limits.userLinkUrlMaxLength, true, null));
 }
 
 export const user: Model<User> = {
@@ -41,45 +43,55 @@ export const user: Model<User> = {
   }),
   maxBytes: limits.objectMaxBytes,
   // The profile has one root, the public one, whatever root a caller reads it under
-  check(value) {
-    checkExtra(value.extra);
+  check(value, _id, _publicRoot, each) {
+    each(() => checkExtra(value.extra));
     // Padding is display text, so it is counted, not removed; only whitespace is still no name
-    if (frozenTrim(value.name) === "") fail("name must not be blank", "name");
-    const length = codePointLen(value.name);
-    if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("Invalid name length", "name");
-    if (value.bio !== null) {
+    each(() => {
+      if (frozenTrim(value.name) === "") fail("name must not be blank", "name");
+      const length = codePointLen(value.name);
+      if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("Invalid name length", "name");
+    });
+    each(() => {
+      if (value.bio === null) return;
       if (frozenTrim(value.bio) === "") fail("bio must not be blank", "bio");
       if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length", "bio");
-    }
-    if (value.image !== null) checkReference("image", value.image, "pubky or web", limits.imageUrlMaxLength, true, null);
+    });
+    if (value.image !== null) each(() => checkReference("image", value.image as string, "pubky or web", limits.imageUrlMaxLength, true, null));
     if (value.links !== null) {
-      if (value.links.length > limits.userLinksMaxCount) fail("Too many links", "links");
-      value.links.forEach(checkLink);
+      const links = value.links;
+      each(() => {
+        if (links.length > limits.userLinksMaxCount) fail("Too many links", "links");
+      });
+      links.forEach((link, index) => checkLink(link, index, each));
     }
-    if (value.status !== null) {
+    each(() => {
+      if (value.status === null) return;
       if (frozenTrim(value.status) === "") fail("status must not be blank", "status");
       if (codePointLen(value.status) > limits.userStatusMaxLength) fail("Status exceeds maximum length", "status");
-    }
+    });
   },
 };
 
 const maybe = option(string);
 
-/** A fresh profile. The builder trims the display text; references are stored as written. */
-export function buildUser(owner: string, input: unknown) {
-  checkPublicKey(owner);
-  const i = inputOf(input, "input", ["name", "bio", "image", "links", "status"]);
+/**
+ * A fresh profile. The builder trims the display text; references are stored as written. A
+ * validator passes a collecting `each` and no owner.
+ */
+export function buildUser(owner: string | null, input: unknown, each: Each = throwing) {
+  if (owner !== null) checkPublicKey(owner);
+  const i = inputOf(input, "input", ["name", "bio", "image", "links", "status"], each);
   const links = option(list({ ...link, parse: (js, at) => {
-    const l = inputOf(js, at, ["title", "url"]);
-    return { title: frozenTrim(string.parse(l.title, `${at}.title`)), url: string.parse(l.url, `${at}.url`), extra: new Map() };
+    const l = inputOf(js, at, ["title", "url"], each);
+    return { title: frozenTrim(member(each, () => string.parse(l.title, `${at}.title`), "")), url: member(each, () => string.parse(l.url, `${at}.url`), ""), extra: new Map() };
   } }));
   const value: User = {
-    name: frozenTrim(string.parse(i.name, "input.name")),
-    bio: trimmedOrNull(maybe.parse(i.bio, "input.bio")),
-    image: maybe.parse(i.image, "input.image"),
-    links: links.parse(i.links, "input.links"),
-    status: trimmedOrNull(maybe.parse(i.status, "input.status")),
+    name: frozenTrim(member(each, () => string.parse(i.name, "input.name"), "")),
+    bio: trimmedOrNull(member(each, () => maybe.parse(i.bio, "input.bio"), null)),
+    image: member(each, () => maybe.parse(i.image, "input.image"), null),
+    links: member(each, () => links.parse(i.links, "input.links"), null),
+    status: trimmedOrNull(member(each, () => maybe.parse(i.status, "input.status"), null)),
     extra: new Map(),
   };
-  return { id: "", path: socialPath("public", "profile.json"), value, body: validate(user, value, null, true) };
+  return { id: "", path: socialPath("public", "profile.json"), value, body: validate(user, value, null, true, each) };
 }

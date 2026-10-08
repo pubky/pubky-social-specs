@@ -29,7 +29,31 @@ export function fail(reason: string, field?: string): never {
   throw new ValidationError(reason, field);
 }
 
+// The argument or member each shape refusal names, for a validator to report as a path
+const shapes = new WeakMap<TypeError, string>();
+
 /** A caller's value of the wrong shape: a bug in the caller, not a rule of the data model. */
 export function misuse(what: string, expected: string): never {
-  throw new TypeError(`pubky-social-specs: ${what} must be ${expected}`);
+  const error = new TypeError(`pubky-social-specs: ${what} must be ${expected}`);
+  shapes.set(error, what);
+  throw error;
+}
+
+/** What a shape refusal of this package names, or undefined for any other error. */
+export const shapeOf = (error: unknown): string | undefined => (error instanceof TypeError ? shapes.get(error) : undefined);
+
+/**
+ * How the rules of a check run, each one a closure. Throwing, the first refusal is the error,
+ * in the reference's order. A validator passes one that keeps each refusal and runs the next.
+ */
+export type Each = (rule: () => void) => void;
+export const throwing: Each = (rule) => rule();
+
+/** A member parsed under `each`: what `parse` gives, or `fallback` when a collecting `each` kept its refusal. */
+export function member<T>(each: Each, parse: () => T, fallback: T): T {
+  let out = fallback;
+  each(() => {
+    out = parse();
+  });
+  return out;
 }

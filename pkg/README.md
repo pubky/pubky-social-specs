@@ -115,6 +115,31 @@ const { url, path } = buildFile(owner, { id, type: file.type });
 
 `createMediaHasher()` is the same hash fed by hand, for a worker. `limits.maxFileSizeBytes` is the cap; with an `id` the package never sees the bytes, so check `file.size` yourself. `validMimeTypes` lists the types the model knows by name, and `MimeType` is their union. A media id is 128 bits of BLAKE3, as in the crate: 64 bits of collision resistance, plenty to deduplicate one owner's media and no proof that two parties hold the same file.
 
+## Validating a form
+
+A builder throws at the first refusal. To show a user everything wrong with an input at once,
+validate it first: `validateUser`, `validatePost`, `validateFeed` and `validateTag` run the
+builder's own rules, collect every issue, and mint nothing.
+
+```ts
+import { validatePost, postSchema } from "pubky-social-specs";
+
+const result = validatePost({ kind: "article", title: "", body: "..." }, owner);
+if (!result.success) for (const issue of result.issues) console.log(issue.path.join("."), issue.code, issue.message);
+// title invalid Article title must contain non-whitespace characters
+
+// Standard Schema, for react-hook-form, TanStack Form, tRPC or Hono as they are
+const checked = postSchema["~standard"].validate(formValues);
+```
+
+Each issue has a `path` into the input (`["attachments", 0, "uri"]`), a `code` (`invalid_type` for a
+value of the wrong JavaScript shape, `invalid` for a rule of the data model) and the `message`,
+the reference text for a rule. On success `value` is the input as checked, plain data, ready for
+the builder. A member of the wrong shape is reported once and the rules about it are skipped; the
+rules on the other members still run. `validatePost(input, owner)` also runs the rule that a
+private draft references only its owner's private objects. `userSchema`, `postSchema`,
+`feedSchema` and `tagSchema` are the same validators as Standard Schema objects.
+
 ## Reading and editing
 
 `decodeObject(url, bytes)` returns `{ kind, object }`, or `{ kind: "file", bytes }` for media. Given the kind you expect, `decodeObject(url, bytes, "post")` returns the object itself, typed, and refuses a URL that names another kind before it reads the bytes. It throws a `ValidationError` for bytes that are not a valid object at that URL, with the reason. Other people's data can be anything, so decode it inside a `try`. That includes a post of a kind this version does not know, and a feed whose reach, layout or sort it does not know: those carry rules it cannot check, so it refuses them. Only a feed's `content` filter and a collection's `layout` read as `"unknown"`, and the types say so: `Post.kind` is a `KnownPostKind`, `FeedConfig.content` a `PostKind`.
@@ -256,6 +281,7 @@ From `pubky-social-specs`:
 | `feedId` | the id an edited feed moves to |
 | `buildUri`, `parseUri`, `listPrefix`, `toPath`, `deletionPaths` | places: references, LIST prefixes, paths |
 | `parseOwner`, `parsePostId`, `parseEditId`, `parseMediaId`, `parsePubkyUrl`, `parseOwnerPath`, `parsePostRef` | a string checked once and branded |
+| `validateUser`, `validatePost`, `validateFeed`, `validateTag`, and `userSchema`, `postSchema`, `feedSchema`, `tagSchema` | every issue of an input, plain and as Standard Schema; types `Issue`, `Validation`, `StandardSchemaV1` |
 | `limits`, `validMimeTypes`, `postKinds`, `feedReaches`, `feedLayouts`, `feedSorts`, `collectionLayouts` | the data model's constants |
 | `ValidationError` | a refusal of the data model |
 | `User`, `Post`, `Tag`, `Bookmark`, `Follow`, `Mute`, `Feed`, `FeedConfig`, `UserLink`, `Attachment`, `ArticleContent`, `CollectionContent`, `CollectionItem`, `Stored` | the stored objects |

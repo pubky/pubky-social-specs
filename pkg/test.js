@@ -43,7 +43,8 @@ describe("pubky-social-specs", () => {
         "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
         "feedId", "feedLayouts", "feedReaches", "feedSorts", "hashMedia", "limits", "listPrefix", "parseEditId", "parseMediaId", "parseOwner", "parseOwnerPath",
         "parsePostId", "parsePostRef", "parsePubkyUrl", "parseUri", "planDelete", "planPublish", "planUnpublish", "postKinds", "toPath", "validMimeTypes",
-      ]);
+        "feedSchema", "postSchema", "tagSchema", "userSchema", "validateFeed", "validatePost", "validateTag", "validateUser",
+      ].sort());
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
     });
 

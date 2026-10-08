@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { misuse } from "../errors.js";
+import { type Each, misuse, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -108,8 +108,8 @@ export function list<T>(inner: Codec<T>): Codec<T[]> {
       r.array(() => items.push(inner.read(r)));
       return items;
     },
-    write: (items) => `[${items.map(inner.write).join(",")}]`,
-    plain: (items) => items.map(inner.plain),
+    write: (items) => `[${items.map((item) => inner.write(item)).join(",")}]`,
+    plain: (items) => items.map((item) => inner.plain(item)),
     parse(js, at) {
       return arrayOf(js, at).map((item, index) => inner.parse(item, `${at}[${index}]`));
     },
@@ -189,7 +189,7 @@ export type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Code
 /** An object that keeps the members it does not know, under `extra`. */
 export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<T> {
   const names = Object.keys(fields);
-  const entries = Object.entries(fields) as [string, Codec<unknown>][];
+  const entries = Object.entries<Codec<unknown>>(fields);
   const absent = (codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : codec.optional ? null : missing());
   return {
     read(r: Reader) {
@@ -255,10 +255,10 @@ export function rootOf(js: unknown, at: string): "public" | "private" {
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */
-export function inputOf(js: unknown, at: string, allowed: readonly string[]): Record<string, unknown> {
+export function inputOf(js: unknown, at: string, allowed: readonly string[], each: Each = throwing): Record<string, unknown> {
   if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
   const given = js as Record<string, unknown>;
-  for (const key of Object.keys(given)) if (!allowed.includes(key)) misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`);
+  for (const key of Object.keys(given)) if (!allowed.includes(key)) each(() => misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`));
   return given;
 }
 

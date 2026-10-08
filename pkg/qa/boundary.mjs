@@ -92,6 +92,10 @@ const calls = {
   parsePubkyUrl: [post.url],
   parseOwnerPath: [post.path],
   parsePostRef: [api.buildUri(OWNER, "post", post.id)],
+  validateUser: [{ name: "Alice", links: [{ title: "t", url: "https://example.com" }] }],
+  validatePost: [{ content: "hello", attachments: [{ uri: "https://example.com/a.png" }] }, OWNER],
+  validateFeed: [{ name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent" }],
+  validateTag: [{ uri: "https://example.com", label: "friend" }],
 };
 
 const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError");

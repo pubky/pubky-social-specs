@@ -1,6 +1,6 @@
 // What every stored object shares: the size cap and the rules on members no version knows.
 
-import { fail, ValidationError } from "../errors.js";
+import { type Each, fail, throwing, ValidationError } from "../errors.js";
 import { type Json, JsonError, type JsonObject, Reader } from "../json/read.js";
 import type { Codec } from "../json/schema.js";
 import { compareBytes, utf8, utf8Len } from "../text.js";
@@ -39,8 +39,11 @@ export function checkExtra(extra: JsonObject): void {
 export interface Model<T> {
   codec: Codec<T>;
   maxBytes: number;
-  /** The rules beyond the shape. `id` is what the path names, null for a value not yet stored. */
-  check(value: T, id: string | null, publicRoot: boolean): void;
+  /**
+   * The rules beyond the shape. `id` is what the path names, null for a value not yet stored.
+   * Each rule runs through `each`, in the reference's order.
+   */
+  check(value: T, id: string | null, publicRoot: boolean, each: Each): void;
 }
 
 function checkSize(bytes: number, max: number): void {
@@ -48,10 +51,10 @@ function checkSize(bytes: number, max: number): void {
 }
 
 /** The cap on the written form first, then the rules, so no in-memory path skips the cap. */
-export function validate<T>(model: Model<T>, value: T, id: string | null, publicRoot: boolean): string {
+export function validate<T>(model: Model<T>, value: T, id: string | null, publicRoot: boolean, each: Each = throwing): string {
   const body = model.codec.write(value);
-  checkSize(utf8Len(body), model.maxBytes);
-  model.check(value, id, publicRoot);
+  each(() => checkSize(utf8Len(body), model.maxBytes));
+  model.check(value, id, publicRoot, each);
   return body;
 }
 

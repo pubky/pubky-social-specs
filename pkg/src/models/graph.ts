@@ -4,7 +4,7 @@ import * as base64url from "../base64url.js";
 import { checkReference, reference } from "../canonicalize.js";
 import { nowMicros } from "../clock.js";
 import { limits } from "../data.js";
-import { fail } from "../errors.js";
+import { type Each, fail, throwing } from "../errors.js";
 import { checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, object, omitted, string } from "../json/schema.js";
 import { utf8, utf8Len, utf8Text } from "../text.js";
@@ -21,10 +21,10 @@ function edge(name: string): Model<Edge> {
   return {
     codec: object<Edge>(name, { created_at: i64 }),
     maxBytes: limits.objectMaxBytes,
-    check(value, id) {
-      if (id !== null) checkPublicKey(id);
-      checkExtra(value.extra);
-      checkSafeInt(value.created_at);
+    check(value, id, _publicRoot, each) {
+      if (id !== null) each(() => checkPublicKey(id));
+      each(() => checkExtra(value.extra));
+      each(() => checkSafeInt(value.created_at));
     },
   };
 }
@@ -54,25 +54,27 @@ const tagId = (value: Tag) => hashText(`${value.uri}:${value.label}`);
 export const tag: Model<Tag> = {
   codec: object<Tag>("PubkySocialTag", { uri: string, label: string, created_at: i64 }),
   maxBytes: limits.objectMaxBytes,
-  check(value, id) {
-    if (id !== null) {
+  check(value, id, _publicRoot, each) {
+    each(() => {
       const expected = tagId(value);
-      if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
-    }
-    checkExtra(value.extra);
-    if (value.label !== foldLabel(value.label)) fail(`Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
-    checkLabel(value.label);
+      if (id !== null && expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
+    });
+    each(() => checkExtra(value.extra));
+    each(() => {
+      if (value.label !== foldLabel(value.label)) fail(`Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
+      checkLabel(value.label);
+    });
     // A tag is public, so a private target fails the root rule under any root
-    checkReference("uri", value.uri, "", limits.referenceUriMaxLength, true, null);
-    checkSafeInt(value.created_at);
+    each(() => checkReference("uri", value.uri, "", limits.referenceUriMaxLength, true, null));
+    each(() => checkSafeInt(value.created_at));
   },
 };
 
-export function buildTag(owner: string, uri: string, label: string) {
-  checkPublicKey(owner);
+export function buildTag(owner: string | null, uri: string, label: string, each: Each = throwing) {
+  if (owner !== null) checkPublicKey(owner);
   const value: Tag = { uri, label: foldLabel(label), created_at: nowMicros(), extra: new Map() };
   const id = tagId(value);
-  return { id, path: socialPath("public", `tags/${id}.json`), value, body: validate(tag, value, id, true) };
+  return { id, path: socialPath("public", `tags/${id}.json`), value, body: validate(tag, value, id, true, each) };
 }
 
 export interface Bookmark extends Extra {
@@ -122,11 +124,13 @@ export function targetOf(id: string, content: Bookmark): string {
 export const bookmark: Model<Bookmark> = {
   codec: object<Bookmark>("PubkySocialBookmark", { created_at: i64, target: omitted(string) }),
   maxBytes: limits.objectMaxBytes,
-  check(value, id) {
-    checkExtra(value.extra);
-    checkSafeInt(value.created_at);
-    if (id !== null) targetOf(id, value);
-    else if (value.target !== null) checkStoredTarget(value.target);
+  check(value, id, _publicRoot, each) {
+    each(() => checkExtra(value.extra));
+    each(() => checkSafeInt(value.created_at));
+    each(() => {
+      if (id !== null) targetOf(id, value);
+      else if (value.target !== null) checkStoredTarget(value.target);
+    });
   },
 };
 

@@ -42,6 +42,8 @@ export { ValidationError } from "./errors.js";
 export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
 export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
 export type * from "./types.js";
+export { feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser } from "./validate.js";
+export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
 
 function text(value: unknown, name: string): string {
   if (typeof value !== "string") misuse(name, "a string");
@@ -150,10 +152,10 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
  * post is passed to `editPost` or `encodeObject`.
  */
 export function encodeContent(content: T.ArticleContent | T.CollectionContent): string {
-  content = own(content, "content") as typeof content;
-  if (typeof content !== "object" || content === null) misuse("content", "an article or a collection envelope");
-  if (Object.hasOwn(content, "title")) return posts.article.write(posts.article.parse(content, "content"));
-  if (Object.hasOwn(content, "name")) return posts.collection.write(posts.collection.parse(content, "content"));
+  const given = own(content, "content");
+  if (typeof given !== "object" || given === null) return misuse("content", "an article or a collection envelope");
+  if (Object.hasOwn(given, "title")) return posts.article.write(posts.article.parse(given, "content"));
+  if (Object.hasOwn(given, "name")) return posts.collection.write(posts.collection.parse(given, "content"));
   return misuse("content", "an article envelope, with a title, or a collection envelope, with a name");
 }
 
@@ -264,9 +266,11 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): T.
  * `buildFile` gives for the same bytes; pass it there as `id`.
  */
 export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
-  const stream = typeof (source as { stream?: unknown } | null)?.stream === "function" ? (source as T.BlobLike).stream() : (source as T.ByteStream);
-  if (typeof stream?.getReader !== "function") misuse("source", "a Blob or a ReadableStream of bytes");
-  const reader = stream.getReader();
+  // Typed for a caller, checked for one that is not
+  const given: unknown = source;
+  const stream: unknown = typeof (given as { stream?: unknown } | null)?.stream === "function" ? (given as T.BlobLike).stream() : given;
+  if (typeof (stream as { getReader?: unknown } | null)?.getReader !== "function") misuse("source", "a Blob or a ReadableStream of bytes");
+  const reader = (stream as T.ByteStream).getReader();
   const hasher = ids.createMediaHasher();
   try {
     for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) hasher.update(bytesOf(chunk.value, "a chunk of source"));

@@ -5,7 +5,7 @@ import { blake3 } from "@noble/hashes/blake3.js";
 import { checkReference } from "../canonicalize.js";
 import { mintFrom, nowMicros } from "../clock.js";
 import { limits } from "../data.js";
-import { fail, ValidationError } from "../errors.js";
+import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
 import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
@@ -74,15 +74,16 @@ export function checkTimestampId(id: string): bigint {
 }
 
 /** Every reference of a post through the one gate. With an owner the ownership rule runs too. */
-export function checkReferences(value: Post, publicRoot: boolean, owner: string | null): void {
+export function checkReferences(value: Post, publicRoot: boolean, owner: string | null, each: Each = throwing): void {
   const max = limits.referenceUriMaxLength;
-  if (value.parent !== null) checkReference("parent", value.parent, "", max, publicRoot, owner);
-  if (value.embed !== null) checkReference("embed", value.embed, "", max, publicRoot, owner);
-  if (value.lock !== null) checkReference("lock", value.lock, "pubky", max, publicRoot, owner);
-  value.attachments.forEach((a, index) => checkReference(`attachments[${index}].uri`, a.uri, "pubky or web", max, publicRoot, owner));
+  const { parent, embed, lock } = value;
+  if (parent !== null) each(() => checkReference("parent", parent, "", max, publicRoot, owner));
+  if (embed !== null) each(() => checkReference("embed", embed, "", max, publicRoot, owner));
+  if (lock !== null) each(() => checkReference("lock", lock, "pubky", max, publicRoot, owner));
+  value.attachments.forEach((a, index) => each(() => checkReference(`attachments[${index}].uri`, a.uri, "pubky or web", max, publicRoot, owner)));
   const { cover, items } = envelopeRefs(value);
-  if (cover !== null) checkReference("cover_image", cover, "pubky or web", limits.imageUrlMaxLength, publicRoot, owner);
-  items.forEach((uri, index) => checkReference(`items[${index}].uri`, uri, "", max, publicRoot, owner));
+  if (cover !== null) each(() => checkReference("cover_image", cover, "pubky or web", limits.imageUrlMaxLength, publicRoot, owner));
+  items.forEach((uri, index) => each(() => checkReference(`items[${index}].uri`, uri, "", max, publicRoot, owner)));
 }
 
 /**
@@ -111,41 +112,68 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
 
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
-function checkArticle(post: Post): void {
-  if (codePointLen(post.content) > limits.articleContentMaxLength) fail(`Article content must be at most ${limits.articleContentMaxLength} code points`, "content");
-  const envelope = parse(article, post.content, "Article content must be a valid JSON envelope: ");
-  checkExtra(envelope.extra);
-  // Other controls escape to six characters and would break the bound on the content
-  if (hasOtherControl(envelope.title) || hasOtherControl(envelope.body)) {
-    fail("Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
-  }
-  if (frozenTrim(envelope.title) === "") fail("Article title must contain non-whitespace characters", "title");
-  if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail(`Article title must be at most ${limits.articleTitleMaxLength} code points`, "title");
-  if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail(`Article body must be at most ${limits.articleBodyMaxLength} code points`, "body");
+function checkArticle(post: Post, each: Each): void {
+  each(() => {
+    if (codePointLen(post.content) > limits.articleContentMaxLength) fail(`Article content must be at most ${limits.articleContentMaxLength} code points`, "content");
+  });
+  // The rules below read the envelope, so they run only once it parsed
+  each(() => {
+    const envelope = parse(article, post.content, "Article content must be a valid JSON envelope: ");
+    each(() => checkExtra(envelope.extra));
+    // Other controls escape to six characters and would break the bound on the content
+    each(() => {
+      if (hasOtherControl(envelope.title) || hasOtherControl(envelope.body)) {
+        fail("Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
+      }
+    });
+    each(() => {
+      if (frozenTrim(envelope.title) === "") fail("Article title must contain non-whitespace characters", "title");
+      if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail(`Article title must be at most ${limits.articleTitleMaxLength} code points`, "title");
+    });
+    each(() => {
+      if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail(`Article body must be at most ${limits.articleBodyMaxLength} code points`, "body");
+    });
+  });
 }
 
-function checkCollection(post: Post): void {
-  if (post.parent !== null || post.embed !== null) fail("Collection posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
-  if (post.attachments.length > 0) fail("Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
-  if (codePointLen(post.content) > limits.collectionContentMaxLength) fail(`Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content");
-  const envelope = parse(collection, post.content, "Collection content must be a valid JSON envelope: ");
-  checkExtra(envelope.extra);
-  if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters", "name");
-  const length = codePointLen(envelope.name);
-  if (length < limits.collectionNameMinLength || length > limits.collectionNameMaxLength) {
-    fail(`Collection name must be ${limits.collectionNameMinLength}..=${limits.collectionNameMaxLength} characters`, "name");
-  }
-  if (envelope.description !== null) {
-    if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank", "description");
-    if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description");
-  }
-  if (envelope.items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
-  envelope.items.forEach((entry, index) => {
-    checkExtra(entry.extra);
-    const max = limits.collectionItemNoteMaxLength;
-    if (entry.note !== null && (frozenTrim(entry.note) === "" || codePointLen(entry.note) > max)) {
-      fail(`items[${index}].note must be 1..=${max} code points and not blank`, `items[${index}].note`);
-    }
+function checkCollection(post: Post, each: Each): void {
+  each(() => {
+    if (post.parent !== null || post.embed !== null) fail("Collection posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
+  });
+  each(() => {
+    if (post.attachments.length > 0) fail("Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
+  });
+  each(() => {
+    if (codePointLen(post.content) > limits.collectionContentMaxLength) fail(`Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content");
+  });
+  // The rules below read the envelope, so they run only once it parsed
+  each(() => {
+    const envelope = parse(collection, post.content, "Collection content must be a valid JSON envelope: ");
+    each(() => checkExtra(envelope.extra));
+    each(() => {
+      if (frozenTrim(envelope.name) === "") fail("Collection name must contain non-whitespace characters", "name");
+      const length = codePointLen(envelope.name);
+      if (length < limits.collectionNameMinLength || length > limits.collectionNameMaxLength) {
+        fail(`Collection name must be ${limits.collectionNameMinLength}..=${limits.collectionNameMaxLength} characters`, "name");
+      }
+    });
+    each(() => {
+      if (envelope.description === null) return;
+      if (frozenTrim(envelope.description) === "") fail("Collection description must not be blank", "description");
+      if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail(`Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description");
+    });
+    each(() => {
+      if (envelope.items.length > limits.collectionItemsMaxCount) fail(`Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items");
+    });
+    envelope.items.forEach((entry, index) => {
+      each(() => checkExtra(entry.extra));
+      each(() => {
+        const max = limits.collectionItemNoteMaxLength;
+        if (entry.note !== null && (frozenTrim(entry.note) === "" || codePointLen(entry.note) > max)) {
+          fail(`items[${index}].note must be 1..=${max} code points and not blank`, `items[${index}].note`);
+        }
+      });
+    });
   });
 }
 
@@ -159,31 +187,49 @@ export const post: Model<Post> = {
     lock: omitted(string),
   }),
   maxBytes: limits.postMaxBytes,
-  check(value, id, publicRoot) {
-    if (id !== null) checkTimestampId(id);
-    checkExtra(value.extra);
+  check(value, id, publicRoot, each) {
+    if (id !== null) each(() => void checkTimestampId(id));
+    each(() => checkExtra(value.extra));
     // "unknown" is what a newer kind reads as: readable, never valid to write
-    if (value.kind === "unknown") fail("post kind is unknown", "kind");
-    checkReferences(value, publicRoot, null);
-    if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments");
+    each(() => {
+      if (value.kind === "unknown") fail("post kind is unknown", "kind");
+    });
+    checkReferences(value, publicRoot, null, each);
+    each(() => {
+      if (value.attachments.length > limits.postAttachmentsMaxCount) fail(`Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments");
+    });
     value.attachments.forEach((a, index) => {
-      checkExtra(a.extra);
-      if (a.alt !== null && codePointLen(a.alt) > limits.attachmentAltMaxLength) {
-        fail(`attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`);
-      }
-      const max = limits.attachmentNameMaxLength;
-      if (a.name !== null && (frozenTrim(a.name) === "" || codePointLen(a.name) > max)) {
-        fail(`attachments[${index}].name must be 1..=${max} code points and not blank`, `attachments[${index}].name`);
+      each(() => checkExtra(a.extra));
+      each(() => {
+        if (a.alt !== null && codePointLen(a.alt) > limits.attachmentAltMaxLength) {
+          fail(`attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`);
+        }
+      });
+      each(() => {
+        const max = limits.attachmentNameMaxLength;
+        if (a.name !== null && (frozenTrim(a.name) === "" || codePointLen(a.name) > max)) {
+          fail(`attachments[${index}].name must be 1..=${max} code points and not blank`, `attachments[${index}].name`);
+        }
+      });
+    });
+    if (value.kind === "collection") {
+      checkCollection(value, each);
+      return;
+    }
+    if (value.kind === "article") {
+      checkArticle(value, each);
+      return;
+    }
+    each(() => {
+      if (frozenTrim(value.content) === "" && value.embed === null && value.attachments.length === 0) {
+        fail("Post must have content, an embed, or attachments", "content");
       }
     });
-    if (value.kind === "collection") return checkCollection(value);
-    if (value.kind === "article") return checkArticle(value);
-    if (frozenTrim(value.content) === "" && value.embed === null && value.attachments.length === 0) {
-      fail("Post must have content, an embed, or attachments", "content");
-    }
-    if (codePointLen(value.content) > limits.postNoteContentMaxLength) {
-      fail(`content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`, "content");
-    }
+    each(() => {
+      if (codePointLen(value.content) > limits.postNoteContentMaxLength) {
+        fail(`content must be at most ${limits.postNoteContentMaxLength} code points for kind ${value.kind}`, "content");
+      }
+    });
   },
 };
 
@@ -196,22 +242,24 @@ export interface Minted {
 }
 
 // Where one version goes, after every rule a stored version has to pass
-function mint(value: Post, id: string, editId: string, root: Root, owner: string, slug: string | null): Minted {
-  if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+function mint(value: Post, id: string, editId: string, root: Root, owner: string | null, slug: string | null, each: Each = throwing): Minted {
+  each(() => {
+    if (slug !== null && !isSlug(slug)) fail(`slug must be 1..=${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+  });
   const publicRoot = root === "public";
-  const body = validate(post, value, id, publicRoot);
+  const body = validate(post, value, id, publicRoot, each);
   // The editId is a TimestampId too, so the validity bound applies to it
-  checkTimestampId(editId);
+  each(() => void checkTimestampId(editId));
   // The ownership rule, which the plain rules have no author for
-  checkReferences(value, publicRoot, owner);
+  if (owner !== null) checkReferences(value, publicRoot, owner, each);
   return { id, editId, path: socialPath(root, `posts/${id}/${editId}${slug === null ? "" : `-${slug}`}.json`), value, body };
 }
 
-/** A new post: the id is minted first, so a refused post still moves the mint. */
-function create(value: Post, root: Root, owner: string, slug: string | null): Minted {
-  const id = timestampId(mintFrom(nowMicros()));
-  return mint(value, id, id, root, owner, slug);
-}
+/** The id of a new post: minted, so a refused post still moves the mint. */
+const minted = (): string => timestampId(mintFrom(nowMicros()));
+
+/** The id a validator checks a new post under: the clock's, which leaves the mint alone. */
+export const unminted = (): string => timestampId(nowMicros());
 
 // How far above a head a salted successor may land
 const SPREAD = 60_000_000n;
@@ -243,56 +291,65 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
 }
 
 const maybe = option(string);
-const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: rootOf(i.root, "input.root"), slug: maybe.parse(i.slug, "input.slug") });
-const attachments = option(list({ ...attachment, parse: (js: unknown, at: string): Attachment => {
-  const a = inputOf(js, at, ["uri", "alt", "name"]);
-  const name = maybe.parse(a.name, `${at}.name`);
-  return { uri: string.parse(a.uri, `${at}.uri`), alt: maybe.parse(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
-} }));
-const items = option(list({ ...item, parse: (js: unknown, at: string): CollectionItem => {
-  const entry = inputOf(js, at, ["uri", "note"]);
-  return { uri: string.parse(entry.uri, `${at}.uri`), note: trimmedOrNull(maybe.parse(entry.note, `${at}.note`)), extra: new Map() };
-} }));
 
-/** What a post that can reply, quote and carry media takes, in the order a builder reads it. */
-const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
-  parent: maybe.parse(i.parent, "input.parent"),
-  embed: maybe.parse(i.embed, "input.embed"),
-  attachments: attachments.parse(i.attachments, "input.attachments") ?? [],
-  lock: maybe.parse(i.lock, "input.lock"),
-});
+/**
+ * A new post. The builder trims the display text and writes the envelope of a typed kind. A
+ * validator passes a collecting `each`, `unminted` and, when it has one, the owner.
+ */
+export function buildPost(owner: string | null, input: unknown, each: Each = throwing, newId: () => string = minted): Minted {
+  if (owner !== null) checkPublicKey(owner);
+  const str = (js: unknown, at: string) => member(each, () => string.parse(js, at), "");
+  const opt = (js: unknown, at: string) => member(each, () => maybe.parse(js, at), null);
+  const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: member<Root>(each, () => rootOf(i.root, "input.root"), "public"), slug: opt(i.slug, "input.slug") });
+  const attachments = option(list({ ...attachment, parse: (js: unknown, at: string): Attachment => {
+    const a = inputOf(js, at, ["uri", "alt", "name"], each);
+    const name = opt(a.name, `${at}.name`);
+    return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
+  } }));
+  const items = option(list({ ...item, parse: (js: unknown, at: string): CollectionItem => {
+    const entry = inputOf(js, at, ["uri", "note"], each);
+    return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
+  } }));
+  // What a post that can reply, quote and carry media takes, in the order a builder reads it
+  const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
+    parent: opt(i.parent, "input.parent"),
+    embed: opt(i.embed, "input.embed"),
+    attachments: member(each, () => attachments.parse(i.attachments, "input.attachments"), null) ?? [],
+    lock: opt(i.lock, "input.lock"),
+  });
+  const create = (value: Post, root: Root, slug: string | null): Minted => {
+    const id = newId();
+    return mint(value, id, id, root, owner, slug, each);
+  };
 
-/** A new post. The builder trims the display text and writes the envelope of a typed kind. */
-export function buildPost(owner: string, input: unknown): Minted {
-  checkPublicKey(owner);
   const kind = typeof input === "object" && input !== null && Object.hasOwn(input, "kind") ? (input as { kind: unknown }).kind : undefined;
   if (kind === "article") {
-    const i = inputOf(input, "input", ["kind", "title", "body", "cover_image", "parent", "embed", "attachments", "lock", "root", "slug"]);
+    const i = inputOf(input, "input", ["kind", "title", "body", "cover_image", "parent", "embed", "attachments", "lock", "root", "slug"], each);
     const content = article.write({
-      title: frozenTrim(string.parse(i.title, "input.title")),
-      body: string.parse(i.body, "input.body"),
-      cover_image: maybe.parse(i.cover_image, "input.cover_image"),
+      title: frozenTrim(str(i.title, "input.title")),
+      body: str(i.body, "input.body"),
+      cover_image: opt(i.cover_image, "input.cover_image"),
       extra: new Map(),
     });
     const thread = threaded(i);
     const { root, slug } = placement(i);
-    return create({ content, kind, ...thread, extra: new Map() }, root, owner, slug);
+    return create({ content, kind, ...thread, extra: new Map() }, root, slug);
   }
   if (kind === "collection") {
-    const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"]);
-    const name = frozenTrim(string.parse(i.name, "input.name"));
-    const description = trimmedOrNull(maybe.parse(i.description, "input.description"));
-    const entries = items.parse(i.items, "input.items") ?? [];
-    const cover = maybe.parse(i.cover_image, "input.cover_image");
-    const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : known(collectionLayouts, "collection layout", i.layout, "layout");
+    const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"], each);
+    const name = frozenTrim(str(i.name, "input.name"));
+    const description = trimmedOrNull(opt(i.description, "input.description"));
+    const entries = member(each, () => items.parse(i.items, "input.items"), null) ?? [];
+    const cover = opt(i.cover_image, "input.cover_image");
+    const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", i.layout, "layout"), null);
     const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     const { root, slug } = placement(i);
-    return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, owner, slug);
+    return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
-  const i = inputOf(input, "input", ["kind", "content", "parent", "embed", "attachments", "lock", "root", "slug"]);
-  const content = frozenTrim(string.parse(i.content, "input.content"));
-  const typed = i.kind === null || i.kind === undefined ? "note" : known(postKinds, "content kind", i.kind, "kind");
+  const i = inputOf(input, "input", ["kind", "content", "parent", "embed", "attachments", "lock", "root", "slug"], each);
+  const content = frozenTrim(str(i.content, "input.content"));
+  const typed = i.kind === null || i.kind === undefined ? "note" : member<PostKind>(each, () => known(postKinds, "content kind", i.kind, "kind"), "note");
   const thread = threaded(i);
   const { root, slug } = placement(i);
-  return create({ content, kind: typed, ...thread, extra: new Map() }, root, owner, slug);
+  return create({ content, kind: typed, ...thread, extra: new Map() }, root, slug);
 }

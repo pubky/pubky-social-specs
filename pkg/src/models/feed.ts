@@ -1,6 +1,6 @@
 import { nowMicros } from "../clock.js";
 import { limits } from "../data.js";
-import { fail } from "../errors.js";
+import { type Each, fail, member, throwing } from "../errors.js";
 import { checkHashId, checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, inputOf, list, object, omitted, option, string } from "../json/schema.js";
 import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
@@ -68,28 +68,36 @@ const config = object<FeedConfig>("PubkySocialFeedConfig", {
 export const feed: Model<Feed> = {
   codec: object<Feed>("PubkySocialFeed", { feed: config, name: string, icon: omitted(string), created_at: i64 }),
   maxBytes: limits.objectMaxBytes,
-  check(value, id) {
+  check(value, id, _publicRoot, each) {
     const f = value.feed;
     // reach, layout and sort define the feed; an unknown content filter only means no filter
-    if (f.reach === "unknown") fail("feed reach is unknown", "reach");
-    if (f.layout === "unknown") fail("feed layout is unknown", "layout");
-    if (f.sort === "unknown") fail("feed sort is unknown", "sort");
-    checkExtra(f.extra);
-    checkTagList(f.tags, "tags");
-    checkTagList(f.domain_tags, "domain_tags");
-    checkExtra(value.extra);
-    if (frozenTrim(value.name) === "") fail("Feed name cannot be empty", "name");
-    if (codePointLen(value.name) > limits.feedNameMaxLength) fail(`Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`, "name");
-    checkIcon(value.icon);
-    checkSafeInt(value.created_at);
-    if (id !== null) {
+    each(() => {
+      if (f.reach === "unknown") fail("feed reach is unknown", "reach");
+    });
+    each(() => {
+      if (f.layout === "unknown") fail("feed layout is unknown", "layout");
+    });
+    each(() => {
+      if (f.sort === "unknown") fail("feed sort is unknown", "sort");
+    });
+    each(() => checkExtra(f.extra));
+    each(() => checkTagList(f.tags, "tags"));
+    each(() => checkTagList(f.domain_tags, "domain_tags"));
+    each(() => checkExtra(value.extra));
+    each(() => {
+      if (frozenTrim(value.name) === "") fail("Feed name cannot be empty", "name");
+      if (codePointLen(value.name) > limits.feedNameMaxLength) fail(`Feed name exceeds maximum length of ${limits.feedNameMaxLength} characters`, "name");
+    });
+    each(() => checkIcon(value.icon));
+    each(() => checkSafeInt(value.created_at));
+    if (id !== null) each(() => {
       checkHashId(id, "id");
       // A reader that does not know the content filter cannot rebuild the writer's id input
       if (f.content !== "unknown") {
         const expected = idOf(value);
         if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
       }
-    }
+    });
   },
 };
 
@@ -110,20 +118,20 @@ function filter(tags: string[] | null, field: string): string[] | null {
 }
 
 /** A feed at its private path. The builder folds and sorts the filter and trims the name. */
-export function buildFeed(owner: string, input: unknown) {
-  checkPublicKey(owner);
-  const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "name", "icon"]);
-  const given = { tags: tagList.parse(i.tags, "input.tags"), domain: tagList.parse(i.domain_tags, "input.domain_tags") };
-  const name = string.parse(i.name, "input.name");
-  const icon = string.parse(i.icon, "input.icon");
-  const content = i.content === null || i.content === undefined ? null : known(postKinds, "content kind", i.content, "content");
-  const reach = known(feedReaches, "feed reach", i.reach, "reach");
-  const layout = known(feedLayouts, "feed layout", i.layout, "layout");
-  const sort = known(feedSorts, "feed sort", i.sort, "sort");
-  const tags = filter(given.tags, "tags");
-  const domainTags = filter(given.domain, "domain_tags");
-  checkTagList(tags, "tags");
-  checkTagList(domainTags, "domain_tags");
+export function buildFeed(owner: string | null, input: unknown, each: Each = throwing) {
+  if (owner !== null) checkPublicKey(owner);
+  const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "name", "icon"], each);
+  const given = { tags: member(each, () => tagList.parse(i.tags, "input.tags"), null), domain: member(each, () => tagList.parse(i.domain_tags, "input.domain_tags"), null) };
+  const name = member(each, () => string.parse(i.name, "input.name"), "");
+  const icon = member(each, () => string.parse(i.icon, "input.icon"), "");
+  const content = i.content === null || i.content === undefined ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", i.content, "content"), null);
+  const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", i.reach, "reach"), "all");
+  const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", i.layout, "layout"), "columns");
+  const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", i.sort, "sort"), "recent");
+  const tags = member(each, () => filter(given.tags, "tags"), null);
+  const domainTags = member(each, () => filter(given.domain, "domain_tags"), null);
+  each(() => checkTagList(tags, "tags"));
+  each(() => checkTagList(domainTags, "domain_tags"));
   const value: Feed = {
     feed: { tags, domain_tags: domainTags, reach, layout, sort, content, extra: new Map() },
     name: frozenTrim(name),
@@ -131,7 +139,7 @@ export function buildFeed(owner: string, input: unknown) {
     created_at: nowMicros(),
     extra: new Map(),
   };
-  const body = validate(feed, value, null, false);
+  const body = validate(feed, value, null, false, each);
   const id = idOf(value);
   return { id, path: socialPath("private", `feeds/${id}.json`), value, body };
 }
