@@ -6,10 +6,10 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { validate } from "./models/common.js";
-import { checkReferences, checkTimestampId, envelopeRefs, post, type Post, withCover } from "./models/post.js";
+import { checkReferences, checkSlug, checkTimestampId, envelopeRefs, post, type Post, versionPath, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
 import { LEGACY_ROOT } from "./legacy.js";
-import { isPrivatePath, isSlug, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
+import { isPrivatePath, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
 interface Copy {
   from: string;
@@ -18,7 +18,8 @@ interface Copy {
 
 const ownerPrefix = (owner: string) => `pubky://${owner}`;
 const mediaPrefix = (owner: string, root: Root) => ownerPrefix(owner) + socialPath(root, "files/");
-const toPath = (uri: string, owner: string) => (uri.startsWith(ownerPrefix(owner)) ? uri.slice(ownerPrefix(owner).length) : uri);
+// Every caller passes a URI under the owner's media prefix
+const toPath = (uri: string, owner: string) => uri.slice(ownerPrefix(owner).length);
 
 // Every caller has matched the owner's media prefix first, so the URI has an owner and a path
 const isMediaObject = (uri: string): boolean => parsePath(splitPubky(uri)?.path ?? null)?.kind === "file";
@@ -62,19 +63,19 @@ function toPublic(uri: string, owner: string): string {
  */
 export function planPublish(owner: string, id: string, editId: string, value: Post, slug: string | null) {
   checkPublicKey(owner);
-  if (slug !== null && !isSlug(slug)) fail("format", `slug must be 1 to ${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+  checkSlug(slug);
   checkTimestampId(id);
   checkTimestampId(editId, "editId");
   if (compareBytes(editId, id) < 0) fail("id", `editId ${editId} predates the post id ${id}`, "editId");
   const copies: Copy[] = privateMediaRefs(value, owner).map((uri) => ({ from: toPath(uri, owner), to: toPath(toPublic(uri, owner), owner) }));
   // The cover lives inside the envelope; one that does not parse is left for validation to refuse
   const { cover } = envelopeRefs(value);
-  const content = cover !== null && toPublic(cover, owner) !== cover ? (withCover(value, toPublic(cover, owner)) ?? value.content) : value.content;
+  const publicCover = cover === null ? null : toPublic(cover, owner);
+  const content = publicCover !== null && publicCover !== cover ? (withCover(value, publicCover) ?? value.content) : value.content;
   const published: Post = { ...value, content, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
   const body = validate(post, published, id, true);
   checkReferences(published, true, owner);
-  const leaf = `${editId}${slug === null ? "" : `-${slug}`}.json`;
-  return { copies, put: { id, editId, path: socialPath("public", `posts/${id}/${leaf}`), value: published, body } };
+  return { copies, put: { id, editId, path: versionPath("public", id, editId, slug), value: published, body } };
 }
 
 function editIdOf(id: string, root: Root, path: string): string {

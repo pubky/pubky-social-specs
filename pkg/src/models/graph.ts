@@ -57,10 +57,11 @@ export const tag: Model<Tag> = {
   codec: object<Tag>("PubkySocialTag", { uri: string, label: string, created_at: i64 }),
   maxBytes: limits.objectMaxBytes,
   check(value, id, _publicRoot, each) {
-    each(() => {
-      const expected = tagId(value);
-      if (id !== null && expected !== id) fail("id", `Invalid ID: expected ${expected}, found ${id}`, "id");
-    });
+    if (id !== null)
+      each(() => {
+        const expected = tagId(value);
+        if (expected !== id) fail("id", `Invalid ID: expected ${expected}, found ${id}`, "id");
+      });
     each(() => checkExtra(value.extra));
     each(() => {
       if (value.label !== foldLabel(value.label)) fail("format", `Tag '${value.label}' must be stored folded (trimmed, ASCII lowercase)`, "label");
@@ -87,7 +88,7 @@ export interface Bookmark extends Extra {
 }
 
 const TARGET = "bookmark target";
-const MAX = limits.bookmarkTargetUriMaxBytes;
+const PRIMARY_MAX = limits.bookmarkTargetUriMaxBytes;
 
 function canonicalTarget(target: string): string {
   const result = reference(target, "", limits.referenceUriMaxLength, true, null);
@@ -97,11 +98,11 @@ function canonicalTarget(target: string): string {
 const checkTarget = (target: string) => checkReference(TARGET, target, "", limits.referenceUriMaxLength, true, null);
 
 /** The id carries the target; one too long for a path segment goes by its hash. */
-const idOf = (canonical: string) => (utf8Len(canonical) <= MAX ? base64url.encode(utf8(canonical)) : `~${hashText(canonical)}`);
+const bookmarkId = (canonical: string) => (utf8Len(canonical) <= PRIMARY_MAX ? base64url.encode(utf8(canonical)) : `~${hashText(canonical)}`);
 
 function checkStoredTarget(target: string): void {
   checkTarget(target);
-  if (utf8Len(target) <= MAX) fail("conflict", `a target of ${utf8Len(target)} bytes belongs in the primary bookmark form`, "target");
+  if (utf8Len(target) <= PRIMARY_MAX) fail("conflict", `a target of ${utf8Len(target)} bytes belongs in the primary bookmark form`, "target");
 }
 
 /** The target a stored bookmark names. The content is needed only for the `~` form. */
@@ -119,7 +120,7 @@ export function targetOf(id: string, content: Bookmark): string {
   if (target === null) fail("format", `bookmark filename is not UTF-8: ${id}`, "id");
   checkTarget(target);
   // Without the bound one target has a primary spelling and an overflow one
-  if (bytes.length > MAX) fail("conflict", `a target over ${MAX} bytes belongs in the overflow bookmark form`, "target");
+  if (bytes.length > PRIMARY_MAX) fail("conflict", `a target over ${PRIMARY_MAX} bytes belongs in the overflow bookmark form`, "target");
   return target;
 }
 
@@ -139,7 +140,7 @@ export const bookmark: Model<Bookmark> = {
 export function buildBookmark(owner: string, target: string) {
   checkPublicKey(owner);
   const canonical = canonicalTarget(target);
-  const id = idOf(canonical);
+  const id = bookmarkId(canonical);
   const value: Bookmark = { created_at: nowMicros(), target: id.startsWith("~") ? canonical : null, extra: new Map() };
   return { id, path: socialPath("private", `bookmarks/${id}.json`), value, body: validate(bookmark, value, id, false) };
 }

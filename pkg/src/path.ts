@@ -19,7 +19,7 @@ export const isObjectKind = (kind: string): kind is ObjectKind => (OBJECT_KINDS 
 type Resource =
   | { kind: "user" }
   | { kind: "post"; id: string; editId?: string; slug?: string }
-  | { [K in "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]: { kind: K; id: string } }["follow" | "mute" | "bookmark" | "tag" | "file" | "feed"]
+  | { kind: "follow" | "mute" | "bookmark" | "tag" | "file" | "feed"; id: string }
   | { kind: "foreign"; namespace: string; version?: string; rest: string[] }
   | { kind: "unsupportedVersion"; version: string }
   | { kind: "unknown" };

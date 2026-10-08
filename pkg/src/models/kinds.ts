@@ -91,7 +91,6 @@ export const collectionLayout: Codec<CollectionLayout> = string;
 export const isKnown = (names: readonly string[], name: string): boolean => names.includes(name);
 
 /** A name a builder was given at `input.{field}`: one of `names`, or a refusal naming `what`. */
-export function known<T extends string>(names: readonly T[], what: string, js: unknown, field: string): T {
-  const name = string.parse(js, `input.${field}`);
-  return (names as readonly string[]).includes(name) ? (name as T) : fail("unknown_name", `Invalid ${what}: ${name}`, field);
+export function known<T extends string>(names: readonly T[], what: string, name: string, field: string): T {
+  return isKnown(names, name) ? (name as T) : fail("unknown_name", `Invalid ${what}: ${name}`, field);
 }

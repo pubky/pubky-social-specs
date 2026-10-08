@@ -27,7 +27,6 @@ const models: { [K in keyof Models]: Model<Models[K]> } = { user, post, follow, 
 
 /** The model of a kind known only at run time, its value type erased at this one place. */
 export const modelOf = (kind: Exclude<ObjectKind, "file">): Model<unknown> => models[kind];
-const isStoredKind = (kind: string): kind is keyof Models => Object.hasOwn(models, kind);
 
 // What a path names that is no stored object
 function stored(parsed: Parsed, uri: string): { kind: ObjectKind; id: string; editId: string | null } {
@@ -85,7 +84,7 @@ export function write(at: string | { kind: ObjectKind; root: Root }, js: unknown
     checkFile(js, id);
     return js as Bytes;
   }
-  if (!isStoredKind(nameOf(kind, "kind", OBJECT_KINDS))) misuse("kind", "an object kind");
+  nameOf(kind, "kind", OBJECT_KINDS);
   if (ArrayBuffer.isView(js)) misuse("object", `the decoded ${kind}, not its bytes`);
   const model = modelOf(kind);
   const value = model.codec.parse(js, kind);

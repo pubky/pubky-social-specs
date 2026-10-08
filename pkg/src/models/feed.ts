@@ -5,7 +5,7 @@ import { checkHashId, checkPublicKey, hashText } from "../ids.js";
 import { type Extra, i64, inputOf, list, object, omitted, option, string } from "../json/schema.js";
 import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
 import { socialPath } from "../path.js";
-import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
+import { checkExtra, checkSafeInt, inputReads, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./label.js";
 import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
@@ -113,8 +113,6 @@ export function feedId(value: Feed): string {
   return idOf(value);
 }
 
-const tagList = option(list(string));
-
 function filter(tags: string[] | null, field: string): string[] | null {
   if (tags === null) return null;
   if (tags.length === 0) fail("blank", `${field} must not be an empty list; leave it out for no filter`, field);
@@ -125,24 +123,24 @@ function filter(tags: string[] | null, field: string): string[] | null {
 /** A feed at its private path. The builder folds and sorts the filter and trims the name. */
 export function buildFeed(owner: string | null, input: unknown, each: Each = throwing) {
   if (owner !== null) checkPublicKey(owner);
+  const { str, opt, items } = inputReads(each);
   const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "name", "icon"], each);
-  const given = { tags: member(each, () => tagList.parse(i.tags, "input.tags"), null), domain: member(each, () => tagList.parse(i.domain_tags, "input.domain_tags"), null) };
-  const name = member(each, () => string.parse(i.name, "input.name"), "");
-  const icon = member(each, () => string.parse(i.icon, "input.icon"), "");
+  const tag = (js: unknown, at: string) => string.parse(js, at);
+  const givenTags = items(i.tags, "input.tags", tag);
+  const givenDomainTags = items(i.domain_tags, "input.domain_tags", tag);
+  const name = str(i.name, "input.name");
+  const icon = str(i.icon, "input.icon");
   // Every member's shape before any name is judged: the reference reads the whole input first
-  const raw = (js: unknown, field: string, fallback: string) => member(each, () => string.parse(js, `input.${field}`), fallback);
-  const names = {
-    content: i.content === null || i.content === undefined ? null : raw(i.content, "content", "note"),
-    reach: raw(i.reach, "reach", "all"),
-    layout: raw(i.layout, "layout", "columns"),
-    sort: raw(i.sort, "sort", "recent"),
-  };
-  const content = names.content === null ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", names.content, "content"), null);
-  const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", names.reach, "reach"), "all");
-  const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", names.layout, "layout"), "columns");
-  const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", names.sort, "sort"), "recent");
-  const tags = member(each, () => filter(given.tags, "tags"), null);
-  const domainTags = member(each, () => filter(given.domain, "domain_tags"), null);
+  const contentName = opt(i.content, "input.content", "note");
+  const reachName = str(i.reach, "input.reach", "all");
+  const layoutName = str(i.layout, "input.layout", "columns");
+  const sortName = str(i.sort, "input.sort", "recent");
+  const content = contentName === null ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", contentName, "content"), null);
+  const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", reachName, "reach"), "all");
+  const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", layoutName, "layout"), "columns");
+  const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", sortName, "sort"), "recent");
+  const tags = member(each, () => filter(givenTags, "tags"), null);
+  const domainTags = member(each, () => filter(givenDomainTags, "domain_tags"), null);
   // The config is checked as the builder makes it, before the feed's own rules run it again:
   // the reference builds the config first, so its refusal is the first one
   each(() => checkTagList(tags, "tags"));

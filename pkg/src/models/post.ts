@@ -11,7 +11,7 @@ import { type Json, JsonError, readJson } from "../json/read.js";
 import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
-import { checkExtra, type Model, parse, validate } from "./common.js";
+import { checkExtra, inputReads, type Model, parse, validate } from "./common.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {
@@ -118,16 +118,14 @@ interface Envelope {
   parsed: ArticleContent | CollectionContent | ValidationError;
 }
 
-const ENVELOPE_PREFIX = { article: "Article content must be a valid JSON envelope: ", collection: "Collection content must be a valid JSON envelope: " } as const;
-
 // One read per post: the references, the caps and the kind's own rules all look at it
 const envelopes = new WeakMap<Post, Envelope>();
 
 function envelopeOf(value: Post): Envelope | null {
   const { kind, content } = value;
   if (kind !== "article" && kind !== "collection") return null;
-  const known = envelopes.get(value);
-  if (known !== undefined && known.kind === kind && known.content === content) return known;
+  const cached = envelopes.get(value);
+  if (cached !== undefined && cached.kind === kind && cached.content === content) return cached;
   // The cover is read from any object, so a cover beside a member of the wrong type still counts
   let json: Json | undefined;
   try {
@@ -135,24 +133,27 @@ function envelopeOf(value: Post): Envelope | null {
   } catch (e) {
     if (!(e instanceof JsonError)) throw e;
   }
-  const member = json instanceof Map ? json.get("cover_image") : undefined;
+  const cover = json instanceof Map ? json.get("cover_image") : undefined;
   let parsed: Envelope["parsed"];
   try {
-    parsed = kind === "article" ? parse(article, content, ENVELOPE_PREFIX.article, "content") : parse(collection, content, ENVELOPE_PREFIX.collection, "content");
+    parsed =
+      kind === "article"
+        ? parse(article, content, "Article content must be a valid JSON envelope: ", "content")
+        : parse(collection, content, "Collection content must be a valid JSON envelope: ", "content");
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
     parsed = e;
   }
-  const envelope = { kind, content, cover: typeof member === "string" ? member : null, parsed };
+  const envelope = { kind, content, cover: typeof cover === "string" ? cover : null, parsed };
   envelopes.set(value, envelope);
   return envelope;
 }
 
 /** The envelope of an article or a collection as its kind reads it, or the refusal. */
-function strictEnvelope<K extends "article" | "collection">(value: Post & { kind: K }): K extends "article" ? ArticleContent : CollectionContent {
+function strictEnvelope(value: Post): ArticleContent | CollectionContent {
   const { parsed } = envelopeOf(value) as Envelope;
   if (parsed instanceof ValidationError) throw parsed;
-  return parsed as K extends "article" ? ArticleContent : CollectionContent;
+  return parsed;
 }
 
 /**
@@ -172,13 +173,18 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
  * writes it so only the cover changes; null when the content does not parse as that envelope.
  */
 export function withCover(value: Post, cover: string): string | null {
-  const envelope = envelopeOf(value);
-  if (envelope === null || envelope.parsed instanceof ValidationError) return null;
-  return value.kind === "article" ? article.write({ ...(envelope.parsed as ArticleContent), cover_image: cover }) : collection.write({ ...(envelope.parsed as CollectionContent), cover_image: cover });
+  const parsed = envelopeOf(value)?.parsed;
+  if (parsed === undefined || parsed instanceof ValidationError) return null;
+  return value.kind === "article" ? article.write({ ...(parsed as ArticleContent), cover_image: cover }) : collection.write({ ...(parsed as CollectionContent), cover_image: cover });
+}
+
+// An attachment's name or an item's note: absent, or 1 to `max` code points and not blank
+function checkShortText(text: string | null, field: string, max: number): void {
+  if (text !== null && (frozenTrim(text) === "" || codePointLen(text) > max)) fail("length", `${field} must be 1 to ${max} code points and not blank`, field, max);
 }
 
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
-const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
+
 function checkArticle(post: Post, each: Each): void {
   each(() => {
     if (codePointLen(post.content) > limits.articleContentMaxLength)
@@ -186,13 +192,12 @@ function checkArticle(post: Post, each: Each): void {
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
-    const envelope = strictEnvelope(post as Post & { kind: "article" });
+    const envelope = strictEnvelope(post) as ArticleContent;
     each(() => checkExtra(envelope.extra));
     // Other controls escape to six characters and would break the bound on the content
     each(() => {
-      if (hasOtherControl(envelope.title) || hasOtherControl(envelope.body)) {
-        fail("format", "Article text must not contain control characters other than tab, newline and carriage return", hasOtherControl(envelope.title) ? "title" : "body");
-      }
+      const field = OTHER_CONTROL.test(envelope.title) ? "title" : OTHER_CONTROL.test(envelope.body) ? "body" : null;
+      if (field !== null) fail("format", "Article text must not contain control characters other than tab, newline and carriage return", field);
     });
     each(() => {
       if (frozenTrim(envelope.title) === "") fail("blank", "Article title must contain non-whitespace characters", "title");
@@ -218,7 +223,7 @@ function checkCollection(post: Post, each: Each): void {
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
-    const envelope = strictEnvelope(post as Post & { kind: "collection" });
+    const envelope = strictEnvelope(post) as CollectionContent;
     each(() => checkExtra(envelope.extra));
     each(() => {
       if (frozenTrim(envelope.name) === "") fail("blank", "Collection name must contain non-whitespace characters", "name");
@@ -240,12 +245,7 @@ function checkCollection(post: Post, each: Each): void {
     });
     envelope.items.forEach((entry, index) => {
       each(() => checkExtra(entry.extra, `items[${index}].`));
-      each(() => {
-        const max = limits.collectionItemNoteMaxLength;
-        if (entry.note !== null && (frozenTrim(entry.note) === "" || codePointLen(entry.note) > max)) {
-          fail("length", `items[${index}].note must be 1 to ${max} code points and not blank`, `items[${index}].note`, max);
-        }
-      });
+      each(() => checkShortText(entry.note, `items[${index}].note`, limits.collectionItemNoteMaxLength));
     });
   });
 }
@@ -283,12 +283,7 @@ export const post: Model<Post> = {
           fail("length", `attachments[${index}].alt must be at most ${limits.attachmentAltMaxLength} code points`, `attachments[${index}].alt`, limits.attachmentAltMaxLength);
         }
       });
-      each(() => {
-        const max = limits.attachmentNameMaxLength;
-        if (a.name !== null && (frozenTrim(a.name) === "" || codePointLen(a.name) > max)) {
-          fail("length", `attachments[${index}].name must be 1 to ${max} code points and not blank`, `attachments[${index}].name`, max);
-        }
-      });
+      each(() => checkShortText(a.name, `attachments[${index}].name`, limits.attachmentNameMaxLength));
     });
     if (value.kind === "collection") {
       checkCollection(value, each);
@@ -319,18 +314,24 @@ export interface Minted {
   body: string;
 }
 
+/** A slug, when given: what a version filename may carry after its editId. */
+export function checkSlug(slug: string | null): void {
+  if (slug !== null && !isSlug(slug)) fail("format", `slug must be 1 to ${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+}
+
+/** Where version `editId` of post `id` is stored under `root`. */
+export const versionPath = (root: Root, id: string, editId: string, slug: string | null): OwnerPath => socialPath(root, `posts/${id}/${editId}${slug === null ? "" : `-${slug}`}.json`);
+
 // Where one version goes, after every rule a stored version has to pass
 function mint(value: Post, id: string, editId: string, root: Root, owner: string | null, slug: string | null, each: Each = throwing): Minted {
-  each(() => {
-    if (slug !== null && !isSlug(slug)) fail("format", `slug must be 1 to ${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
-  });
+  each(() => checkSlug(slug));
   const publicRoot = root === "public";
   const body = validate(post, value, id, publicRoot, each);
   // The editId is a TimestampId too, so the validity bound applies to it
   each(() => void checkTimestampId(editId, "editId"));
   // The ownership rule, which the plain rules have no author for
   if (owner !== null) checkReferences(value, publicRoot, owner, each);
-  return { id, editId, path: socialPath(root, `posts/${id}/${editId}${slug === null ? "" : `-${slug}`}.json`), value, body };
+  return { id, editId, path: versionPath(root, id, editId, slug), value, body };
 }
 
 /** The id of a new post: minted, so a refused post still moves the mint. */
@@ -369,41 +370,24 @@ export function editPost(owner: string, value: Post, id: string, head: string, r
   return mint(value, id, timestampId(minted), root, owner, slug);
 }
 
-const maybe = option(string);
-
 /**
  * A new post. The builder trims the display text and writes the envelope of a typed kind. A
  * validator passes a collecting `each`, `unminted` and, when it has one, the owner.
  */
 export function buildPost(owner: string | null, input: unknown, each: Each = throwing, newId: () => string = minted): Minted {
   if (owner !== null) checkPublicKey(owner);
-  const str = (js: unknown, at: string) => member(each, () => string.parse(js, at), "");
-  const opt = (js: unknown, at: string) => member(each, () => maybe.parse(js, at), null);
+  const { str, opt, items } = inputReads(each);
   const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: member<Root>(each, () => rootOf(i.root, "input.root"), "public"), slug: opt(i.slug, "input.slug") });
-  const attachments = option(
-    list({
-      ...attachment,
-      parse: (js: unknown, at: string): Attachment => {
-        const a = inputOf(js, at, ["uri", "alt", "name"], each);
-        const name = opt(a.name, `${at}.name`);
-        return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
-      },
-    }),
-  );
-  const items = option(
-    list({
-      ...item,
-      parse: (js: unknown, at: string): CollectionItem => {
-        const entry = inputOf(js, at, ["uri", "note"], each);
-        return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
-      },
-    }),
-  );
   // What a post that can reply, quote and carry media takes, in the order a builder reads it
   const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
     parent: opt(i.parent, "input.parent"),
     embed: opt(i.embed, "input.embed"),
-    attachments: member(each, () => attachments.parse(i.attachments, "input.attachments"), null) ?? [],
+    attachments:
+      items(i.attachments, "input.attachments", (js, at): Attachment => {
+        const a = inputOf(js, at, ["uri", "alt", "name"], each);
+        const name = opt(a.name, `${at}.name`);
+        return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
+      }) ?? [],
     lock: opt(i.lock, "input.lock"),
   });
   const create = (value: Post, root: Root, slug: string | null): Minted => {
@@ -428,12 +412,16 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"], each);
     const name = frozenTrim(str(i.name, "input.name"));
     const description = trimmedOrNull(opt(i.description, "input.description"));
-    const entries = member(each, () => items.parse(i.items, "input.items"), null) ?? [];
+    const entries =
+      items(i.items, "input.items", (js, at): CollectionItem => {
+        const entry = inputOf(js, at, ["uri", "note"], each);
+        return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
+      }) ?? [];
     const cover = opt(i.cover_image, "input.cover_image");
     // Every member's shape before the layout's name is judged: the reference reads the whole input first
     const layoutName = opt(i.layout, "input.layout");
     const { root, slug } = placement(i);
-    const layout: CollectionLayout | null = layoutName === null ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", layoutName, "layout"), null);
+    const layout = layoutName === null ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", layoutName, "layout"), null);
     const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
