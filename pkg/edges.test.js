@@ -76,6 +76,32 @@ describe("edges", () => {
     });
   });
 
+  describe("reading", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
+    const post = (kind) => utf8(`{"content":"x","kind":${kind},"parent":null,"embed":null,"attachments":[]}`);
+
+    it("reads a kind in serde's one-member object form, and refuses it as serde does", () => {
+      assert.strictEqual(specs.decodeObject(url, post('{"image":null}'), "post").kind, "image");
+      // The crate's answers, from its surface oracle
+      const refusals = [
+        ['{"note":1}', "invalid type: integer `1`, expected unit"],
+        ["{1}", "invalid type: integer `1`, expected variant identifier"],
+        ['{"note" null}', "expected `:`"],
+        ['{"note":null,', "expected value"],
+        ['{"note"', "expected `:`"],
+        ["{", "expected value"],
+        ['{"zzz":null}', "post kind is unknown"],
+        ['{"note":nul}', "expected ident"],
+      ];
+      for (const [kind, reason] of refusals) refuses(() => specs.decodeObject(url, post(kind)), `Validation Error: ${reason}`);
+    });
+
+    it("takes back as $unknown only the text of an object", () => {
+      const read = specs.decodeObject(url, post('"note"'), "post");
+      for (const $unknown of ["{", "[1]", "1", '{"content":"x"}']) misuse(() => specs.encodeObject(url, { ...read, $unknown }), /post\.\$unknown must be/);
+    });
+  });
+
   describe("deletion paths of a 0.x tag", () => {
     const legacyTag = (uri, label) => ({ path: `${LEGACY}tags/${hashText(`${uri}:${label}`)}`, uri, label });
     const idFor = (target, label) => hashText(`${target}:${label}`);
@@ -159,12 +185,14 @@ describe("edges", () => {
     const privateMedia = () => buildFile(OTTO, { bytes: utf8("cover"), type: "image/png", root: "private" });
 
     it("a private reference in a media position that is no media is refused by name", () => {
-      for (const uri of [`pubky://${OTTO}/priv`, `pubky://${OTTO}/priv/social/v1/feeds/x.json`]) {
+      const cases = [
+        [`pubky://${OTTO}/priv`, "is not media"],
+        [`pubky://${OTTO}/priv/social/v1/feeds/x.json`, "is not media"],
+        [`pubky://${OTTO}/priv/social/v1/files/x.png`, "is not a media object"],
+      ];
+      for (const [uri, reason] of cases) {
         const draft = buildPost(OTTO, { kind: "image", content: "c", root: "private", attachments: [{ uri }] });
-        refuses(
-          () => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object }),
-          /^Validation Error: cannot publish: a private reference in a media position is not (a media object|media)/,
-        );
+        refuses(() => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object }), `Validation Error: cannot publish: a private reference in a media position ${reason}: ${uri}`);
       }
     });
 

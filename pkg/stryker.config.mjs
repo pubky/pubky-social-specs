@@ -40,5 +40,6 @@ export default {
   ignorePatterns: ["qa/out", "qa/failures", "e2e", "api", "dist/*.map", "dist/**/*.map"],
   reporters: ["clear-text", "progress", "json"],
   jsonReporter: { fileName: `${temp}/report.json` },
-  thresholds: { high: 100, low: 90, break: null },
+  // The floor is the score the suites reach, less the mutants no input can tell apart; ARCHITECTURE.md lists those
+  thresholds: { high: 100, low: 95, break: 96 },
 };
