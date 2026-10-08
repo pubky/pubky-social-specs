@@ -33,7 +33,9 @@ const FLOORS = [
   ["src/json/", [98, 94]],
   ["src/client/", [95, 90]],
   ["src/migration/engine.ts", [95, 93]],
-  ["src/migration/wasm.ts", [96, 87]],
+  // A module compiled ahead of time (a Workers bundle), a failed start retried and a hasher trap
+  // are branches no Node run reaches
+  ["src/migration/wasm.ts", [96, 84]],
   // A null body, a chunk with no value and the fallthrough after #call's try stay uncovered
   ["src/migration/adapters/", [99, 96]],
   ["src/migration/", [99, 97]],

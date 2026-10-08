@@ -90,6 +90,7 @@
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
+    "conformance": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs --fuzz 0",
     "model": "node --max-old-space-size=1536 qa/model.mjs",
     "hostile": "node --expose-gc --max-old-space-size=1536 qa/hostile.mjs",
     "mutation": "stryker run",

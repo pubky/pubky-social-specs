@@ -8,10 +8,10 @@ import { limits } from "../data.js";
 import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
-import { defaulted, type Extra, inputOf, list, object, omitted, option, rootOf, string } from "../json/schema.js";
+import { defaulted, type Extra, inputOf, inputReads, list, object, omitted, option, rootOf, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
-import { checkExtra, inputReads, type Model, parse, validate } from "./common.js";
+import { checkExtra, type Model, parse, validate } from "./common.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {

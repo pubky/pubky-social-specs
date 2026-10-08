@@ -70,6 +70,17 @@ crate does, word for word, and `vectors.test.js` holds it to that.
 - A change of the stored format (paths, bytes, the migration flag) is a crate change and a
   migration question first. Write it up before touching code.
 
+### Keeping a fork in step
+
+A fork of the package needs no Rust to know it still answers as the reference: `npm run
+conformance` replays every recorded vector (`vectors/js/*.jsonl`, inputs with the crate's
+answers, refusals and their text included) against the built package. `dist/reference.json`
+names what a build was checked against: the crate's version and commit, the toolchain, the
+`serde_json` version whose float spelling and messages the package follows, and the digest of
+the vectors. A fork that changes behaviour on purpose changes the crate first, re-records, and
+its digest moves with it. The fuzz corpus in `qa/fuzz/corpus` is a second set of inputs to ask
+both, with `qa/fuzz/replay.mjs` and the oracle.
+
 ## Style
 
 Prettier formats (`.prettierrc.json`); comments say why, never what, and cite no issue numbers.

@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { type Each, fail, misuse, throwing } from "../errors.js";
+import { type Each, fail, member, misuse, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -217,4 +217,20 @@ export function inputOf(js: unknown, at: string, allowed: readonly string[], eac
   const given = js as Record<string, unknown>;
   for (const key of Object.keys(given)) if (!allowed.includes(key)) each(() => misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`));
   return given;
+}
+
+const isAbsent = (js: unknown) => js === null || js === undefined;
+
+/**
+ * How a builder reads a caller's members under `each`: a member whose shape is refused reads
+ * as `fallback`, so the rules after it still run. An absent optional member reads as null.
+ */
+export function inputReads(each: Each) {
+  return {
+    str: (js: unknown, at: string, fallback = "") => member(each, () => string.parse(js, at), fallback),
+    opt: (js: unknown, at: string, fallback: string | null = null) => member(each, () => (isAbsent(js) ? null : string.parse(js, at)), fallback),
+    // An item that is no object refuses the whole list, which then reads as null
+    items: <T>(js: unknown, at: string, item: (js: unknown, at: string) => T): T[] | null =>
+      member(each, () => (isAbsent(js) ? null : arrayOf(js, at).map((entry, index) => item(entry, `${at}[${index}]`))), null),
+  };
 }

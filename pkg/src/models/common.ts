@@ -1,32 +1,16 @@
 // What every stored object shares: the size cap, the rules on members no version knows, and
 // how a builder reads a caller's members.
 
-import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
+import { type Each, fail, throwing, ValidationError } from "../errors.js";
 import { type Json, JsonError, type JsonObject, Reader } from "../json/read.js";
-import { arrayOf, type Codec, string } from "../json/schema.js";
-import { compareBytes, utf8, utf8Len } from "../text.js";
+import type { Codec } from "../json/schema.js";
+import { compareBytes, utf8Len } from "../text.js";
 
 const MAX_SAFE = 9007199254740991n;
 
-const absent = (js: unknown) => js === null || js === undefined;
-
-/**
- * How a builder reads a caller's members under `each`: a member whose shape is refused reads
- * as `fallback`, so the rules after it still run. An absent optional member reads as null.
- */
-export function inputReads(each: Each) {
-  return {
-    str: (js: unknown, at: string, fallback = "") => member(each, () => string.parse(js, at), fallback),
-    opt: (js: unknown, at: string, fallback: string | null = null) => member(each, () => (absent(js) ? null : string.parse(js, at)), fallback),
-    // An item that is no object refuses the whole list, which then reads as null
-    items: <T>(js: unknown, at: string, item: (js: unknown, at: string) => T): T[] | null =>
-      member(each, () => (absent(js) ? null : arrayOf(js, at).map((entry, index) => item(entry, `${at}[${index}]`))), null),
-  };
-}
-
 /** Reads one whole document as `codec`, a refusal of the reader becoming the package's error. */
 export function parse<T>(codec: Codec<T>, input: Uint8Array | string, context = "", field?: string): T {
-  const reader = new Reader(typeof input === "string" ? utf8(input) : input);
+  const reader = new Reader(input);
   try {
     const value = codec.read(reader);
     reader.end();

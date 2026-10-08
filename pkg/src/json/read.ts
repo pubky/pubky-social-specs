@@ -35,8 +35,8 @@ export class Reader {
   // Arrays and objects still open; the parser gives up at 128
   private depth = 0;
 
-  constructor(bytes: Uint8Array) {
-    this.bytes = bytes;
+  constructor(input: Uint8Array | string) {
+    this.bytes = typeof input === "string" ? utf8(input) : input;
   }
 
   fail(message: string): never {
@@ -346,7 +346,7 @@ const ESCAPES = new Map<number, string>([
 
 /** One document: a value and nothing after it. */
 export function readJson(text: string): Json {
-  const reader = new Reader(utf8(text));
+  const reader = new Reader(text);
   const value = reader.value();
   reader.end();
   return value;

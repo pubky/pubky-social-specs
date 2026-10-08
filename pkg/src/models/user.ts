@@ -2,10 +2,10 @@ import { checkReference } from "../canonicalize.js";
 import { limits } from "../data.js";
 import { type Each, fail, throwing } from "../errors.js";
 import { checkPublicKey } from "../ids.js";
-import { type Extra, inputOf, list, object, option, string } from "../json/schema.js";
+import { type Extra, inputOf, inputReads, list, object, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
 import { socialPath } from "../path.js";
-import { checkExtra, inputReads, type Model, validate } from "./common.js";
+import { checkExtra, type Model, validate } from "./common.js";
 
 export interface UserLink extends Extra {
   /** The link's label, trimmed by the builder: 1 to 100 code points, not blank. */

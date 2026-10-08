@@ -179,3 +179,60 @@ describe("helpers", () => {
     assert.throws(() => specs.tryDecodeObject(url, "{}"), TypeError);
   });
 });
+
+describe("the testing entry and the 0.x keys", () => {
+  it("memoryHomeserver answers as the SDK: a streamed GET, pages after a cursor, and 404 for nothing", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { owner, session, publicStorage, sessionOf } = memoryHomeserver();
+    const a = buildPost(owner, { content: "a" });
+    await session.storage.putBytes(a.path, a.body);
+    await session.storage.putJson("/pub/social/v1/x.json", { n: 1 });
+    const got = await session.storage.get(a.path);
+    assert.strictEqual(got.headers.get("Content-Length"), String(a.body.length));
+    assert.strictEqual(got.headers.get("etag"), null);
+    const reader = got.body.getReader();
+    const first = await reader.read();
+    assert.deepStrictEqual([first.done, (await reader.read()).done], [false, true]);
+    await reader.cancel();
+    assert.strictEqual(text(new Uint8Array(await got.arrayBuffer())), text(a.body));
+    const all = await session.storage.list("/pub/social/v1/");
+    assert.deepStrictEqual(await session.storage.list("/pub/social/v1/", all[0], false, 1), [all[1]]);
+    assert.deepStrictEqual(await session.storage.list("/pub/social/v1/", null, true), [...all].reverse());
+    await assert.rejects(session.storage.list("/pub/social/v1"), (e) => e.name === "InvalidInput");
+    await assert.rejects(session.storage.getBytes("/pub/none"), (e) => e.data.statusCode === 404);
+    assert.strictEqual(await session.storage.exists(a.path), true);
+    await session.storage.delete(a.path);
+    assert.strictEqual(await session.storage.exists(a.path), false);
+    // Anyone reads the public root, by either address form the SDK takes, and nothing private
+    assert.deepStrictEqual(await publicStorage.list(`pubky${owner}/pub/social/v1/`), [`pubky://${owner}/pub/social/v1/x.json`]);
+    await assert.rejects(publicStorage.getBytes(`pubky://${owner}/priv/social/v1/x.json`), (e) => e.data.statusCode === 404);
+    await assert.rejects(publicStorage.getBytes(`${owner}/pub/social/v1/x.json`), (e) => e.name === "InvalidInput");
+    assert.strictEqual(sessionOf(RIO).info.publicKey.z32(), RIO);
+  });
+
+  it("a 0.x path keys as the 0.x reader read it", async () => {
+    const { stableKey } = await import("./dist/legacy.js");
+    assert.deepStrictEqual(stableKey("/pub/pubky.app/profile.json"), { key: "profile" });
+    assert.deepStrictEqual(stableKey("pub/pubky.app/settings.json"), { key: "settings" });
+    assert.strictEqual(stableKey("/pub/pubky.app/elsewhere"), null);
+    assert.strictEqual(stableKey("/pub/pubky.app/polls/x"), null);
+    assert.strictEqual(stableKey("/pub/pubky.app/tags/.json"), null);
+  });
+
+  it("the millisecond warning looks only at an object's created_at", async () => {
+    const dev = await import("./dist/dev.js");
+    const warned = [];
+    const warn = console.warn;
+    console.warn = (m) => warned.push(m);
+    try {
+      dev.warnIfMilliseconds(null, "x");
+      dev.warnIfMilliseconds("text", "x");
+      dev.warnIfMilliseconds({ created_at: "1" }, "x");
+      dev.warnIfMilliseconds({ created_at: T0 * 1000 }, "x");
+      dev.warnIfMilliseconds({ created_at: T0 }, "x");
+    } finally {
+      console.warn = warn;
+    }
+    assert.strictEqual(warned.length, 1);
+  });
+});
