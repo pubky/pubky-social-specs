@@ -62,21 +62,21 @@ const MUTATIONS = [
   {
     id: "M3",
     what: "copies are PUT without ifAbsent",
-    from: "this.#port.putBytes(write.meta.url, write.object.bytes, { ifAbsent: true })\n          : this.#port.putJson(write.meta.url, write.object, { ifAbsent: true }),",
-    to: "this.#port.putBytes(write.meta.url, write.object.bytes)\n          : this.#port.putJson(write.meta.url, write.object),",
+    from: "this.#port.putBytes(write.meta.url, write.object.bytes, { ifAbsent: true }) : this.#port.putJson(write.meta.url, write.object, { ifAbsent: true }),",
+    to: "this.#port.putBytes(write.meta.url, write.object.bytes) : this.#port.putJson(write.meta.url, write.object),",
   },
   {
     id: "M4",
     what: "no write fence: a write outside the 1.x roots goes through",
-    from: "if (!fenced(write.meta.url, this.#roots)) {",
+    from: "if (!fenced(write.meta.url, this.#options.owner, this.#roots)) {",
     to: "if (false) {",
   },
   {
     id: "M5",
     what: "the File objects are walked after the posts",
     file: "src/migration/order.ts",
-    from: 'const BUCKETS = [\n  "files",\n  "blobs",\n  "posts",',
-    to: 'const BUCKETS = [\n  "blobs",\n  "posts",\n  "files",',
+    from: 'const BUCKETS = ["files", "blobs", "posts",',
+    to: 'const BUCKETS = ["blobs", "posts", "files",',
   },
   {
     id: "M6",
