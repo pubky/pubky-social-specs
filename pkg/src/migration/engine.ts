@@ -1,8 +1,7 @@
 import { limits, skipReasons, transformRev } from "../data.js";
 import { viewBytes } from "../bytes.js";
-import { isCanonicalSegment } from "../canonicalize.js";
 import { ValidationError } from "../errors.js";
-import { legacyMediaKey, listPrefix, stableKey } from "../uri.js";
+import { buildChecked, legacyMediaKey, listPrefix, mediaStem, ownedPath, stableKey } from "../uri.js";
 import { init, transforms } from "./wasm.js";
 import type { Dropped, MigrateBlobResult, MigrateResult, MigratedWrite, Migration } from "./wasm.js";
 import { portErrorKind } from "./port.js";
@@ -42,6 +41,11 @@ const FIRST_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
 // Empty pages a LIST may answer in a row before the walk is called broken
 const MAX_EMPTY_PAGES = 100;
+// No pubky.app account comes near a million objects; a LIST past it is a port without end, and
+// the run would hold every URL of it
+const MAX_OBJECTS = 1 << 20;
+// The flag of a run over MAX_OBJECTS paths; a larger one reads as no flag and the tree is walked
+const FLAG_MAX_BYTES = 64 * 1024 * 1024;
 // The largest 1.x object with every byte spelled as a six-byte escape: no 0.x object a client
 // wrote is larger, and a larger one would hold wasm memory for the rest of the run
 const LEGACY_OBJECT_MAX = 6 * limits.postMaxBytes;
@@ -94,7 +98,7 @@ const covers = (granted: string | string[], required: string): boolean => {
       });
   const have = scopes(granted);
   return scopes(required).every((need) =>
-    [...need.actions].every((action) =>
+    Array.from(need.actions).every((action) =>
       have.some(
         (cap) =>
           (cap.path === need.path || (cap.path.endsWith("/") && need.path.startsWith(cap.path))) &&
@@ -118,7 +122,7 @@ const readFlag = (bytes: Uint8Array): Flag => {
   if (typeof flag !== "object" || flag === null || Array.isArray(flag)) return unread;
   const own = (key: string): unknown => (Object.hasOwn(flag, key) ? (flag as Record<string, unknown>)[key] : undefined);
   const rev = own("transform_rev");
-  const skipped = own("skipped") ?? {};
+  const skipped: unknown = own("skipped") ?? {};
   const migrated = own("migrated") ?? [];
   if (typeof skipped !== "object" || skipped === null || Array.isArray(skipped) || !strings(migrated)) return unread;
   const kept: Partial<Record<Outcome, string[]>> = {};
@@ -129,9 +133,27 @@ const readFlag = (bytes: Uint8Array): Flag => {
   return { transformRev: Number.isSafeInteger(rev) ? (rev as number) : 0, skipped: kept, migrated: new Set(migrated) };
 };
 
-/** Whether `url` names an object under one of `roots`, by canonical segments only. */
-const fenced = (url: string, roots: string[]): boolean =>
-  roots.some((root) => url.startsWith(root) && url.slice(root.length).split("/").every(isCanonicalSegment));
+/** Whether `url` names an object of `owner` under one of `roots`, by canonical segments only. */
+const fenced = (url: string, owner: string, roots: string[]): boolean => ownedPath(url, owner) !== null && roots.some((root) => url.startsWith(root));
+
+/**
+ * Where a write of this kind and id goes, spelled by the package rather than taken from the
+ * transform: the id names the object, and only media takes its extension from the write.
+ */
+function derivedUrl(owner: string, write: MigratedWrite): string | null {
+  const { id, path } = write.meta;
+  try {
+    if (write.kind === "post") return `${buildChecked(owner, "post", id)}/${id}.json`;
+    if (write.kind === "file") {
+      const leaf = path.slice(path.lastIndexOf("/") + 1);
+      return mediaStem(leaf) === id ? buildChecked(owner, "file", leaf) : null;
+    }
+    return buildChecked(owner, write.kind, id);
+  } catch (error) {
+    if (error instanceof ValidationError) return null;
+    throw error;
+  }
+}
 
 /** Resolves after `ms`, or as soon as `signal` aborts. */
 const timer = (ms: number, signal?: AbortSignalLike) =>
@@ -365,15 +387,17 @@ class Run {
       throw new Stop({ code: "IO_ERROR", message: `probing ${FLAG}: ${exists.message}` });
     }
     if (!exists) return null;
-    const bytes = await this.#attempt(() => this.#port.get(flagUrl));
+    const bytes = await this.#attempt(() => this.#port.get(flagUrl, { maxBytes: FLAG_MAX_BYTES }));
     if (isFailure(bytes)) {
       if (bytes.failed === "not_found") return null;
+      if (bytes.failed === "too_large") return readFlag(new Uint8Array());
       throw new Stop({ code: "IO_ERROR", message: `reading ${FLAG}: ${bytes.message}` });
     }
     if (bytes === null) return null;
     // A flag this build cannot read is treated as older, so the tree is walked again
     const view = viewBytes(bytes);
-    return view === null ? readFlag(new Uint8Array()) : readFlag(view);
+    // A port that does not bound its read: the cap holds all the same
+    return view === null || view.length > FLAG_MAX_BYTES ? readFlag(new Uint8Array()) : readFlag(view);
   }
 
   async #listAll(prefix: string): Promise<string[]> {
@@ -391,6 +415,9 @@ class Run {
       const stray = page.urls.find((url) => !url.startsWith(prefix));
       if (stray !== undefined) {
         throw new Stop({ code: "IO_ERROR", message: `listing ${prefix} returned ${stray}` });
+      }
+      if (urls.length + page.urls.length > MAX_OBJECTS) {
+        throw new Stop({ code: "IO_ERROR", message: `listing ${prefix}: more than ${MAX_OBJECTS} objects` });
       }
       urls.push(...page.urls);
       if (!page.next) return urls;
@@ -443,8 +470,8 @@ class Run {
       // A blob never enters the wasm: a copy there would stay for the rest of the run
       result =
         bucket === "blobs"
-          ? blobResult(transforms.migrateBlob(this.#handle!, url, bytes.length, transforms.mediaId(bytes)), bytes)
-          : transforms.migrate(this.#handle!, url, bytes);
+          ? blobResult(transforms.migrateBlob(this.#run(), url, bytes.length, transforms.mediaId(bytes)), bytes)
+          : transforms.migrate(this.#run(), url, bytes);
     } catch (error) {
       // The rules refused the object; anything else is a fault of the port or of this package
       if (!(error instanceof ValidationError)) throw error;
@@ -453,8 +480,12 @@ class Run {
     if ("skip" in result) return this.#count(result.skip, path, result.note);
     // The port can write the whole tree, the 0.x one included, which the run must never touch
     for (const write of result.writes) {
-      if (!fenced(write.meta.url, this.#roots)) {
+      if (!fenced(write.meta.url, this.#options.owner, this.#roots)) {
         throw new Error(`pubky-social-specs/migration: a write to ${write.meta.url}, outside ${this.#roots.join(" and ")}`);
+      }
+      const derived = derivedUrl(this.#options.owner, write);
+      if (derived !== write.meta.url) {
+        throw new Error(`pubky-social-specs/migration: a ${write.kind} ${write.meta.id} written to ${write.meta.url}, where the package puts it at ${derived ?? "no URL"}`);
       }
     }
     if (bucket === "files") {
@@ -574,9 +605,9 @@ class Run {
   /** Keeps what a File object declares about its blob's size, for a paused run's estimate. */
   #learnFile(bytes: Uint8Array): void {
     try {
-      const { src, size } = JSON.parse(decoder.decode(bytes));
+      const { src, size } = JSON.parse(decoder.decode(bytes)) as { src?: unknown; size?: unknown };
       const key = typeof src === "string" ? legacyMediaKey(src) : null;
-      if (key !== null && Number.isSafeInteger(size) && size >= 0) this.#blobSizes.set(key, size);
+      if (key !== null && typeof size === "number" && Number.isSafeInteger(size) && size >= 0) this.#blobSizes.set(key, size);
     } catch {
       // The run already read it; only the estimate misses it
     }
@@ -621,6 +652,12 @@ class Run {
     const { sleep, signal } = this.#options;
     await (sleep ? sleep(ms, signal) : timer(ms, signal));
     this.#checkAbort();
+  }
+
+  /** The wasm handle of the walk, which exists from the migrating phase on. */
+  #run(): Migration {
+    if (this.#handle === undefined) throw new Error("pubky-social-specs/migration: no migration handle before the walk");
+    return this.#handle;
   }
 
   #aborted(): boolean {
@@ -703,7 +740,8 @@ class Run {
  * error, which rejects.
  */
 const runMigration = async (options: RunOptions): Promise<MigrationReport> => {
-  const mode = options.mode ?? "run";
+  // Typed for a caller, checked for one that is not
+  const mode: unknown = options.mode ?? "run";
   if (mode !== "run" && mode !== "dry") {
     throw new Error(`pubky-social-specs/migration: mode must be "run" or "dry", not ${String(mode)}`);
   }

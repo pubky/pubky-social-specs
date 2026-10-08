@@ -123,6 +123,23 @@ export function isCanonicalSegment(segment: string): boolean {
   return segment !== "" && segment !== "." && segment !== ".." && !/[/%?#]/.test(segment) && !hasControlOrWhitespace(segment);
 }
 
+/**
+ * The owner-relative path of `url` when it is `pubky://<owner>/` and then a path under `pub/`
+ * or `priv/` whose every segment is canonical, so no dot segment, empty segment, `%` or
+ * control resolves anywhere else; null otherwise. A directory, with `directory`, may end in
+ * `/`. The one check the engine's write fence and the SDK adapter share.
+ */
+export function ownedPath(url: string, owner: string, directory = false): string | null {
+  const prefix = `pubky://${owner}/`;
+  if (!url.startsWith(prefix)) return null;
+  const segments = url.slice(prefix.length).split("/");
+  const [root] = segments;
+  if ((root !== "pub" && root !== "priv") || segments.length < 2) return null;
+  const last = segments.length - 1;
+  const clean = segments.every((segment, i) => isCanonicalSegment(segment) || (directory && i === last && i > 0 && segment === ""));
+  return clean ? url.slice(prefix.length - 1) : null;
+}
+
 /** A full `pubky://` URI split after its owner: the path without its leading `/`, null for none. */
 export function splitPubky(uri: string): { owner: string; path: string | null } | null {
   if (!uri.startsWith("pubky://")) return null;

@@ -4,33 +4,12 @@
 // engine never loads it, and these declarations compile without it. The package does not
 // declare it as a peer dependency, since a host on another SDK line would fail to install.
 
-import { isCanonicalSegment, LEGACY_ROOT, socialPath } from "../../path.js";
+import { LEGACY_ROOT, ownedPath, socialPath } from "../../path.js";
 import { MigrationPortError, refusal } from "../port.js";
 import type { GetOptions, MigrationPort, PortErrorKind, PutOptions } from "../port.js";
+import type { SdkSession } from "../../session.js";
 
-/** The part of a streamed `Response` the port reads. */
-export interface SdkResponse {
-  headers: { get(name: string): string | null };
-  body: {
-    getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array }>; cancel(): Promise<void> };
-    cancel(): Promise<void>;
-  } | null;
-  arrayBuffer(): Promise<ArrayBuffer>;
-}
-
-/** The part of a signed-in SDK `Session` the port calls, as 0.11 to 0.14 declare it. */
-export interface SdkSession {
-  info: { publicKey: { z32(): string } };
-  storage: {
-    list(path: string, cursor: string | null, reverse: boolean, limit: number, shallow: boolean): Promise<string[]>;
-    getBytes(path: string): Promise<Uint8Array>;
-    get(path: string): Promise<SdkResponse>;
-    exists(path: string): Promise<boolean>;
-    putJson(path: string, body: unknown): Promise<void>;
-    putBytes(path: string, bytes: Uint8Array): Promise<void>;
-    delete(path: string): Promise<void>;
-  };
-}
+export type { SdkResponse, SdkSession } from "../../session.js";
 
 export interface SdkPortOptions {
   /** URLs per LIST page, 1 to 1000; the homeserver caps it at 1000. */
@@ -84,7 +63,7 @@ const portError = (error: unknown): MigrationPortError => {
 
 class SdkPort implements MigrationPort {
   readonly #storage: SdkSession["storage"];
-  readonly #ownerPrefix: string;
+  readonly #owner: string;
   readonly #pageSize: number;
   readonly #deadlineMs: number;
 
@@ -98,7 +77,7 @@ class SdkPort implements MigrationPort {
       throw new RangeError(`sdkPort: deadlineMs must be a positive number, not ${deadlineMs}`);
     }
     this.#storage = session.storage;
-    this.#ownerPrefix = `pubky://${session.info.publicKey.z32()}/`;
+    this.#owner = session.info.publicKey.z32();
     this.#pageSize = pageSize;
     this.#deadlineMs = deadlineMs;
   }
@@ -233,7 +212,7 @@ class SdkPort implements MigrationPort {
         throw portError(error);
       }
     }
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: unknown;
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(
         () => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)),
@@ -250,13 +229,9 @@ class SdkPort implements MigrationPort {
   }
 
   #path(url: string): string {
-    const path = url.startsWith(this.#ownerPrefix) ? url.slice(this.#ownerPrefix.length - 1) : "";
-    // Every segment but a directory's empty tail, so no dot segment resolves elsewhere
-    const segments = path.split("/").slice(2);
-    const clean = segments.every((segment, i) => isCanonicalSegment(segment) || (segment === "" && i === segments.length - 1));
-    if ((!path.startsWith("/pub/") && !path.startsWith("/priv/")) || !clean) {
-      throw new MigrationPortError("rejected", `${url} is not a clean path under /pub/ or /priv/ of the session's owner`);
-    }
+    // The check the engine's write fence makes, a LIST's directory tail allowed
+    const path = ownedPath(url, this.#owner, true);
+    if (path === null) throw new MigrationPortError("rejected", `${url} is not a clean path under /pub/ or /priv/ of the session's owner`);
     return path;
   }
 }

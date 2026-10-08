@@ -70,6 +70,14 @@ const delegate = (port, overrides) => ({
   ...overrides,
 });
 
+// A transform's write moved to `path`, its kind and id the ones that path names, as the engine
+// checks them
+const writeAt = (write, path) => {
+  const [, , , , dir, leaf] = path.split("/");
+  const kind = { follows: "follow", mutes: "mute", tags: "tag" }[dir];
+  return { ...write, kind, meta: { id: leaf.replace(/\.json$/, ""), path, url: url(path.slice(1)) } };
+};
+
 describe("migration engine", () => {
   before(async () => {
     await init();
@@ -494,6 +502,7 @@ describe("migration engine", () => {
       const report = await runMigration({ owner, port, sleep: noSleep });
       assert.strictEqual(report.status, "incomplete");
       assert.deepStrictEqual(report.skipped.io_error, [follow]);
+      assert.match(notesOf(report, follow)[0], /^re-check after copy: fetch failed/);
       assert.ok(!v1Urls(port).some((u) => u.includes("/follows/")), "the unchecked copy is gone");
       down = false;
       assert.strictEqual((await runMigration({ owner, port })).status, "done");
@@ -1033,7 +1042,7 @@ describe("migration engine", () => {
         const result = real(run, v0, bytes);
         if (!("writes" in result) || !v0.includes("/follows/")) return result;
         const [write] = result.writes;
-        return { ...result, writes: paths.map((path) => ({ ...write, meta: { ...write.meta, path, url: url(path.slice(1)) } })) };
+        return { ...result, writes: paths.map((path) => writeAt(write, path)) };
       };
       const A = `/pub/social/v1/follows/${owner}.json`;
       const B = `/priv/social/v1/mutes/${owner}.json`;
@@ -1094,7 +1103,7 @@ describe("migration engine", () => {
           const result = real(run, v0, bytes);
           if (!v0.includes("/tags/") || !("writes" in result)) return result;
           const [write] = result.writes;
-          const at = (path) => ({ ...write, meta: { ...write.meta, path, url: url(path.slice(1)) } });
+          const at = (path) => writeAt(write, path);
           return { ...result, writes: [at(T), ...extra(v0).map(at)] };
         };
       };
@@ -1143,8 +1152,7 @@ describe("migration engine", () => {
       });
 
       it("a copy that landed beside a refused one stays claimed", async () => {
-        const first = tags[0];
-        fold((v0) => (v0.endsWith(first) ? [B] : []));
+        fold(() => [B]);
         const port = legacyPort({
           intercept: (op, target) => {
             if (op === "putJson" && target === url(B.slice(1))) throw refusal(400, "refused");
@@ -1228,6 +1236,56 @@ describe("migration engine", () => {
       const report = await runMigration({ owner, port });
       assert.ok(report.skipped.deleted_mid_run.includes(blob));
       assert.ok(!port.calls.some((c) => c.op === "delete"));
+    });
+
+    it("refuses a write the transform puts anywhere but where its kind and id go, before any PUT", async () => {
+      const real = transforms.migrate;
+      transforms.migrate = (run, v0, bytes) => {
+        const result = real(run, v0, bytes);
+        if (!v0.includes("/follows/") || !("writes" in result)) return result;
+        const [write] = result.writes;
+        // Inside the roots and canonical, so only the derivation catches it
+        const path = `/pub/social/v1/follows/${owner}.json`;
+        return { ...result, writes: [{ ...write, meta: { ...write.meta, path, url: url(path.slice(1)) } }] };
+      };
+      try {
+        const port = legacyPort();
+        await assert.rejects(runMigration({ owner, port }), /a follow \S+ written to .*, where the package puts it at /);
+        assert.ok(!port.calls.some((c) => c.op === "putJson" && c.url.includes("/follows/")));
+      } finally {
+        transforms.migrate = real;
+      }
+    });
+
+    it("a LIST past a million objects aborts instead of holding them all", async () => {
+      const port = legacyPort();
+      let page = 0;
+      const endless = delegate(port, {
+        list: async (prefix) => {
+          if (!prefix.endsWith("/pub/pubky.app/")) return port.list(prefix);
+          page++;
+          return { urls: Array.from({ length: 1000 }, (_, i) => `${prefix}posts/${String(page * 1000 + i).padStart(13, "0")}`), next: `c${page}` };
+        },
+      });
+      const report = await runMigration({ owner, port: endless });
+      assert.strictEqual(report.status, "aborted");
+      assert.match(report.error.message, /more than 1048576 objects/);
+      assert.ok(page <= 1049);
+    });
+
+    it("a flag over 64 MiB, from a port that ignores the cap, reads as no flag", async () => {
+      const port = legacyPort();
+      port.store.set(FLAG, new Uint8Array(64 * 1024 * 1024 + 1));
+      const asked = [];
+      const loose = delegate(port, {
+        get: async (target, options) => {
+          if (target === FLAG) asked.push(options?.maxBytes);
+          return port.store.get(target) ?? null;
+        },
+      });
+      const report = await runMigration({ owner, port: loose });
+      assert.deepStrictEqual(asked, [64 * 1024 * 1024]);
+      assert.strictEqual(report.status, "done");
     });
 
     it("caps split over several scopes cover what one scope would", async () => {
