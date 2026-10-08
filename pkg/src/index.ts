@@ -888,7 +888,8 @@ export function parsePostRef(value: string): T.PostRef {
  * every stored timestamp.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id, and with `code: "id"` for one whose time is past the safe integer range (from June
+ *  2255, or before August 1684), which no minted id holds.
  *
  * @example
  * ```ts
@@ -898,7 +899,10 @@ export function parsePostRef(value: string): T.PostRef {
  * ```
  */
 export function idMicros(id: T.Given<"PostId" | "EditId">): number {
-  return Number(ids.timestampIdMicros(text(id, "id"), "id"));
+  const micros = ids.timestampIdMicros(text(id, "id"), "id");
+  // A canonical id can spell any 64-bit time; a number past 2^53 would be a rounded one
+  if (micros > BigInt(Number.MAX_SAFE_INTEGER) || micros < -BigInt(Number.MAX_SAFE_INTEGER)) fail("id", `the time of ${String(id)} is past what a JS number holds exactly`, "id");
+  return Number(micros);
 }
 
 /**

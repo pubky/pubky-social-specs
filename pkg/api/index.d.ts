@@ -624,7 +624,8 @@ export declare function parsePostRef(value: string): T.PostRef;
  * every stored timestamp.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id, and with `code: "id"` for one whose time is past the safe integer range (from June
+ *  2255, or before August 1684), which no minted id holds.
  *
  * @example
  * ```ts

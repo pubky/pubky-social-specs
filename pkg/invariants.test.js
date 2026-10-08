@@ -188,6 +188,12 @@ describe("helpers", () => {
     assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
   });
 
+  it("idMicros refuses an id whose time is past the safe integer range", () => {
+    const e = caught(() => specs.idMicros("FZZZZZZZZZZZY"));
+    assert.deepStrictEqual([e.code, e.field], ["id", "id"]);
+    assert.strictEqual(specs.idMicros(buildPost(OTTO, { content: "x" }).id), T0 * 1000);
+  });
+
   it("dateToMicros refuses a date whose microseconds are no safe integer", () => {
     assert.strictEqual(specs.dateToMicros(new Date("2255-01-01T00:00:00Z")), Date.UTC(2255, 0, 1) * 1000);
     assert.throws(
