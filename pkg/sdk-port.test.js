@@ -238,6 +238,9 @@ describe("pubky SDK port", () => {
       },
     };
     await assert.rejects(sdkPort(sessionOf(owner, lying)).get(url("pub/pubky.app/posts/a"), { maxBytes: 10 }), { kind: "too_large" });
+    // And a response with no stream, its length undeclared, is refused once its bytes are counted
+    const bodyless = { ...storage, get: async () => ({ headers: { get: () => null }, body: null, arrayBuffer: async () => new ArrayBuffer(50) }) };
+    await assert.rejects(sdkPort(sessionOf(owner, bodyless)).get(url("pub/pubky.app/posts/a"), { maxBytes: 10 }), { kind: "too_large" });
   });
 
   it("ifAbsent is a HEAD then the PUT, and throws exists without writing when something is there", async () => {

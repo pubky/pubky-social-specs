@@ -168,7 +168,12 @@ class SdkPort implements MigrationPort {
       await response.body?.cancel();
       throw tooLarge();
     }
-    if (response.body === null) return new Uint8Array(await response.arrayBuffer());
+    if (response.body === null) {
+      // Without a stream the whole body arrives at once; it is still refused past the cap
+      const whole = new Uint8Array(await response.arrayBuffer());
+      if (whole.length > max) throw tooLarge();
+      return whole;
+    }
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
