@@ -148,10 +148,12 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     for (const path of paths) await orMissing(storage.delete(path), undefined);
   };
 
+  const versionsOf = (author: string, id: string, root: T.Root) => listed(author, `${roots[root]}posts/${id}/`);
+
   /** The newest version of post `id` of `author` under `root`, read, or null when it has none. */
   async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post, "post"> | null> {
     let head: { editId: string; url: string } | null = null;
-    for await (const url of listed(author, `${roots[root]}posts/${id}/`)) {
+    for await (const url of versionsOf(author, id, root)) {
       let parsed: T.ParsedUri;
       try {
         parsed = parseUri(url);
@@ -164,9 +166,15 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     return head === null ? null : readAt<T.Post, "post">(author, head.url, "post");
   }
 
+  /** Every version of the owner's post `id`, public then private. */
+  async function* ownVersions(id: string): AsyncGenerator<string> {
+    yield* versionsOf(owner, id, "public");
+    yield* versionsOf(owner, id, "private");
+  }
+
   /** A post id is taken by a version of it in either root, by this copy of the package or another. */
   const taken = async (id: string) => {
-    for (const root of [roots.public, roots.private]) for await (const _ of listed(owner, `${root}posts/${id}/`)) return true;
+    for await (const _ of ownVersions(id)) return true;
     return false;
   };
 
@@ -209,7 +217,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       /** Deletes every version of an own post in both roots, newest last. */
       async delete(id: T.Given<"PostId">): Promise<void> {
         const listings: string[] = [];
-        for (const root of [roots.public, roots.private]) for await (const url of listed(owner, `${root}posts/${id}/`)) listings.push(pathOf(owner, url));
+        for await (const url of ownVersions(id)) listings.push(pathOf(owner, url));
         await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
       },
     },
