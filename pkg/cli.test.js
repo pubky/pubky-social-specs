@@ -139,6 +139,15 @@ describe("pubky-social-migrate arguments", () => {
     assert.deepStrictEqual(written, ["Recovery passphrase: ", "\n"], "nothing typed is echoed");
   });
 
+  it("Backspace takes back a whole character, however many bytes it spells", async () => {
+    const { input, output } = terminal();
+    const asked = askPassphrase(input, output);
+    input.emit("data", Buffer.from("añ\x7fb😀\x7fc\r"));
+    const typed = await asked;
+    assert.strictEqual(typed.toString("utf8"), "abc");
+    typed.fill(0);
+  });
+
   it("wipes each chunk the terminal gave, also when Enter or Ctrl-C ends it", async () => {
     for (const ending of ["\r", "\x03"]) {
       const { input, output } = terminal();

@@ -118,6 +118,14 @@ const reportText = (report) => {
   return lines.join("\n");
 };
 
+/** Where the last UTF-8 character of `bytes` starts: Backspace takes the whole of it, not one byte. */
+const lastCharacter = (bytes) => {
+  let at = bytes.length - 1;
+  // Continuation bytes are 10xxxxxx; the character starts at the byte before them
+  while (at > 0 && (bytes[at] & 0xc0) === 0x80) at--;
+  return Math.max(0, at);
+};
+
 /**
  * The passphrase typed on the terminal with echo off, as bytes the caller zeroes, or null when
  * `input` is no terminal. Ctrl-C or Ctrl-D give up.
@@ -143,7 +151,7 @@ const askPassphrase = (input, output) =>
         for (const byte of chunk) {
           if (byte === 0x0d || byte === 0x0a) return done();
           if (byte === 0x03 || byte === 0x04) return done(new UsageError("no passphrase given"));
-          const grown = byte === 0x7f || byte === 0x08 ? Buffer.from(typed.subarray(0, Math.max(0, typed.length - 1))) : Buffer.concat([typed, Buffer.from([byte])]);
+          const grown = byte === 0x7f || byte === 0x08 ? Buffer.from(typed.subarray(0, lastCharacter(typed))) : Buffer.concat([typed, Buffer.from([byte])]);
           typed.fill(0);
           typed = grown;
         }
