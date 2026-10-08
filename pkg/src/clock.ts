@@ -4,8 +4,10 @@
 let clock: (() => bigint) | null = null;
 let lastMinted = 0n;
 
-// A clock this far behind the last reading is a correction, not jitter or a burst
+// A reading is taken as it is when ahead of the last one, or so far behind it that the clock was
+// corrected: closer behind is jitter or a burst
 const ROLLBACK_TOLERANCE = 1_000_000n;
+const follows = (now: bigint, last: bigint) => now > last || last - now > ROLLBACK_TOLERANCE;
 
 // The wall clock gives the millisecond and a random draw the microsecond inside it: a browser
 // coarsens its monotonic clock to 100 us or more, so two copies of the package minting in one
@@ -15,7 +17,7 @@ const ROLLBACK_TOLERANCE = 1_000_000n;
 let lastWall = 0n;
 function wallMicros(): bigint {
   const read = BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
-  lastWall = read > lastWall || lastWall - read > ROLLBACK_TOLERANCE ? read : lastWall;
+  if (follows(read, lastWall)) lastWall = read;
   return lastWall;
 }
 
@@ -37,6 +39,6 @@ export const lastMint = (): bigint => lastMinted;
 
 /** Strictly increasing: a burst runs a microsecond ahead per mint, a corrected clock is followed. */
 export function mintFrom(now: bigint): bigint {
-  lastMinted = now > lastMinted || lastMinted - now > ROLLBACK_TOLERANCE ? now : lastMinted + 1n;
+  lastMinted = follows(now, lastMinted) ? now : lastMinted + 1n;
   return lastMinted;
 }
