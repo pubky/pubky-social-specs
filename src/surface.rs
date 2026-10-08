@@ -58,9 +58,12 @@ static TURN: Mutex<()> = Mutex::new(());
 /// Runs `op` under `env`. The answer is the value a JS caller gets, or the message it throws.
 pub fn call(op: &str, args: &[Arg], env: &mut Env) -> Result<Value, String> {
     let _turn = TURN.lock().unwrap_or_else(|e| e.into_inner());
+    // The pin holds for this call only: the rest of the process keeps its own clock and guard
+    let before = (pinned::clock(), pinned::last_minted());
     pinned::set(env.now, env.last);
     let answer = run(op, &mut Args(args.iter()));
     env.last = pinned::last_minted();
+    pinned::restore(before.0, before.1);
     answer
 }
 

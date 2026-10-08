@@ -44,6 +44,12 @@ pub(crate) mod pinned {
         LAST_MINTED_MICROS.store(last_minted, Ordering::SeqCst);
     }
 
+    /// Puts back a clock and a guard as `clock` and `last_minted` read them: no pin for `None`.
+    pub(crate) fn restore(clock: Option<i64>, last_minted: i64) {
+        CLOCK.store(clock.unwrap_or(i64::MIN), Ordering::SeqCst);
+        LAST_MINTED_MICROS.store(last_minted, Ordering::SeqCst);
+    }
+
     pub(crate) fn last_minted() -> i64 {
         LAST_MINTED_MICROS.load(Ordering::SeqCst)
     }
