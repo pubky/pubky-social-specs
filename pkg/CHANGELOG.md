@@ -14,10 +14,8 @@ word; one changes only when the crate's does, and is then listed under API.
 follow the data model of the `pubky-social-specs` crate, not this package's version. Within the
 1.x data model every release reads what any earlier 1.x release wrote and derives every id the
 same way, so an object keeps its path. An object read and written back untouched keeps its
-bytes, the members a newer writer added included, with one exception the crate shares: a name
-from a closed set this version does not know reads as `"unknown"` and is written back so. That
-is a feed's `content` filter, and a collection's `layout` once its envelope goes through
-`encodeContent`. A change to the stored bytes is a change of the crate first and comes with a
+bytes, the members a newer writer added and the names from a closed set this version does not
+know included. A change to the stored bytes is a change of the crate first and comes with a
 migration where stored data is affected. The migration flag (`priv/social/v1/_migrated.json`)
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
@@ -25,6 +23,38 @@ again.
 ## Unreleased (1.0.0-beta.2)
 
 ### API
+
+- Breaking: `editPost(owner, headUrl, post, options?)` takes the owner first, as the builders do,
+  and refuses a head in another user's tree.
+- Breaking: a string of the right type that the model refuses is a `ValidationError`: a `root`,
+  `tree` or `kind` outside its set, and a path passed where a URL goes. A wrong JS type or an
+  unknown key is an `ArgumentError`, a new `TypeError` subclass with `field`.
+- Breaking: `ValidationError` carries `code` (an `ErrorCode`: `json`, `size`, `length`,
+  `count`, `blank`, `format`, `id`, `reference`, `unknown_name`, `unsafe_integer`, `path`,
+  `conflict`, `migration`), `limit` on a `size`, `length` or `count` refusal, and `field` wherever
+  one member or argument is at fault. Validator issues carry the same `code` and `limit`.
+- Breaking: the object types close their other arms (`title?: never` on a note input, `bytes` and
+  `id` exclusive on a file input), `encodeObject` ties the object to the kind it is encoded as,
+  and `listPrefix` returns a `ListPrefix`, which no decode takes.
+- Breaking: an unknown post kind or collection layout is a string, kept as read; the
+  `"unknown"` placeholder is gone, and `FeedConfig.content` and `CollectionContent.layout` are
+  `OrNewer<...>`.
+- New: `isPubkyUrl`, `tryDecodeObject`, `idMicros`, `microsToDate`, `dateToMicros`;
+  `planPublish` takes the private version's `slug` and keeps it on the public leaf.
+- New: outside production, a warning when an encoded `created_at` reads as milliseconds.
+- Messages: the crate words a few refusals anew, the same in both: lengths say their bounds
+  (`name must be 3 to 50 code points`), a range is `1 to 64`, not `1..=64`, an empty filter list
+  says to leave it out, and a path that names no object says so.
+- A caller's array past 10,000 items is refused before it is walked, and bytes in shared memory
+  are copied before they are read.
+- Packaging: TypeScript below 5.7 fails to compile against the package instead of reading its
+  types as `any`; node10 resolution finds every subpath's types; `exactOptionalPropertyTypes`
+  consumers pass a DOM `Blob` and an SDK session; the migration has a `workerd` glue that takes a
+  module compiled at deploy time; `engines` excludes the Node 22 releases that need a flag for
+  `require()` of ESM.
+- The default clock's reading never steps back inside a millisecond, so `created_at` keeps its
+  order.
+- Decoding is linear in the input whatever its shape, nesting at the depth limit included.
 
 - Breaking: places and ids are branded types (`Owner`, `PostId`, `EditId`, `MediaId`,
   `PubkyUrl<K>`, `OwnerPath`, `PostRef`). The URL of a post version passed as a reference, an
@@ -59,7 +89,21 @@ again.
 
 ### Stored bytes
 
-No change.
+These follow the crate, which changes with them:
+
+- A name from a closed set this version does not know (a feed's `content`, a collection's
+  `layout`) is written back with its spelling, and a feed carrying one has its id checked like
+  any other.
+- Reads: a bare owner URL, `pubky://<pk>`, is no stored object; a post version's id is a valid
+  TimestampId no older than the post; a stored object's byte cap holds its bytes as stored, not
+  the form a reader fills defaults into; a double is read correctly rounded.
+- Rules: a list is refused by its count before any of its items is read, so a long list of bad
+  items reports its count; a web reference needs a non-empty host; a 0.x key is read from the
+  public 0.x tree only.
+- An edit whose head leaves less than a minute below the future bound is refused, so two
+  different edits never share a path.
+- `deletionPaths` for a mute returns its 0.x copy first.
+- `planPublish` keeps the slug and writes the envelope with its members in the kind's order.
 
 ## 1.0.0-beta.1
 
