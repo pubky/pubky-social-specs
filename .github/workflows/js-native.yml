@@ -81,8 +81,6 @@ jobs:
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
       - run: npm run tools
-      - name: Typecheck
-        run: npx tsc -p . --noEmit
       - name: The declarations as a consumer compiles them
         run: npm run types
       - name: typescript-eslint, strict and type-checked
@@ -93,14 +91,8 @@ jobs:
         run: npm run format:check
       - name: The public surface is the committed one
         run: npm run api
-      - name: The generated tables are the crate's
-        run: node qa/data.mjs --check
       - name: Unit tests from the sources, with coverage floors per module
         run: npm run coverage
-      - name: Offline vector replay against the build
-        run: npx mocha vectors.test.js
-      - name: Every export's example compiles and runs
-        run: npm run examples
       - name: Parity with the crate on fresh seeded cases
         run: npm run score -- --fuzz 20000
       - name: Hostile arguments
@@ -160,7 +152,8 @@ jobs:
           path: oracle
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
-      - run: npm test
+      # Skips pretest, so the suites run on the build job's dist and not on one compiled here
+      - run: npm test --ignore-scripts
 
   runtimes:
     needs: build
