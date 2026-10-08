@@ -1351,7 +1351,9 @@ describe("migration engine", () => {
       await assert.rejects(runMigration({ owner, port: legacyPort(), mode: "Dry" }), /mode must be "run" or "dry"/);
     });
 
-    it("a blob never enters the wasm: a 20 MB one lands where migrate() puts it, and migrate() never sees a blob", async () => {
+    // Hashing 20 MB takes about a second, which a busy runner can double
+    it("a blob never enters the wasm: a 20 MB one lands where migrate() puts it, and migrate() never sees a blob", async function () {
+      this.timeout(10_000);
       const seen = [];
       const big = new Uint8Array(randomBytes(20 * 1024 * 1024));
       const hash = transforms.mediaId(big);
