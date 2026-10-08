@@ -859,7 +859,8 @@ export function isPubkyUrl(value: unknown): value is T.PubkyUrl {
 export function parseOwnerPath(value: string): T.OwnerPath {
   const path = text(value, "path");
   const segments = path.slice(1).split("/");
-  if (!path.startsWith("/") || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail("path", `not an owner-relative path: ${path}`, "path");
+  // A root alone is no path beneath it
+  if (!path.startsWith("/") || segments.length < 2 || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail("path", `not an owner-relative path: ${path}`, "path");
   return path as T.OwnerPath;
 }
 

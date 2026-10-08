@@ -188,6 +188,11 @@ describe("helpers", () => {
     assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
   });
 
+  it("parseOwnerPath takes a path beneath a root, never the root alone", () => {
+    for (const root of ["/pub", "/priv", "/pub/", "/"]) assert.strictEqual(caught(() => specs.parseOwnerPath(root)).code, "path", root);
+    assert.strictEqual(specs.parseOwnerPath("/pub/social/v1/profile.json"), "/pub/social/v1/profile.json");
+  });
+
   it("idMicros refuses an id whose time is past the safe integer range", () => {
     const e = caught(() => specs.idMicros("FZZZZZZZZZZZY"));
     assert.deepStrictEqual([e.code, e.field], ["id", "id"]);
