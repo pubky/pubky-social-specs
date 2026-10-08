@@ -27,8 +27,9 @@ export function checkSafeInt(value: bigint, field: string, where = ""): void {
 
 function checkSafeNumbers(value: Json, field: string, where: string): void {
   if (typeof value === "bigint") checkSafeInt(value, field, where);
-  else if (Array.isArray(value)) for (const item of value) checkSafeNumbers(item, field, where);
-  else if (value instanceof Map) for (const key of [...value.keys()].sort(compareBytes)) checkSafeNumbers(value.get(key) as Json, field, where);
+  else if (Array.isArray(value)) for (let i = 0; i < value.length; i++) checkSafeNumbers(value[i] as Json, field, where);
+  // Sorted, so the member refused first is the one the reference names
+  else if (value instanceof Map) for (const key of value.size < 2 ? value.keys() : [...value.keys()].sort(compareBytes)) checkSafeNumbers(value.get(key) as Json, field, where);
 }
 
 /** The members no version knows: what a JS caller reads back has to be what was stored. `at` is the object they belong to. */

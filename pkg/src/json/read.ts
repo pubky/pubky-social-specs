@@ -14,6 +14,18 @@ export type JsonObject = Map<string, Json>;
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
 const QUOTE = 0x22;
+
+// A short run of ASCII spelled without a decoder call, which costs more than the run itself;
+// anything else goes through the decoder, which also checks the encoding
+function shortText(bytes: Uint8Array, start: number, end: number): string | null {
+  let out = "";
+  for (let i = start; i < end; i++) {
+    const b = bytes[i] as number;
+    if (b >= 0x80) return utf8Text(bytes.subarray(start, end));
+    out += String.fromCharCode(b);
+  }
+  return out;
+}
 const BACKSLASH = 0x5c;
 const isDigit = (b: number) => b >= 0x30 && b <= 0x39;
 
@@ -88,21 +100,76 @@ export class Reader {
       case QUOTE:
         this.pos++;
         return this.string();
-      case 0x5b: {
-        const items: Json[] = [];
-        this.array(() => void items.push(this.value()));
-        return items;
-      }
-      case 0x7b: {
-        // The last of two equal keys wins, and no key is the object's prototype
-        const members: JsonObject = new Map();
-        this.object((key) => void members.set(key, this.value()));
-        return members;
-      }
+      case 0x5b:
+        return this.items();
+      case 0x7b:
+        return this.members();
       default:
         if (isDigit(b)) return this.number(true);
         return this.fail("expected value");
     }
+  }
+
+  // The two below are `array` and `object` with the element read inline: a hostile document
+  // nests thousands of them, and a closure per container is most of what it costs
+
+  // Items are gathered on one stack and copied out at the size they have: an array grown by
+  // `push` reserves room for many, and a document of a hundred thousand one-item arrays would
+  // hold several times its own size
+  private readonly stack: Json[] = [];
+
+  private items(): Json[] {
+    const base = this.stack.length;
+    this.pos++;
+    this.enter();
+    for (;;) {
+      let b = this.peekToken();
+      if (b === 0x5d) break;
+      if (b === undefined) this.fail("EOF while parsing a list");
+      if (this.stack.length > base) {
+        if (b !== 0x2c) this.fail("expected `,` or `]`");
+        this.pos++;
+        b = this.peekToken();
+        if (b === 0x5d) this.fail("trailing comma");
+        if (b === undefined) this.fail("EOF while parsing a value");
+      }
+      this.stack.push(this.value());
+    }
+    this.leave();
+    this.pos++;
+    return this.stack.splice(base);
+  }
+
+  private members(): JsonObject {
+    // The last of two equal keys wins, and no key is the object's prototype
+    const members: JsonObject = new Map();
+    this.pos++;
+    this.enter();
+    let first = true;
+    for (;;) {
+      let b = this.peekToken();
+      if (b === 0x7d) break;
+      if (b === undefined) this.fail("EOF while parsing an object");
+      if (!first) {
+        if (b !== 0x2c) this.fail("expected `,` or `}`");
+        this.pos++;
+        b = this.peekToken();
+      }
+      first = false;
+      if (b === 0x7d) this.fail("trailing comma");
+      if (b === undefined) this.fail("EOF while parsing a value");
+      if (b !== QUOTE) this.fail("key must be a string");
+      this.pos++;
+      const key = this.string();
+      const colon = this.peekToken();
+      if (colon === undefined) this.fail("EOF while parsing an object");
+      if (colon !== 0x3a) this.fail("expected `:`");
+      this.pos++;
+      members.set(key, this.value());
+    }
+    this.leave();
+    this.pos++;
+    return members;
   }
 
   /** An array, `element` reading each item. */
@@ -193,7 +260,7 @@ export class Reader {
       while (b !== undefined && b !== QUOTE && b !== BACKSLASH && b >= 0x20) b = bytes[++at];
       this.pos = at;
       if (at > start) {
-        const text = utf8Text(bytes.subarray(start, at));
+        const text = at - start <= 32 ? shortText(bytes, start, at) : utf8Text(bytes.subarray(start, at));
         if (text === null) invalid = true;
         else out += text;
       }
@@ -255,19 +322,22 @@ export class Reader {
     const first = this.bytes[this.pos++];
     if (first === undefined) this.fail("EOF while parsing a value");
     if (!isDigit(first)) this.fail("invalid number");
-    let significand: bigint | null = BigInt(first - 0x30);
+    const start = this.pos - 1;
     if (first === 0x30) {
       const next = this.peek();
       if (next !== undefined && isDigit(next)) this.fail("invalid number");
-    } else {
-      for (let b = this.peek(); b !== undefined && isDigit(b); b = this.peek()) {
-        this.pos++;
-        if (significand !== null) {
-          significand = significand * 10n + BigInt(b - 0x30);
-          if (significand > U64_MAX) significand = null;
-        }
-      }
-    }
+    } else this.digits();
+    // Fifteen digits fit a double exactly; past them the digits are read as a bigint once
+    const length = this.pos - start;
+    let significand: bigint | null;
+    if (length <= 15) {
+      let n = 0;
+      for (let i = start; i < this.pos; i++) n = n * 10 + ((this.bytes[i] as number) - 0x30);
+      significand = BigInt(n);
+    } else if (length <= 20) {
+      significand = BigInt(utf8Text(this.bytes.subarray(start, this.pos)) as string);
+      if (significand > U64_MAX) significand = null;
+    } else significand = null;
     let b = this.peek();
     if (b === 0x2e) {
       this.pos++;

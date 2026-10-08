@@ -89,6 +89,7 @@
     "size": "node qa/size.mjs",
     "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
     "model": "node --max-old-space-size=1536 qa/model.mjs",
+    "hostile": "node --expose-gc --max-old-space-size=1536 qa/hostile.mjs",
     "mutation": "stryker run",
     "tools": "npm ci --ignore-scripts --prefix tools",
     "lint": "node tools/node_modules/eslint/bin/eslint.js -c tools/eslint.config.mjs --max-warnings 0 src",

@@ -37,21 +37,27 @@ export function writeFloat(f: number): string {
 /** A value with every object's members sorted, as an unknown member of an object is kept. */
 export function writeJson(value: Json): string {
   if (value === null) return "null";
-  switch (typeof value) {
-    case "boolean":
-      return value ? "true" : "false";
-    case "string":
-      return writeString(value);
-    case "bigint":
-      return value.toString();
-    case "number":
-      return writeFloat(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") return writeString(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number") return writeFloat(value);
+  // Concatenated in place, which the engine keeps as a rope: a hostile value nests thousands of
+  // containers, and an array of parts per container is most of what writing it would cost
+  let out = "";
+  if (Array.isArray(value)) {
+    out = "[";
+    for (let i = 0; i < value.length; i++) out += (i > 0 ? "," : "") + writeJson(value[i] as Json);
+    return out + "]";
   }
-  if (Array.isArray(value)) return `[${value.map(writeJson).join(",")}]`;
-  return `{${writeMembers(value).join(",")}}`;
+  const keys = sortedKeys(value);
+  out = "{";
+  for (let i = 0; i < keys.length; i++) out += `${i > 0 ? "," : ""}${writeString(keys[i] as string)}:${writeJson(value.get(keys[i] as string) as Json)}`;
+  return out + "}";
 }
+
+const sortedKeys = (members: JsonObject): string[] => (members.size < 2 ? [...members.keys()] : [...members.keys()].sort(compareBytes));
 
 /** The members of an object, sorted by the bytes of their keys. */
 export function writeMembers(members: JsonObject): string[] {
-  return [...members.keys()].sort(compareBytes).map((key) => `${writeString(key)}:${writeJson(members.get(key) as Json)}`);
+  return sortedKeys(members).map((key) => `${writeString(key)}:${writeJson(members.get(key) as Json)}`);
 }
