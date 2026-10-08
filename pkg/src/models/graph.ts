@@ -43,7 +43,7 @@ export const buildFollow = (owner: string, followee: string) => buildEdge(follow
 export const buildMute = (owner: string, mutee: string) => buildEdge(mute, "private", "mutes", owner, mutee);
 
 export interface Tag extends Extra {
-  /** What is tagged: a reference on the universal tier, at most 1024 code points. A post is named versionless. */
+  /** What is tagged: a reference of any scheme (a pubky URL, a web URL or another scheme), at most 1024 code points. A post is named versionless. */
   uri: string;
   /** The label as stored: trimmed and ASCII-lowercased, 1 to 20 code points, no whitespace, `,` or `:`. */
   label: string;

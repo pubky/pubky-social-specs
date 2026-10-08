@@ -1,7 +1,7 @@
 // Every ```js block of the shipped docs runs as pasted. Each block is type-checked against the
 // package's declarations and the real SDK's, then run in a process of its own; one preceded by
-// `<!-- no-run: reason -->` is type-checked only. A block takes what it needs from
-// docs/prelude.js, which stands in for a signed-in SDK session.
+// `<!-- no-run: reason -->` is type-checked only. A block takes its session from
+// `memoryHomeserver()` of the testing entry, which stands in for a signed-in SDK session.
 //
 //   node qa/snippets.mjs   (after tsc -p .; in npm test)
 
@@ -20,7 +20,6 @@ const DOCS = [
     .filter((f) => f.endsWith(".md"))
     .map((f) => `docs/${f}`),
 ];
-const prelude = path.join(pkg, "docs/prelude.js");
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
@@ -31,10 +30,7 @@ for (const doc of DOCS) {
     if (lines[i] !== "```js") continue;
     const end = lines.indexOf("```", i + 1);
     const marker = /^<!-- no-run: (.+) -->$/.exec(lines[i - 1] ?? "") ?? /^<!-- no-run: (.+) -->$/.exec(lines[i - 2] ?? "");
-    const code = lines
-      .slice(i + 1, end)
-      .join("\n")
-      .replace(/(["'])\.\/(?:docs\/)?prelude\.js\1/g, JSON.stringify(prelude));
+    const code = lines.slice(i + 1, end).join("\n");
     const name = `${doc.replace(/[/.]/g, "-")}-${i + 1}`;
     fs.writeFileSync(path.join(out, `${name}.mjs`), `${code}\nexport {};\n`);
     blocks.push({ doc, line: i + 1, name, runs: marker === null });

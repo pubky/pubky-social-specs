@@ -1,4 +1,5 @@
-// A tour of pubky-social-specs. Run it with `npm run example`; it performs no I/O.
+// A tour of pubky-social-specs. Run it with `node node_modules/pubky-social-specs/example.js`
+// from an app, or `npm run example` in the package; it performs no I/O.
 
 import assert from "node:assert";
 import {
@@ -76,7 +77,7 @@ show("A bookmark's id carries its target", parseUri(buildBookmark(me, post).url)
 // A feed is named by its filter
 show("A feed", buildFeed(me, { name: "Rust", icon: "star", reach: "all", layout: "columns", sort: "recent", tags: ["Rust", "wasm"] }).object.feed);
 
-// Deleting spans both epochs and both roots
+// Deleting spans both layouts, 0.x and 1.x, and both roots
 show("Deleting a follow", deletionPaths({ kind: "follow", id: them }));
 show(
   "Deleting a post",

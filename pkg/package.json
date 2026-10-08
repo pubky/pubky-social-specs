@@ -57,6 +57,7 @@
       "types": "./dist/migration/adapters/pubky-sdk.d.ts",
       "default": "./dist/migration/adapters/pubky-sdk.js"
     },
+    "./reference.json": "./dist/reference.json",
     "./package.json": "./package.json"
   },
   "imports": {
@@ -80,7 +81,6 @@
     "MIGRATION.md",
     "CHANGELOG.md",
     "SECURITY.md",
-    "docs/prelude.js",
     "docs/reference.md"
   ],
   "scripts": {
@@ -90,6 +90,7 @@
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
+    "conformance": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs --fuzz 0",
     "model": "node --max-old-space-size=1536 qa/model.mjs",
     "hostile": "node --expose-gc --max-old-space-size=1536 qa/hostile.mjs",
     "mutation": "stryker run",

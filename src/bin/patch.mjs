@@ -10,8 +10,9 @@
 // evaluated. The tail of the generated file is replaced by an async `__wbg_init()`, and the
 // CommonJS exports by ES ones.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFile, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -116,3 +117,29 @@ await copyFile(path.join(built, `${name}_bg.wasm`), path.join(out, "glue.wasm"))
 // tsc does not carry a hand-written declaration over to the output
 await copyFile(path.join(pkg, "src/migration/glue.d.ts"), path.join(out, "glue.d.ts"));
 await rm(built, { recursive: true });
+
+// The reference this build was checked against: what a fork compares before it trusts its own
+// parity, since the debug escape table, the float spelling and the message text follow them
+const root = path.resolve(pkg, "..");
+const lock = await readFile(path.join(root, "Cargo.lock"), "utf8");
+const locked = (name) => new RegExp(`name = "${name}"\\nversion = "([^"]+)"`).exec(lock)?.[1] ?? null;
+const output = (cmd, args) => {
+  try {
+    return execFileSync(cmd, args, { cwd: root, encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+};
+const vectorsDir = path.join(root, "vectors/js");
+const vectors = createHash("sha256");
+for (const file of (await readdir(vectorsDir)).sort()) vectors.update(file).update(await readFile(path.join(vectorsDir, file)));
+const reference = {
+  crate: "pubky-social-specs",
+  version: /^version = "([^"]+)"/m.exec(await readFile(path.join(root, "Cargo.toml"), "utf8"))?.[1] ?? null,
+  commit: output("git", ["rev-parse", "HEAD"]),
+  rustc: output("rustc", ["--version"]),
+  serde_json: locked("serde_json"),
+  wasmBindgen: locked("wasm-bindgen"),
+  vectorsSha256: vectors.digest("hex"),
+};
+await writeFile(path.join(pkg, "dist/reference.json"), `${JSON.stringify(reference, null, 2)}\n`);

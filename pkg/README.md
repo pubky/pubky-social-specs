@@ -14,7 +14,9 @@ The tree has two **roots**. Files under `/pub/` are world-readable. Files under 
 
 A client talks to the homeserver with four requests: **PUT** a file at a path, **GET** it, **DELETE** it, and **LIST** the files under a directory. This package performs none of them. It builds the bytes, checks what comes back and computes the paths, so it runs anywhere JavaScript runs. The requests are made by the Pubky SDK, [`@synonymdev/pubky`](https://www.npmjs.com/package/@synonymdev/pubky), or by any HTTP client you bring.
 
-A post is a directory of **versions**: each edit writes a new file, `posts/{id}/{editId}.json`, and the version with the highest `editId` is the **head**, the post as it reads now. A reference to a post names the directory, so it survives every edit.
+A post is a directory of **versions**: each edit writes a new file, `posts/{id}/{editId}.json`, and the version with the highest `editId` is the **head**, the post as it reads now. A reference to a post names the directory, so it survives every edit. Post ids and edit ids encode the time they were minted and sort by it as plain strings, so `a > b` compares two of them.
+
+A LIST is recursive: listing `/pub/social/v1/posts/` returns every version file below it, a page of up to 1000 URLs at a time. A **plan** is a function that computes which files to copy and delete for a change of several files (publishing a draft, deleting a post) and performs no request itself.
 
 This package writes the **1.x** layout, under `/{root}/social/v1/`. Data written by pubky-app before it, the **0.x** layout under `/pub/pubky.app/`, is read only by the migration in `pubky-social-specs/migration`, which copies it into 1.x.
 
@@ -22,11 +24,12 @@ The reference implementation is the Rust crate of the same name. This package is
 
 ## Quick start
 
-Every block in this README runs as pasted. Each takes a signed-in `session` from [`docs/prelude.js`](docs/prelude.js), an in-memory stand-in for the SDK's; in an app that line is your sign-in.
+Every block in this README runs as pasted, in an app or a test. Each takes a signed-in `session` from `memoryHomeserver()` of `pubky-social-specs/testing`, an in-memory homeserver with the SDK's calls and answers that starts empty on every call; in an app that line is your SDK sign-in, and `owner` is `session.info.publicKey.z32()`.
 
 ```js
 import { buildPost, decodeObject } from "pubky-social-specs";
-import { owner, session } from "./docs/prelude.js"; // your SDK session and session.info.publicKey.z32()
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver(); // your SDK session and session.info.publicKey.z32()
 
 // Build: where the post goes and the bytes to send
 const { url, path, body } = buildPost(owner, { content: "Hello" });
@@ -54,11 +57,12 @@ A URL names one stored file. A reference names a thing: for a post it leaves out
 
 ## Create
 
-Every builder of a stored object takes the owner first and returns a `Built<T>`: `id` (what the path names), `path`, `url`, `object` (the stored object, every known member present) and `body` (the bytes to PUT).
+Every builder of a stored object takes the owner first and returns a `Built<T>`, `T` being the stored object (`User`, `Post`, ...): `id` (what the path names), `path`, `url`, `object` (the stored object, every known member present) and `body` (the bytes to PUT).
 
 ```js
 import { buildBookmark, buildFeed, buildFollow, buildMute, buildPost, buildTag, buildUri, buildUser } from "pubky-social-specs";
-import { friend, owner, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, owner, session } = memoryHomeserver();
 
 const theirPost = buildUri(friend, "post", "0035QZPT4QG00"); // a reference: the post, not one version
 
@@ -92,7 +96,8 @@ Media is content addressed: its id is the hash of its bytes, and the declared ty
 
 ```js
 import { buildFile, buildPost, hashMedia } from "pubky-social-specs";
-import { owner, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
 
 const file = new File([new Uint8Array([137, 80, 78, 71])], "cat.png", { type: "image/png" });
 const bytes = new Uint8Array(await file.arrayBuffer());
@@ -111,11 +116,12 @@ Hashing is plain JavaScript, far slower than a native hash, so give `hashMedia` 
 
 ### Validating a form
 
-A builder throws at the first refusal. `validateUser`, `validatePost`, `validateFeed` and `validateTag` run the same rules, collect every issue, and mint nothing; `userSchema`, `postSchema`, `feedSchema` and `tagSchema` are the same validators as Standard Schema objects, for react-hook-form, TanStack Form, tRPC or Hono as they are.
+A builder throws at the first refusal. `validateUser`, `validatePost`, `validateFeed` and `validateTag` run the same rules, collect every issue, and mint nothing; `userSchema`, `postSchema`, `feedSchema` and `tagSchema` are the same validators as [Standard Schema](https://standardschema.dev) objects, for react-hook-form, TanStack Form, tRPC or Hono as they are.
 
 ```js
 import { postSchema, validatePost } from "pubky-social-specs";
-import { owner } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
 
 const result = validatePost({ kind: "article", title: " ", body: "...", slug: "Not A Slug" }, owner);
 if (!result.success) for (const issue of result.issues) console.log(issue.path.join("."), issue.code, issue.message);
@@ -136,7 +142,8 @@ Each issue has a `path` into the input, a `code` (`invalid_type` for a value of 
 
 ```js
 import { buildPost, buildUri, idMicros, microsToDate, parseUri, tryDecodeObject } from "pubky-social-specs";
-import { friend, friendSession, publicStorage } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, friendSession, publicStorage } = memoryHomeserver();
 
 // Someone posted, and edited once
 const first = buildPost(friend, { content: "Hello from the other side", embed: "javascript:alert(1)" });
@@ -148,7 +155,13 @@ const listed = await publicStorage.list(`pubky://${friend}/pub/social/v1/posts/`
 // The head of each post is its version with the highest editId
 const heads = new Map();
 for (const url of listed) {
-  const at = parseUri(url);
+  // Someone else's tree may hold any file name; one that is no canonical URL is skipped
+  let at;
+  try {
+    at = parseUri(url);
+  } catch {
+    continue;
+  }
   if (at.kind === "post" && at.editId !== undefined && !(heads.get(at.id)?.editId > at.editId)) heads.set(at.id, { url, editId: at.editId });
 }
 
@@ -171,7 +184,8 @@ To change a stored object, decode it, change it, and encode it. Members a newer 
 
 ```js
 import { buildUser, decodeObject, encodeObject, toPath } from "pubky-social-specs";
-import { owner, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
 
 const { url, path, body } = buildUser(owner, { name: "Alice" });
 await session.storage.putBytes(path, body);
@@ -188,7 +202,8 @@ The `content` of an article or a collection is itself JSON. Read and write it th
 
 ```js
 import { buildPost, decodeContent, editPost, encodeContent } from "pubky-social-specs";
-import { owner } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
 
 const article = buildPost(owner, { kind: "article", title: "Title", body: "Body" });
 const envelope = decodeContent(article.object); // { kind: "article", content: { title, body, cover_image } }, or null for a note
@@ -211,15 +226,16 @@ console.log(edited.editId > article.editId); // true
 | `mute` | the muted key | `/pub/pubky.app/mutes/<key>`, `/priv/social/v1/mutes/<key>.json` | none |
 | `bookmark` | the filename | `/priv/social/v1/bookmarks/<id>.json` | none |
 | `feed` | the hash id | `/pub/social/v1/feeds/<id>.json`, `/priv/social/v1/feeds/<id>.json` | none |
-| `post` | the post id | the 0.x copy, then every listed version oldest first, public before private | every version path a LIST found |
+| `post` | the post id | each listed 0.x copy, then each listed version oldest first, public before private; nothing for a post with no listings | the paths a LIST of `/pub/social/v1/posts/<id>/` and `/priv/social/v1/posts/<id>/` found, and `/pub/pubky.app/posts/<id>` when a GET finds it |
 | `file` | the hash | each 0.x File object, the 0.x blob, then each listed copy, public before private | the 1.x copies, and each 0.x File object with its `src` |
 | `tag` | the hash id | each listed 0.x tag, then `/pub/social/v1/tags/<id>.json` | each 0.x tag with its `uri` and `label` |
 
-A bookmark and a feed delete their 1.x copies only: their 0.x id hashes a target that the migration respells, so their own id cannot name the 0.x path. That copy stays readable under `/pub/pubky.app/`, and a later migration run does not copy it back (see [`MIGRATION.md`](MIGRATION.md)). Every listing is checked, and one that is not a copy of the object is refused with a `ValidationError` naming it.
+For a post, prefer `planDelete` (below): it takes the same copies, orders them the same way, and also returns the media the post referenced. A bookmark and a feed delete their 1.x copies only: their 0.x id hashes a target that the migration respells, so their own id cannot name the 0.x path. That copy stays readable under `/pub/pubky.app/`, and a later migration run does not copy it back (see [`MIGRATION.md`](MIGRATION.md)). Every listing is checked, and one that is not a copy of the object is refused with a `ValidationError` naming it.
 
 ```js
 import { buildFollow, deletionPaths } from "pubky-social-specs";
-import { friend, owner, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, owner, session } = memoryHomeserver();
 
 const follow = buildFollow(owner, friend);
 await session.storage.putBytes(follow.path, follow.body);
@@ -234,7 +250,8 @@ A post's versions sit under the public root or the private one. `editPost(owner,
 
 ```js
 import { buildFile, buildPost, editPost, parseUri, planDelete, planPublish, planUnpublish } from "pubky-social-specs";
-import { owner, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
 
 const copy = async ({ from, to }) => session.storage.putBytes(to, await session.storage.getBytes(from));
 
@@ -268,7 +285,7 @@ for (const path of removal.deletes) await session.storage.delete(path);
 console.log(removal.mediaGcCandidates); // media the post referenced: delete it if nothing else does
 ```
 
-`planPublish` keeps the slug the private version had, the `slug` of `parseUri(url)`, and respells private media references to public ones in the reference positions only. `planUnpublish` takes the paths of the public versions and of the newest private one, from a LIST. `planDelete` takes every stored version as `{ root, path }` and the versions it could read, whose media it returns as candidates to collect.
+`planPublish` keeps the slug the private version had, the `slug` of `parseUri(url)`, and respells private media references to public ones in the members that hold a reference (attachments and the cover), never inside the text. `planUnpublish` takes the paths of the public versions and of the newest private one, from a LIST. `planDelete` takes every stored version as `{ root, path }` and the versions it could read, whose media it returns as candidates to collect.
 
 ## Rules
 
@@ -292,7 +309,8 @@ A value the data model refuses throws a `ValidationError`. A value of the wrong 
 
 ```js
 import { ArgumentError, buildPost, buildUser, ValidationError } from "pubky-social-specs";
-import { owner } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
 
 try {
   buildUser(owner, { name: "Al" });
@@ -354,12 +372,14 @@ test("a follow reads back", () => {
 
 ```js
 import { createSocialClient } from "pubky-social-specs/client";
-import { friend, publicStorage, session } from "./docs/prelude.js";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, publicStorage, session } = memoryHomeserver();
 
 const social = createSocialClient(session, { publicStorage });
 const post = await social.posts.create({ content: "Hello" });
-const head = await social.posts.head(social.owner, post.id);
-if (head?.ok) await social.posts.edit(head, { ...head.object, content: "Hello, edited" });
+// The newest version, read and decoded, or null; `ok` is false when it does not decode
+const newest = await social.posts.head(social.owner, post.id);
+if (newest?.ok) await social.posts.edit(newest, { ...newest.object, content: "Hello, edited" });
 for await (const read of social.posts.list(friend)) if (read.ok) console.log(read.object.content);
 ```
 

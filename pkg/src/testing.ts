@@ -5,6 +5,7 @@ import * as clock from "./clock.js";
 import { misuse } from "./errors.js";
 import { ZBASE32 } from "./ids.js";
 import { buildFeed, buildPost, buildUser } from "./index.js";
+import type { SdkPublicStorage, SdkResponse, SdkSession } from "./session.js";
 import type { Built, BuiltPost, Feed, Given, NewFeed, NewNote, NewUser, Owner, User } from "./types.js";
 
 /**
@@ -101,4 +102,109 @@ export function sampleUser(input: Partial<NewUser> = {}, owner: Given<"Owner"> =
  */
 export function sampleFeed(input: Partial<NewFeed> = {}, owner: Given<"Owner"> = fakeOwner()): Built<Feed> {
   return buildFeed(owner, { name: "Sample Feed", icon: "star", reach: "all", layout: "columns", sort: "recent", ...input });
+}
+
+/** A session of the in-memory homeserver, as the SDK's: `info`, with the grant's capabilities, and `storage`. */
+export type MemorySession = SdkSession & { info: { capabilities: string[] } };
+
+/** What `memoryHomeserver` gives: two users, their sessions, and anyone's public tree. */
+export interface MemoryHomeserver {
+  /** The signed-in user of the examples: a bare z-base32 key, 52 characters, no `pubky://`. */
+  owner: Owner;
+  /** Another user, to follow, reply to and read. */
+  friend: Owner;
+  /** A signed-in session of `owner`. */
+  session: MemorySession;
+  /** A signed-in session of `friend`, to put something in another user's tree. */
+  friendSession: MemorySession;
+  /** Anyone's public tree by `pubky://` address, as the SDK's `pubky.publicStorage`. */
+  publicStorage: SdkPublicStorage;
+  /** A signed-in session of any key, on the same store. */
+  sessionOf(owner: Given<"Owner">): MemorySession;
+}
+
+// What the SDK throws for a missing file or directory, which the port maps to absent
+const notFound = (url: string) => Object.assign(new Error(`404 Not Found: ${url}`), { name: "RequestError", data: { statusCode: 404 } });
+
+/**
+ * An in-memory homeserver with the calls, arguments and answers of `@synonymdev/pubky` 0.14,
+ * for tests and examples: a missing file or directory is a `RequestError` with
+ * `data.statusCode` 404, and a LIST is recursive, a page of at most `limit` URLs (1000 by
+ * default) sorted as strings, after `cursor`. Each call makes a new, empty store.
+ *
+ * @example
+ * ```ts
+ * import { buildPost } from "pubky-social-specs";
+ * import { memoryHomeserver } from "pubky-social-specs/testing";
+ * const { owner, session } = memoryHomeserver();
+ * const post = buildPost(owner, { content: "Hello" });
+ * await session.storage.putBytes(post.path, post.body);
+ * console.log(await session.storage.list("/pub/social/v1/posts/"));
+ * ```
+ */
+export function memoryHomeserver(): MemoryHomeserver {
+  // Every stored file of every user, by full `pubky://` URL
+  const files = new Map<string, Uint8Array>();
+  const listed = (prefix: string, cursor?: string | null, reverse?: boolean, limit?: number): string[] => {
+    if (!prefix.endsWith("/")) throw Object.assign(new Error(`a LIST path ends with /: ${prefix}`), { name: "InvalidInput" });
+    const urls = [...files.keys()].filter((url) => url.startsWith(prefix)).sort();
+    if (urls.length === 0) throw notFound(prefix);
+    if (reverse === true) urls.reverse();
+    const after = cursor === undefined || cursor === null ? 0 : urls.indexOf(cursor) + 1;
+    return urls.slice(after, after + (limit ?? 1000));
+  };
+  const read = (url: string): Uint8Array => {
+    const bytes = files.get(url);
+    if (bytes === undefined) throw notFound(url);
+    return bytes;
+  };
+  const response = (bytes: Uint8Array): SdkResponse => ({
+    headers: { get: (name) => (name.toLowerCase() === "content-length" ? String(bytes.length) : null) },
+    body: (() => {
+      let done = false;
+      const reader = {
+        read: () => {
+          const chunk = done ? { done: true } : { done: false, value: bytes };
+          done = true;
+          return Promise.resolve(chunk);
+        },
+        cancel: () => Promise.resolve(),
+      };
+      return { getReader: () => reader, cancel: () => Promise.resolve() };
+    })(),
+    arrayBuffer: () => Promise.resolve(bytes.slice().buffer),
+  });
+  const sessionOf = (key: Given<"Owner">): MemorySession => {
+    const url = (path: string) => `pubky://${key}${path}`;
+    return {
+      info: { publicKey: { z32: () => key }, capabilities: ["/pub/social/v1/:rw", "/priv/social/v1/:rw"] },
+      storage: {
+        list: (path, cursor, reverse, limit) => Promise.resolve().then(() => listed(url(path), cursor, reverse, limit)),
+        getBytes: (path) => Promise.resolve().then(() => read(url(path))),
+        get: (path) => Promise.resolve().then(() => response(read(url(path)))),
+        exists: (path) => Promise.resolve(files.has(url(path))),
+        putJson: (path, body) => Promise.resolve(void files.set(url(path), new TextEncoder().encode(JSON.stringify(body)))),
+        putBytes: (path, bytes) => Promise.resolve(void files.set(url(path), new Uint8Array(bytes))),
+        delete: (path) => Promise.resolve(void files.delete(url(path))),
+      },
+    };
+  };
+  const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto" as Owner;
+  const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio" as Owner;
+  return {
+    owner,
+    friend,
+    session: sessionOf(owner),
+    friendSession: sessionOf(friend),
+    sessionOf,
+    publicStorage: {
+      list: (address, cursor, reverse, limit) => Promise.resolve().then(() => listed(address, cursor, reverse, limit)),
+      getBytes: (address) =>
+        Promise.resolve().then(() => {
+          // Only the public root is anyone's to read
+          if (!address.includes("/pub/")) throw notFound(address);
+          return read(address);
+        }),
+    },
+  };
 }

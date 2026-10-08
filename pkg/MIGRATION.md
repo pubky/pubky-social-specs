@@ -1,11 +1,12 @@
 # Migrating 0.x data to 1.x
 
-`pubky-social-specs/migration` carries the whole 0.x to 1.x migration: the transforms and the engine that walks a tree with them. The transforms are the reference crate compiled to wasm, because they read 0.x objects through its frozen reader; this subpath is the only part of the package that loads a wasm, and it does so on the first `runMigration`. The engine uses no browser or Node global, so the same code runs in pubky-app, in a standalone web tool, and under Node for a CLI or a server run. Under Node, `pubky-social-specs/migration/pubky-sdk` is the port over a pubky SDK session and `pubky-social-migrate` runs the whole migration from a terminal (see [Running it from Node](#running-it-from-node)).
+`pubky-social-specs/migration` carries the whole 0.x to 1.x migration: the transforms and the engine that walks a tree with them. The transforms are the reference crate compiled to wasm, because they read 0.x objects through its frozen reader; this subpath is the only part of the package that loads a wasm, and it does so on the first `runMigration`. The engine uses no browser or Node global, so the same code runs in pubky-app, in a standalone web tool, and under Node for a CLI or a server run. The engine reads and writes through a **port**, an object with the storage calls it needs (LIST, GET, PUT, DELETE), so any transport can carry it. Under Node, `pubky-social-specs/migration/pubky-sdk` is the port over a pubky SDK session and `pubky-social-migrate` runs the whole migration from a terminal (see [Running it from Node](#running-it-from-node)).
 
 ```js
 import { runMigration } from "pubky-social-specs/migration";
 import { sdkPort } from "pubky-social-specs/migration/pubky-sdk";
-import { owner, session } from "./docs/prelude.js"; // your SDK session
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver(); // your SDK session
 
 const controller = new AbortController();
 const report = await runMigration({

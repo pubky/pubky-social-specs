@@ -48,7 +48,7 @@ export interface ArticleContent extends Extra {
 }
 
 export interface CollectionItem extends Extra {
-  /** What is curated: a versionless reference on the universal tier, at most 1024 code points. */
+  /** What is curated: a versionless reference of any scheme (a pubky URL, a web URL or another scheme), at most 1024 code points. */
   uri: string;
   /** The curator's note, trimmed by the builder: 1 to 1000 code points, not blank; null for none. */
   note: string | null;

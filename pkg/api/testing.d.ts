@@ -1,3 +1,4 @@
+import type { SdkPublicStorage, SdkSession } from "./session.js";
 import type { Built, BuiltPost, Feed, Given, NewFeed, NewNote, NewUser, Owner, User } from "./types.js";
 /**
  * Replaces the clock, for tests: `nowMs` gives milliseconds as `Date.now` does, so ids and
@@ -61,4 +62,42 @@ export declare function sampleUser(input?: Partial<NewUser>, owner?: Given<"Owne
  * ```
  */
 export declare function sampleFeed(input?: Partial<NewFeed>, owner?: Given<"Owner">): Built<Feed>;
+/** A session of the in-memory homeserver, as the SDK's: `info`, with the grant's capabilities, and `storage`. */
+export type MemorySession = SdkSession & {
+    info: {
+        capabilities: string[];
+    };
+};
+/** What `memoryHomeserver` gives: two users, their sessions, and anyone's public tree. */
+export interface MemoryHomeserver {
+    /** The signed-in user of the examples: a bare z-base32 key, 52 characters, no `pubky://`. */
+    owner: Owner;
+    /** Another user, to follow, reply to and read. */
+    friend: Owner;
+    /** A signed-in session of `owner`. */
+    session: MemorySession;
+    /** A signed-in session of `friend`, to put something in another user's tree. */
+    friendSession: MemorySession;
+    /** Anyone's public tree by `pubky://` address, as the SDK's `pubky.publicStorage`. */
+    publicStorage: SdkPublicStorage;
+    /** A signed-in session of any key, on the same store. */
+    sessionOf(owner: Given<"Owner">): MemorySession;
+}
+/**
+ * An in-memory homeserver with the calls, arguments and answers of `@synonymdev/pubky` 0.14,
+ * for tests and examples: a missing file or directory is a `RequestError` with
+ * `data.statusCode` 404, and a LIST is recursive, a page of at most `limit` URLs (1000 by
+ * default) sorted as strings, after `cursor`. Each call makes a new, empty store.
+ *
+ * @example
+ * ```ts
+ * import { buildPost } from "pubky-social-specs";
+ * import { memoryHomeserver } from "pubky-social-specs/testing";
+ * const { owner, session } = memoryHomeserver();
+ * const post = buildPost(owner, { content: "Hello" });
+ * await session.storage.putBytes(post.path, post.body);
+ * console.log(await session.storage.list("/pub/social/v1/posts/"));
+ * ```
+ */
+export declare function memoryHomeserver(): MemoryHomeserver;
 //# sourceMappingURL=testing.d.ts.map

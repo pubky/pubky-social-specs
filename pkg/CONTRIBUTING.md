@@ -35,7 +35,7 @@ a pull request, also run `npm run types`, `npm run api`, `npm run lint`, `npm ru
 `npm run format:check` and `npm run coverage`.
 
 The docs are checked like code. `npm run docs:snippets` type-checks every `js` block of the
-README, `MIGRATION.md` and `docs/`, and runs each against `docs/prelude.js`; `npm run docs:check`
+README, `MIGRATION.md` and `docs/`, and runs each against the in-memory homeserver of `pubky-social-specs/testing`; `npm run docs:check`
 fails when `docs/reference.md` differs from what `qa/docs.mjs` generates from the package; and
 `npm run docs:hover` fails on any export or member whose editor hover is empty, or a number
 whose doc names no unit. A changed limit, member or error code is a regenerated reference:

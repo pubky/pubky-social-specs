@@ -161,7 +161,7 @@ One entry of a collection.
 
 | member | type | null | meaning |
 |---|---|---|---|
-| `uri` | `string` |  | What is curated: a versionless reference on the universal tier, at most 1024 code points. |
+| `uri` | `string` |  | What is curated: a versionless reference of any scheme (a pubky URL, a web URL or another scheme), at most 1024 code points. |
 | `note` | `string` | yes | The curator's note, trimmed by the builder: 1 to 1000 code points, not blank; null for none. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
@@ -171,7 +171,7 @@ A label on an object, stored at `/pub/social/v1/tags/{id}.json`; the id hashes t
 
 | member | type | null | meaning |
 |---|---|---|---|
-| `uri` | `string` |  | What is tagged: a reference on the universal tier, at most 1024 code points. A post is named versionless. |
+| `uri` | `string` |  | What is tagged: a reference of any scheme (a pubky URL, a web URL or another scheme), at most 1024 code points. A post is named versionless. |
 | `label` | `string` |  | The label as stored: trimmed and ASCII-lowercased, 1 to 20 code points, no whitespace, `,` or `:`. |
 | `created_at` | `number` |  | Microseconds since the epoch. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
