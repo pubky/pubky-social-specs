@@ -6,10 +6,10 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { validate } from "./models/common.js";
-import { checkReferences, checkTimestampId, envelopeRefs, post, type Post, withCover } from "./models/post.js";
+import { checkReferences, checkSlug, checkTimestampId, envelopeRefs, post, type Post, versionPath, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
 import { LEGACY_ROOT } from "./legacy.js";
-import { isPrivatePath, isSlug, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
+import { isPrivatePath, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
 
 interface Copy {
   from: string;
@@ -62,7 +62,7 @@ function toPublic(uri: string, owner: string): string {
  */
 export function planPublish(owner: string, id: string, editId: string, value: Post, slug: string | null) {
   checkPublicKey(owner);
-  if (slug !== null && !isSlug(slug)) fail("format", `slug must be 1 to ${limits.postSlugMaxLength} chars of a-z, 0-9 and -: ${slug}`, "slug");
+  checkSlug(slug);
   checkTimestampId(id);
   checkTimestampId(editId, "editId");
   if (compareBytes(editId, id) < 0) fail("id", `editId ${editId} predates the post id ${id}`, "editId");
@@ -73,8 +73,7 @@ export function planPublish(owner: string, id: string, editId: string, value: Po
   const published: Post = { ...value, content, attachments: value.attachments.map((a) => ({ ...a, uri: toPublic(a.uri, owner) })) };
   const body = validate(post, published, id, true);
   checkReferences(published, true, owner);
-  const leaf = `${editId}${slug === null ? "" : `-${slug}`}.json`;
-  return { copies, put: { id, editId, path: socialPath("public", `posts/${id}/${leaf}`), value: published, body } };
+  return { copies, put: { id, editId, path: versionPath("public", id, editId, slug), value: published, body } };
 }
 
 function editIdOf(id: string, root: Root, path: string): string {
