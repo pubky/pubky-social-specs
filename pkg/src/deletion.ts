@@ -119,7 +119,8 @@ export function deletionPaths(kind: ObjectKind, id: string, listings: readonly u
       return tagPaths(id, entries);
   }
   // A listed copy here would be one nothing deletes, so it is refused, not ignored
-  if (entries.length > 0) fail(`a ${kind} delete takes no listings, found ${(entries[0] as Entry).path}`);
+  const [listed] = entries;
+  if (listed !== undefined) fail(`a ${kind} delete takes no listings, found ${listed.path}`);
   switch (kind) {
     case "feed":
       checkHashId(id);

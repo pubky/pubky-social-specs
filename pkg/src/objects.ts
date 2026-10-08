@@ -46,20 +46,24 @@ function stored(parsed: Parsed): { kind: ObjectKind; id: string } {
   return { kind: parsed.kind, id: parsed.id };
 }
 
+function located(uri: string): { kind: ObjectKind; id: string; root: Root; owner: string } {
+  const parsed = parse(uri);
+  return { ...stored(parsed), root: parsed.root, owner: parsed.owner };
+}
+
 type Bytes = Uint8Array<ArrayBuffer>;
 
 /** The object stored at `uri`: its kind, its value and its bytes as the package writes them. */
 export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value: unknown; body: Bytes } {
-  const parsed = parse(uri);
-  const { kind, id } = stored(parsed);
+  const { kind, id, root, owner } = located(uri);
   if (kind === "file") {
     checkFile(bytes, id);
     return { kind, value: bytes, body: bytes as Bytes };
   }
-  const publicRoot = parsed.root === "public";
+  const publicRoot = root === "public";
   const { value, body } = readStored(modelOf(kind), bytes, id, publicRoot);
   // The URI names the author, so the ownership rule can run here
-  if (kind === "post") checkReferences(value as Post, publicRoot, parsed.owner);
+  if (kind === "post") checkReferences(value as Post, publicRoot, owner);
   return { kind, value, body: utf8(body) };
 }
 
@@ -68,9 +72,8 @@ export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value:
  * object is checked by the rules that need no id and no author.
  */
 export function write(at: string | { kind: ObjectKind; root?: Root }, js: unknown): Bytes {
-  const where = typeof at === "string" ? parse(at) : null;
-  const { kind, id } = where ? stored(where) : { kind: (at as { kind: ObjectKind }).kind, id: null };
-  const publicRoot = (where?.root ?? (at as { root?: Root }).root ?? "public") === "public";
+  const { kind, id, root, owner } = typeof at === "string" ? located(at) : { kind: at.kind, id: null, root: at.root ?? "public", owner: null };
+  const publicRoot = root === "public";
   if (kind === "file") {
     if (!(js instanceof Uint8Array)) return misuse("object", "the bytes of the media");
     checkFile(js, id);
@@ -81,6 +84,6 @@ export function write(at: string | { kind: ObjectKind; root?: Root }, js: unknow
   const model = modelOf(kind);
   const value = model.codec.parse(js, kind);
   const body = validate(model, value, id, publicRoot);
-  if (where && kind === "post") checkReferences(value as Post, publicRoot, where.owner);
+  if (owner !== null && kind === "post") checkReferences(value as Post, publicRoot, owner);
   return utf8(body);
 }

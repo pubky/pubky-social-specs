@@ -56,7 +56,8 @@ export const user: Model<User> = {
       if (frozenTrim(value.bio) === "") fail("bio must not be blank", "bio");
       if (codePointLen(value.bio) > limits.userBioMaxLength) fail("Bio exceeds maximum length", "bio");
     });
-    if (value.image !== null) each(() => checkReference("image", value.image as string, "pubky or web", limits.imageUrlMaxLength, true, null));
+    const { image } = value;
+    if (image !== null) each(() => checkReference("image", image, "pubky or web", limits.imageUrlMaxLength, true, null));
     if (value.links !== null) {
       const links = value.links;
       each(() => {
