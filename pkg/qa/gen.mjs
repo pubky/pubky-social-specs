@@ -1,14 +1,11 @@
 // Seeded requests per family. A case is its family, its seed and its index, so a mismatch is
 // replayed from three numbers.
 
-import { blake3 } from "@noble/hashes/blake3.js";
-import { crockford, hashText } from "../dist/ids.js";
+import { hashId, hashText as hashOfText } from "../dist/ids.js";
 import { NOW_MS, OTHER, OWNER, timestampIdOf } from "./lib.mjs";
 
 // The ids of generated content come from the package's own encoders: a wrong one there makes
 // the oracle refuse where the package accepts, which the scoreboard counts like any mismatch
-const crock = crockford;
-export const hashOfText = hashText;
 const hashOfTag = (uri, label) => hashOfText(`${uri}:${label}`);
 
 export function rng(seed) {
@@ -84,7 +81,7 @@ const ODD = [
 ];
 const PLAIN = "abcxyzABCXYZ0189";
 
-export function str(r, max = 12) {
+function str(r, max = 12) {
   return r.many(max, () => (r.chance(0.35) ? r.pick(ODD) : r.pick([...PLAIN]))).join("");
 }
 
@@ -106,7 +103,7 @@ const base64url = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678
 const EXTENSIONS = ["png", "jpg", "bin", "json", "JPG", "exe", "tar.gz", ""];
 
 /** An owner-relative path: mostly one the parser names, sometimes one it almost does. */
-export function path(r) {
+function path(r) {
   const id = timestampIdOf(NOW - r.below(1e12));
   const root = r.pick(["pub", "pub", "priv", "priv", "public", ""]);
   const namespace = r.pick(["social", "social", "social", "pubky.app", "pubky.app", "other.app", "Social"]);
@@ -134,7 +131,7 @@ export function path(r) {
 }
 
 /** A reference as a user could store one: pubky in both forms, web, any other scheme. */
-export function uri(r) {
+function uri(r) {
   const host = r.pick([OWNER, OWNER, OTHER, spelled(r, ZBASE32, 52), `u:p@${OWNER}`, `${OWNER}:80`, OWNER.toUpperCase()]);
   let out = r.pick([
     () => `${r.pick(["pubky://", "pubky://", "pubky://", "pubky", "PUBKY://", "pubky:", "pubky:/", "Pubky://"])}${host}${r.pick(["/", "/", "/", ""])}${r.chance(0.9) ? path(r) : ""}`,
@@ -232,7 +229,7 @@ function jsonString(r) {
 }
 
 /** JSON text: mostly well formed, with the numbers, keys and escapes two parsers read apart. */
-export function json(r, depth = 3) {
+function json(r, depth = 3) {
   const kind = r.below(depth > 0 ? 10 : 6);
   let out;
   if (kind < 2) out = number(r);
@@ -255,7 +252,7 @@ const WRONG = ["null", "1", "1.5", "-0", "true", '"x"', "[]", "{}", '["a","b"]',
  * The JSON text of `object`, mostly as it is and sometimes broken one way: a member missing,
  * unknown, doubled or of another type, the array form, a cut.
  */
-export function spoil(r, object) {
+function spoil(r, object) {
   const entries = Object.entries(object).map(([key, value]) => [key, JSON.stringify(value)]);
   const roll = r.below(100);
   if (roll < 6 && entries.length) entries.splice(r.below(entries.length), 1);
@@ -278,7 +275,7 @@ const words = (r, max) => r.many(max, () => r.pick(["Ann", "bob", " ", "\u00a0",
 const text = (r, max = 6) => words(r, max);
 
 /** A reference for a field: the right tier most of the time. */
-export function ref(r) {
+function ref(r) {
   return r.pick([
     () =>
       `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick([`posts/${timestampIdOf(NOW - 5e9)}`, `posts/${timestampIdOf(NOW - 5e9)}/${timestampIdOf(NOW - 4e9)}.json`, `files/${hashIdText(r)}.png`, "profile.json"])}`,
@@ -634,7 +631,7 @@ export const families = {
           s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])),
           ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null])) }] : []),
         )
-      : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "priv"])}/social/v1/files/${r.chance(0.7) ? crock(blake3(data).subarray(0, 16)) : hashIdText(r)}.${r.pick(["png", "bin", "jpg"])}`), b);
+      : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "priv"])}/social/v1/files/${r.chance(0.7) ? hashId(data) : hashIdText(r)}.${r.pick(["png", "bin", "jpg"])}`), b);
   },
   user: (r) =>
     r.chance(0.5)
