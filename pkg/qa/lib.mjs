@@ -1,5 +1,5 @@
 // What the harnesses share: their flags, their output file, the seeded randomness of the port
-// faults, and the keys, clock and ids their inputs are made of.
+// faults, the keys, clock and ids their inputs are made of, and how an answer is compared.
 
 import fs from "node:fs";
 import { parseArgs } from "node:util";
@@ -38,6 +38,9 @@ export const xorshift = (seed) => {
 
 /** The TimestampId of `micros`, which 0.x and 1.x spell alike. */
 export const timestampIdOf = (micros) => timestampId(BigInt(micros));
+
+// Key order is no part of an answer
+export const canonical = (value) => JSON.stringify(value, (_, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
 
 export const sameBytes = (a, b) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).equals(b);
 
