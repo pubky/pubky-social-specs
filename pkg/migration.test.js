@@ -1140,6 +1140,16 @@ describe("migration engine", () => {
         assert.ok(report.counts.already_present >= tags.length - 1);
       });
 
+      it("a dry run counts the first object written and every other present, as a run does", async () => {
+        fold();
+        const port = legacyPort();
+        const dry = await runMigration({ owner, port, mode: "dry" });
+        fold();
+        const run = await runMigration({ owner, port: legacyPort() });
+        assert.strictEqual(dry.counts.written, run.counts.written);
+        assert.strictEqual(dry.counts.already_present, run.counts.already_present);
+      });
+
       it("a copy found written elsewhere counts as present for every object after it", async () => {
         fold();
         let port;

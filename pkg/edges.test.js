@@ -36,13 +36,21 @@ describe("edges", () => {
 
     it("the default clock reads the wall clock to the millisecond, the microseconds inside it", () => {
       setClock();
-      const before = Date.now();
-      const { id } = buildPost(OTTO, { content: "now" });
-      const after = Date.now();
-      let micros = 0n;
-      for (const c of id) micros = (micros << 5n) | BigInt("0123456789ABCDEFGHJKMNPQRSTVWXYZ".indexOf(c));
-      micros >>= 1n;
-      assert.ok(micros >= BigInt(before) * 1000n && micros < BigInt(after + 1) * 1000n, `${micros} outside ${before}..${after} ms`);
+      const now = Date.now;
+      const ms = 1_790_000_000_123;
+      Date.now = () => ms;
+      try {
+        for (let i = 0; i < 20; i++) {
+          setClock();
+          const { id } = buildPost(OTTO, { content: "now" });
+          let micros = 0n;
+          for (const c of id) micros = (micros << 5n) | BigInt("0123456789ABCDEFGHJKMNPQRSTVWXYZ".indexOf(c));
+          micros >>= 1n;
+          assert.ok(micros >= BigInt(ms) * 1000n && micros < BigInt(ms + 1) * 1000n, `${micros} outside ${ms} ms`);
+        }
+      } finally {
+        Date.now = now;
+      }
     });
   });
 
@@ -143,7 +151,10 @@ describe("edges", () => {
       assert.strictEqual(warnings(() => specs.editPost(url, { content, kind, parent, embed, attachments, lock })).length, 1);
       // The latest read at a URL is the one that counts
       specs.decodeObject(url, utf8('{"content":"x","kind":"note","parent":null,"embed":null,"attachments":[]}'), "post");
-      assert.deepStrictEqual(warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock })), []);
+      assert.deepStrictEqual(
+        warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock })),
+        [],
+      );
     });
 
     it("is silent in production", () => {

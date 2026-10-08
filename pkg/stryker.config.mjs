@@ -19,9 +19,10 @@ export default {
     "src/canonicalize.ts",
     "src/deletion.ts",
     "src/lifecycle.ts",
-    // keyOf and claimKey; the copy, its read-back and the claims
-    "src/migration/engine.ts:171-184",
-    "src/migration/engine.ts:484-575",
+    // keyOf and claimKey; taking the claims in #migrateOne, then #copy, #holds, #landed and
+    // #claim. Line ranges: move them with the code
+    "src/migration/engine.ts:185-196",
+    "src/migration/engine.ts:484-589",
   ],
   // The mocha runner does not take mocha 12 yet, so each mutant runs the suites as a command,
   // the fastest killers first and stopping at the first failure
