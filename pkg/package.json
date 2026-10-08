@@ -79,7 +79,9 @@
     "example.js",
     "MIGRATION.md",
     "CHANGELOG.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "docs/prelude.js",
+    "docs/reference.md"
   ],
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --locked --features migrator --bin bundle_specs_npm",

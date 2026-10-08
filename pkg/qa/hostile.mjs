@@ -25,15 +25,25 @@ const fill = (unit, bytes) => unit.repeat(Math.max(1, Math.floor(bytes / unit.le
 // refused by the cap before it is parsed, which is a shape of its own
 const post = (json) => `{"content":"c","kind":"note","parent":null,"embed":null,"attachments":[],"x":${json}}`;
 const SHAPES = {
-  "nested arrays at the depth limit": (n) => post(fill("[".repeat(120) + "]".repeat(120) + ",", n).replace(/,$/, "").replace(/^/, "[") + "]"),
+  "nested arrays at the depth limit": (n) =>
+    post(
+      fill("[".repeat(120) + "]".repeat(120) + ",", n)
+        .replace(/,$/, "")
+        .replace(/^/, "[") + "]",
+    ),
   "many keys": (n) => post(`{${Array.from({ length: Math.floor(n / 12) }, (_, i) => `"k${i}":${i}`).join(",")}}`),
   "one long digit run": (n) => post(`1${"0".repeat(n)}.5`),
   "many floats": (n) => post(`[${fill("1.7976931348623157e308,", n)}0]`),
-  "escapes": (n) => post(`"${fill("\\u00e9\\n\\\"", n)}"`),
+  escapes: (n) => post(`"${fill('\\u00e9\\n\\"', n)}"`),
   "surrogate pairs": (n) => post(`"${fill("\\ud83d\\ude00", n)}"`),
   "the error path quoting a long string": (n) => `{"content":"c","kind":"${fill("̀", n / 2)}","parent":null,"embed":null,"attachments":[]}`,
   "a type error quoting a long string": (n) => `{"content":["${fill("é", n / 2)}"],"kind":"note","parent":null,"embed":null,"attachments":[]}`,
-  "deep objects": (n) => post(fill(`{"a":`.repeat(100) + "1" + "}".repeat(100), n).replace(/\}\{/g, "},{").replace(/^/, "[") + "]"),
+  "deep objects": (n) =>
+    post(
+      fill(`{"a":`.repeat(100) + "1" + "}".repeat(100), n)
+        .replace(/\}\{/g, "},{")
+        .replace(/^/, "[") + "]",
+    ),
 };
 
 const encoder = new TextEncoder();
@@ -92,13 +102,16 @@ for (const [name, text] of [
 ]) {
   const rows = SIZES.map((size) => {
     const uri = text(size);
-    return { size, ms: time(() => {
-      try {
-        parseUri(uri);
-      } catch (e) {
-        if (e?.name !== "ValidationError") throw e;
-      }
-    }) };
+    return {
+      size,
+      ms: time(() => {
+        try {
+          parseUri(uri);
+        } catch (e) {
+          if (e?.name !== "ValidationError") throw e;
+        }
+      }),
+    };
   });
   const worst = Math.max(...rows.map((row) => (row.ms * 1e6) / row.size));
   const over = worst > NS_PER_BYTE;

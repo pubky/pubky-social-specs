@@ -5,7 +5,15 @@ import { compareBytes } from "../text.js";
 import type { Json, JsonObject } from "./read.js";
 
 // A Map, so no character reaches a prototype
-const NAMED = new Map([['"', '\\"'], ["\\", "\\\\"], ["\b", "\\b"], ["\f", "\\f"], ["\n", "\\n"], ["\r", "\\r"], ["\t", "\\t"]]);
+const NAMED = new Map([
+  ['"', '\\"'],
+  ["\\", "\\\\"],
+  ["\b", "\\b"],
+  ["\f", "\\f"],
+  ["\n", "\\n"],
+  ["\r", "\\r"],
+  ["\t", "\\t"],
+]);
 const ESCAPED = /["\\\u0000-\u001f]/g;
 
 /** Only the quote, the backslash and the C0 controls are escaped. */

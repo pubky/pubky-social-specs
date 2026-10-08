@@ -152,7 +152,7 @@ const calls = {
   encodeContent: [api.decodeContent(article.object).content],
   buildUser: [OWNER, { name: "Alice", bio: "bio", links: [{ title: "t", url: "https://example.com" }] }],
   buildPost: [OWNER, { content: "hello", attachments: [{ uri: "https://example.com/a.png", name: "a" }] }],
-  editPost: [post.url, post.object, { slug: "edited" }],
+  editPost: [OWNER, post.url, post.object, { slug: "edited" }],
   buildFeed: [OWNER, { name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent", tags: ["rust"] }],
   feedId: [feed.object],
   buildTag: [OWNER, api.buildUri(OTHER, "user"), "friend"],
@@ -181,9 +181,14 @@ const calls = {
   validatePost: [{ content: "hello", attachments: [{ uri: "https://example.com/a.png" }] }, OWNER],
   validateFeed: [{ name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent" }],
   validateTag: [{ uri: "https://example.com", label: "friend" }],
+  isPubkyUrl: [post.url],
+  tryDecodeObject: [user.url, user.body],
+  idMicros: [post.id],
+  microsToDate: [1_790_000_000_000_000],
+  dateToMicros: [new Date(1_790_000_000_000)],
 };
 
-const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError");
+const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError" && name !== "ArgumentError");
 const missing = functions.filter((name) => !(name in calls));
 if (missing.length) throw new Error(`no known call for ${missing.join(", ")}`);
 

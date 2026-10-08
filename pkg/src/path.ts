@@ -113,7 +113,6 @@ export function parsePath(path: string | null): Located | null {
 
 export const SEGMENT = { private: "priv", public: "pub" } as const;
 
-
 /** `/{root}/social/v1/{leaf}`, the one place a path is assembled. */
 export function socialPath(root: Root, leaf: string): OwnerPath {
   return `/${SEGMENT[root]}/social/v1/${leaf}`;

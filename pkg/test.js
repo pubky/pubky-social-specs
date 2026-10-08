@@ -174,7 +174,10 @@ describe("pubky-social-specs", () => {
       const many = caught(() => buildPost(OTTO, { content: "x", attachments: Array.from({ length: 11 }, () => ({ uri: "https://a.example" })) }));
       assert.deepStrictEqual([many.code, many.field, many.limit], ["count", "attachments", 10]);
       assert.strictEqual(caught(() => buildPost(OTTO, { content: "x", parent: "not a uri" })).code, "reference");
-      assert.strictEqual(caught(() => buildUser("pubky://" + OTTO, { name: "Alice" })).message, `Validation Error: owner must be the bare public key, not pubky://${OTTO}: parseOwner reads it out of a pubky:// URL`);
+      assert.strictEqual(
+        caught(() => buildUser("pubky://" + OTTO, { name: "Alice" })).message,
+        `Validation Error: owner must be the bare public key, not pubky://${OTTO}: parseOwner reads it out of a pubky:// URL`,
+      );
       // A shape refusal names its member too
       const shape = caught(() => buildPost(OTTO, { content: "x", attachments: [{ uri: 1 }] }));
       assert.ok(shape instanceof specs.ArgumentError && shape instanceof TypeError);

@@ -56,7 +56,13 @@ export const user: Model<User> = {
     each(() => {
       if (frozenTrim(value.name) === "") fail("blank", "name must not be blank", "name");
       const length = codePointLen(value.name);
-      if (length < limits.userNameMinLength || length > limits.userNameMaxLength) fail("length", `name must be ${limits.userNameMinLength} to ${limits.userNameMaxLength} code points`, "name", length < limits.userNameMinLength ? limits.userNameMinLength : limits.userNameMaxLength);
+      if (length < limits.userNameMinLength || length > limits.userNameMaxLength)
+        fail(
+          "length",
+          `name must be ${limits.userNameMinLength} to ${limits.userNameMaxLength} code points`,
+          "name",
+          length < limits.userNameMinLength ? limits.userNameMinLength : limits.userNameMaxLength,
+        );
     });
     each(() => {
       if (value.bio === null) return;

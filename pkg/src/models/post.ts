@@ -174,16 +174,15 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
 export function withCover(value: Post, cover: string): string | null {
   const envelope = envelopeOf(value);
   if (envelope === null || envelope.parsed instanceof ValidationError) return null;
-  return value.kind === "article"
-    ? article.write({ ...(envelope.parsed as ArticleContent), cover_image: cover })
-    : collection.write({ ...(envelope.parsed as CollectionContent), cover_image: cover });
+  return value.kind === "article" ? article.write({ ...(envelope.parsed as ArticleContent), cover_image: cover }) : collection.write({ ...(envelope.parsed as CollectionContent), cover_image: cover });
 }
 
 const OTHER_CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const hasOtherControl = (s: string) => OTHER_CONTROL.test(s);
 function checkArticle(post: Post, each: Each): void {
   each(() => {
-    if (codePointLen(post.content) > limits.articleContentMaxLength) fail("length", `Article content must be at most ${limits.articleContentMaxLength} code points`, "content", limits.articleContentMaxLength);
+    if (codePointLen(post.content) > limits.articleContentMaxLength)
+      fail("length", `Article content must be at most ${limits.articleContentMaxLength} code points`, "content", limits.articleContentMaxLength);
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
@@ -197,7 +196,8 @@ function checkArticle(post: Post, each: Each): void {
     });
     each(() => {
       if (frozenTrim(envelope.title) === "") fail("blank", "Article title must contain non-whitespace characters", "title");
-      if (codePointLen(envelope.title) > limits.articleTitleMaxLength) fail("length", `Article title must be at most ${limits.articleTitleMaxLength} code points`, "title", limits.articleTitleMaxLength);
+      if (codePointLen(envelope.title) > limits.articleTitleMaxLength)
+        fail("length", `Article title must be at most ${limits.articleTitleMaxLength} code points`, "title", limits.articleTitleMaxLength);
     });
     each(() => {
       if (codePointLen(envelope.body) > limits.articleBodyMaxLength) fail("length", `Article body must be at most ${limits.articleBodyMaxLength} code points`, "body", limits.articleBodyMaxLength);
@@ -213,7 +213,8 @@ function checkCollection(post: Post, each: Each): void {
     if (post.attachments.length > 0) fail("conflict", "Collection posts must not use post.attachments; items belong in the content envelope", "attachments");
   });
   each(() => {
-    if (codePointLen(post.content) > limits.collectionContentMaxLength) fail("length", `Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content", limits.collectionContentMaxLength);
+    if (codePointLen(post.content) > limits.collectionContentMaxLength)
+      fail("length", `Collection content exceeds max length ${limits.collectionContentMaxLength}`, "content", limits.collectionContentMaxLength);
   });
   // The rules below read the envelope, so they run only once it parsed
   each(() => {
@@ -223,13 +224,19 @@ function checkCollection(post: Post, each: Each): void {
       if (frozenTrim(envelope.name) === "") fail("blank", "Collection name must contain non-whitespace characters", "name");
       const length = codePointLen(envelope.name);
       if (length < limits.collectionNameMinLength || length > limits.collectionNameMaxLength) {
-        fail("length", `Collection name must be ${limits.collectionNameMinLength} to ${limits.collectionNameMaxLength} characters`, "name", length < limits.collectionNameMinLength ? limits.collectionNameMinLength : limits.collectionNameMaxLength);
+        fail(
+          "length",
+          `Collection name must be ${limits.collectionNameMinLength} to ${limits.collectionNameMaxLength} characters`,
+          "name",
+          length < limits.collectionNameMinLength ? limits.collectionNameMinLength : limits.collectionNameMaxLength,
+        );
       }
     });
     each(() => {
       if (envelope.description === null) return;
       if (frozenTrim(envelope.description) === "") fail("blank", "Collection description must not be blank", "description");
-      if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength) fail("length", `Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description", limits.collectionDescriptionMaxLength);
+      if (codePointLen(envelope.description) > limits.collectionDescriptionMaxLength)
+        fail("length", `Collection description exceeds ${limits.collectionDescriptionMaxLength} characters`, "description", limits.collectionDescriptionMaxLength);
     });
     envelope.items.forEach((entry, index) => {
       each(() => checkExtra(entry.extra, `items[${index}].`));
@@ -265,7 +272,8 @@ export const post: Model<Post> = {
       if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
     });
     each(() => {
-      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount) fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
+      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount)
+        fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
     });
     checkReferences(value, publicRoot, null, each);
     value.attachments.forEach((a, index) => {

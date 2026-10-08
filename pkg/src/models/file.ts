@@ -24,7 +24,7 @@ export function buildFile(owner: string, source: { bytes: Uint8Array } | { id: s
   if ("bytes" in source) id = checkFile(source.bytes, null);
   else {
     id = source.id;
-    checkHashId(id);
+    checkHashId(id, "id");
   }
   return { id, path: socialPath(root, `files/${id}.${mimeToExt(declaredType)}`) };
 }

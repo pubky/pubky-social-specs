@@ -89,6 +89,10 @@ jobs:
         run: npm run deps
       - name: Format
         run: npm run format:check
+      - name: Every export and member documented, every number with its unit
+        run: npm run docs:hover
+      - name: The generated reference matches the package
+        run: npm run docs:check
       - name: The public surface is the committed one
         run: npm run api
       - name: Unit tests from the sources, with coverage floors per module

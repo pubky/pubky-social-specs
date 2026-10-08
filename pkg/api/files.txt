@@ -64,6 +64,10 @@ dist/json/write.d.ts
 dist/json/write.d.ts.map
 dist/json/write.js
 dist/json/write.js.map
+dist/legacy.d.ts
+dist/legacy.d.ts.map
+dist/legacy.js
+dist/legacy.js.map
 dist/lifecycle.d.ts
 dist/lifecycle.d.ts.map
 dist/lifecycle.js
@@ -80,6 +84,7 @@ dist/migration/glue.d.ts
 dist/migration/glue.js
 dist/migration/glue.node.js
 dist/migration/glue.wasm
+dist/migration/glue.workerd.js
 dist/migration/index.d.ts
 dist/migration/index.d.ts.map
 dist/migration/index.js
@@ -176,6 +181,8 @@ dist/validate.d.ts
 dist/validate.d.ts.map
 dist/validate.js
 dist/validate.js.map
+docs/prelude.js
+docs/reference.md
 example.js
 package.json
 src/base64url.ts
@@ -193,6 +200,7 @@ src/input.ts
 src/json/read.ts
 src/json/schema.ts
 src/json/write.ts
+src/legacy.ts
 src/lifecycle.ts
 src/migration/adapters/pubky-sdk.ts
 src/migration/engine.ts
@@ -221,3 +229,4 @@ src/text.ts
 src/types.ts
 src/uri.ts
 src/validate.ts
+ts-too-old.d.ts

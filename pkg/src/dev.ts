@@ -55,6 +55,8 @@ export function warnIfMilliseconds(object: unknown, call: string): void {
   if (!development || typeof object !== "object" || object === null) return;
   const at = (object as { created_at?: unknown }).created_at;
   if (typeof at === "number" && at > 0 && at < MILLISECONDS_BELOW) {
-    console.warn(`pubky-social-specs: ${call} got created_at ${at}, which reads as milliseconds; every stored timestamp is microseconds, dateToMicros(Date.now()) gives one. (Shown outside production only.)`);
+    console.warn(
+      `pubky-social-specs: ${call} got created_at ${at}, which reads as milliseconds; every stored timestamp is microseconds, dateToMicros(Date.now()) gives one. (Shown outside production only.)`,
+    );
   }
 }

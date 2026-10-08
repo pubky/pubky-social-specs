@@ -13,7 +13,7 @@ const { buildFile, buildFollow, buildPost, buildUser, decodeObject, encodeObject
 function corpus() {
   const user = buildUser(OTTO, { name: 'Ann "the" \\ \n\t\u0001', bio: "é😀" });
   const post = buildPost(OTTO, { content: 'quote " back \\ nl \n tab \t ctl \u0002', parent: `pubky://${RIO}/pub/social/v1/posts/0035QZPT4QG00` });
-  const article = buildPost(OTTO, { kind: "article", title: "T\"", body: "b\\\n", slug: "a-b" });
+  const article = buildPost(OTTO, { kind: "article", title: 'T"', body: "b\\\n", slug: "a-b" });
   const decoded = decodeObject(post.url, post.body, "post");
   return [user.body, post.body, article.body, encodeObject(post.url, decoded)].map(text);
 }

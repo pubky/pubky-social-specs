@@ -135,7 +135,8 @@ function uri(r) {
   const host = r.pick([OWNER, OWNER, OTHER, spelled(r, ZBASE32, 52), `u:p@${OWNER}`, `${OWNER}:80`, OWNER.toUpperCase()]);
   let out = r.pick([
     () => `${r.pick(["pubky://", "pubky://", "pubky://", "pubky", "PUBKY://", "pubky:", "pubky:/", "Pubky://"])}${host}${r.pick(["/", "/", "/", ""])}${r.chance(0.9) ? path(r) : ""}`,
-    () => `${r.pick(["http://", "https://", "HTTP://", "https:/", "http://?", "https://#"])}${r.pick(["example.com", "é.example", "a b", "", ":", ":443", "u@", "u:p@:80", "u@Example.COM", "[::1]:8080"])}${r.pick(["", "/", "/p?q=1#f", "/" + str(r, 6)])}`,
+    () =>
+      `${r.pick(["http://", "https://", "HTTP://", "https:/", "http://?", "https://#"])}${r.pick(["example.com", "é.example", "a b", "", ":", ":443", "u@", "u:p@:80", "u@Example.COM", "[::1]:8080"])}${r.pick(["", "/", "/p?q=1#f", "/" + str(r, 6)])}`,
     () => `${r.pick(["nostr", "geo", "IPFS", "did", "magnet", "pubkyx", "http", "1a", "a+b.c-d", "é", ""])}:${str(r, 8)}`,
     () => str(r, 20),
   ])();
@@ -578,7 +579,15 @@ export const families = {
   plan: (r) => {
     const id = postId(r);
     return r.pick([
-      () => request("planPublish", s(key(r)), { j: JSON.stringify({ id, editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]), post: draft(r), ...(r.chance(0.3) ? { slug: r.pick(["my-post", "a", "Bad", "x".repeat(65)]) } : {}) }) }),
+      () =>
+        request("planPublish", s(key(r)), {
+          j: JSON.stringify({
+            id,
+            editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]),
+            post: draft(r),
+            ...(r.chance(0.3) ? { slug: r.pick(["my-post", "a", "Bad", "x".repeat(65)]) } : {}),
+          }),
+        }),
       () => {
         const post = { id: r.pick([id, id, id, "x"]), publicPaths: editIds(r).map((e) => versionPath(r, "public", id, e)) };
         if (r.chance(0.5)) post.legacyPaths = legacyPosts(r, id);
@@ -636,7 +645,15 @@ export const families = {
   user: (r) =>
     r.chance(0.5)
       ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: JSON.stringify(userInput(r)) })
-      : request("decode", s(r.chance(0.1) ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`]) : `pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`), { j: stored(r, storedUser(r)) }),
+      : request(
+          "decode",
+          s(
+            r.chance(0.1)
+              ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`])
+              : `pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`,
+          ),
+          { j: stored(r, storedUser(r)) },
+        ),
   ids: (r) =>
     r.pick([
       () => request("publicKey", s(r.chance(0.5) ? spelled(r, ZBASE32, 52) : r.pick([OWNER, OTHER, str(r, 60)]))),

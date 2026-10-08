@@ -121,7 +121,14 @@ function isWellFormed(s: string): boolean {
   return true;
 }
 
-const NAMED_DEBUG = new Map([["\t", "\\t"], ["\n", "\\n"], ["\r", "\\r"], ["\0", "\\0"], ["\\", "\\\\"], ['"', '\\"']]);
+const NAMED_DEBUG = new Map([
+  ["\t", "\\t"],
+  ["\n", "\\n"],
+  ["\r", "\\r"],
+  ["\0", "\\0"],
+  ["\\", "\\\\"],
+  ['"', '\\"'],
+]);
 
 // A binary search over the sorted, disjoint [first, last] pairs: a hostile string quoted in an
 // error costs a few steps per character, not a walk of every range

@@ -35,7 +35,21 @@ const RESOLUTIONS = [
 ];
 const compile = (version, module, resolution) => {
   run("npm", ["install", "--silent", "--no-audit", "--no-fund", `typescript@${version}`]);
-  const flags = ["--noEmit", "--strict", "--target", "es2022", "--lib", "es2020", "--exactOptionalPropertyTypes", "--noUncheckedIndexedAccess", "--module", module, "--moduleResolution", resolution, "a.ts"];
+  const flags = [
+    "--noEmit",
+    "--strict",
+    "--target",
+    "es2022",
+    "--lib",
+    "es2020",
+    "--exactOptionalPropertyTypes",
+    "--noUncheckedIndexedAccess",
+    "--module",
+    module,
+    "--moduleResolution",
+    resolution,
+    "a.ts",
+  ];
   try {
     run("npx", ["tsc", ...flags]);
     return "";

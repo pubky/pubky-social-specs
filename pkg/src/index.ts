@@ -189,11 +189,11 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
   const content = text(member("content"), "post.content");
   const kind = member("kind");
   if (kind === "article") {
-    const envelope = parseText(posts.article, content, "Article content must be a valid JSON envelope: ");
+    const envelope = parseText(posts.article, content, "Article content must be a valid JSON envelope: ", "content");
     return { kind: "article", content: posts.article.plain(envelope) as T.ArticleContent };
   }
   if (kind === "collection") {
-    const envelope = parseText(posts.collection, content, "Collection content must be a valid JSON envelope: ");
+    const envelope = parseText(posts.collection, content, "Collection content must be a valid JSON envelope: ", "content");
     return { kind: "collection", content: posts.collection.plain(envelope) as T.CollectionContent };
   }
   return null;
@@ -524,10 +524,7 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  * console.log(plan.copies.length, plan.put.path);
  * ```
  */
-export function planPublish(
-  owner: T.Given<"Owner">,
-  version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post; slug?: string | null },
-): { copies: T.Copy[]; put: T.BuiltPost } {
+export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post; slug?: string | null }): { copies: T.Copy[]; put: T.BuiltPost } {
   const given = inputOf(snapshot(version, "version"), "version", ["id", "editId", "post", "slug"]);
   const value = posts.post.codec.parse(given.post, "version.post");
   const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "version.slug");
