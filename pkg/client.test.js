@@ -10,6 +10,12 @@ import { answered, fakeHomeserver } from "./sdk.fixture.js";
 
 const encoder = new TextEncoder();
 
+// A homeserver, and a client of OTTO on it
+const ottoClient = (options) => {
+  const hs = fakeHomeserver();
+  return { hs, social: createSocialClient(hs.session(OTTO), options) };
+};
+
 const all = async (iterable) => {
   const out = [];
   for await (const item of iterable) out.push(item);
@@ -21,8 +27,7 @@ describe("pubky-social-specs/client", () => {
   after(() => setClock());
 
   it("creates a post by PUTting the builder's exact bytes, and reads it back as the head", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     const post = await social.posts.create({ content: "Hello" });
     assert.deepStrictEqual(hs.store.get(post.url), post.body);
     const head = await social.posts.head(OTTO, post.id);
@@ -31,8 +36,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("an edit is a new version of the same post, and the head reads it", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { social } = ottoClient();
     const post = await social.posts.create({ content: "Hello" });
     setClock(() => T0 + 1);
     const head = await social.posts.head(OTTO, post.id);
@@ -42,8 +46,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("the head skips what a LIST of the post gives that is no version of it", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     const post = await social.posts.create({ content: "Hello" });
     for (const leaf of ["a b", "notes.txt"]) hs.store.set(`pubky://${OTTO}/pub/social/v1/posts/${post.id}/${leaf}`, encoder.encode("{}"));
     assert.strictEqual((await social.posts.head(OTTO, post.id)).object.content, "Hello");
@@ -75,12 +78,11 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("the head of a post with no version is null", async () => {
-    assert.strictEqual(await createSocialClient(fakeHomeserver().session(OTTO)).posts.head(OTTO, "0034A0X7NJ52C"), null);
+    assert.strictEqual(await ottoClient().social.posts.head(OTTO, "0034A0X7NJ52C"), null);
   });
 
   it("mints again when another copy of the package took the id, in either root", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     const theirs = buildPost(OTTO, { content: "draft", root: "private" });
     hs.store.set(theirs.url, theirs.body);
     setClock(() => T0);
@@ -90,8 +92,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("lists every post's newest version, a page at a time, an unreadable one as a value", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO), { pageSize: 2 });
+    const { hs, social } = ottoClient({ pageSize: 2 });
     const posts = [];
     for (let i = 0; i < 3; i++) {
       setClock(() => T0 + i);
@@ -113,8 +114,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("deletes every version of a post in both roots", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     const post = await social.posts.create({ content: "x" });
     setClock(() => T0 + 1);
     await social.posts.edit({ url: post.url }, { ...post.object, content: "y" }, { root: "private" });
@@ -138,8 +138,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("keeps a profile's unknown members through an update", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     hs.store.set(`pubky://${OTTO}/pub/social/v1/profile.json`, encoder.encode('{"name":"Otto","bio":null,"image":null,"links":null,"status":null,"pronouns":"he"}'));
     const read = await social.profile.get();
     await social.profile.update({ ...read.object, bio: "new" });
@@ -147,8 +146,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("adds, lists and removes follows, mutes, tags, bookmarks and feeds", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     await social.follows.add(RIO);
     await social.mutes.add(RIO);
     const tag = await social.tags.add("https://example.com", "Rust");
@@ -171,8 +169,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("uploads media where its hash names it, and checks the bytes it reads", async () => {
-    const hs = fakeHomeserver();
-    const social = createSocialClient(hs.session(OTTO));
+    const { hs, social } = ottoClient();
     const bytes = encoder.encode("png bytes");
     const file = await social.files.upload(bytes, "image/png");
     assert.deepStrictEqual((await social.files.get(file.url)).object, bytes);
