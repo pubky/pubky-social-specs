@@ -68,11 +68,11 @@ is meant.
 
 A finding goes into the package, never into a vector: a vector is the crate's answer.
 
-The mutants Stryker leaves alive are ones no input can tell apart from the code, each checked by
-hand: `colon <= 0` against `< 0` in `canonicalExternal` (the scheme check refuses an empty
+The last run scored 97.46%: 828 mutants killed, 16 timed out, 22 alive. The ones alive are ones
+no input can tell apart from the code, each checked by hand: `colon <= 0` against `< 0` in `canonicalExternal` (the scheme check refuses an empty
 scheme anyway); the `?? ""` and the final unknown-kind refusal in `deletion.ts` (unreachable past
-the guard before them); the optional chains and the `"files/"` prefix in `lifecycle.ts`'s media
-checks (every caller matched the owner's media prefix first), the `ValidationError` filter
+the guard before them); the optional chains in `lifecycle.ts`'s media check (every caller
+matched the owner's media prefix first), the `ValidationError` filter
 around `checkSafeNumbers` (it throws nothing else), the public-root flags of the publish's final
 checks (every private reference was refused before them) and the root tie-break of the delete
 order (V8's stable sort gives the same order); in the engine, `keyOf` on a path with no key and
