@@ -157,6 +157,7 @@ dist/radix.d.ts
 dist/radix.d.ts.map
 dist/radix.js
 dist/radix.js.map
+dist/reference.json
 dist/session.d.ts
 dist/session.d.ts.map
 dist/session.js
@@ -181,7 +182,6 @@ dist/validate.d.ts
 dist/validate.d.ts.map
 dist/validate.js
 dist/validate.js.map
-docs/prelude.js
 docs/reference.md
 example.js
 package.json
