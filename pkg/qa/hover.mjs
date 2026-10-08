@@ -6,7 +6,6 @@
 //
 // Exits 1 and names each export or member that hovers empty.
 
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";

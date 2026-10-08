@@ -94,12 +94,6 @@ const expectedWrites = (tree) => {
   return out;
 };
 
-const portOf = (tree, options) => {
-  const port = new MemoryPort(options);
-  for (const [path, bytes] of tree) port.store.set(url(path), bytes);
-  return port;
-};
-
 const v1Of = (store) => new Map([...store].filter(([u]) => !u.startsWith(LEGACY) && u !== FLAG));
 const legacyOf = (store) => new Map([...store].filter(([u]) => u.startsWith(LEGACY)));
 

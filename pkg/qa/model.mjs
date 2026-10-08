@@ -19,7 +19,7 @@
 // whose 0.x id the v1 id cannot name, a client may skip the 0.x listing of a post or a
 // tag, and only a finished run writes the record. `--strict` fails on it too.
 //
-//   node --max-old-space-size=1536 qa/model.mjs [--runs 1000] [--seed N] [--path P] [--commands 30] [--verbose]
+//   node --max-old-space-size=1536 qa/model.mjs [--runs 1000] [--seed N] [--path P] [--commands 30] [--strict] [--verbose]
 
 import assert from "node:assert";
 import fs from "node:fs";
@@ -63,7 +63,6 @@ const { MemoryPort, MigrationPortError, refusal } = migration;
 const owner = corpus.owner;
 const url = (p) => `pubky://${owner}${p}`;
 const rel = (u) => u.slice(`pubky://${owner}`.length);
-const LEGACY = url("/pub/pubky.app/");
 const FLAG = url("/priv/social/v1/_migrated.json");
 const PROFILE = url("/pub/social/v1/profile.json");
 const encoder = new TextEncoder();
@@ -155,7 +154,7 @@ class Tree extends MemoryPort {
  * and the posts they made, to pick from. The 1.x tree itself is read from the port, since
  * migrated objects get their ids from the 0.x tree.
  */
-const freshModel = () => ({ deleted: new Set(), privatePosts: new Set(), clock: T0, latest: T0, transformBumps: 0, steps: [] });
+const freshModel = () => ({ deleted: new Set(), privatePosts: new Set(), clock: T0, latest: T0, steps: [] });
 
 // ---- the client: what an app does with the package's plans, against the port ----
 
@@ -532,7 +531,6 @@ class BumpTransformRev extends Step {
     const flag = JSON.parse(decoder.decode(bytes));
     flag.transform_rev = 0;
     tree.store.set(FLAG, encoder.encode(JSON.stringify(flag)));
-    model.transformBumps++;
   }
 
   toString() {

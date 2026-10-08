@@ -11,7 +11,6 @@ import { ask } from "./oracle.mjs";
 const args = flags({ check: { type: "boolean", default: false } });
 
 const [{ ok: data }] = await ask([{ op: "data", now: 0, last: 0 }]);
-const literal = (value) => JSON.stringify(value, null, 2);
 // The same literal, frozen at every level: a caller cannot change a limit under the package
 const frozen = (value, indent = "") => {
   if (Array.isArray(value)) return `/* @__PURE__ */ Object.freeze([${value.map((item) => frozen(item)).join(", ")}] as const)`;
