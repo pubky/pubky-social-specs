@@ -1,5 +1,9 @@
 import assert from "assert";
-import { parseArgs, exitCode, progress, sdkSupported, UsageError, reportText, jsonText, main } from "./bin/migrate.js";
+import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { parseArgs, exitCode, progress, sdkSupported, UsageError, reportText, jsonText, main, askPassphrase, recoveryFault } from "./bin/migrate.js";
 
 describe("pubky-social-migrate arguments", () => {
   const defaults = { passphraseEnv: "PUBKY_PASSPHRASE", dryRun: false, rescan: false, json: false, help: false };
@@ -91,5 +95,68 @@ describe("pubky-social-migrate arguments", () => {
     assert.strictEqual(code, 1);
     assert.ok(!("PUBKY_PASSPHRASE" in env));
     assert.strictEqual(env.OTHER, "kept");
+  });
+
+  // A terminal as the prompt meets one
+  const terminal = () => {
+    const input = Object.assign(new EventEmitter(), { isTTY: true, raw: false, setRawMode(on) { this.raw = on; }, pause() {}, resume() {} });
+    const written = [];
+    return { input, output: { write: (text) => written.push(text) }, written };
+  };
+
+  it("asks the passphrase on the terminal with echo off, and gives it as bytes", async () => {
+    const { input, output, written } = terminal();
+    const asked = askPassphrase(input, output);
+    assert.strictEqual(input.raw, true);
+    input.emit("data", Buffer.from("sec"));
+    input.emit("data", Buffer.from("rex\x7ft\r"));
+    const typed = await asked;
+    assert.strictEqual(typed.toString(), "secret");
+    assert.strictEqual(input.raw, false);
+    assert.deepStrictEqual(written, ["Recovery passphrase: ", "\n"], "nothing typed is echoed");
+  });
+
+  it("gives up on Ctrl-C, and asks nothing where there is no terminal", async () => {
+    const { input, output } = terminal();
+    const asked = askPassphrase(input, output);
+    input.emit("data", Buffer.from("ab\x03"));
+    await assert.rejects(asked, (e) => e instanceof UsageError);
+    assert.strictEqual(await askPassphrase({ isTTY: false }, output), null);
+  });
+
+  it("refuses a recovery file other users can read, or that is not a file", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pubky-cli-"));
+    const file = path.join(dir, "key.pkarr");
+    fs.writeFileSync(file, "x");
+    try {
+      fs.chmodSync(file, 0o644);
+      assert.match(recoveryFault(file), /readable by other users \(mode 644\); run chmod 600/);
+      assert.strictEqual(recoveryFault(file, "win32"), null);
+      fs.chmodSync(file, 0o600);
+      assert.strictEqual(recoveryFault(file), null);
+      assert.match(recoveryFault(dir), /is not a file/);
+      assert.match(recoveryFault(path.join(dir, "missing")), /cannot read the recovery file .*ENOENT/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("without the variable and without a terminal, says where the passphrase goes", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pubky-cli-"));
+    const file = path.join(dir, "key.pkarr");
+    fs.writeFileSync(file, "x", { mode: 0o600 });
+    const errors = [];
+    const original = console.error;
+    console.error = (line) => errors.push(line);
+    try {
+      assert.strictEqual(await main(["--recovery", file], {}, { stdin: { isTTY: false }, stderr: { write() {} } }), 1);
+      fs.chmodSync(file, 0o640);
+      assert.strictEqual(await main(["--recovery", file], { PUBKY_PASSPHRASE: "p" }), 1);
+    } finally {
+      console.error = original;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    assert.match(errors[0], /No terminal to ask the passphrase on: put it in the environment variable PUBKY_PASSPHRASE/);
+    assert.match(errors[1], /readable by other users/);
   });
 });

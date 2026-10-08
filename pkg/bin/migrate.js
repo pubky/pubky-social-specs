@@ -2,7 +2,7 @@
 // pubky-social-migrate: migrates the 0.x tree of the account in a recovery file to 1.x, on
 // the homeserver the account lives on, through the pubky SDK.
 
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -24,7 +24,8 @@ The 0.x data is never modified, and running again resumes an interrupted run.
 Options:
   --recovery <file>         the account's recovery file
   --passphrase-env <VAR>    the environment variable holding the recovery passphrase
-                            (default ${DEFAULT_PASSPHRASE_ENV}); it is never read from the arguments
+                            (default ${DEFAULT_PASSPHRASE_ENV}); without it the passphrase is asked
+                            on the terminal, unechoed, and never read from the arguments
   --testnet [host]          use a pubky testnet at host (default localhost) instead of mainnet
   --dry-run                 read and count as a run does, write nothing
   --rescan                  walk the tree even when an earlier run finished it
@@ -113,7 +114,57 @@ const reportText = (report) => {
   return lines.join("\n");
 };
 
-const main = async (argv, env) => {
+/**
+ * The passphrase typed on the terminal with echo off, as bytes the caller zeroes, or null when
+ * `input` is no terminal. Ctrl-C or Ctrl-D give up.
+ */
+const askPassphrase = (input, output) =>
+  new Promise((resolve, reject) => {
+    if (!input.isTTY || typeof input.setRawMode !== "function") return resolve(null);
+    output.write("Recovery passphrase: ");
+    let typed = Buffer.alloc(0);
+    const done = (error) => {
+      input.setRawMode(false);
+      input.pause();
+      input.removeListener("data", onData);
+      output.write("\n");
+      if (error) {
+        typed.fill(0);
+        reject(error);
+      } else resolve(typed);
+    };
+    const onData = (chunk) => {
+      for (const byte of chunk) {
+        if (byte === 0x0d || byte === 0x0a) return done();
+        if (byte === 0x03 || byte === 0x04) return done(new UsageError("no passphrase given"));
+        const grown = byte === 0x7f || byte === 0x08 ? Buffer.from(typed.subarray(0, Math.max(0, typed.length - 1))) : Buffer.concat([typed, Buffer.from([byte])]);
+        typed.fill(0);
+        typed = grown;
+      }
+      chunk.fill(0);
+    };
+    input.setRawMode(true);
+    input.resume();
+    input.on("data", onData);
+  });
+
+/** Why a recovery file must not be used, or null: it holds the key, so only its owner reads it. */
+const recoveryFault = (file, platform = process.platform) => {
+  let stat;
+  try {
+    stat = statSync(file);
+  } catch (error) {
+    return `cannot read the recovery file ${file}: ${error.code ?? error.message}`;
+  }
+  if (!stat.isFile()) return `the recovery file ${file} is not a file`;
+  // Windows has no group and other bits to read
+  if (platform !== "win32" && (stat.mode & 0o077) !== 0) {
+    return `the recovery file ${file} is readable by other users (mode ${(stat.mode & 0o777).toString(8)}); run chmod 600 on it first`;
+  }
+  return null;
+};
+
+const main = async (argv, env, io = { stdin: process.stdin, stderr: process.stderr }) => {
   let args;
   try {
     args = parseArgs(argv);
@@ -126,12 +177,30 @@ const main = async (argv, env) => {
     console.log(USAGE);
     return 0;
   }
-  const passphrase = env[args.passphraseEnv];
+  let passphrase = env[args.passphraseEnv];
   // Not left for anything this process starts or prints its environment from
   delete env[args.passphraseEnv];
-  if (passphrase === undefined) {
-    console.error(`Put the recovery passphrase in the environment variable ${args.passphraseEnv}.`);
+  const fault = recoveryFault(args.recovery);
+  if (fault !== null) {
+    console.error(visible(fault));
     return 1;
+  }
+  if (passphrase === undefined) {
+    let typed;
+    try {
+      typed = await askPassphrase(io.stdin, io.stderr);
+    } catch (error) {
+      if (!(error instanceof UsageError)) throw error;
+      console.error(error.message);
+      return 1;
+    }
+    if (typed === null) {
+      console.error(`No terminal to ask the passphrase on: put it in the environment variable ${args.passphraseEnv}.`);
+      return 1;
+    }
+    // The SDK takes a string, which cannot be wiped; the bytes it came from are
+    passphrase = typed.toString("utf8");
+    typed.fill(0);
   }
 
   let version;
@@ -155,6 +224,7 @@ const main = async (argv, env) => {
     keypair = sdk.Keypair.fromRecoveryFile(recovery, passphrase);
   } finally {
     recovery.fill(0);
+    passphrase = undefined;
   }
   const pubky = args.testnet === undefined ? new sdk.Pubky() : sdk.Pubky.testnet(args.testnet);
   let session;
@@ -164,7 +234,21 @@ const main = async (argv, env) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Sign-in failed: ${visible(message)}\n${signinHint(message)}`);
     return 1;
+  } finally {
+    // The secret key lives in the SDK's wasm memory until the keypair is freed
+    keypair.free?.();
   }
+  const signout = () =>
+    session.signout().catch((error) => {
+      console.error(`warning: could not sign out, the grant stays active until it expires: ${visible(error?.message ?? error)}`);
+    });
+  // An error thrown outside the run's own promise still signs out before the process ends
+  const fatal = (error) => {
+    console.error(visible(error instanceof Error ? error.message : String(error)));
+    void signout().finally(() => process.exit(1));
+  };
+  process.once("uncaughtException", fatal);
+  process.once("unhandledRejection", fatal);
   // The session holds a root grant, which must not outlive the run
   try {
     const owner = session.info.publicKey.z32();
@@ -187,11 +271,11 @@ const main = async (argv, env) => {
     console.log(args.json ? jsonText(report) : reportText(report));
     return exitCode(report);
   } finally {
+    process.removeListener("uncaughtException", fatal);
+    process.removeListener("unhandledRejection", fatal);
     // The run's grant is root and lives for years unless revoked here or from Ring, so a
     // failed revocation is worth a line
-    await session.signout().catch((error) => {
-      console.error(`warning: could not sign out, the grant stays active until it expires: ${visible(error?.message ?? error)}`);
-    });
+    await signout();
   }
 };
 
@@ -213,4 +297,4 @@ if (invoked) {
   });
 }
 
-export { parseArgs, exitCode, progress, sdkSupported, UsageError, USAGE, reportText, jsonText, main };
+export { parseArgs, exitCode, progress, sdkSupported, UsageError, USAGE, reportText, jsonText, main, askPassphrase, recoveryFault };

@@ -104,7 +104,7 @@ describe("migration against a testnet homeserver", function () {
     const dir = mkdtempSync(path.join(tmpdir(), "pubky-social-migrate-"));
     try {
       const recovery = path.join(dir, "account.pkarr");
-      writeFileSync(recovery, keypair.createRecoveryFile("e2e passphrase"));
+      writeFileSync(recovery, keypair.createRecoveryFile("e2e passphrase"), { mode: 0o600 });
       const run = spawnSync(
         process.execPath,
         [CLI, "--recovery", recovery, "--passphrase-env", "E2E_PASSPHRASE", "--testnet", HOST, "--rescan", "--dry-run", "--json"],

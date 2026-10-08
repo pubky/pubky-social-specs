@@ -46,7 +46,7 @@ A blob never enters the wasm, since a wasm memory grows to fit what is copied in
 
 ### What the run never does
 
-The run never modifies the 0.x tree. It writes and deletes only under `pub/social/v1/` and `priv/social/v1/`, every segment after the root canonical, and a write the package gives anywhere else rejects the run as a fault before any PUT. `mode: "dry"` reads and counts exactly as a run does and makes no PUT, re-check or DELETE, the flag included. An interrupted run leaves nothing to clean up: run it again and it resumes from what the 1.x tree already holds.
+The run never modifies the 0.x tree. It writes and deletes only under `pub/social/v1/` and `priv/social/v1/`, every segment after the root canonical, and a write the package gives anywhere else rejects the run as a fault before any PUT. The engine spells each write's URL itself from the write's kind and id (and, for media, the extension), and a transform that names any other URL rejects the run the same way. The fence and the SDK adapter run one shared check of every URL. A LIST past about a million objects aborts with `IO_ERROR` rather than hold them all, and a flag over 64 MiB reads as no flag. `mode: "dry"` reads and counts exactly as a run does and makes no PUT, re-check or DELETE, the flag included. An interrupted run leaves nothing to clean up: run it again and it resumes from what the 1.x tree already holds.
 
 ## The report
 
@@ -138,16 +138,15 @@ An SDK error with a status, its `data.statusCode`, goes through `refusal()` and 
 ### The CLI
 
 ```bash
-read -rs PUBKY_PASSPHRASE && export PUBKY_PASSPHRASE
+chmod 600 ./account.pkarr
 npx -p pubky-social-specs -p @synonymdev/pubky@^0.14 pubky-social-migrate --recovery ./account.pkarr
-unset PUBKY_PASSPHRASE
 ```
 
-Name both packages to `npx`: a bare `npx pubky-social-migrate` would fetch whatever package holds that name. `read -rs` keeps the passphrase off the screen and out of the shell history, and `unset` keeps it from every later command of the shell. The CLI takes the passphrase from an environment variable (`--passphrase-env VAR`, `PUBKY_PASSPHRASE` by default), never from the arguments where the process list shows it, and removes it from its own environment as soon as it has read it. It refuses an SDK outside `>=0.11 <1`.
+Name both packages to `npx`: a bare `npx pubky-social-migrate` would fetch whatever package holds that name. The CLI asks the passphrase on the terminal with echo off. For a script with no terminal it reads an environment variable instead (`--passphrase-env VAR`, `PUBKY_PASSPHRASE` by default; `read -rs PUBKY_PASSPHRASE && export PUBKY_PASSPHRASE`, then `unset` it after) and removes it from its own environment as soon as it has read it; it never takes the passphrase from the arguments, where the process list shows them. It refuses a recovery file that its group or other users can read, zeroes the bytes of the file and of a typed passphrase once the key is read, and frees the key after sign-in. It refuses an SDK outside `>=0.11 <1`.
 
 It signs in from the recovery file with the client id `pubky-social-migrate`. A failed sign-in gets a hint that fits: a PoP timestamp refusal points at this device's clock, a record that did not resolve at the network, and a refusal of the route at a homeserver older than `/priv/`, since grant sign-in shipped with it.
 
-The run holds a root grant, so the CLI signs out when the run ends. The first Ctrl-C, a SIGTERM or a closed terminal (SIGHUP) stops the run after the objects in flight so that sign-out is reached, best effort: a supervisor that kills the process during that wait leaves the grant active until it is revoked from Ring.
+The run holds a root grant, so the CLI signs out when the run ends, and on an error thrown outside the run before the process exits. The first Ctrl-C, a SIGTERM or a closed terminal (SIGHUP) stops the run after the objects in flight so that sign-out is reached, best effort: a supervisor that kills the process during that wait leaves the grant active until it is revoked from Ring.
 
 It prints a progress line to stderr at every phase and pass and every 50 objects, then the report, as JSON with `--json`. What the homeserver sent (paths, the flag's contents, error messages) is printed with every control character escaped, so none reaches the terminal as one. `--dry-run` writes nothing, `--rescan` walks a tree an earlier run finished, and `--testnet [host]` points it at a pubky testnet (`localhost` by default). It exits 0 when the tree is done or already migrated, 2 when the run ended `incomplete` or `paused` and should run again, 3 when it aborted, and 1 on a usage or unexpected error.
 
