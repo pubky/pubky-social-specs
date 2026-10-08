@@ -51,15 +51,17 @@ export function writeJson(value: Json): string {
   if (typeof value === "number") return writeFloat(value);
   // Concatenated in place, which the engine keeps as a rope: a hostile value nests thousands of
   // containers, and an array of parts per container is most of what writing it would cost
-  let out = "";
   if (Array.isArray(value)) {
-    out = "[";
+    let out = "[";
     for (let i = 0; i < value.length; i++) out += (i > 0 ? "," : "") + writeJson(value[i] as Json);
     return out + "]";
   }
   const keys = sortedKeys(value);
-  out = "{";
-  for (let i = 0; i < keys.length; i++) out += `${i > 0 ? "," : ""}${writeString(keys[i] as string)}:${writeJson(value.get(keys[i] as string) as Json)}`;
+  let out = "{";
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i] as string;
+    out += `${i > 0 ? "," : ""}${writeString(key)}:${writeJson(value.get(key) as Json)}`;
+  }
   return out + "}";
 }
 
