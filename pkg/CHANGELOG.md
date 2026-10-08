@@ -1,27 +1,26 @@
 # Changelog
 
-Two things are versioned here, and they promise different things.
+A release makes two promises, and each entry below lists its changes under both.
 
-## What the version promises
+## What a release promises
 
-**The API** (the functions, types and entries of this package) follows semver from 1.0.0: a
-minor release adds, a major release may remove or change a signature. Until 1.0.0 a beta may
-break the API; each break is marked below. `pkg/api/*.d.ts` is the surface as agreed, and CI
-fails on any change to it that is not committed there.
+**The API**: the functions, types and entries of this package. From 1.0.0 they follow semver:
+a minor release adds, a major release may remove or change a signature. Before 1.0.0 a beta may
+break them, and each break is marked below. `pkg/api/*.d.ts` holds the declarations as agreed,
+and CI fails when the build's differ from them. A refusal's message is the crate's, word for
+word; one changes only when the crate's does, and is then listed under API.
 
-**The stored bytes** (the paths, the ids and the exact bytes a builder writes and a reader
-takes) follow the data model of the `pubky-social-specs` crate, not this package's version.
-Within the 1.x data model:
-
-- bytes written by any 1.x release are read by every later 1.x release, and an object read and
-  written back untouched keeps its bytes, members a newer writer added included;
-- an id is derived the same way, so an object keeps its path;
-- a refusal keeps the crate's message, word for word.
-
-A change to any of these is a change of the crate first, comes with a migration where stored
-data is affected, and is listed under **Stored bytes** below. The migration flag
-(`priv/social/v1/_migrated.json`) records `transform_rev`, so a release whose transforms write
-differently walks a migrated tree again.
+**The stored bytes**: the paths, the ids and the bytes a builder writes and a reader takes. They
+follow the data model of the `pubky-social-specs` crate, not this package's version. Within the
+1.x data model every release reads what any earlier 1.x release wrote and derives every id the
+same way, so an object keeps its path. An object read and written back untouched keeps its
+bytes, the members a newer writer added included, with one exception the crate shares: a name
+from a closed set this version does not know reads as `"unknown"` and is written back so. That
+is a feed's `content` filter, and a collection's `layout` once its envelope goes through
+`encodeContent`. A change to the stored bytes is a change of the crate first and comes with a
+migration where stored data is affected. The migration flag (`priv/social/v1/_migrated.json`)
+records `transform_rev`, so a release whose transforms write differently walks a migrated tree
+again.
 
 ## Unreleased (1.0.0-beta.2)
 
@@ -54,8 +53,8 @@ differently walks a migrated tree again.
 - The default clock draws the microsecond inside the millisecond at random, so two copies of the
   package rarely mint one id.
 - Earlier in this release, breaking: `setClock` moved to `pubky-social-specs/testing`;
-  `ProgressEvent.kind` is `pass`; stored kinds are narrowed so a decoded object is never
-  `"unknown"`. Added: `decodeObject(url, bytes, kind)`, `toPath`, `hashMedia`, `ArrayBuffer`
+  `ProgressEvent.kind` is `pass`; a decoded post's `kind` and a feed's `reach`, `layout` and
+  `sort` are narrowed to the names this version knows, never `"unknown"`. Added: `decodeObject(url, bytes, kind)`, `toPath`, `hashMedia`, `ArrayBuffer`
   byte inputs, `ValidationError.reason` and `.field`, a branded `MigrationPortError`.
 
 ### Stored bytes
