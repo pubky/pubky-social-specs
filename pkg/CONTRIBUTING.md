@@ -28,26 +28,15 @@ only in CI, from the pinned toolchain, and a job rebuilds it from the tag and co
 
 ## The checks
 
-| | command |
-|---|---|
-| everything `npm test` runs: vectors, unit, properties, migration, CLI, data check, a short model fuzz | `npm test` |
-| declarations as a consumer compiles them | `npm run types` |
-| the agreed API | `npm run api` |
-| lint (typescript-eslint, strict type-checked) and the layering | `npm run lint`, `npm run deps` |
-| format | `npm run format:check`, `npm run format` |
-| coverage per module, with floors | `npm run coverage` |
-| bundle size per entry | `npm run size` |
-| hostile arguments | `node --expose-gc qa/boundary.mjs` |
-| the model fuzz, 1000 runs | `npm run model` |
-| mutation testing | `npm run mutation` (Stryker), `node qa/mutate.mjs` (named bugs) |
-| against the crate | `npm run score -- --fuzz 50000` with the oracle built |
+`npm test` runs the suites, the data check, the examples and a short model fuzz. Every other
+check, what it covers and how to run it on a small machine is in the root `TESTING.md`; before
+a pull request, also run `npm run types`, `npm run api`, `npm run lint`, `npm run deps`,
+`npm run format:check` and `npm run coverage`.
 
 The lint toolchain lives in `tools/` with its own lockfile: typescript-eslint, dependency-cruiser
 and TypeDoc need the TypeScript compiler API, which TypeScript 7, the compiler of the build, does
 not ship, so they run on TypeScript 6.0. Install it once with `npm run tools`; it needs Node 22 or
 later.
-
-Node runs with `--max-old-space-size=1536` in every heavy script; run one heavy job at a time.
 
 ## The reference and the vectors
 
@@ -63,7 +52,7 @@ crate does, word for word, and `vectors.test.js` holds it to that.
   same series as that change:
 
   ```sh
-  flock /tmp/cargo-box.lock cargo build --release --features surface --bin surface_oracle
+  cargo build --release --features surface --bin surface_oracle
   cd pkg && node qa/score.mjs --record     # rewrites vectors/js/*.jsonl
   cargo test --features surface --test surface_vectors
   node qa/data.mjs                         # when a constant moved

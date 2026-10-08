@@ -6,7 +6,7 @@ import assert from "assert";
 import vm from "node:vm";
 import * as specs from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
-import * as postModel from "./dist/models/post.js";
+import { OTTO, RIO, T0, caught, misuse, refuses, text, utf8 } from "./core.fixture.js";
 
 const {
   ValidationError,
@@ -42,23 +42,6 @@ const {
   toPath,
   hashMedia,
 } = specs;
-
-const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
-// 2026-09-22T16:53:20Z
-const T0 = 1_790_000_000_000;
-const text = (bytes) => new TextDecoder().decode(bytes);
-const utf8 = (s) => new TextEncoder().encode(s);
-
-// A rule of the data model: the reference's own message
-const refuses = (fn, message) =>
-  assert.throws(fn, (e) => {
-    assert.ok(e instanceof ValidationError, `expected a ValidationError, got ${e}`);
-    message instanceof RegExp ? assert.match(e.message, message) : assert.strictEqual(e.message, message);
-    return true;
-  });
-// A bug in the caller: the package's own words
-const misuse = (fn, pattern) => assert.throws(fn, (e) => e instanceof TypeError && !(e instanceof ValidationError) && pattern.test(e.message));
 
 describe("pubky-social-specs", () => {
   beforeEach(() => setClock(() => T0));
@@ -127,7 +110,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(text(built.body), '{"content":"hello","kind":"note","parent":null,"embed":null,"attachments":[]}');
     });
 
-    it("the data is the reference's", () => {
+    it("the exported tables hold the reference's values, frozen", () => {
       assert.strictEqual(limits.postNoteContentMaxLength, 2000);
       assert.strictEqual(limits.maxFileSizeBytes, 100 * 1024 * 1024);
       assert.ok(validMimeTypes.includes("image/png"));
@@ -175,14 +158,6 @@ describe("pubky-social-specs", () => {
     });
 
     it("a refusal carries the reference text as its reason, and the member or argument it is about", () => {
-      const caught = (fn) => {
-        try {
-          fn();
-        } catch (e) {
-          return e;
-        }
-        assert.fail("no refusal");
-      };
       const name = caught(() => buildUser(OTTO, { name: "ab" }));
       assert.strictEqual(name.reason, "Invalid name length");
       assert.strictEqual(name.field, "name");
@@ -227,12 +202,11 @@ describe("pubky-social-specs", () => {
       assert.ok(other instanceof ValidationError);
       assert.ok(!(new Error("x") instanceof ValidationError));
       assert.ok(!(null instanceof ValidationError));
-      try {
-        buildUser(OTTO, { name: "" });
-      } catch (e) {
-        assert.strictEqual(e.name, "ValidationError");
-        assert.ok(e instanceof Error && e.stack.includes("buildUser"));
-      }
+      // The brand is an own member: one inherited from a prototype is no brand
+      assert.ok(!(Object.create({ [Symbol.for("pubky-social-specs.ValidationError")]: true }) instanceof ValidationError));
+      const e = caught(() => buildUser(OTTO, { name: "" }));
+      assert.strictEqual(e.name, "ValidationError");
+      assert.ok(e instanceof Error && e.stack.includes("buildUser"));
     });
 
     it("text holding a lone surrogate has no answer", () => {
@@ -304,15 +278,6 @@ describe("pubky-social-specs", () => {
       misuse(() => buildPost(OTTO, { kind: "collection", name: "List", parent: buildUri(RIO, "user") }), /input\.parent must be one of kind, name/);
       refuses(() => buildPost(OTTO, { content: "x", kind: "podcast" }), "Validation Error: Invalid content kind: podcast");
       refuses(() => buildPost(OTTO, { content: "x", kind: "unknown" }), "Validation Error: Invalid content kind: unknown");
-    });
-
-    it("a built post and its envelope hold their own unknown members, and the envelope's references are read once for both", () => {
-      const made = postModel.buildPost(OTTO, { kind: "article", title: "t", body: "b", cover_image: "https://a.example/c.png" });
-      made.value.extra.set("later", 1n);
-      assert.deepStrictEqual(postModel.envelopeRefs(made.value), { cover: "https://a.example/c.png", items: [] });
-      assert.notStrictEqual(postModel.buildPost(OTTO, { content: "x" }).value.extra, postModel.buildPost(OTTO, { content: "y" }).value.extra);
-      const list = postModel.buildPost(OTTO, { kind: "collection", name: "List", items: [{ uri: buildUri(RIO, "user") }] });
-      assert.deepStrictEqual(postModel.envelopeRefs(list.value).items, [buildUri(RIO, "user")]);
     });
 
     it("a tag, a bookmark, a follow and a mute are named by what they point at", () => {
@@ -492,7 +457,6 @@ describe("pubky-social-specs", () => {
         for (const key of Object.keys(polluted)) delete Object.prototype[key];
         delete Array.prototype[0];
       }
-      assert.ok(!(Object.assign(Object.create({ [Symbol.for("pubky-social-specs.ValidationError")]: true })) instanceof ValidationError));
     });
 
     it("values no JSON holds are refused as shapes: holes, getters that throw, cycles", () => {

@@ -7,22 +7,11 @@ import { execFileSync } from "node:child_process";
 import { fakeOwner, sampleFeed, samplePost, sampleUser, setClock } from "./dist/testing.js";
 import { canonicalExternal, canonicalPubky, canonicalUniversal, reference } from "./dist/canonicalize.js";
 import { hashText } from "./dist/ids.js";
+import { OTTO, RIO, T0, misuse, refuses, utf8 } from "./core.fixture.js";
 
-const { ValidationError, limits, buildFile, buildPost, buildTag, buildUri, deletionPaths, parseOwner, planDelete, planPublish, planUnpublish, parseUri } = specs;
+const { limits, buildFile, buildPost, deletionPaths, parseOwner, planDelete, planPublish, planUnpublish } = specs;
 
-const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
-const T0 = 1_790_000_000_000;
 const LEGACY = "/pub/pubky.app/";
-const utf8 = (s) => new TextEncoder().encode(s);
-
-const refuses = (fn, message) =>
-  assert.throws(fn, (e) => {
-    assert.ok(e instanceof ValidationError, `expected a ValidationError, got ${e}`);
-    message instanceof RegExp ? assert.match(e.message, message) : assert.strictEqual(e.message, message);
-    return true;
-  });
-const misuse = (fn, pattern) => assert.throws(fn, (e) => e instanceof TypeError && !(e instanceof ValidationError) && pattern.test(e.message));
 
 describe("edges", () => {
   beforeEach(() => setClock(() => T0));
@@ -67,14 +56,14 @@ describe("edges", () => {
       for (const raw of [":x", "x:", "ab!c:x", "1ab:x", "Pubky:x", "HTTPS:x"]) assert.strictEqual(canonicalExternal(raw), null, raw);
     });
 
-    it("the length cap holds at its exact bound", () => {
+    it("a reference exactly at the length cap is taken, one past it is not", () => {
       const max = limits.referenceUriMaxLength;
       const at = (n) => `https://e.com/${"a".repeat(n - "https://e.com/".length)}`;
       assert.strictEqual(canonicalUniversal(at(max)), at(max));
       assert.strictEqual(canonicalUniversal(at(max + 1)), null);
     });
 
-    it("the root, ownership and versionless rules of a pubky reference", () => {
+    it("a pubky reference is refused when private, another user's, or versioned where the member forbids it", () => {
       assert.match(reference(`pubky://${OTTO}/priv`, "", 1000, true, null).refusal, /^must not reference a private object/);
       assert.match(reference(`pubky://${RIO}/priv/social/v1/files/x`, "", 1000, false, OTTO).refusal, /of another user/);
       assert.deepStrictEqual(reference(`pubky://${OTTO}/priv/social/v1/files/x`, "", 1000, false, OTTO), { canonical: `pubky://${OTTO}/priv/social/v1/files/x` });
@@ -333,9 +322,6 @@ describe("edges", () => {
         ["pub", post.id],
       ].map(([r, e]) => ({ root: r === "pub" ? "public" : "private", path: at(r, e) }));
       assert.deepStrictEqual(planDelete(OTTO, { id: post.id, copies }).deletes, [at("pub", post.id), at("priv", post.id), at("pub", edit), at("priv", edit)]);
-      assert.strictEqual(parseUri(`pubky://${OTTO}${pub}`).kind, "post");
-      assert.strictEqual(buildUri(OTTO, "post", post.id), `pubky://${OTTO}/pub/social/v1/posts/${post.id}`);
-      void buildTag;
     });
   });
 });

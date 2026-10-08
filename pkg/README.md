@@ -281,7 +281,7 @@ It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`
 
 ## What to know
 
-- `decodeObject` pulls in every model, about 20 kB gzipped. `buildUri` alone is under 3 kB, `parseUri` about 16 kB (it reads a bookmark's target), and the whole entry about 27 kB.
+- `decodeObject` pulls in every model, about 20 kB gzipped. `buildUri` alone is under 3 kB, `parseUri` about 16 kB (it reads a bookmark's target), and the whole entry about 28 kB.
 - The id guard and the clock are per copy of the package. Two copies in one page mint independently, so a library that wraps this one should declare it a peer dependency.
 - An edit through `$unknown` writes the bytes a Rust client writes for the same edit. A name this version reads as `"unknown"` is written back as `"unknown"`, in this package and in the crate alike: the newer name is lost on an edit by an older client.
 - `editPost` reads the owner from the head URL. Pass a URL in the caller's own storage.
@@ -310,19 +310,11 @@ From `pubky-social-specs`:
 | `Owner`, `PostId`, `EditId`, `MediaId`, `PubkyUrl`, `OwnerPath`, `PostRef`, `Reference`, `Brand`, `Given`, `UrlArg`, `PathArg` | the branded places and ids, and the argument types that take them or a plain string |
 | `Bytes`, `Root`, `ObjectKind`, `MimeType`, `PostKind`, `KnownPostKind` and the other name unions | the vocabulary |
 
-From `pubky-social-specs/testing`: `setClock`, `fakeOwner`, `samplePost`, `sampleUser`, `sampleFeed`. From `pubky-social-specs/client`: `createSocialClient`, and the types `SocialClient`, `SocialSession`, `Read`. From `pubky-social-specs/migration` and `pubky-social-specs/migration/pubky-sdk`: the migration, in [`MIGRATION.md`](MIGRATION.md).
+From `pubky-social-specs/testing`: `setClock`, `fakeOwner`, `samplePost`, `sampleUser`, `sampleFeed`. From `pubky-social-specs/client`: `createSocialClient`, and the types `SocialClient`, `SocialSession`, `SdkPublicStorage`, `ClientOptions`, `Read`. From `pubky-social-specs/migration` and `pubky-social-specs/migration/pubky-sdk`: the migration, in [`MIGRATION.md`](MIGRATION.md).
 
 ## Migration
 
-The package carries the whole 0.x to 1.x migration as `pubky-social-specs/migration`: the transforms, which are the reference crate compiled to wasm, and the engine that walks a tree with them. It is the only part of the package that loads a wasm, on the first `runMigration`.
-
-```js
-import { runMigration } from "pubky-social-specs/migration";
-
-const report = await runMigration({ owner, port, caps: session.capabilities, onProgress, signal });
-```
-
-`pubky-social-specs/migration/pubky-sdk` is the port over a pubky SDK session, and the `pubky-social-migrate` CLI runs the whole migration from a terminal. What a run does, the port contract, the report and the CLI are in [`MIGRATION.md`](MIGRATION.md).
+`pubky-social-specs/migration` migrates an owner's 0.x tree to 1.x, `pubky-social-specs/migration/pubky-sdk` is its port over a pubky SDK session, and `pubky-social-migrate` runs it from a terminal. It is the only part of the package that loads a wasm. [`MIGRATION.md`](MIGRATION.md) has what a run does, the port contract, the report and the CLI.
 
 ## Reading 0.x data
 
@@ -330,7 +322,7 @@ The frozen 0.x reader is Rust only. This package exposes the 1.x surface and the
 
 ## Specification
 
-The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/rfc-v1-social-specs.md). The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
+The Rust crate is the reference for the 1.x data model; this README and the declarations describe it as the package exposes it. The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
 
 ## Building from source
 
@@ -340,13 +332,13 @@ The package builds from `pkg/src` with `tsc`. The wasm of the migrator also need
 cd pkg
 npm ci
 npm run build      # tsc, then the migrator's wasm, into dist/
-npm test           # tsc, the tests, the recorded vectors and the generated tables
+npm test           # tsc, the suites, the generated tables, the examples, a short model fuzz
 npm run types      # the declarations, compiled as a consumer compiles them
 npm run api        # every entry's declarations against the committed ones in api/
 npm run size       # bundle size, tree-shaking and cold start
 ```
 
-`npm test` checks `src/data.ts` against the crate through the surface oracle, built with `cargo build --release --features surface --bin surface_oracle` at the repository root. How the package is checked against the crate is in [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md). Releases are cut from a git tag, and a build that is not on npm yet can be installed from an `npm pack` tarball; both are described in [Releasing](https://github.com/pubky/pubky-social-specs#releasing).
+`npm test` checks `src/data.ts` against the crate through the surface oracle, built with `cargo build --release --features surface --bin surface_oracle` at the repository root. Every check, and how the package is held to the crate, is in [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md). Releases are cut from a git tag, and a build that is not on npm yet can be installed from an `npm pack` tarball; both are described in [Releasing](https://github.com/pubky/pubky-social-specs#releasing).
 
 ## License
 

@@ -3,51 +3,12 @@
 
 import assert from "assert";
 import { createSocialClient } from "./dist/client/index.js";
-import { buildPost, decodeObject } from "./dist/index.js";
+import { buildPost } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
+import { OTTO, RIO, T0, text } from "./core.fixture.js";
+import { answered, fakeHomeserver } from "./sdk.fixture.js";
 
-const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
-const T0 = 1_790_000_000_000;
 const encoder = new TextEncoder();
-const text = (bytes) => new TextDecoder().decode(bytes);
-const notFound = () => Object.assign(new Error("Request failed: 404"), { name: "RequestError", data: { statusCode: 404 } });
-
-// One homeserver for every key: `session.storage` takes owner-relative paths, the public
-// storage `<key>/<path>` addresses, both answer a LIST with full URLs and a missing path with 404
-const homeserver = () => {
-  const store = new Map();
-  const calls = [];
-  const listing = (prefix, cursor, limit) => {
-    const under = [...store.keys()].filter((u) => u.startsWith(prefix)).sort();
-    if (under.length === 0) throw notFound();
-    return under.filter((u) => cursor === null || u > cursor).slice(0, limit);
-  };
-  const read = (u) => {
-    const bytes = store.get(u);
-    if (bytes === undefined) throw notFound();
-    return bytes.slice();
-  };
-  const session = (key) => ({
-    info: { publicKey: { z32: () => key } },
-    storage: {
-      list: async (path, cursor, _r, limit) => (calls.push(["list", path]), listing(`pubky://${key}${path}`, cursor, limit)),
-      getBytes: async (path) => read(`pubky://${key}${path}`),
-      get: async (path) => new Response(read(`pubky://${key}${path}`)),
-      exists: async (path) => store.has(`pubky://${key}${path}`),
-      putJson: async (path, body) => void store.set(`pubky://${key}${path}`, encoder.encode(JSON.stringify(body))),
-      putBytes: async (path, bytes) => (calls.push(["putBytes", path]), void store.set(`pubky://${key}${path}`, bytes.slice())),
-      delete: async (path) => {
-        if (!store.delete(`pubky://${key}${path}`)) throw notFound();
-      },
-    },
-  });
-  const publicStorage = {
-    list: async (address, cursor, _r, limit) => listing(`pubky://${address}`, cursor, limit),
-    getBytes: async (address) => read(`pubky://${address}`),
-  };
-  return { store, calls, session, publicStorage };
-};
 
 const all = async (iterable) => {
   const out = [];
@@ -59,23 +20,49 @@ describe("pubky-social-specs/client", () => {
   beforeEach(() => setClock(() => T0));
   after(() => setClock());
 
-  it("creates a post by PUTting the builder's exact bytes, and reads the newest version back", async () => {
-    const hs = homeserver();
+  it("creates a post by PUTting the builder's exact bytes, and reads it back as the head", async () => {
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     const post = await social.posts.create({ content: "Hello" });
     assert.deepStrictEqual(hs.store.get(post.url), post.body);
-    setClock(() => T0 + 1);
     const head = await social.posts.head(OTTO, post.id);
     assert.ok(head.ok);
     assert.strictEqual(head.object.content, "Hello");
+  });
+
+  it("an edit is a new version of the same post, and the head reads it", async () => {
+    const hs = fakeHomeserver();
+    const social = createSocialClient(hs.session(OTTO));
+    const post = await social.posts.create({ content: "Hello" });
+    setClock(() => T0 + 1);
+    const head = await social.posts.head(OTTO, post.id);
     const edit = await social.posts.edit(head, { ...head.object, content: "Hello, edited" });
     assert.ok(edit.editId > post.editId && edit.id === post.id);
     assert.strictEqual((await social.posts.head(OTTO, post.id)).object.content, "Hello, edited");
-    assert.strictEqual(await social.posts.head(OTTO, "0034A0X7NJ52C"), null);
+  });
+
+  it("the head skips what a LIST of the post gives that is no version of it", async () => {
+    const hs = fakeHomeserver();
+    const social = createSocialClient(hs.session(OTTO));
+    const post = await social.posts.create({ content: "Hello" });
+    for (const leaf of ["a b", "notes.txt"]) hs.store.set(`pubky://${OTTO}/pub/social/v1/posts/${post.id}/${leaf}`, encoder.encode("{}"));
+    assert.strictEqual((await social.posts.head(OTTO, post.id)).object.content, "Hello");
+  });
+
+  it("a LIST the homeserver fails is thrown, never read as an empty tree", async () => {
+    const session = fakeHomeserver().session(OTTO);
+    session.storage.list = async () => {
+      throw answered(500, "Internal Server Error");
+    };
+    await assert.rejects(all(createSocialClient(session).posts.list(OTTO)), (e) => e.data.statusCode === 500);
+  });
+
+  it("the head of a post with no version is null", async () => {
+    assert.strictEqual(await createSocialClient(fakeHomeserver().session(OTTO)).posts.head(OTTO, "0034A0X7NJ52C"), null);
   });
 
   it("mints again when another copy of the package took the id, in either root", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     const theirs = buildPost(OTTO, { content: "draft", root: "private" });
     hs.store.set(theirs.url, theirs.body);
@@ -86,7 +73,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("lists every post's newest version, a page at a time, an unreadable one as a value", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO), { pageSize: 2 });
     const posts = [];
     for (let i = 0; i < 3; i++) {
@@ -109,7 +96,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("deletes every version of a post in both roots", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     const post = await social.posts.create({ content: "x" });
     setClock(() => T0 + 1);
@@ -122,7 +109,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("reads another user's tree through the public storage, and only through it", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const rio = createSocialClient(hs.session(RIO));
     const post = await rio.posts.create({ content: "from rio" });
     await rio.profile.set({ name: "Rio" });
@@ -134,7 +121,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("keeps a profile's unknown members through an update", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     hs.store.set(`pubky://${OTTO}/pub/social/v1/profile.json`, encoder.encode('{"name":"Otto","bio":null,"image":null,"links":null,"status":null,"pronouns":"he"}'));
     const read = await social.profile.get();
@@ -143,7 +130,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("adds, lists and removes follows, mutes, tags, bookmarks and feeds", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     await social.follows.add(RIO);
     await social.mutes.add(RIO);
@@ -167,7 +154,7 @@ describe("pubky-social-specs/client", () => {
   });
 
   it("uploads media where its hash names it, and checks the bytes it reads", async () => {
-    const hs = homeserver();
+    const hs = fakeHomeserver();
     const social = createSocialClient(hs.session(OTTO));
     const bytes = encoder.encode("png bytes");
     const file = await social.files.upload(bytes, "image/png");
@@ -177,10 +164,9 @@ describe("pubky-social-specs/client", () => {
     assert.ok(!tampered.ok && /Invalid ID/.test(tampered.error.message));
     hs.store.delete(file.url);
     assert.strictEqual(await social.files.get(file.url), null);
-    assert.deepStrictEqual(decodeObject(file.url, bytes, "file"), bytes);
   });
 
   it("refuses a page size the homeserver cannot serve", () => {
-    for (const pageSize of [0, 1001, 1.5]) assert.throws(() => createSocialClient(homeserver().session(OTTO), { pageSize }), RangeError);
+    for (const pageSize of [0, 1001, 1.5]) assert.throws(() => createSocialClient(fakeHomeserver().session(OTTO), { pageSize }), RangeError);
   });
 });

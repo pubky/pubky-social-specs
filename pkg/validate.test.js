@@ -5,9 +5,7 @@ import assert from "assert";
 import fc from "fast-check";
 import { buildFeed, buildPost, buildTag, buildUser, feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser, ValidationError } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
-
-const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
-const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+import { OTTO, RIO, T0 } from "./core.fixture.js";
 fc.configureGlobal({ seed: Number(process.env.FC_SEED ?? 20261008), numRuns: Number(process.env.FC_RUNS ?? 200) });
 
 const refusalOf = (fn) => {
@@ -24,7 +22,7 @@ const refusalOf = (fn) => {
 
 describe("validators", function () {
   this.timeout(120_000);
-  beforeEach(() => setClock(() => 1_790_000_000_000));
+  beforeEach(() => setClock(() => T0));
   after(() => setClock());
 
   it("report every issue of an input, each with its path, code and message", () => {
@@ -57,7 +55,7 @@ describe("validators", function () {
     buildPost(OTTO, { content: "a" });
     for (let i = 0; i < 5; i++) validatePost({ content: "b" });
     const after = buildPost(OTTO, { content: "c" }).id;
-    setClock(() => 1_790_000_000_000);
+    setClock(() => T0);
     buildPost(OTTO, { content: "a" });
     assert.strictEqual(buildPost(OTTO, { content: "c" }).id, after);
   });

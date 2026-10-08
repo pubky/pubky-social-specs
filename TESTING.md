@@ -11,7 +11,7 @@ how to run each again. Every command runs from the repository root unless it say
 | the wasm build | `cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings` | the migrator, the one part of the package that is this crate compiled to wasm, builds clean for its target; its behaviour is tested through the package |
 | the npm package | `cd pkg && npm ci --ignore-scripts && npm run build && npm test` | the recorded vectors offline, the entry as a caller meets it (shapes, errors, the clock, unknown members), the edges the mutation pass found, properties, validators, the client over a fake session, the transforms over the semantic vectors, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI, the data check, 25 runs of the model fuzz |
 | from the sources | `cd pkg && npm run test:src` (Node 22.18 or later) | the same suites with no build step: `qa/from-src.mjs` resolves `dist/*.js` to `src/*.ts` and Node strips the types |
-| coverage per module | `cd pkg && npm run coverage` | lines and branches of every module of `src` from the run on the sources, each against its floor in `qa/coverage.mjs`; 98.6% of lines and 95.6% of branches in all |
+| coverage per module | `cd pkg && npm run coverage` | lines and branches of every module of `src` from the run on the sources, each against its floor in `qa/coverage.mjs`; 98.8% of lines and 95.6% of branches in all |
 | lint, layering, format | `cd pkg && npm run tools && npm run lint && npm run deps && npm run format:check` | typescript-eslint strict-type-checked, the layers of `ARCHITECTURE.md` and no cycle (dependency-cruiser), prettier |
 | the tarball | `npm pack`, then `npx publint --strict <tgz>`, `npx attw <tgz> --profile esm-only`, the file list against `pkg/api/files.txt` | what npm would serve, as a consumer resolves it |
 | runtimes | `node qa/smoke.mjs`, `deno run --allow-read --allow-env qa/smoke.mjs`, `bun qa/smoke.mjs`, `node qa/browser.mjs` (Chromium through Playwright) | the core, the testing subpath and a migration of one object over `MemoryPort`, in each |
@@ -62,11 +62,12 @@ when an error quotes text) are generated from the oracle into `pkg/src/data.ts` 
 `node qa/data.mjs`; `--check` fails when the file is stale, as it is after a toolchain bump moves
 the Unicode tables.
 
-`pkg/api/index.d.ts` is the declared surface as last agreed. `npm run api` diffs it against the
-build, so a signature never changes by accident; copy `dist/index.d.ts` over it when the change
-is meant.
+`pkg/api/*.d.ts` are the declarations of every entry as last agreed. `npm run api` diffs them
+against the build, so a signature never changes by accident; copy the built file over its
+counterpart when the change is meant. What to do with a mismatch against a vector is in
+`pkg/CONTRIBUTING.md`.
 
-A finding goes into the package, never into a vector: a vector is the crate's answer.
+## Stryker's surviving mutants
 
 The last run scored 97.46%: 828 mutants killed, 16 timed out, 22 alive. The ones alive are ones
 no input can tell apart from the code, each checked by hand: `colon <= 0` against `< 0` in `canonicalExternal` (the scheme check refuses an empty
