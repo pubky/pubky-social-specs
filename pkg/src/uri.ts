@@ -31,7 +31,7 @@ const LEAF: Record<ObjectKind, (id: string) => [Root, string]> = {
 };
 
 /** Where an object of `kind` lives under `owner`. The owner key is checked, the id is spelled as given. */
-export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
+export function build(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
   checkPublicKey(owner);
   if (!Object.hasOwn(LEAF, kind)) misuse("kind", "an object kind");
   const [root, leaf] = LEAF[kind](id);
@@ -39,7 +39,7 @@ export function build(owner: string, kind: ObjectKind, id = ""): `pubky://${stri
 }
 
 /** `build`, and only for an id the parser reads back as that object: no other path comes out. */
-export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky://${string}` {
+export function buildChecked(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
   const uri = build(owner, kind, id);
   const canonical = canonicalPubky(uri);
   const located = canonical === null ? null : parsePath(splitPubky(canonical)?.path ?? null);
