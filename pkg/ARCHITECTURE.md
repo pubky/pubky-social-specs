@@ -11,7 +11,7 @@ configured in `tools/dependency-cruiser.cjs`) fails the build on an import that 
 and on a core module that reaches `migration/`.
 
 ```
- entries     index  testing  types            client/        migration/index  adapters/pubky-sdk
+ entries     index  testing  types  validate  client/        migration/index  adapters/pubky-sdk
                |                                 | (index only)       |              |
  operations  objects  lifecycle  deletion        |            engine  memory  port  order
                |                                 |              |
@@ -21,12 +21,14 @@ and on a core module that reaches `migration/`.
                |
  json        json/read  json/write  json/schema
                |
- foundation  data  errors  text  radix  base64url  bytes  ids  clock  mime  input
+ foundation  data  errors  text  radix  base64url  bytes  ids  clock  mime  input  session  dev
 ```
 
 - **foundation**: the reference's text rules (lengths in code points or UTF-8 bytes, a whitespace
   set frozen at Unicode 15.1), the id spellings, the clock and its mint guard, the byte reads
-  through the intrinsic getters, and `input.ts`, the one place a caller's value is read.
+  through the intrinsic getters, `input.ts`, the one place a caller's value is read, the part
+  of an SDK session the client and the adapter call (`session.ts`), and the development warning
+  (`dev.ts`).
 - **json**: a reader that refuses what serde_json refuses, with its message, at the same point of
   the text; the writer; and the codecs that read a model from text and from a caller.
 - **places**: what a path names (`path.ts`), the URI canonicalizers, and the URI parser and
@@ -34,8 +36,9 @@ and on a core module that reaches `migration/`.
 - **models**: each stored object's codec, size cap and rules, in the reference's order.
 - **operations**: reading and writing an object at a URI, the lifecycle plans, deletion paths.
 - **entries**: the public surface. `index.ts` copies every argument through `input.ts`, checks
-  its JavaScript shape, and hands plain data down. `client/` is I/O over an SDK session and uses
-  the public entry only, so the core stays I/O free and tree-shakes the same.
+  its JavaScript shape, and hands plain data down; `validate.ts` runs the builders' rules and
+  collects every issue. `client/` is I/O over an SDK session and uses the public entry only (and
+  the types of `session.ts`), so the core stays I/O free and tree-shakes the same.
 
 `migration/` may import any core module; nothing in the core imports `migration/`, and only
 `migration/wasm.ts` imports the wasm glue.
@@ -53,15 +56,10 @@ where it enters.
 Everything the crate decides is decided the same way here: ids, paths, canonical bytes, and
 the refusal messages, word for word. The package adds only what JavaScript needs: argument
 shapes (`TypeError`), the `$unknown` text, branded types, the async helpers, the migration
-engine's I/O. The check:
-
-- `vectors/js/<family>.jsonl`: 400 recorded crate answers per family, replayed by
-  `vectors.test.js` in `npm test` and by `tests/surface_vectors.rs` on the crate side.
-- `qa/score.mjs --fuzz N`: fresh seeded requests answered by the crate's `surface_oracle` and by
-  the package, compared byte for byte.
-
-A behaviour of the reference (a message, an id rule, a path) changes in the crate first, then
-here, then the vectors are re-recorded. `CONTRIBUTING.md` has the procedure.
+engine's I/O. The recorded vectors and the differential fuzz hold the two equal; the root
+`TESTING.md` describes both. A behaviour of the reference (a message, an id rule, a path)
+changes in the crate first, then here, then the vectors are re-recorded, as `CONTRIBUTING.md`
+says.
 
 ## Generated files
 
@@ -77,5 +75,7 @@ here, then the vectors are re-recorded. `CONTRIBUTING.md` has the procedure.
 ## I/O
 
 The core performs none. The migration engine reaches storage only through a `MigrationPort`
-(`MemoryPort` for tests, `sdkPort(session)` over the pubky SDK). The client subpath takes the
-same SDK session. Both validate every URL they are given against the session owner's tree.
+(`MemoryPort` for tests, `sdkPort(session)` over the pubky SDK), and the engine and the adapter
+refuse any URL outside the session owner's 1.x roots or tree. The client subpath takes the same
+SDK session: it writes only what a builder placed in the owner's tree, and reads another user's
+tree through the SDK's `publicStorage`.
