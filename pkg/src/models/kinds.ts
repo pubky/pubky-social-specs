@@ -4,10 +4,45 @@
 import { fail } from "../errors.js";
 import { string, variant } from "../json/schema.js";
 
+/**
+ * @example
+ * ```ts
+ * import { postKinds } from "pubky-social-specs";
+ * console.log(postKinds.includes("article"));
+ * ```
+ */
 export const postKinds = Object.freeze(["note", "article", "image", "video", "link", "file", "collection"] as const);
+/**
+ * @example
+ * ```ts
+ * import { feedReaches } from "pubky-social-specs";
+ * for (const reach of feedReaches) console.log(reach);
+ * ```
+ */
 export const feedReaches = Object.freeze(["following", "followers", "friends", "all", "wot", "me"] as const);
+/**
+ * @example
+ * ```ts
+ * import { feedLayouts } from "pubky-social-specs";
+ * console.log(feedLayouts.join(", "));
+ * ```
+ */
 export const feedLayouts = Object.freeze(["columns", "wide", "visual", "list"] as const);
+/**
+ * @example
+ * ```ts
+ * import { feedSorts } from "pubky-social-specs";
+ * console.log(feedSorts.join(", "));
+ * ```
+ */
 export const feedSorts = Object.freeze(["recent", "popularity"] as const);
+/**
+ * @example
+ * ```ts
+ * import { collectionLayouts } from "pubky-social-specs";
+ * console.log(collectionLayouts.join(", "));
+ * ```
+ */
 export const collectionLayouts = Object.freeze(["grid", "list", "visual"] as const);
 
 export type KnownPostKind = (typeof postKinds)[number];

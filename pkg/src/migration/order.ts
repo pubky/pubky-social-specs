@@ -41,6 +41,12 @@ const LEGACY_NAMESPACE = LEGACY_ROOT.slice(1);
  * with or without a leading `/`) or its `pubky://` URL: what an app counts over a LIST to
  * preview a migration without running it. `"rest"` is an object no pass migrates, which a run
  * counts `not_migrated`, or a path outside the 0.x tree.
+ *
+ * @example
+ * ```ts
+ * import { bucketOf } from "pubky-social-specs/migration";
+ * console.log(bucketOf("/pub/pubky.app/posts/0034A0X7NJ52C"));
+ * ```
  */
 const bucketOf = (ownerRelativePathOrUrl: string): Bucket | "rest" => {
   const split = splitPubky(ownerRelativePathOrUrl);

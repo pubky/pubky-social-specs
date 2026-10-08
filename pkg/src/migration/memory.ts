@@ -22,7 +22,17 @@ export interface MemoryPortOptions {
 
 const encoder = new TextEncoder();
 
-/** A homeserver tree in memory, with the LIST semantics of a real one. */
+/**
+ * A homeserver tree in memory, with the LIST semantics of a real one.
+ *
+ * @example
+ * ```ts
+ * import { MemoryPort } from "pubky-social-specs/migration";
+ * const port = new MemoryPort({ pageSize: 2 });
+ * await port.putBytes("pubky://8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/x", new Uint8Array([1]));
+ * console.log(port.store.size, port.calls);
+ * ```
+ */
 class MemoryPort implements MigrationPort {
   /** URL to stored bytes. Read it to check what a run wrote; write it to build a tree. */
   readonly store: Map<string, Uint8Array> = new Map();

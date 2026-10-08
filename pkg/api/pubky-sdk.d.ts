@@ -17,6 +17,15 @@ export interface SdkPortOptions {
  * The migration port over a signed-in session of `@synonymdev/pubky` >=0.11 <1: every URL has to
  * be in the session owner's tree. `ifAbsent` is a HEAD then the PUT, which leaves a one round
  * trip window.
+ *
+ * @example
+ * ```ts
+ * import { runMigration } from "pubky-social-specs/migration";
+ * import { sdkPort, type SdkSession } from "pubky-social-specs/migration/pubky-sdk";
+ * declare const session: SdkSession;
+ * const report = await runMigration({ owner: session.info.publicKey.z32(), port: sdkPort(session) });
+ * console.log(report.status);
+ * ```
  */
 declare const sdkPort: (session: SdkSession, options?: SdkPortOptions) => MigrationPort;
 export { sdkPort };

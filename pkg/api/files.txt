@@ -1,3 +1,8 @@
+CHANGELOG.md
+LICENSE
+MIGRATION.md
+README.md
+SECURITY.md
 bin/migrate.js
 dist/base64url.d.ts
 dist/base64url.d.ts.map
@@ -27,6 +32,10 @@ dist/deletion.d.ts
 dist/deletion.d.ts.map
 dist/deletion.js
 dist/deletion.js.map
+dist/dev.d.ts
+dist/dev.d.ts.map
+dist/dev.js
+dist/dev.js.map
 dist/errors.d.ts
 dist/errors.d.ts.map
 dist/errors.js
@@ -69,6 +78,8 @@ dist/migration/engine.js
 dist/migration/engine.js.map
 dist/migration/glue.d.ts
 dist/migration/glue.js
+dist/migration/glue.node.js
+dist/migration/glue.wasm
 dist/migration/index.d.ts
 dist/migration/index.d.ts.map
 dist/migration/index.js
@@ -166,10 +177,7 @@ dist/validate.d.ts.map
 dist/validate.js
 dist/validate.js.map
 example.js
-LICENSE
-MIGRATION.md
 package.json
-README.md
 src/base64url.ts
 src/bytes.ts
 src/canonicalize.ts
@@ -177,6 +185,7 @@ src/client/index.ts
 src/clock.ts
 src/data.ts
 src/deletion.ts
+src/dev.ts
 src/errors.ts
 src/ids.ts
 src/index.ts

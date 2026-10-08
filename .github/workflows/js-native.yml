@@ -100,10 +100,18 @@ jobs:
         run: npm run coverage
       - name: Offline vector replay against the build
         run: npx mocha vectors.test.js
+      - name: Every export's example compiles and runs
+        run: npm run examples
       - name: Parity with the crate on fresh seeded cases
         run: npm run score -- --fuzz 20000
       - name: Hostile arguments
         run: node --expose-gc --max-old-space-size=3072 qa/boundary.mjs
+      - name: The API reference builds
+        run: npm run docs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-reference
+          path: pkg/qa/out/api-reference
 
   package:
     needs: build

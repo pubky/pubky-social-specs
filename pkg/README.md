@@ -259,7 +259,25 @@ const { url, body } = buildFollow(me, them);
 expect(decodeObject(url, body, "follow")).toEqual({ created_at: 1_790_000_000_000_000 });
 ```
 
-Ids go up within one process, so two posts built in the same instant get different ids; `setClock` starts that guard over. The clock reads microseconds, so two copies of the package minting in the same millisecond rarely meet. A clock corrected backwards by more than a second is followed, as the crate's mint is, and ids continue from it: one minted after such a correction can repeat one minted before it in the same process.
+`fakeOwner(n)` gives a well-formed key for test data, the same for the same `n`, and `samplePost`, `sampleUser` and `sampleFeed` build a fixture from a partial input.
+
+Ids go up within one process, so two posts built in the same instant get different ids; `setClock` starts that guard over. The default clock draws the microsecond inside the millisecond at random, so two copies of the package minting in the same millisecond rarely meet; when they do, the post ids are equal, so before PUTting a new post check that neither root holds a version of its id and build again if one does (the client below does this). A clock corrected backwards by more than a second is followed, as the crate's mint is, and ids continue from it: one minted after such a correction can repeat one minted before it in the same process.
+
+## The client
+
+`pubky-social-specs/client` is the glue every app writes, over a signed-in session of the pubky SDK: it builds, PUTs the exact bytes, LISTs, picks the newest version and decodes. A stored object that does not decode comes back as a value with its error, never as a throw. The core stays I/O free; an app that brings its own transport ignores this entry.
+
+```ts
+import { createSocialClient } from "pubky-social-specs/client";
+
+const social = createSocialClient(session, { publicStorage: pubky.publicStorage });
+const post = await social.posts.create({ content: "Hello" });
+const head = await social.posts.head(social.owner, post.id);
+if (head?.ok) await social.posts.edit(head, { ...head.object, content: "Hello, edited" });
+for await (const read of social.posts.list(authorKey)) if (read.ok) render(read.object);
+```
+
+It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`), and `files` (`upload`, `get`). Reading another user's tree needs `publicStorage`, the SDK's `pubky.publicStorage`.
 
 ## What to know
 
@@ -269,6 +287,8 @@ Ids go up within one process, so two posts built in the same instant get differe
 - `editPost` reads the owner from the head URL. Pass a URL in the caller's own storage.
 
 ## Exports
+
+Every export carries an example in its declaration, so an editor shows it on hover; `npm run examples` compiles and runs each one. The full reference is generated from the declarations with `npm run docs` (into `qa/out/api-reference`), and CI keeps it as the `api-reference` artifact. [`CHANGELOG.md`](CHANGELOG.md) says what a version promises about the API and about the stored bytes, separately.
 
 From `pubky-social-specs`:
 
@@ -290,7 +310,7 @@ From `pubky-social-specs`:
 | `Owner`, `PostId`, `EditId`, `MediaId`, `PubkyUrl`, `OwnerPath`, `PostRef`, `Reference`, `Brand`, `Given`, `UrlArg`, `PathArg` | the branded places and ids, and the argument types that take them or a plain string |
 | `Bytes`, `Root`, `ObjectKind`, `MimeType`, `PostKind`, `KnownPostKind` and the other name unions | the vocabulary |
 
-From `pubky-social-specs/testing`: `setClock`. From `pubky-social-specs/migration` and `pubky-social-specs/migration/pubky-sdk`: the migration, in [`MIGRATION.md`](MIGRATION.md).
+From `pubky-social-specs/testing`: `setClock`, `fakeOwner`, `samplePost`, `sampleUser`, `sampleFeed`. From `pubky-social-specs/client`: `createSocialClient`, and the types `SocialClient`, `SocialSession`, `Read`. From `pubky-social-specs/migration` and `pubky-social-specs/migration/pubky-sdk`: the migration, in [`MIGRATION.md`](MIGRATION.md).
 
 ## Migration
 

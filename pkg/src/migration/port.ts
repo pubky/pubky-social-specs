@@ -35,6 +35,15 @@ export type PortErrorKind =
  */
 const BRAND = Symbol.for("pubky-social-specs.MigrationPortError");
 
+/**
+ * @example
+ * ```ts
+ * import { MemoryPort, MigrationPortError, runMigration } from "pubky-social-specs/migration";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const port = new MemoryPort({ intercept: (op) => { if (op === "head") throw new MigrationPortError("unauthorized", "signed out", 401); } });
+ * console.log((await runMigration({ owner, port })).error?.code);
+ * ```
+ */
 class MigrationPortError extends Error {
   override name = "MigrationPortError";
   readonly kind: PortErrorKind;
@@ -97,6 +106,12 @@ const MAPPED: Partial<Record<number, PortErrorKind>> = {
  * The error for a homeserver answer `status`, mapped as the kinds above say. A 400 or 405 that
  * means the root does not exist is `unsupported` only where the adapter knows that; here it
  * is `rejected`.
+ *
+ * @example
+ * ```ts
+ * import { refusal } from "pubky-social-specs/migration";
+ * console.log(refusal(507).kind, refusal(429).kind, refusal(503).kind);
+ * ```
  */
 const refusal = (status: number, message?: string): MigrationPortError => new MigrationPortError(MAPPED[status] ?? (status >= 500 ? "network" : "rejected"), message, status);
 

@@ -2,9 +2,9 @@ import { ValidationError } from "../index.js";
 import type { SdkPublicStorage, SdkSession } from "../session.js";
 import type * as T from "../types.js";
 /** One stored object read: decoded, or why it could not be. */
-export type Read<O> = {
+export type Read<O, K extends T.ObjectKind = T.ObjectKind> = {
     ok: true;
-    url: T.PubkyUrl;
+    url: T.PubkyUrl<K>;
     path: T.OwnerPath;
     object: O;
 } | {
@@ -37,7 +37,7 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         /** Builds a post and PUTs it. An id already used in either root is minted again. */
         create<const I extends T.NewPost>(input: I & T.CheckedPost<I>): Promise<T.BuiltPost>;
         /** The newest public version of a post, or of a draft with `root: "private"` (the owner's only). */
-        head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root?: T.Root) => Promise<Read<T.Post> | null>;
+        head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root?: T.Root) => Promise<Read<T.Post, "post"> | null>;
         /** A new version of the post read as `head`, PUT where `editPost` puts it. */
         edit(head: {
             url: T.UrlArg<"post">;
@@ -46,12 +46,12 @@ export declare function createSocialClient(session: SdkSession, options?: Client
             slug?: string | null;
         }): Promise<T.BuiltPost>;
         /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
-        list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post>>;
+        list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post, "post">>;
         /** Deletes every version of an own post in both roots, newest last. */
         delete(id: T.Given<"PostId">): Promise<void>;
     };
     profile: {
-        get: (author?: T.Given<"Owner">) => Promise<Read<T.User> | null>;
+        get: (author?: T.Given<"Owner">) => Promise<Read<T.User, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user"> | null>;
         /** Writes a fresh profile from `input`. To keep members another client added, `update` a read one. */
         set(input: T.NewUser): Promise<T.Built<T.User>>;
         /** Writes back a profile read with `get` and changed, its unknown members kept. */
@@ -60,33 +60,33 @@ export declare function createSocialClient(session: SdkSession, options?: Client
     follows: {
         add(followee: T.Given<"Owner">): Promise<T.Built<T.Follow, T.Owner>>;
         remove: (followee: T.Given<"Owner">) => Promise<void>;
-        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow>, any, any>;
+        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
     };
     mutes: {
         add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner>>;
         remove: (mutee: T.Given<"Owner">) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Mute>, any, any>;
+        list: () => AsyncGenerator<Read<T.Mute, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
     };
     tags: {
         add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>>;
         remove: (id: string) => Promise<void>;
-        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Tag>, any, any>;
+        list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Tag, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
     };
     bookmarks: {
         add(target: T.Reference): Promise<T.Built<T.Bookmark>>;
         remove: (id: string) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Bookmark>, any, any>;
+        list: () => AsyncGenerator<Read<T.Bookmark, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
     };
     feeds: {
         add(input: T.NewFeed): Promise<T.Built<T.Feed>>;
         remove: (id: string) => Promise<void>;
-        list: () => AsyncGenerator<Read<T.Feed>, any, any>;
+        list: () => AsyncGenerator<Read<T.Feed, "bookmark" | "feed" | "file" | "follow" | "mute" | "post" | "tag" | "user">, any, any>;
     };
     files: {
         /** PUTs media where its hash names it, public unless `root` says otherwise. */
         upload(bytes: Uint8Array, type: T.MimeType | (string & {}), root?: T.Root): Promise<T.BuiltFile>;
         /** The bytes of media at `url`, checked against the hash that names them; null when absent. */
-        get(url: T.UrlArg<"file">): Promise<Read<T.Bytes> | null>;
+        get(url: T.UrlArg<"file">): Promise<Read<T.Bytes, "file"> | null>;
     };
 };
 /** What `createSocialClient` gives. */

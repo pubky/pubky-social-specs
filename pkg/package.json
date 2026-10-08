@@ -49,13 +49,15 @@
     "!src/host.d.ts",
     "bin/migrate.js",
     "example.js",
-    "MIGRATION.md"
+    "MIGRATION.md",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --locked --features migrator --bin bundle_specs_npm",
     "build:ts": "tsc -p .",
     "pretest": "tsc -p .",
-    "test": "mocha vectors.test.js edges.test.js test.js property.test.js validate.test.js client.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/data.mjs --check && node --max-old-space-size=1536 qa/model.mjs --runs 25 --seed 1",
+    "test": "mocha vectors.test.js edges.test.js test.js property.test.js validate.test.js client.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js && node qa/data.mjs --check && node qa/examples.mjs && node --max-old-space-size=1536 qa/model.mjs --runs 25 --seed 1",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "node --max-old-space-size=1536 qa/score.mjs",
@@ -67,6 +69,8 @@
     "format:check": "prettier --check .",
     "test:src": "node --import ./qa/from-src.mjs node_modules/mocha/bin/mocha.js vectors.test.js edges.test.js test.js property.test.js validate.test.js client.test.js transforms.test.js migration.test.js sdk-port.test.js cli.test.js",
     "coverage": "node qa/coverage.mjs",
+    "examples": "node qa/examples.mjs",
+    "docs": "node tools/node_modules/typedoc/bin/typedoc --options tools/typedoc.json",
     "deps": "node tools/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs --config tools/dependency-cruiser.cjs src",
     "e2e": "mocha e2e/migrate.e2e.js",
     "example": "node example.js",

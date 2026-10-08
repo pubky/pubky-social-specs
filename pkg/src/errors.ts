@@ -6,6 +6,17 @@ const PREFIX = "Validation Error: ";
  * included; `reason` is the same text without it. `field` names the member or argument
  * refused (`content`, `attachments[0].uri`, `owner`) where the refusal is about one.
  * `instanceof` holds across two copies of the package in one program.
+ *
+ * @example
+ * ```ts
+ * import { buildUser, ValidationError } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * try {
+ *   buildUser(owner, { name: "" });
+ * } catch (e) {
+ *   if (e instanceof ValidationError) console.log(e.field, e.reason);
+ * }
+ * ```
  */
 export class ValidationError extends Error {
   override name = "ValidationError";

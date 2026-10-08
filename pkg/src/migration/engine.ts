@@ -13,6 +13,14 @@ import type { AbortSignalLike, Counts, MigrationError, MigrationReport, Outcome,
 /**
  * The scopes the engine writes, and all it checks a session for: both 1.x roots. Reading and
  * listing the 0.x tree is anonymous.
+ *
+ * @example
+ * ```ts
+ * import { ENGINE_CAPS, runMigration, MemoryPort } from "pubky-social-specs/migration";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const report = await runMigration({ owner, port: new MemoryPort(), caps: ENGINE_CAPS });
+ * console.log(report.status);
+ * ```
  */
 const ENGINE_CAPS = "/pub/social/v1/:rw,/priv/social/v1/:rw";
 
@@ -20,6 +28,13 @@ const ENGINE_CAPS = "/pub/social/v1/:rw,/priv/social/v1/:rw";
  * The full session grant of a migrating pubky-app: `ENGINE_CAPS`, the app's own private
  * namespace, and the 0.x tree, which deleting a migrated object later still reaches. The
  * engine does not check it; it is what the app asks for when it upgrades a session.
+ *
+ * @example
+ * ```ts
+ * import { MIGRATION_CAPS } from "pubky-social-specs/migration";
+ * // The capabilities a migrating app asks for when it upgrades a session
+ * console.log(MIGRATION_CAPS.split(","));
+ * ```
  */
 const MIGRATION_CAPS = `${ENGINE_CAPS},/priv/app.pubky/v1/:rw,/pub/pubky.app/:rw`;
 
@@ -709,6 +724,16 @@ class Run {
  * so an interrupted run resumes by running again, and nothing that exists is overwritten.
  * The 0.x tree is never modified. Resolves with a report in every case but a programming
  * error, which rejects.
+ *
+ * @example
+ * ```ts
+ * import { MemoryPort, runMigration } from "pubky-social-specs/migration";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const port = new MemoryPort();
+ * port.store.set(`pubky://${owner}/pub/pubky.app/profile.json`, new TextEncoder().encode('{"name":"Alice"}'));
+ * const report = await runMigration({ owner, port });
+ * console.log(report.status, report.counts.written);
+ * ```
  */
 const runMigration = async (options: RunOptions): Promise<MigrationReport> => {
   // Typed for a caller, checked for one that is not

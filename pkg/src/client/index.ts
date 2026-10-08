@@ -25,7 +25,7 @@ import type { SdkPublicStorage, SdkSession } from "../session.js";
 import type * as T from "../types.js";
 
 /** One stored object read: decoded, or why it could not be. */
-export type Read<O> = { ok: true; url: T.PubkyUrl; path: T.OwnerPath; object: O } | { ok: false; url: string; error: ValidationError };
+export type Read<O, K extends T.ObjectKind = T.ObjectKind> = { ok: true; url: T.PubkyUrl<K>; path: T.OwnerPath; object: O } | { ok: false; url: string; error: ValidationError };
 
 export interface ClientOptions {
   /** `pubky.publicStorage` of the SDK, for reading other users' trees. Without it only the owner's own tree is read. */
@@ -86,7 +86,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     }
   }
 
-  async function readAt<O>(author: string, url: string, kind: keyof T.Stored): Promise<Read<O> | null> {
+  async function readAt<O, K extends T.ObjectKind = T.ObjectKind>(author: string, url: string, kind: keyof T.Stored): Promise<Read<O, K> | null> {
     let bytes: Uint8Array;
     try {
       bytes = await reader(author).get(pathOf(author, url));
@@ -96,7 +96,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     }
     try {
       const object = decodeObject(url as T.UrlArg, bytes, kind) as O;
-      return { ok: true, url: url as T.PubkyUrl, path: pathOf(author, url) as T.OwnerPath, object };
+      return { ok: true, url: url as T.PubkyUrl<K>, path: pathOf(author, url) as T.OwnerPath, object };
     } catch (error) {
       if (error instanceof ValidationError) return { ok: false, url, error };
       throw error;
@@ -122,7 +122,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   };
 
   /** The newest version of post `id` of `author` under `root`, read, or null when it has none. */
-  async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post> | null> {
+  async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post, "post"> | null> {
     let head: { editId: string; url: string } | null = null;
     for await (const url of listed(author, `/${root === "public" ? "pub" : "priv"}/social/v1/posts/${id}/`)) {
       let parsed: T.ParsedUri;
@@ -134,7 +134,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       }
       if (parsed.kind === "post" && parsed.editId !== undefined && (head === null || parsed.editId > head.editId)) head = { editId: parsed.editId, url };
     }
-    return head === null ? null : readAt<T.Post>(author, head.url, "post");
+    return head === null ? null : readAt<T.Post, "post">(author, head.url, "post");
   }
 
   /** A post id is taken by a version of it in either root, by this copy of the package or another. */
@@ -168,7 +168,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return built;
       },
       /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
-      async *list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post>> {
+      async *list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post, "post">> {
         const key = parseOwner(author);
         const ids = new Set<string>();
         for await (const url of listed(key, "/pub/social/v1/posts/")) {
@@ -261,7 +261,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         return built;
       },
       /** The bytes of media at `url`, checked against the hash that names them; null when absent. */
-      async get(url: T.UrlArg<"file">): Promise<Read<T.Bytes> | null> {
+      async get(url: T.UrlArg<"file">): Promise<Read<T.Bytes, "file"> | null> {
         const parsed = parseUri(url);
         let bytes: Uint8Array;
         try {
@@ -271,7 +271,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
           throw error;
         }
         try {
-          return { ok: true, url: url as T.PubkyUrl, path: parsed.path as T.OwnerPath, object: decodeObject(url, bytes, "file") };
+          return { ok: true, url: url as T.PubkyUrl<"file">, path: parsed.path as T.OwnerPath, object: decodeObject(url, bytes, "file") };
         } catch (error) {
           if (error instanceof ValidationError) return { ok: false, url, error };
           throw error;
