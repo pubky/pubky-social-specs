@@ -35,6 +35,7 @@ for (const entry of [
   "sdk-port.test.js",
   "cli.test.js",
   "qa/chaos.mjs",
+  "qa/lib.mjs",
   "qa/ops.mjs",
 ]) {
   fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });

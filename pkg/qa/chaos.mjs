@@ -3,15 +3,15 @@
 // fault-free run of the same tree.
 //
 //   node --max-old-space-size=1536 qa/chaos.mjs [--variant main|quota-rate|lost-response|any-kind|phantom-404]
-//        [--seeds 1000] [--from 0] [--out file.json] [--seed N --verbose]
+//        [--seeds 1000] [--from 0] [--out file.json] [--no-minimize] [--seed N [--rate R] [--verbose] [--trace]]
 
 import assert from "node:assert";
-import { decodeObject as readObject } from "../dist/index.js";
 import { runMigration, MemoryPort, MigrationPortError, refusal, skipReasons } from "../dist/migration/index.js";
 import { init, transforms } from "../dist/migration/wasm.js";
+import { legacyTree, bytesOf, corpus } from "../migration.fixture.js";
+import { flags, noSleep, sameBytes, timestampIdOf, writeOut, xorshift } from "./lib.mjs";
 
 const { createMigration, migrate } = transforms;
-import { legacyTree, bytesOf, corpus } from "../migration.fixture.js";
 
 const owner = corpus.owner;
 const url = (path) => `pubky://${owner}/${path}`;
@@ -26,32 +26,10 @@ const MAX_RUNS = 30;
 
 // ---- seeded randomness ----
 
-const xorshift = (seed) => {
-  let s = (seed ^ 0x9e3779b9) >>> 0 || 1;
-  const next = () => {
-    s ^= s << 13;
-    s >>>= 0;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    s >>>= 0;
-    return s / 0x100000000;
-  };
-  for (let i = 0; i < 8; i++) next();
-  return next;
-};
 const pick = (rand, items) => items[Math.floor(rand() * items.length)];
 const int = (rand, lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
 
 // ---- the tree ----
-
-const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-/** A 0.x TimestampId: the big-endian microseconds in Crockford base32, unpadded. */
-const tsid = (micros) => {
-  let bits = BigInt(micros).toString(2).padStart(64, "0") + "0";
-  let out = "";
-  for (let i = 0; i < 65; i += 5) out += CROCKFORD[parseInt(bits.slice(i, i + 5), 2)];
-  return out;
-};
 
 const baseRows = new Map([...legacyTree()].map(([path, row]) => [path, bytesOf(row)]));
 
@@ -71,8 +49,8 @@ const buildTree = (seed) => {
     const type = pick(rand, types);
     const hash = transforms.mediaId(bytes);
     const micros = 1_740_000_000_000_000 + seed * 1_000_000 + i * 10;
-    const fileId = tsid(micros);
-    const postId = tsid(micros + 1);
+    const fileId = timestampIdOf(micros);
+    const postId = timestampIdOf(micros + 1);
     tree.set(`pub/pubky.app/blobs/${hash}`, bytes);
     tree.set(`pub/pubky.app/files/${fileId}`, encoder.encode(JSON.stringify({ name: `chaos ${i}.bin`, created_at: micros, src: url(`pub/pubky.app/blobs/${hash}`), content_type: type, size })));
     tree.set(
@@ -108,7 +86,7 @@ const expectedWrites = (tree) => {
               })),
             },
       );
-    } catch (e) {
+    } catch {
       out.set(path, { skip: "invalid" });
     }
   }
@@ -122,13 +100,12 @@ const portOf = (tree, options) => {
   return port;
 };
 
-const noSleep = () => Promise.resolve();
 const v1Of = (store) => new Map([...store].filter(([u]) => !u.startsWith(LEGACY) && u !== FLAG));
 const legacyOf = (store) => new Map([...store].filter(([u]) => u.startsWith(LEGACY)));
 
 /** Same bytes for media, same meaning for JSON. */
 const sameObject = (u, a, b) => {
-  if (u.includes("/files/")) return Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0;
+  if (u.includes("/files/")) return sameBytes(a, b);
   try {
     assert.deepStrictEqual(JSON.parse(decoder.decode(a)), JSON.parse(decoder.decode(b)));
     return true;
@@ -163,6 +140,16 @@ const PROFILES = {
   "any-kind": { any: 1, hang: 0.2, truncate: 0.5, reorder: 0.5 },
   // A GET answering 404 for an object that is still there
   "phantom-404": { phantom_404: 1, network: 2 },
+};
+
+// [base, span] of the share of calls that fail, drawn per seed: each profile at rates its
+// runs still finish under
+const RATES = {
+  main: [0.01, 0.11],
+  "quota-rate": [0.02, 0.2],
+  "lost-response": [0.05, 0.4],
+  "any-kind": [0.01, 0.05],
+  "phantom-404": [0.02, 0.1],
 };
 
 const ANY_KINDS = [
@@ -200,8 +187,6 @@ const applies = (fault, op, u) => {
       return isPut && u !== FLAG;
     case "not_found_delete":
       return op === "delete";
-    case "unauthorized":
-      return true;
     default:
       return true;
   }
@@ -330,7 +315,7 @@ class ChaosPort {
     if (u === FLAG) return;
     if (u.startsWith(LEGACY)) this.violations.push({ invariant: "legacy-untouched", detail: `PUT ${u}` });
     const before = this.writes.get(u);
-    if (before && Buffer.compare(Buffer.from(before), Buffer.from(bytes)) !== 0) {
+    if (before && !sameBytes(before, bytes)) {
       this.violations.push({ invariant: "create-only", detail: `${u} written twice with different bytes` });
     }
     this.writes.set(u, bytes);
@@ -387,7 +372,6 @@ class ChaosPort {
   }
 
   putJson(u, object, options) {
-    if (u === FLAG) this.flagPuts = (this.flagPuts ?? 0) + 1;
     const bytes = encoder.encode(JSON.stringify(object));
     return this.#put("putJson", u, bytes, () => this.inner.putJson(u, object, options));
   }
@@ -433,6 +417,89 @@ const checkProgress = (events, report, filesListed) => {
 
 const STATUS_FOR = { QUOTA: "paused" };
 
+/**
+ * The tree after the last run, against a fault-free run of what is left of the 0.x tree.
+ * Pushes what breaks onto the port's violations and returns the phantom 404s that lost a copy.
+ */
+const checkEndState = (tree, store, port, original, status) => {
+  const violations = port.violations;
+  // The 0.x tree is the original one less the objects the harness deleted
+  const legacy = legacyOf(store);
+  for (const [path, bytes] of tree) {
+    const u = url(path);
+    if (port.deleted.has(path)) {
+      if (legacy.has(u)) violations.push({ invariant: "legacy-untouched", detail: `${path} deleted by the harness is back` });
+      continue;
+    }
+    if (!legacy.has(u) || !sameBytes(legacy.get(u), bytes)) {
+      violations.push({ invariant: "legacy-untouched", detail: `${path} changed or gone` });
+    }
+  }
+  if (legacy.size !== tree.size - port.deleted.size) violations.push({ invariant: "legacy-untouched", detail: "extra 0.x objects" });
+
+  const flag = JSON.parse(decoder.decode(store.get(FLAG)));
+  const skipped = flag.skipped ?? {};
+  if (skipped.io_error?.length) violations.push({ invariant: "no-flag-after-io_error", detail: "flag lists io_error" });
+
+  const finalTree = new Map([...tree].filter(([p]) => !port.deleted.has(p)));
+  const now = expectedWrites(finalTree);
+  const allowed = new Map();
+  for (const r of original.values()) for (const w of r.writes ?? []) allowed.set(w.url, w.bytes);
+  for (const r of now.values()) for (const w of r.writes ?? []) allowed.set(w.url, w.bytes);
+
+  // Nothing in the 1.x tree that a fault-free run would not write, or another writer put there
+  const v1 = v1Of(store);
+  for (const u of port.harnessWritten) {
+    // What another writer put there stays as they wrote it
+    if (!store.has(u) || !sameBytes(store.get(u), THEIRS)) {
+      violations.push({ invariant: "theirs-untouched", detail: `${u} written elsewhere was overwritten or deleted` });
+    }
+  }
+  for (const [u, bytes] of v1) {
+    if (port.harnessWritten.has(u)) continue;
+    if (!allowed.has(u)) violations.push({ invariant: "tree-subset", detail: `unexpected ${u}` });
+    else if (!sameObject(u, bytes, allowed.get(u))) violations.push({ invariant: "tree-subset", detail: `different bytes at ${u}` });
+  }
+  // Every object still in the 0.x tree has its copy, unless the last run recorded why not
+  const excused = new Set([...(skipped.put_rejected ?? []), ...(skipped.deleted_mid_run ?? [])]);
+  for (const [path, r] of now) {
+    if (!r.writes) continue;
+    for (const w of r.writes) {
+      if (v1.has(w.url) || port.harnessWritten.has(w.url)) continue;
+      if (excused.has(path)) continue;
+      violations.push({ invariant: "tree-complete", detail: `${path} has no copy at ${w.url}` });
+    }
+  }
+  // The flag's lists say what happened to the 0.x tree it covers
+  for (const reason of skipReasons) {
+    const expected = [...now]
+      .filter(([, r]) => r.skip === reason)
+      .map(([p]) => p)
+      .sort();
+    const got = [...(skipped[reason] ?? [])].filter((p) => !excused.has(p)).sort();
+    const expectedLeft = expected.filter((p) => !excused.has(p));
+    if (status === "done" && JSON.stringify(got) !== JSON.stringify(expectedLeft)) {
+      violations.push({ invariant: "flag-skipped-consistent", detail: `${reason}: flag ${JSON.stringify(got)} vs tree ${JSON.stringify(expectedLeft)}` });
+    }
+  }
+  const sourcesOf = new Map();
+  for (const [p, r] of now) for (const w of r.writes ?? []) sourcesOf.set(w.url, [...(sourcesOf.get(w.url) ?? []), p]);
+  for (const path of skipped.put_rejected ?? []) {
+    for (const w of now.get(path)?.writes ?? []) {
+      // Another 0.x object folding to the same key may have landed it
+      if (v1.has(w.url) && !port.harnessWritten.has(w.url) && sourcesOf.get(w.url).length === 1) {
+        violations.push({ invariant: "flag-skipped-consistent", detail: `${path} is put_rejected but ${w.url} exists` });
+      }
+    }
+  }
+  for (const path of skipped.deleted_mid_run ?? []) {
+    if (!port.deleted.has(path) && !port.phantom.has(path)) {
+      violations.push({ invariant: "flag-skipped-consistent", detail: `${path} deleted_mid_run but never deleted` });
+    }
+  }
+  return [...port.phantom].filter((p) => (now.get(p)?.writes ?? []).some((w) => !v1.has(w.url)));
+};
+
 const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   const tree = buildTree(seed);
   const store = new Map();
@@ -451,7 +518,6 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
     port.lostAnswers.clear();
     port.deleteAttempts.clear();
     port.cleanupReads.clear();
-    port.flagPuts = 0;
     const events = [];
     let report;
     try {
@@ -496,81 +562,7 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   if (!done) {
     return { seed, runs, finished: false, violations, faults: port.trace.length, trace: port.trace };
   }
-  // The 0.x tree is the original one less the objects the harness deleted
-  const legacy = legacyOf(store);
-  for (const [path, bytes] of tree) {
-    const u = url(path);
-    if (port.deleted.has(path)) {
-      if (legacy.has(u)) violations.push({ invariant: "legacy-untouched", detail: `${path} deleted by the harness is back` });
-      continue;
-    }
-    if (!legacy.has(u) || Buffer.compare(Buffer.from(legacy.get(u)), Buffer.from(bytes)) !== 0) {
-      violations.push({ invariant: "legacy-untouched", detail: `${path} changed or gone` });
-    }
-  }
-  if (legacy.size !== tree.size - port.deleted.size) violations.push({ invariant: "legacy-untouched", detail: "extra 0.x objects" });
-
-  const flag = JSON.parse(decoder.decode(store.get(FLAG)));
-  const skipped = flag.skipped ?? {};
-  if (skipped.io_error?.length) violations.push({ invariant: "no-flag-after-io_error", detail: "flag lists io_error" });
-
-  const finalTree = new Map([...tree].filter(([p]) => !port.deleted.has(p)));
-  const now = expectedWrites(finalTree);
-  const allowed = new Map();
-  for (const r of original.values()) for (const w of r.writes ?? []) allowed.set(w.url, w.bytes);
-  for (const r of now.values()) for (const w of r.writes ?? []) allowed.set(w.url, w.bytes);
-
-  // Nothing in the 1.x tree that a fault-free run would not write, or another writer put there
-  const v1 = v1Of(store);
-  for (const u of port.harnessWritten) {
-    // What another writer put there stays as they wrote it
-    if (!store.has(u) || Buffer.compare(Buffer.from(store.get(u)), Buffer.from(THEIRS)) !== 0) {
-      violations.push({ invariant: "theirs-untouched", detail: `${u} written elsewhere was overwritten or deleted` });
-    }
-  }
-  for (const [u, bytes] of v1) {
-    if (port.harnessWritten.has(u)) continue;
-    if (!allowed.has(u)) violations.push({ invariant: "tree-subset", detail: `unexpected ${u}` });
-    else if (!sameObject(u, bytes, allowed.get(u))) violations.push({ invariant: "tree-subset", detail: `different bytes at ${u}` });
-  }
-  // Every object still in the 0.x tree has its copy, unless the last run recorded why not
-  const excused = new Set([...(skipped.put_rejected ?? []), ...(skipped.deleted_mid_run ?? [])]);
-  for (const [path, r] of now) {
-    if (!r.writes) continue;
-    for (const w of r.writes) {
-      if (v1.has(w.url) || port.harnessWritten.has(w.url)) continue;
-      if (excused.has(path)) continue;
-      violations.push({ invariant: "tree-complete", detail: `${path} has no copy at ${w.url}` });
-    }
-  }
-  // The flag's lists say what happened to the 0.x tree it covers
-  for (const reason of skipReasons) {
-    const expected = [...now]
-      .filter(([, r]) => r.skip === reason)
-      .map(([p]) => p)
-      .sort();
-    const got = [...(skipped[reason] ?? [])].filter((p) => !excused.has(p)).sort();
-    const expectedLeft = expected.filter((p) => !excused.has(p));
-    if (finalReport.status === "done" && JSON.stringify(got) !== JSON.stringify(expectedLeft)) {
-      violations.push({ invariant: "flag-skipped-consistent", detail: `${reason}: flag ${JSON.stringify(got)} vs tree ${JSON.stringify(expectedLeft)}` });
-    }
-  }
-  const sourcesOf = new Map();
-  for (const [p, r] of now) for (const w of r.writes ?? []) sourcesOf.set(w.url, [...(sourcesOf.get(w.url) ?? []), p]);
-  for (const path of skipped.put_rejected ?? []) {
-    for (const w of now.get(path)?.writes ?? []) {
-      // Another 0.x object folding to the same key may have landed it
-      if (v1.has(w.url) && !port.harnessWritten.has(w.url) && sourcesOf.get(w.url).length === 1) {
-        violations.push({ invariant: "flag-skipped-consistent", detail: `${path} is put_rejected but ${w.url} exists` });
-      }
-    }
-  }
-  for (const path of skipped.deleted_mid_run ?? []) {
-    if (!port.deleted.has(path) && !port.phantom.has(path)) {
-      violations.push({ invariant: "flag-skipped-consistent", detail: `${path} deleted_mid_run but never deleted` });
-    }
-  }
-  const lost = [...port.phantom].filter((p) => (now.get(p)?.writes ?? []).some((w) => !v1.has(w.url)));
+  const lost = checkEndState(tree, store, port, original, finalReport.status);
   return {
     seed,
     runs,
@@ -612,25 +604,38 @@ const minimize = async (seed, options, trace, invariant) => {
 
 // ---- main ----
 
-const args = Object.fromEntries(
-  process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]?.startsWith("--") || all[i + 1] === undefined ? true : all[i + 1]]] : acc), []),
-);
-const variant = args.variant ?? "main";
+const args = flags({
+  variant: { type: "string", default: "main" },
+  seeds: { type: "string", default: "1000" },
+  from: { type: "string", default: "0" },
+  out: { type: "string" },
+  "no-minimize": { type: "boolean", default: false },
+  seed: { type: "string" },
+  rate: { type: "string" },
+  verbose: { type: "boolean", default: false },
+  trace: { type: "boolean", default: false },
+});
+const variant = args.variant;
 const profile = PROFILES[variant];
 if (!profile) throw new Error(`unknown variant ${variant}`);
+/** The seed's own fault rate, so `--seed N` replays the rate the sweep ran it at. */
+const rateOf = (seed) => {
+  const [base, span] = RATES[variant];
+  return base + xorshift(seed * 31 + 7)() * span;
+};
 
 await init();
 
 if (args.seed !== undefined) {
   const seed = Number(args.seed);
-  const rate = Number(args.rate ?? 0.05);
-  const r = await runSeed(seed, { profile, rate, verbose: true });
+  const r = await runSeed(seed, { profile, rate: Number(args.rate ?? rateOf(seed)), verbose: args.verbose });
   console.log(JSON.stringify({ ...r, trace: args.trace ? r.trace : r.trace.length }, null, 1));
   process.exit(0);
 }
 
-const seeds = Number(args.seeds ?? 1000);
-const from = Number(args.from ?? 0);
+const count = (counts, key, n = 1) => (counts[key] = (counts[key] ?? 0) + n);
+const seeds = Number(args.seeds);
+const from = Number(args.from);
 const started = performance.now();
 let rateScale = 1;
 const summary = {
@@ -650,18 +655,7 @@ const summary = {
   ms: 0,
 };
 for (let seed = from; seed < from + seeds; seed++) {
-  const rand = xorshift(seed * 31 + 7);
-  const baseRate =
-    variant === "main"
-      ? 0.01 + rand() * 0.11
-      : variant === "quota-rate"
-        ? 0.02 + rand() * 0.2
-        : variant === "lost-response"
-          ? 0.05 + rand() * 0.4
-          : variant === "phantom-404"
-            ? 0.02 + rand() * 0.1
-            : 0.01 + rand() * 0.05;
-  const rate = baseRate * rateScale;
+  const rate = rateOf(seed) * rateScale;
   const t0 = performance.now();
   const r = await runSeed(seed, { profile, rate });
   const ms = performance.now() - t0;
@@ -669,25 +663,22 @@ for (let seed = from; seed < from + seeds; seed++) {
     rateScale /= 2;
     summary.rateScaleChanges.push({ seed, ms: Math.round(ms), rateScale });
   }
+  const at = { seed, rate: +rate.toFixed(4) };
   summary.seeds++;
   summary.faultsInjected += r.faults;
-  for (const t of r.trace) summary.faultKinds[t.fault] = (summary.faultKinds[t.fault] ?? 0) + 1;
+  for (const t of r.trace) count(summary.faultKinds, t.fault);
   summary.deletedSources += r.deleted ?? 0;
   summary.phantomLost += r.phantomLost?.length ?? 0;
-  for (const o of r.orphans ?? []) summary.orphanedCopies.push({ seed, rate: +rate.toFixed(4), ...o });
-  summary.runsHistogram[r.runs.length] = (summary.runsHistogram[r.runs.length] ?? 0) + 1;
-  for (const run of r.runs) {
-    const k = run.code ? `${run.status}:${run.code}` : run.status;
-    summary.statuses[k] = (summary.statuses[k] ?? 0) + 1;
-  }
+  for (const o of r.orphans ?? []) summary.orphanedCopies.push({ ...at, ...o });
+  count(summary.runsHistogram, r.runs.length);
+  for (const run of r.runs) count(summary.statuses, run.code ? `${run.status}:${run.code}` : run.status);
   if (r.finished) summary.finished++;
-  else summary.unfinished.push({ seed, rate: +rate.toFixed(4), last: r.runs.at(-1) });
+  else summary.unfinished.push({ ...at, last: r.runs.at(-1) });
   if (r.violations.length) {
     const invariant = r.violations[0].invariant;
-    const entry = { seed, rate: +rate.toFixed(4), violations: r.violations.slice(0, 10), faults: r.faults };
+    const entry = { ...at, violations: r.violations.slice(0, 10), faults: r.faults };
     if (!args["no-minimize"] && summary.violations.length < 20 && invariant !== "never-throws") {
-      const min = await minimize(seed, { profile, rate }, r.trace, invariant);
-      entry.minimalTrace = min;
+      entry.minimalTrace = await minimize(seed, { profile, rate }, r.trace, invariant);
     }
     summary.violations.push(entry);
     console.log(`seed ${seed}: ${r.violations.length} violation(s), first ${invariant}: ${r.violations[0].detail ?? ""}`);
@@ -699,9 +690,5 @@ for (let seed = from; seed < from + seeds; seed++) {
 }
 summary.ms = Math.round(performance.now() - started);
 summary.peakRssMb = Math.round(process.memoryUsage().rss / 1e6);
-const out = args.out;
-if (out) {
-  const fs = await import("node:fs");
-  fs.writeFileSync(out, JSON.stringify(summary, null, 1));
-}
+writeOut(args.out, summary);
 console.log(JSON.stringify({ ...summary, violations: summary.violations.length, unfinished: summary.unfinished.length, orphanedCopies: summary.orphanedCopies.length }, null, 1));
