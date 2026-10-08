@@ -123,6 +123,14 @@ export interface MemoryHomeserver {
   sessionOf(owner: Given<"Owner">): MemorySession;
 }
 
+// An address as the SDK takes one, `pubky://<key>/<path>` or `pubky<key>/<path>`, under the public root
+function publicUrl(address: string): string {
+  const url = address.startsWith("pubky://") ? address : address.startsWith("pubky") ? `pubky://${address.slice(5)}` : null;
+  if (url === null) throw Object.assign(new Error(`not a pubky address: ${address}`), { name: "InvalidInput" });
+  if (!/^pubky:\/\/[^/]+\/pub\//.test(url)) throw notFound(url);
+  return url;
+}
+
 // What the SDK throws for a missing file or directory, which the port maps to absent
 const notFound = (url: string) => Object.assign(new Error(`404 Not Found: ${url}`), { name: "RequestError", data: { statusCode: 404 } });
 
@@ -200,14 +208,10 @@ export function memoryHomeserver(): MemoryHomeserver {
     session: sessionOf(owner),
     friendSession: sessionOf(friend),
     sessionOf,
+    // Only the public root is anyone's to read
     publicStorage: {
-      list: (address, cursor, reverse, limit) => later(() => listed(address, cursor, reverse, limit)),
-      getBytes: (address) =>
-        later(() => {
-          // Only the public root is anyone's to read
-          if (!address.includes("/pub/")) throw notFound(address);
-          return read(address);
-        }),
+      list: (address, cursor, reverse, limit) => later(() => listed(publicUrl(address), cursor, reverse, limit)),
+      getBytes: (address) => later(() => read(publicUrl(address))),
     },
   };
 }

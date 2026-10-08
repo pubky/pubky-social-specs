@@ -66,14 +66,19 @@ const listing = (store, prefix, cursor, limit) => {
 // A signed-in session of `owner` over `storage`
 export const sessionOf = (owner, storage = fakeStorage(owner)) => ({ info: { publicKey: { z32: () => owner } }, storage });
 
-// One homeserver for every key: a session per key, and `pubky.publicStorage`, which takes
-// `<key>/<path>` addresses
+// One homeserver for every key: a session per key, and `pubky.publicStorage`, which takes an
+// address as the SDK does, `pubky://<key>/<path>` or `pubky<key>/<path>`, and nothing else
+const addressed = (address) => {
+  if (address.startsWith("pubky://")) return address;
+  if (address.startsWith("pubky")) return `pubky://${address.slice(5)}`;
+  throw Object.assign(new Error(`not a pubky address: ${address}`), { name: "InvalidInput" });
+};
 export const fakeHomeserver = () => {
   const store = new Map();
   const publicStorage = {
-    list: async (address, cursor, _reverse, limit) => listing(store, `pubky://${address}`, cursor, limit),
+    list: async (address, cursor, _reverse, limit) => listing(store, addressed(address), cursor, limit),
     getBytes: async (address) => {
-      const bytes = store.get(`pubky://${address}`);
+      const bytes = store.get(addressed(address));
       if (bytes === undefined) throw answered(404, "Not Found");
       return bytes.slice();
     },

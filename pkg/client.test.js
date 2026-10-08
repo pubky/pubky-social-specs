@@ -184,3 +184,17 @@ describe("pubky-social-specs/client", () => {
     for (const pageSize of [0, 1001, 1.5]) assert.throws(() => createSocialClient(fakeHomeserver().session(OTTO), { pageSize }), RangeError);
   });
 });
+
+describe("the client over memoryHomeserver", () => {
+  it("reads another user's tree through public storage, addressed as the SDK takes it", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { createSocialClient } = await import("./dist/client/index.js");
+    const { friend, friendSession, publicStorage, session } = memoryHomeserver();
+    const theirs = createSocialClient(friendSession);
+    await theirs.posts.create({ content: "from a friend" });
+    const mine = createSocialClient(session, { publicStorage });
+    const read = [];
+    for await (const post of mine.posts.list(friend)) if (post.ok) read.push(post.object.content);
+    assert.deepStrictEqual(read, ["from a friend"]);
+  });
+});

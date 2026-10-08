@@ -108,7 +108,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     if (author === owner) return own;
     const pub = options.publicStorage;
     if (pub === undefined) throw new TypeError("pubky-social-specs/client: reading another user's tree needs options.publicStorage, the SDK's pubky.publicStorage");
-    return { list: (path: string, cursor: string | null) => pub.list(`${author}${path}`, cursor, false, pageSize, false), get: (path: string) => pub.getBytes(`${author}${path}`) };
+    return { list: (path: string, cursor: string | null) => pub.list(`pubky://${author}${path}`, cursor, false, pageSize, false), get: (path: string) => pub.getBytes(`pubky://${author}${path}`) };
   };
 
   /** Every URL under `prefix` (owner-relative, ending in `/`) of `author`'s tree, a page at a time. */
