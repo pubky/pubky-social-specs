@@ -186,6 +186,44 @@ describe("pubky-social-specs/client", () => {
 });
 
 describe("the client over memoryHomeserver", () => {
+  it("refuses a LIST answer outside the tree it asked about", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { friend, friendSession, owner, publicStorage, session } = memoryHomeserver();
+    const post = await createSocialClient(friendSession).posts.create({ content: "mine" });
+    // The friend's homeserver passes its bytes off under the owner's tree
+    const list = publicStorage.list;
+    publicStorage.list = async (address, ...rest) => (await list(address, ...rest)).map((url) => url.replace(friend, owner));
+    const social = createSocialClient(session, { publicStorage });
+    await assert.rejects(social.posts.head(friend, post.id), /outside it/);
+  });
+
+  it("deletes a post's versions with another file in its directory", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const post = await social.posts.create({ content: "gone" });
+    await session.storage.putBytes(`/pub/social/v1/posts/${post.id}/notes.txt`, new Uint8Array([1]));
+    await social.posts.delete(post.id);
+    assert.strictEqual(await session.storage.exists(post.path), false);
+  });
+
+  it("pages past a cursor that was deleted since it was handed out", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    for (const name of ["a", "b", "c", "d"]) await session.storage.putBytes(`/pub/x/${name}`, new Uint8Array([1]));
+    const [first, second] = await session.storage.list("/pub/x/", null, false, 2);
+    await session.storage.delete(second.slice(second.indexOf("/pub/")));
+    assert.deepStrictEqual(
+      (await session.storage.list("/pub/x/", second, false, 2)).map((u) => u.slice(-1)),
+      ["c", "d"],
+    );
+    assert.deepStrictEqual(
+      (await session.storage.list("/pub/x/", second, true)).map((u) => u.slice(-1)),
+      ["a"],
+    );
+    void first;
+  });
+
   it("lists another user's posts past any file in posts/ that names no post", async () => {
     const { memoryHomeserver } = await import("./dist/testing.js");
     const { friend, friendSession, publicStorage, session } = memoryHomeserver();

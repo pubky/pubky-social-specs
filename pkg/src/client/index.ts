@@ -112,13 +112,30 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     return { list: (path: string, cursor: string | null) => pub.list(`pubky://${author}${path}`, cursor, false, pageSize, false), get: (path: string) => pub.getBytes(`pubky://${author}${path}`) };
   };
 
+  /** The post version a listed URL names, or null for any other file a tree may hold. */
+  const versionOf = (url: string): { id: string; editId: string } | null => {
+    let at: T.ParsedUri;
+    try {
+      at = parseUri(url);
+    } catch (e) {
+      if (e instanceof ValidationError) return null;
+      throw e;
+    }
+    return at.kind === "post" && at.editId !== undefined ? { id: at.id, editId: at.editId } : null;
+  };
+  const isVersion = (url: string): boolean => versionOf(url) !== null;
+
   /** Every URL under `prefix` (owner-relative, ending in `/`) of `author`'s tree, a page at a time. */
   async function* listed(author: string, prefix: string): AsyncGenerator<string> {
     const read = reader(author);
+    const under = `pubky://${author}${prefix}`;
     let cursor: string | null = null;
     for (;;) {
       const page: string[] | null = await orMissing(read.list(prefix, cursor), null);
       if (page === null) return;
+      // A homeserver answers for one tree: a URL outside it would pass its bytes off as another user's
+      const stray = page.find((url) => !url.startsWith(under));
+      if (stray !== undefined) throw new Error(`pubky-social-specs/client: listing ${prefix} of ${author} returned ${stray}, outside it`);
       yield* page;
       // A server or a proxy may cap the page below the size asked, so only an empty page ends the walk
       const last = page.at(-1);
@@ -161,14 +178,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   async function newest(author: string, id: string, root: T.Root): Promise<Read<T.Post, "post"> | null> {
     let head: { editId: string; url: string } | null = null;
     for await (const url of versionsOf(author, id, root)) {
-      let parsed: T.ParsedUri;
-      try {
-        parsed = parseUri(url);
-      } catch (error) {
-        if (error instanceof ValidationError) continue;
-        throw error;
-      }
-      if (parsed.kind === "post" && parsed.editId !== undefined && (head === null || parsed.editId > head.editId)) head = { editId: parsed.editId, url };
+      const at = versionOf(url);
+      if (at !== null && at.id === id && (head === null || at.editId > head.editId)) head = { editId: at.editId, url };
     }
     return head === null ? null : readAt<T.Post, "post">(author, head.url, "post");
   }
@@ -214,14 +225,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         const prefix = `${roots.public}posts/`;
         // Someone else's tree may hold any file under posts/; only a post version names a post
         for await (const url of listed(key, prefix)) {
-          let at: T.ParsedUri;
-          try {
-            at = parseUri(url);
-          } catch (e) {
-            if (e instanceof ValidationError) continue;
-            throw e;
-          }
-          if (at.kind === "post" && at.editId !== undefined) ids.add(at.id);
+          const at = versionOf(url);
+          if (at !== null) ids.add(at.id);
         }
         for (const id of ids) {
           const read = await newest(key, id, "public");
@@ -230,8 +235,9 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       },
       /** Deletes every version of an own post in both roots, newest last. */
       async delete(id: T.Given<"PostId">): Promise<void> {
+        // Only the post's versions are the post: another file in its directory is no copy of it
         const listings: string[] = [];
-        for await (const url of ownVersions(id)) listings.push(pathOf(owner, url));
+        for await (const url of ownVersions(id)) if (isVersion(url)) listings.push(pathOf(owner, url));
         await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
       },
     },
