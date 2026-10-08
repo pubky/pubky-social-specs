@@ -11,6 +11,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { SUITES, flags, writeOut } from "./lib.mjs";
+
+const args = flags({ seeds: { type: "string", default: "150" }, only: { type: "string" }, out: { type: "string" } });
 
 const source = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 // The copy keeps the tree's shape, so the tests find ../vectors as they do from pkg/
@@ -20,32 +23,15 @@ fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(path.join(pkg, "qa"), { recursive: true });
 fs.symlinkSync(path.join(source, "../vectors"), path.join(work, "vectors"));
 fs.symlinkSync(path.join(source, "node_modules"), path.join(pkg, "node_modules"));
-for (const entry of [
-  "src",
-  "bin",
-  "tsconfig.json",
-  "package.json",
-  "migration.fixture.js",
-  "test.js",
-  "vectors.test.js",
-  "edges.test.js",
-  "property.test.js",
-  "transforms.test.js",
-  "migration.test.js",
-  "sdk-port.test.js",
-  "cli.test.js",
-  "qa/chaos.mjs",
-  "qa/lib.mjs",
-  "qa/ops.mjs",
-]) {
+// The suites and their fixture are the top-level .js files
+const scripts = fs.readdirSync(source).filter((f) => f.endsWith(".js"));
+for (const entry of ["src", "bin", "tsconfig.json", "package.json", ...scripts, "qa/chaos.mjs", "qa/lib.mjs", "qa/ops.mjs"]) {
   fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });
 }
 // The wasm glue is the one part of dist that tsc does not write
 fs.mkdirSync(path.join(pkg, "dist/migration"), { recursive: true });
 for (const file of ["glue.js", "glue.node.js", "glue.wasm"]) fs.copyFileSync(path.join(source, `dist/migration/${file}`), path.join(pkg, `dist/migration/${file}`));
-const args = process.argv.slice(2);
-const flag = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
-const seeds = Number(flag("--seeds", 150));
+const seeds = Number(args.seeds);
 
 const MUTATIONS = [
   {
@@ -205,11 +191,7 @@ const build = () => {
   execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
-  const r = run(
-    "npx",
-    ["--no", "--", "mocha", "vectors.test.js", "edges.test.js", "test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"],
-    600_000,
-  );
+  const r = run("npx", ["--no", "--", "mocha", SUITES], 600_000);
   const failing = [...r.out.matchAll(/^\s+\d+\) (.+)$/gm)].map((m) => m[1].trim());
   const passing = Number(/(\d+) passing/.exec(r.out)?.[1] ?? 0);
   return { status: r.status, passing, failing: [...new Set(failing)].slice(0, 12), timedOut: r.timedOut };
@@ -222,7 +204,7 @@ const chaos = () => {
 };
 
 const results = [];
-const only = flag("--only")?.split(",");
+const only = args.only?.split(",");
 for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
   const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
   const clean = fs.readFileSync(file, "utf8");
@@ -243,4 +225,5 @@ for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
   results.push(entry);
   console.log(JSON.stringify(entry));
 }
-if (flag("--out")) fs.writeFileSync(flag("--out"), JSON.stringify(results, null, 1));
+writeOut(args.out, results);
+fs.rmSync(work, { recursive: true, force: true });

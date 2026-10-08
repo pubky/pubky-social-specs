@@ -5,21 +5,10 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { SUITES } from "./lib.mjs";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
 const out = `${pkg}qa/out/coverage`;
-const suites = [
-  "vectors.test.js",
-  "edges.test.js",
-  "test.js",
-  "property.test.js",
-  "validate.test.js",
-  "transforms.test.js",
-  "migration.test.js",
-  "sdk-port.test.js",
-  "client.test.js",
-  "cli.test.js",
-].filter((f) => fs.existsSync(`${pkg}${f}`));
 const run = spawnSync(
   process.execPath,
   [
@@ -33,7 +22,7 @@ const run = spawnSync(
     "--import",
     "./qa/from-src.mjs",
     "node_modules/mocha/bin/mocha.js",
-    ...suites,
+    SUITES,
   ],
   { cwd: pkg, stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, FC_RUNS: process.env.FC_RUNS ?? "50" } },
 );
