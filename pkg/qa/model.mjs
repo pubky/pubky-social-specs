@@ -50,6 +50,8 @@ const outDir = fileURLToPath(new URL("out/", import.meta.url));
 fs.mkdirSync(outDir, { recursive: true });
 const copy = fs.mkdtempSync(path.join(outDir, "model-copy-"));
 fs.cpSync(dist, copy, { recursive: true });
+// Its own `#glue`, so the copy loads its own wasm and not the package's
+fs.writeFileSync(path.join(copy, "package.json"), JSON.stringify({ type: "module", imports: { "#glue": { node: "./migration/glue.node.js", default: "./migration/glue.js" } } }));
 process.on("exit", () => fs.rmSync(copy, { recursive: true, force: true }));
 const load = async (base) => ({
   api: await import(pathToFileURL(path.join(base, "index.js"))),

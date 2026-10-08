@@ -8,7 +8,8 @@ import { limits, skipReasons } from "../data.js";
 import { ValidationError } from "../errors.js";
 import { checkWellFormed } from "../text.js";
 import type { ObjectKind } from "../uri.js";
-import * as glue from "./glue.js";
+// The wasm itself, embedded in the module or, under Node, read from the file beside it
+import * as glue from "#glue";
 
 export type SkipReason = (typeof skipReasons)[number];
 

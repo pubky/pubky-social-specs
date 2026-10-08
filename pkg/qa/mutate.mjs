@@ -41,7 +41,7 @@ for (const entry of [
 }
 // The wasm glue is the one part of dist that tsc does not write
 fs.mkdirSync(path.join(pkg, "dist/migration"), { recursive: true });
-fs.copyFileSync(path.join(source, "dist/migration/glue.js"), path.join(pkg, "dist/migration/glue.js"));
+for (const file of ["glue.js", "glue.node.js", "glue.wasm"]) fs.copyFileSync(path.join(source, `dist/migration/${file}`), path.join(pkg, `dist/migration/${file}`));
 const args = process.argv.slice(2);
 const flag = (name, fallback) => (args.includes(name) ? args[args.indexOf(name) + 1] : fallback);
 const seeds = Number(flag("--seeds", 150));

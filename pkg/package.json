@@ -33,6 +33,13 @@
     },
     "./package.json": "./package.json"
   },
+  "imports": {
+    "#glue": {
+      "types": "./src/migration/glue.d.ts",
+      "node": "./dist/migration/glue.node.js",
+      "default": "./dist/migration/glue.js"
+    }
+  },
   "bin": {
     "pubky-social-migrate": "bin/migrate.js"
   },

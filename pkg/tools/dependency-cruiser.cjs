@@ -3,7 +3,7 @@
 //   cd pkg && npm run deps
 
 const layer = {
-  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input|session)\\.ts$",
+  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input|session|dev)\\.ts$",
   json: "^src/json/",
   places: "^src/(path|canonicalize|uri)\\.ts$",
   models: "^src/models/",
@@ -40,7 +40,7 @@ module.exports = {
       comment: "only migration/wasm.ts loads the wasm",
       severity: "error",
       from: { pathNot: "^src/migration/wasm\\.ts$" },
-      to: { path: "^src/migration/glue" },
+      to: { path: "^(src|dist)/migration/glue" },
     },
     {
       name: "client-past-the-entry",
