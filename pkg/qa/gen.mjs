@@ -36,10 +36,52 @@ export const NOW = 1_790_000_000_000_000;
 // Where the engine and the reference could part: the frozen whitespace set and its
 // neighbours, case pairs outside ASCII, controls, an astral character, a combining mark
 const ODD = [
-  "\t", "\n", "\u000b", "\u000c", "\r", " ", "\u0085", " ", " ", " ", " ",
-  "​", " ", " ", " ", " ", "　", "﻿", "\u001f", "\u007f",
-  "\u0000", "İ", "ß", "K", "é", "é", "😀", "𐐀", "Ａ", "%", "/", "?", "#", ":", "@", "\\",
-  ".", "..", "-", "_", "~", "\"", "{", "}", "[", ",",
+  "\t",
+  "\n",
+  "\u000b",
+  "\u000c",
+  "\r",
+  " ",
+  "\u0085",
+  " ",
+  " ",
+  " ",
+  " ",
+  "​",
+  " ",
+  " ",
+  " ",
+  " ",
+  "　",
+  "﻿",
+  "\u001f",
+  "\u007f",
+  "\u0000",
+  "İ",
+  "ß",
+  "K",
+  "é",
+  "é",
+  "😀",
+  "𐐀",
+  "Ａ",
+  "%",
+  "/",
+  "?",
+  "#",
+  ":",
+  "@",
+  "\\",
+  ".",
+  "..",
+  "-",
+  "_",
+  "~",
+  '"',
+  "{",
+  "}",
+  "[",
+  ",",
 ];
 const PLAIN = "abcxyzABCXYZ0189";
 
@@ -110,22 +152,82 @@ export function uri(r) {
 }
 
 const NUMBERS = [
-  "0", "-0", "1", "-1", "9007199254740991", "9007199254740992", "-9007199254740993", "18446744073709551615",
-  "18446744073709551616", "-9223372036854775808", "-9223372036854775809", "123456789012345678901234567890",
-  "1.0", "2.50", "0.1", "1e30", "1E+30", "1e-7", "1e16", "1e15", "123456789012345680000", "0.000001", "0.00001234",
-  "1.7976931348623157e308", "1e309", "5e-324", "2.5e-324", "1e-400", "0e999999999999", "1e999999999999",
-  "0.30000000000000004", "9007199254740993.0", "4.35", "1.2345678901234567890123", "123456789.123456789e-5",
-  "01", "-", "1.", ".5", "1e", "1e+", "+1", "0x10", "1.e3", "--1", "1.0e-0",
+  "0",
+  "-0",
+  "1",
+  "-1",
+  "9007199254740991",
+  "9007199254740992",
+  "-9007199254740993",
+  "18446744073709551615",
+  "18446744073709551616",
+  "-9223372036854775808",
+  "-9223372036854775809",
+  "123456789012345678901234567890",
+  "1.0",
+  "2.50",
+  "0.1",
+  "1e30",
+  "1E+30",
+  "1e-7",
+  "1e16",
+  "1e15",
+  "123456789012345680000",
+  "0.000001",
+  "0.00001234",
+  "1.7976931348623157e308",
+  "1e309",
+  "5e-324",
+  "2.5e-324",
+  "1e-400",
+  "0e999999999999",
+  "1e999999999999",
+  "0.30000000000000004",
+  "9007199254740993.0",
+  "4.35",
+  "1.2345678901234567890123",
+  "123456789.123456789e-5",
+  "01",
+  "-",
+  "1.",
+  ".5",
+  "1e",
+  "1e+",
+  "+1",
+  "0x10",
+  "1.e3",
+  "--1",
+  "1.0e-0",
 ];
 const digits = (r, max) => r.many(max, () => r.below(10)).join("");
 
 function number(r) {
   if (r.chance(0.45)) return r.pick(NUMBERS);
-  const integer = r.chance(0.5) ? String(r.below(1000)) : (r.below(9) + 1) + digits(r, 24);
+  const integer = r.chance(0.5) ? String(r.below(1000)) : r.below(9) + 1 + digits(r, 24);
   return `${r.pick(["", "", "-"])}${integer}${r.chance(0.5) ? "." + digits(r, 22) + r.below(10) : ""}${r.chance(0.4) ? r.pick(["e", "E"]) + r.pick(["", "+", "-"]) + r.below(r.pick([5, 30, 330])) : ""}`;
 }
 
-const ESCAPES = ['\\n', '\\"', "\\\\", "\\/", "\\u0041", "\\u00e9", "\\ud83d\\ude00", "\\ud83d", "\\ude00", "\\ud83d\\u0041", "\\ud83dx", "\\ud83d\\n", "\\u12", "\\u12g4", "\\x", "\\u0000", "\\u001f", "\\uD83D\\uDE00", "\\b\\f\\r\\t"];
+const ESCAPES = [
+  "\\n",
+  '\\"',
+  "\\\\",
+  "\\/",
+  "\\u0041",
+  "\\u00e9",
+  "\\ud83d\\ude00",
+  "\\ud83d",
+  "\\ude00",
+  "\\ud83d\\u0041",
+  "\\ud83dx",
+  "\\ud83d\\n",
+  "\\u12",
+  "\\u12g4",
+  "\\x",
+  "\\u0000",
+  "\\u001f",
+  "\\uD83D\\uDE00",
+  "\\b\\f\\r\\t",
+];
 
 function jsonString(r) {
   const inner = r.many(6, () => (r.chance(0.3) ? r.pick(ESCAPES) : r.chance(0.2) ? r.pick(["\t", "\n", "\u007f", "é", "😀", "\u2028", "\ue000", "\uffff", "__proto__"]) : r.pick([...PLAIN])));
@@ -163,7 +265,11 @@ export function spoil(r, object) {
   else if (roll < 12) entries.splice(r.below(entries.length + 1), 0, [r.pick(["zzz", "extra", "é", "__proto__", "😀", "\ue000", "10", "created_at", "kind"]), r.pick([...WRONG, json(r, 2)])]);
   else if (roll < 20 && entries.length) entries[r.below(entries.length)][1] = r.pick(WRONG);
   else if (roll < 24 && entries.length) entries.push([...r.pick(entries)]);
-  else if (roll < 26) return `[${entries.map(([, value]) => value).slice(0, r.below(entries.length + 2)).join(",")}${r.pick(["", "", ",1", ","])}]`;
+  else if (roll < 26)
+    return `[${entries
+      .map(([, value]) => value)
+      .slice(0, r.below(entries.length + 2))
+      .join(",")}${r.pick(["", "", ",1", ","])}]`;
   else if (roll < 28) return r.pick(WRONG);
   let text = `{${entries.map(([key, value]) => `${JSON.stringify(key)}:${value}`).join(",")}}`;
   if (roll >= 28 && roll < 30) text = [...text].slice(0, r.below(text.length)).join("");
@@ -177,7 +283,8 @@ const text = (r, max = 6) => words(r, max);
 /** A reference for a field: the right tier most of the time. */
 export function ref(r) {
   return r.pick([
-    () => `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick([`posts/${timestampIdOf(NOW - 5e9)}`, `posts/${timestampIdOf(NOW - 5e9)}/${timestampIdOf(NOW - 4e9)}.json`, `files/${hashIdText(r)}.png`, "profile.json"])}`,
+    () =>
+      `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick([`posts/${timestampIdOf(NOW - 5e9)}`, `posts/${timestampIdOf(NOW - 5e9)}/${timestampIdOf(NOW - 4e9)}.json`, `files/${hashIdText(r)}.png`, "profile.json"])}`,
     () => `pubky://${OTHER}`,
     () => `pubky${OTHER}/pub/social/v1/profile.json`,
     () => `https://example.com/${r.pick(["", "a.png", "x".repeat(r.pick([10, 280, 300, 1100]))])}`,
@@ -206,7 +313,17 @@ function spoilSafe(r, object) {
   }
 }
 
-const EXTRA = ['"x":1', '"x":9007199254740992', '"x":-9007199254740992', '"x":1.0', '"x":{"b":[1,{"a":18446744073709551615}],"a":1e30}', '"é":"é","\ue000":1,"😀":2', '"__proto__":{"a":1}', '"x":null,"x":2', '"n":123456789012345678901234567890'];
+const EXTRA = [
+  '"x":1',
+  '"x":9007199254740992',
+  '"x":-9007199254740992',
+  '"x":1.0',
+  '"x":{"b":[1,{"a":18446744073709551615}],"a":1e30}',
+  '"é":"é","\ue000":1,"😀":2',
+  '"__proto__":{"a":1}',
+  '"x":null,"x":2',
+  '"n":123456789012345678901234567890',
+];
 
 /** A stored object: `object` spoiled, sometimes carrying members no version knows. */
 function stored(r, object) {
@@ -232,13 +349,25 @@ const label = (r) => r.pick(["rust", "Rust", " rust ", "a,b", "a:b", "a b", "", 
 
 const tagList = (r) => r.pick([null, [], ["rust"], ["b", "a"], ["Rust", "rust", " go "], ["a", "b", "c", "d", "e", "f"], [" "], ["a,b"], ["é", "\ue000", "😀"], r.many(4, () => label(r))]);
 const feedInput = (r) => {
-  const o = { reach: r.pick(["all", "all", "following", "wot", "me", "galaxy", "unknown"]), layout: r.pick(["columns", "columns", "wide", "list", "grid"]), sort: r.pick(["recent", "recent", "popularity", "random"]), name: r.pick(["Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]), icon: r.pick(["star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]) };
+  const o = {
+    reach: r.pick(["all", "all", "following", "wot", "me", "galaxy", "unknown"]),
+    layout: r.pick(["columns", "columns", "wide", "list", "grid"]),
+    sort: r.pick(["recent", "recent", "popularity", "random"]),
+    name: r.pick(["Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
+    icon: r.pick(["star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]),
+  };
   if (r.chance(0.5)) o.tags = tagList(r);
   if (r.chance(0.3)) o.domain_tags = tagList(r);
   if (r.chance(0.4)) o.content = r.pick([null, "note", "article", "collection", "short", "unknown"]);
   return o;
 };
-const feedIdText = (f) => { try { return feedIdOfText(f); } catch { return "0".repeat(26); } };
+const feedIdText = (f) => {
+  try {
+    return feedIdOfText(f);
+  } catch {
+    return "0".repeat(26);
+  }
+};
 const feedIdOfText = (f) => hashOfText(`${f.feed.reach}:${f.feed.layout}:${f.feed.sort}:${f.feed.content ?? ""}:${(f.feed.tags ?? []).join(",")}:${(f.feed.domain_tags ?? []).join(",")}`);
 const storedFeed = (r) => {
   const i = feedInput(r);
@@ -270,12 +399,23 @@ const collectionEnvelope = (r) => {
   if (r.chance(0.3)) e.layout = r.pick(["grid", "list", "visual", "mosaic", null]);
   return e;
 };
-const envelopeText = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
+const envelopeText = (r, envelope) =>
+  r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
 
 /** A post as stored: any kind, references of every tier, sometimes what a newer writer adds. */
 function storedPost(r) {
   const kind = r.pick(["note", "note", "note", "article", "article", "collection", "collection", "image", "link", "podcast", "unknown"]);
-  const p = { content: kind === "article" ? envelopeText(r, articleEnvelope(r)) : kind === "collection" ? envelopeText(r, collectionEnvelope(r)) : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]), kind, parent: null, embed: null };
+  const p = {
+    content:
+      kind === "article"
+        ? envelopeText(r, articleEnvelope(r))
+        : kind === "collection"
+          ? envelopeText(r, collectionEnvelope(r))
+          : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]),
+    kind,
+    parent: null,
+    embed: null,
+  };
   if (r.chance(0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);
   if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
@@ -316,7 +456,8 @@ function postInput(r) {
 const env = (r) => ({ now: NOW + r.pick([0, 0, 0, -6e9, -7.3e9, -1e10, 1e6]), last: r.pick([0, 0, NOW - 1, NOW, NOW + 5, NOW + 2e6, NOW - 2e6]) });
 
 const seg = (root) => (root === "private" ? "priv" : "pub");
-const versionPath = (r, root, id, editId) => `/${r.pick([seg(root), seg(root), seg(root), "pub", "priv", "x"])}/social/v1/posts/${id}/${editId}${r.pick(["", "", "-a-slug", "-BAD"])}${r.pick([".json", ".json", ".json", "", "/x"])}`;
+const versionPath = (r, root, id, editId) =>
+  `/${r.pick([seg(root), seg(root), seg(root), "pub", "priv", "x"])}/social/v1/posts/${id}/${editId}${r.pick(["", "", "-a-slug", "-BAD"])}${r.pick([".json", ".json", ".json", "", "/x"])}`;
 const editIds = (r) => r.many(4, () => timestampIdOf(NOW - r.pick([1e9, 2e9, 3e9, 4e9, 4e9])));
 const legacyPosts = (r, id) => r.pick([[], [], [`/pub/pubky.app/posts/${id}`], [`/pub/pubky.app/posts/${id}`, `/pub/pubky.app/posts/${timestampIdOf(NOW)}`], ["/pub/pubky.app/posts/"]]);
 const ownMedia = (r, root) => `pubky://${OWNER}/${seg(root)}/social/v1/files/${r.pick(["0000000000000000000000000G", "ZZZZZZZZZZZZZZZZZZZZZZZZZW"])}.${r.pick(["png", "png", "exe"])}`;
@@ -341,12 +482,14 @@ function deletion(r) {
     () => ({ kind: "post", id, listings: [{ path: `/pub/pubky.app/files/${id}`, src: "x" }] }),
     () => {
       const hash = r.pick([BLOB, BLOB, hashIdText(r), "x"]);
-      const listings = r.many(4, () => r.pick([
-        `/pub/pubky.app/blobs/${hash}`,
-        `/${r.pick(["pub", "priv"])}/social/v1/files/${r.pick([hash, hash, hashIdText(r)])}.${r.pick(["png", "bin", "exe"])}`,
-        { path: `/pub/pubky.app/files/${r.pick([id, id, "x"])}`, src: `pubky://${OWNER}/pub/pubky.app/blobs/${r.pick([hash, hash, hashIdText(r)])}` },
-        { path: "/pub/pubky.app/tags/x", uri: "https://example.com", label: "a" },
-      ]));
+      const listings = r.many(4, () =>
+        r.pick([
+          `/pub/pubky.app/blobs/${hash}`,
+          `/${r.pick(["pub", "priv"])}/social/v1/files/${r.pick([hash, hash, hashIdText(r)])}.${r.pick(["png", "bin", "exe"])}`,
+          { path: `/pub/pubky.app/files/${r.pick([id, id, "x"])}`, src: `pubky://${OWNER}/pub/pubky.app/blobs/${r.pick([hash, hash, hashIdText(r)])}` },
+          { path: "/pub/pubky.app/tags/x", uri: "https://example.com", label: "a" },
+        ]),
+      );
       return { kind: "file", id: hash, listings };
     },
     () => {
@@ -365,7 +508,11 @@ function deletion(r) {
       const tagId = r.chance(0.85) ? hashOfText(`${target.v1}:${label.trim().toLowerCase()}`) : hashIdText(r);
       return { kind: "tag", id: tagId, listings: r.pick([[listing], [listing, listing], [], ["/pub/x"]]) };
     },
-    () => ({ kind: r.pick(["user", "follow", "mute", "bookmark", "feed"]), id: r.pick(["", key(r), hashIdText(r), "~" + hashIdText(r), "aGk", "_x"]), ...(r.chance(0.2) ? { listings: r.pick([[], ["/pub/x"], null]) } : {}) }),
+    () => ({
+      kind: r.pick(["user", "follow", "mute", "bookmark", "feed"]),
+      id: r.pick(["", key(r), hashIdText(r), "~" + hashIdText(r), "aGk", "_x"]),
+      ...(r.chance(0.2) ? { listings: r.pick([[], ["/pub/x"], null]) } : {}),
+    }),
   ])();
 }
 
@@ -373,7 +520,11 @@ const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
 
 export const families = {
-  text: (r) => request(r.pick(["frozenTrim", "asciiFold", "codePointLen", "debug"]), s(r.chance(0.2) ? String.fromCodePoint(...r.many(6, () => r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0xe0000 + r.below(0x200)]))) : str(r))),
+  text: (r) =>
+    request(
+      r.pick(["frozenTrim", "asciiFold", "codePointLen", "debug"]),
+      s(r.chance(0.2) ? String.fromCodePoint(...r.many(6, () => r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0xe0000 + r.below(0x200)]))) : str(r)),
+    ),
   graph: (r) =>
     r.pick([
       () => request(r.pick(["createFollow", "createMute"]), s(key(r)), s(key(r))),
@@ -382,7 +533,10 @@ export const families = {
         const target = r.pick([ref(r), longRef(r)]);
         return request("createBookmark", s(key(r)), s(target));
       },
-      () => request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick(["follows", "follows", "mutes"])}/${key(r)}.json`), { j: withRaw(stored(r, { created_at: raw(stamp(r)) })) }),
+      () =>
+        request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "pub", "priv"])}/social/v1/${r.pick(["follows", "follows", "mutes"])}/${key(r)}.json`), {
+          j: withRaw(stored(r, { created_at: raw(stamp(r)) })),
+        }),
       () => {
         const uri = tagUri(r);
         const l = r.pick(["rust", "rust", "pubky", label(r)]);
@@ -391,7 +545,16 @@ export const families = {
       },
       () => {
         const target = r.pick([ref(r), longRef(r), `pubky://${OTHER}/pub/social/v1/profile.json`]);
-        const id = r.pick([b64url(target), b64url(target), "~" + hashOfText(target), "~" + hashIdText(r), b64url(target) + "=", b64url(target).slice(0, -1) + "B", spelled(r, base64url, 8), b64url("\u00ff\u00fe").replace("w7", "_w")]);
+        const id = r.pick([
+          b64url(target),
+          b64url(target),
+          "~" + hashOfText(target),
+          "~" + hashIdText(r),
+          b64url(target) + "=",
+          b64url(target).slice(0, -1) + "B",
+          spelled(r, base64url, 8),
+          b64url("\u00ff\u00fe").replace("w7", "_w"),
+        ]);
         const content = { created_at: raw(stamp(r)) };
         if (r.chance(0.5)) content.target = r.pick([target, target, ref(r), null]);
         const text = withRaw(stored(r, content));
@@ -431,7 +594,11 @@ export const families = {
       () => {
         const post = { id: r.pick([id, id, id, "x"]) };
         if (r.chance(0.5)) post.legacyPaths = legacyPosts(r, id);
-        if (r.chance(0.8)) post.copies = editIds(r).map((e) => { const root = r.pick(["public", "private"]); return { root, path: versionPath(r, root, id, e) }; });
+        if (r.chance(0.8))
+          post.copies = editIds(r).map((e) => {
+            const root = r.pick(["public", "private"]);
+            return { root, path: versionPath(r, root, id, e) };
+          });
         if (r.chance(0.6)) post.versions = r.many(3, () => draft(r));
         return request("planDelete", s(key(r)), { j: JSON.stringify(post) });
       },
@@ -456,16 +623,20 @@ export const families = {
         const f = storedFeed(r);
         const id = r.chance(0.85) && f.feed && typeof f.feed === "object" ? feedIdText(f) : hashIdText(r);
         const text = withRaw(stored(r, f));
-        return r.chance(0.7)
-          ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "pub"])}/social/v1/feeds/${id}.json`), { j: text })
-          : request("feedId", { j: text });
+        return r.chance(0.7) ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "pub"])}/social/v1/feeds/${id}.json`), { j: text }) : request("feedId", { j: text });
       },
     ])(),
   file: (r) => {
     const data = Buffer.from(r.many(r.pick([0, 0, 3, 40, 300]), () => r.below(256)));
     const b = { b: data.toString("base64") };
     return r.chance(0.5)
-      ? request("createFile", s(key(r)), b, s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])), ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null])) }] : []))
+      ? request(
+          "createFile",
+          s(key(r)),
+          b,
+          s(r.pick(["image/png", "IMAGE/JPEG", "video/mp4; codecs=x", "", "application/octet-stream", str(r, 6)])),
+          ...(r.chance(0.5) ? [{ j: JSON.stringify(r.pick(["public", "private", null])) }] : []),
+        )
       : request("decode", s(`pubky://${OWNER}/${r.pick(["pub", "priv"])}/social/v1/files/${r.chance(0.7) ? crock(blake3(data).subarray(0, 16)) : hashIdText(r)}.${r.pick(["png", "bin", "jpg"])}`), b);
   },
   user: (r) =>
@@ -480,14 +651,23 @@ export const families = {
       () => request("mediaId", { b: Buffer.from(r.many(200, () => r.below(256))).toString("base64") }),
     ])(),
   json: (r) => request("json", { j: r.chance(0.02) ? "[".repeat(r.pick([126, 127, 128, 129])) + "]".repeat(r.pick([126, 127, 128])) : json(r) }),
-  canonical: (r) =>
-    request(r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]), s(uri(r))),
+  canonical: (r) => request(r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]), s(uri(r))),
   uri: (r) =>
     r.pick([
       () => request("parseUri", s(uri(r))),
       () => request("parseUri", s(`pubky://${OWNER}/${path(r)}`)),
       () => request("stableKey", s(r.pick(["", "/", "/"]) + path(r))),
-      () => request("legacyMediaKey", s(r.pick([uri(r), `pubky://${OWNER}/pub/pubky.app/blobs/${str(r, 6)}`, `${r.pick(["pubky", "PuBkY"])}://${r.pick(["", "u@", "u:p@", "@@"])}${OWNER}${r.pick(["", ":", ":80", ":65536", ":8x", ":080"])}/${r.pick(["", "./", "x/../", "%2e/", "%2E%2e/", "a/b/../../"])}pub/pubky.app/blobs/${r.pick(["h", "a b", "é", "%zz", "..", ".", "x/..", "x/.", "x?q", "x#f", "a\\b", "a|b^c", "a\tb", "{x}", "\u0060", "'", "[", "~"])}${r.pick(["", "/", "/more"])}`]))),
+      () =>
+        request(
+          "legacyMediaKey",
+          s(
+            r.pick([
+              uri(r),
+              `pubky://${OWNER}/pub/pubky.app/blobs/${str(r, 6)}`,
+              `${r.pick(["pubky", "PuBkY"])}://${r.pick(["", "u@", "u:p@", "@@"])}${OWNER}${r.pick(["", ":", ":80", ":65536", ":8x", ":080"])}/${r.pick(["", "./", "x/../", "%2e/", "%2E%2e/", "a/b/../../"])}pub/pubky.app/blobs/${r.pick(["h", "a b", "é", "%zz", "..", ".", "x/..", "x/.", "x?q", "x#f", "a\\b", "a|b^c", "a\tb", "{x}", "\u0060", "'", "[", "~"])}${r.pick(["", "/", "/more"])}`,
+            ]),
+          ),
+        ),
       () => request("listPrefix", s(r.pick([OWNER, str(r, 8)])), { j: JSON.stringify(r.pick(["public", "private", "legacy"])) }),
       () => request("userUri", s(r.pick([OWNER, OTHER, spelled(r, ZBASE32, 52)]))),
       () => request(r.pick(["postUri", "followUri", "muteUri", "bookmarkUri", "tagUri", "fileUri", "feedUri"]), s(r.pick([OWNER, spelled(r, ZBASE32, 52)])), s(str(r, 8))),

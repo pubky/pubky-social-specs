@@ -301,15 +301,25 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
   const str = (js: unknown, at: string) => member(each, () => string.parse(js, at), "");
   const opt = (js: unknown, at: string) => member(each, () => maybe.parse(js, at), null);
   const placement = (i: Record<string, unknown>): { root: Root; slug: string | null } => ({ root: member<Root>(each, () => rootOf(i.root, "input.root"), "public"), slug: opt(i.slug, "input.slug") });
-  const attachments = option(list({ ...attachment, parse: (js: unknown, at: string): Attachment => {
-    const a = inputOf(js, at, ["uri", "alt", "name"], each);
-    const name = opt(a.name, `${at}.name`);
-    return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
-  } }));
-  const items = option(list({ ...item, parse: (js: unknown, at: string): CollectionItem => {
-    const entry = inputOf(js, at, ["uri", "note"], each);
-    return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
-  } }));
+  const attachments = option(
+    list({
+      ...attachment,
+      parse: (js: unknown, at: string): Attachment => {
+        const a = inputOf(js, at, ["uri", "alt", "name"], each);
+        const name = opt(a.name, `${at}.name`);
+        return { uri: str(a.uri, `${at}.uri`), alt: opt(a.alt, `${at}.alt`), name: name === null ? null : frozenTrim(name), extra: new Map() };
+      },
+    }),
+  );
+  const items = option(
+    list({
+      ...item,
+      parse: (js: unknown, at: string): CollectionItem => {
+        const entry = inputOf(js, at, ["uri", "note"], each);
+        return { uri: str(entry.uri, `${at}.uri`), note: trimmedOrNull(opt(entry.note, `${at}.note`)), extra: new Map() };
+      },
+    }),
+  );
   // What a post that can reply, quote and carry media takes, in the order a builder reads it
   const threaded = (i: Record<string, unknown>): Pick<Post, "parent" | "embed" | "attachments" | "lock"> => ({
     parent: opt(i.parent, "input.parent"),
@@ -341,7 +351,8 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const description = trimmedOrNull(opt(i.description, "input.description"));
     const entries = member(each, () => items.parse(i.items, "input.items"), null) ?? [];
     const cover = opt(i.cover_image, "input.cover_image");
-    const layout: CollectionLayout | null = i.layout === null || i.layout === undefined ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", i.layout, "layout"), null);
+    const layout: CollectionLayout | null =
+      i.layout === null || i.layout === undefined ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", i.layout, "layout"), null);
     const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     const { root, slug } = placement(i);
     return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);

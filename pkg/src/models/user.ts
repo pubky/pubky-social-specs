@@ -81,10 +81,15 @@ const maybe = option(string);
 export function buildUser(owner: string | null, input: unknown, each: Each = throwing) {
   if (owner !== null) checkPublicKey(owner);
   const i = inputOf(input, "input", ["name", "bio", "image", "links", "status"], each);
-  const links = option(list({ ...link, parse: (js, at) => {
-    const l = inputOf(js, at, ["title", "url"], each);
-    return { title: frozenTrim(member(each, () => string.parse(l.title, `${at}.title`), "")), url: member(each, () => string.parse(l.url, `${at}.url`), ""), extra: new Map() };
-  } }));
+  const links = option(
+    list({
+      ...link,
+      parse: (js, at) => {
+        const l = inputOf(js, at, ["title", "url"], each);
+        return { title: frozenTrim(member(each, () => string.parse(l.title, `${at}.title`), "")), url: member(each, () => string.parse(l.url, `${at}.url`), ""), extra: new Map() };
+      },
+    }),
+  );
   const value: User = {
     name: frozenTrim(member(each, () => string.parse(i.name, "input.name"), "")),
     bio: trimmedOrNull(member(each, () => maybe.parse(i.bio, "input.bio"), null)),

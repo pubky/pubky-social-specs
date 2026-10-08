@@ -14,7 +14,7 @@ import { families, rng } from "./gen.mjs";
 
 const flag = (name, fallback) => {
   const at = process.argv.indexOf(`--${name}`);
-  return at < 0 ? fallback : process.argv[at + 1] ?? true;
+  return at < 0 ? fallback : (process.argv[at + 1] ?? true);
 };
 const cases = Number(flag("fuzz", 2000));
 const seed = Number(flag("seed", 1));
@@ -26,10 +26,7 @@ const failuresDir = fileURLToPath(new URL("./failures/", import.meta.url));
 const RECORDED = { seed: 20261007, cases: 400 };
 
 // Key order is no part of an answer
-const canonical = (value) =>
-  JSON.stringify(value, (_, v) =>
-    v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v,
-  );
+const canonical = (value) => JSON.stringify(value, (_, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
 
 function requests(family, fromSeed, count) {
   const r = rng(fromSeed ^ [...family].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));
@@ -62,9 +59,16 @@ for (const family of Object.keys(families)) {
     continue;
   }
   const rows = fs.existsSync(file)
-    ? fs.readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line))
+    ? fs
+        .readFileSync(file, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
     : [];
-  const vectors = differing(rows.map((row) => row.q), rows.map((row) => row.a));
+  const vectors = differing(
+    rows.map((row) => row.q),
+    rows.map((row) => row.a),
+  );
   // In batches, so a long run holds one batch of requests and answers at a time
   const BATCH = 50_000;
   const fuzz = { missing: 0, wrong: [] };
@@ -74,8 +78,15 @@ for (const family of Object.keys(families)) {
     const asked = requests(family, seed + done / BATCH, Math.min(BATCH, cases - done));
     const reference = await ask(asked);
     // How often each operation is accepted: a family that only ever refuses proves little
-    asked.forEach((q, i) => ((stats[q.op] ??= [0, 0])["ok" in reference[i] ? 0 : 1]++));
-    for (const a of reference) if (a.err) refusals.add(a.err.replace(/^Validation Error: /, "").replace(/[0-9A-Za-z]{13,}/g, "…").replace(/: .*$/s, ""));
+    asked.forEach((q, i) => (stats[q.op] ??= [0, 0])["ok" in reference[i] ? 0 : 1]++);
+    for (const a of reference)
+      if (a.err)
+        refusals.add(
+          a.err
+            .replace(/^Validation Error: /, "")
+            .replace(/[0-9A-Za-z]{13,}/g, "…")
+            .replace(/: .*$/s, ""),
+        );
     const batch = differing(asked, reference);
     fuzz.missing += batch.missing;
     if (fuzz.wrong.length < 50) fuzz.wrong.push(...batch.wrong.slice(0, 50));
@@ -92,9 +103,6 @@ for (const family of Object.keys(families)) {
     fs.mkdirSync(failuresDir, { recursive: true });
     fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.filter(Boolean).slice(0, 50), null, 1));
   } else fs.rmSync(`${failuresDir}${family}.json`, { force: true });
-  console.log(
-    `${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}` +
-      `  fuzz ${fuzz.wrong.length} wrong of ${cases}  unimplemented ${missing}`,
-  );
+  console.log(`${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}` + `  fuzz ${fuzz.wrong.length} wrong of ${cases}  unimplemented ${missing}`);
 }
 process.exit(clean ? 0 : 1);

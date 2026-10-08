@@ -35,7 +35,9 @@ for (const [names, budget, absent] of PROBES) {
   const dragged = absent.filter((marker) => code.includes(marker));
   const ok = gzipped <= budget && dragged.length === 0;
   failed ||= !ok;
-  console.log(`${ok ? "ok  " : "FAIL"} import ${names.padEnd(18)} ${String(code.length).padStart(7)} B min  ${String(gzipped).padStart(6)} B gzip  (budget ${budget})${dragged.length ? `  drags in: ${dragged.join(", ")}` : ""}`);
+  console.log(
+    `${ok ? "ok  " : "FAIL"} import ${names.padEnd(18)} ${String(code.length).padStart(7)} B min  ${String(gzipped).padStart(6)} B gzip  (budget ${budget})${dragged.length ? `  drags in: ${dragged.join(", ")}` : ""}`,
+  );
 }
 
 // A cold process: load the entry, build one post. No init, so this is the whole start

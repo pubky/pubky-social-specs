@@ -12,7 +12,10 @@ const layer = {
 };
 const above = (name) => {
   const order = Object.keys(layer);
-  return order.slice(order.indexOf(name) + 1).map((l) => layer[l]).join("|");
+  return order
+    .slice(order.indexOf(name) + 1)
+    .map((l) => layer[l])
+    .join("|");
 };
 
 module.exports = {

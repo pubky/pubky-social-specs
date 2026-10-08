@@ -8,15 +8,7 @@ import { portErrorKind } from "./port.js";
 import type { MigrationPort, PortErrorKind } from "./port.js";
 import { ordered } from "./order.js";
 import type { Bucket } from "./order.js";
-import type {
-  AbortSignalLike,
-  Counts,
-  MigrationError,
-  MigrationReport,
-  Outcome,
-  Phase,
-  RunOptions,
-} from "./types.js";
+import type { AbortSignalLike, Counts, MigrationError, MigrationReport, Outcome, Phase, RunOptions } from "./types.js";
 
 /**
  * The scopes the engine writes, and all it checks a session for: both 1.x roots. Reading and
@@ -52,8 +44,7 @@ const LEGACY_OBJECT_MAX = 6 * limits.postMaxBytes;
 const OUTCOMES: readonly string[] = [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"];
 const MESSAGES = {
   ALREADY_RUNNING: "A migration of this account is already running in another tab.",
-  PRIV_UNSUPPORTED:
-    "This homeserver has no private storage (/priv/), which the migration needs. Ask its operator to upgrade it, then run the migration again.",
+  PRIV_UNSUPPORTED: "This homeserver has no private storage (/priv/), which the migration needs. Ask its operator to upgrade it, then run the migration again.",
   CAPS_MISSING: `The session cannot write everything the migration needs; it has to grant ${ENGINE_CAPS}.`,
   QUOTA: "The homeserver is out of space for this account.",
   SESSION_EXPIRED: "The session expired or lost its capabilities.",
@@ -77,11 +68,9 @@ interface Failure {
   status?: number;
 }
 
-const isFailure = (value: unknown): value is Failure =>
-  typeof value === "object" && value !== null && "failed" in value;
+const isFailure = (value: unknown): value is Failure => typeof value === "object" && value !== null && "failed" in value;
 
-const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 const decoder = new TextDecoder();
 
@@ -98,21 +87,14 @@ const covers = (granted: string | string[], required: string): boolean => {
       });
   const have = scopes(granted);
   return scopes(required).every((need) =>
-    Array.from(need.actions).every((action) =>
-      have.some(
-        (cap) =>
-          (cap.path === need.path || (cap.path.endsWith("/") && need.path.startsWith(cap.path))) &&
-          cap.actions.includes(action),
-      ),
-    ),
+    Array.from(need.actions).every((action) => have.some((cap) => (cap.path === need.path || (cap.path.endsWith("/") && need.path.startsWith(cap.path))) && cap.actions.includes(action))),
   );
 };
 
 /** What a finished run recorded, or rev 0 and nothing for a flag this build cannot read. */
 const readFlag = (bytes: Uint8Array): Flag => {
   const unread: Flag = { transformRev: 0, skipped: {}, migrated: new Set() };
-  const strings = (value: unknown): value is string[] =>
-    Array.isArray(value) && value.every((item) => typeof item === "string");
+  const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
   let flag: unknown;
   try {
     flag = JSON.parse(decoder.decode(bytes));
@@ -168,12 +150,7 @@ const timer = (ms: number, signal?: AbortSignalLike) =>
   });
 
 /** Runs `work` over `items` with `width` in flight; the first throw stops new work and is rethrown. */
-const pool = async <T>(
-  items: T[],
-  width: number,
-  work: (item: T) => Promise<void>,
-  stopped: () => boolean,
-): Promise<void> => {
+const pool = async <T>(items: T[], width: number, work: (item: T) => Promise<void>, stopped: () => boolean): Promise<void> => {
   let next = 0;
   let failure: { error: unknown } | undefined;
   const worker = async () => {
@@ -201,9 +178,7 @@ const keyOf = (path: string): string => {
  * extension, does not serve the public references this run writes. Anything else by its
  * key, which spans both roots, so a post unpublished to a draft is not copied back.
  */
-const claimKey = (write: MigratedWrite): string =>
-  write.kind === "file" ? write.meta.url : keyOf(write.meta.path);
-
+const claimKey = (write: MigratedWrite): string => (write.kind === "file" ? write.meta.url : keyOf(write.meta.path));
 
 /**
  * A blob's writes carry the bytes the run already holds, so its copy is the one PUT of that
@@ -256,11 +231,7 @@ class Run {
   #done = 0;
   #total = 0;
   #dropped = 0;
-  readonly #counts = Object.fromEntries(
-    [...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"].map(
-      (outcome) => [outcome, 0],
-    ),
-  ) as Counts;
+  readonly #counts = Object.fromEntries([...skipReasons, "written", "already_present", "deleted_mid_run", "io_error", "put_rejected"].map((outcome) => [outcome, 0])) as Counts;
   #skipped: Partial<Record<Outcome, string[]>> = {};
   /**
    * The 0.x paths a finished run copied or found present. A later walk leaves them alone: a
@@ -335,7 +306,12 @@ class Run {
       this.#handle = transforms.createMigration(owner);
       for (const [bucket, urls] of passes) {
         this.#kind = bucket;
-        await pool(urls, IN_FLIGHT, (url) => this.#object(bucket, url), () => this.#aborted());
+        await pool(
+          urls,
+          IN_FLIGHT,
+          (url) => this.#object(bucket, url),
+          () => this.#aborted(),
+        );
         this.#checkAbort();
       }
       this.#kind = undefined;
@@ -468,10 +444,7 @@ class Run {
     let result: MigrateResult;
     try {
       // A blob never enters the wasm: a copy there would stay for the rest of the run
-      result =
-        bucket === "blobs"
-          ? blobResult(transforms.migrateBlob(this.#run(), url, bytes.length, transforms.mediaId(bytes)), bytes)
-          : transforms.migrate(this.#run(), url, bytes);
+      result = bucket === "blobs" ? blobResult(transforms.migrateBlob(this.#run(), url, bytes.length, transforms.mediaId(bytes)), bytes) : transforms.migrate(this.#run(), url, bytes);
     } catch (error) {
       // The rules refused the object; anything else is a fault of the port or of this package
       if (!(error instanceof ValidationError)) throw error;
@@ -517,9 +490,7 @@ class Run {
     for (const claim of claims) {
       const { write } = claim;
       const put = await this.#attempt(() =>
-        write.kind === "file"
-          ? this.#port.putBytes(write.meta.url, write.object.bytes, { ifAbsent: true })
-          : this.#port.putJson(write.meta.url, write.object, { ifAbsent: true }),
+        write.kind === "file" ? this.#port.putBytes(write.meta.url, write.object.bytes, { ifAbsent: true }) : this.#port.putJson(write.meta.url, write.object, { ifAbsent: true }),
       );
       if (!isFailure(put)) {
         made.push(claim);
@@ -748,11 +719,7 @@ const runMigration = async (options: RunOptions): Promise<MigrationReport> => {
   await init();
   const { lock, owner } = options;
   if (!lock) return new Run(options).execute();
-  return lock(`pubky-social-specs:migration:${owner}`, (held) =>
-    held === null
-      ? Promise.resolve(new Run(options).refuse("ALREADY_RUNNING"))
-      : new Run(options).execute(),
-  );
+  return lock(`pubky-social-specs:migration:${owner}`, (held) => (held === null ? Promise.resolve(new Run(options).refuse("ALREADY_RUNNING")) : new Run(options).execute()));
 };
 
 export { ENGINE_CAPS, MIGRATION_CAPS, runMigration };

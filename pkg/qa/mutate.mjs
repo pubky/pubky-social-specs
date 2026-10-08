@@ -20,7 +20,23 @@ fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(path.join(pkg, "qa"), { recursive: true });
 fs.symlinkSync(path.join(source, "../vectors"), path.join(work, "vectors"));
 fs.symlinkSync(path.join(source, "node_modules"), path.join(pkg, "node_modules"));
-for (const entry of ["src", "bin", "tsconfig.json", "package.json", "migration.fixture.js", "test.js", "vectors.test.js", "edges.test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js", "qa/chaos.mjs", "qa/ops.mjs"]) {
+for (const entry of [
+  "src",
+  "bin",
+  "tsconfig.json",
+  "package.json",
+  "migration.fixture.js",
+  "test.js",
+  "vectors.test.js",
+  "edges.test.js",
+  "property.test.js",
+  "transforms.test.js",
+  "migration.test.js",
+  "sdk-port.test.js",
+  "cli.test.js",
+  "qa/chaos.mjs",
+  "qa/ops.mjs",
+]) {
   fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });
 }
 // The wasm glue is the one part of dist that tsc does not write
@@ -65,8 +81,8 @@ const MUTATIONS = [
   {
     id: "M6",
     what: "a copy someone else wrote first counts as made, so the race guard may delete it",
-    from: "} else if (put.failed === \"exists\") {\n        // Written by someone else since the LIST: theirs stays, and it is not this run's to delete\n        claim.settle(true);",
-    to: "} else if (put.failed === \"exists\") {\n        made.push(claim);",
+    from: '} else if (put.failed === "exists") {\n        // Written by someone else since the LIST: theirs stays, and it is not this run\'s to delete\n        claim.settle(true);',
+    to: '} else if (put.failed === "exists") {\n        made.push(claim);',
   },
   {
     id: "M7",
@@ -89,7 +105,7 @@ const MUTATIONS = [
   {
     id: "M10",
     what: "a File object that cannot be read counts io_error instead of stopping the run",
-    from: "if (bucket === \"files\") {\n        throw new Stop({ code: \"IO_ERROR\", message: `reading ${path}: ${got.message}` });\n      }",
+    from: 'if (bucket === "files") {\n        throw new Stop({ code: "IO_ERROR", message: `reading ${path}: ${got.message}` });\n      }',
     to: "",
   },
   {
@@ -188,14 +204,18 @@ const build = () => {
   execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd: pkg, stdio: "pipe" });
 };
 const tests = () => {
-  const r = run("npx", ["--no", "--", "mocha", "vectors.test.js", "edges.test.js", "test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"], 600_000);
+  const r = run(
+    "npx",
+    ["--no", "--", "mocha", "vectors.test.js", "edges.test.js", "test.js", "property.test.js", "transforms.test.js", "migration.test.js", "sdk-port.test.js", "cli.test.js"],
+    600_000,
+  );
   const failing = [...r.out.matchAll(/^\s+\d+\) (.+)$/gm)].map((m) => m[1].trim());
   const passing = Number(/(\d+) passing/.exec(r.out)?.[1] ?? 0);
   return { status: r.status, passing, failing: [...new Set(failing)].slice(0, 12), timedOut: r.timedOut };
 };
 const chaos = () => {
   const r = run("node", ["--max-old-space-size=1536", "qa/chaos.mjs", "--seeds", String(seeds), "--no-minimize"], 1_200_000);
-  const m = /"violations": (\d+)/.exec(r.out.slice(r.out.lastIndexOf("{\n \"variant\"")));
+  const m = /"violations": (\d+)/.exec(r.out.slice(r.out.lastIndexOf('{\n "variant"')));
   const invariants = [...new Set([...r.out.matchAll(/first ([\w-]+):/g)].map((x) => x[1]))];
   return { status: r.status, violatingSeeds: m ? Number(m[1]) : null, invariants, crashed: r.status !== 0 ? r.out.slice(-400) : undefined };
 };

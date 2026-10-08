@@ -214,10 +214,7 @@ class SdkPort implements MigrationPort {
     }
     let timer: unknown;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)),
-        this.#deadlineMs,
-      );
+      timer = setTimeout(() => reject(new MigrationPortError("network", `no answer in ${this.#deadlineMs} ms`)), this.#deadlineMs);
     });
     try {
       return await Promise.race([call(), deadline]);

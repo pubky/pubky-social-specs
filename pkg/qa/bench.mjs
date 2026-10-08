@@ -78,9 +78,18 @@ const fileFor = (i, hash, size) => [
 const postRef = (i) => url(`pub/pubky.app/posts/${tsid(BASE + i)}`);
 const KINDS = {
   profile: () => ["pub/pubky.app/profile.json", json({ name: "Bench User", bio: "Benchmarks the migration", image: null, links: [{ title: "site", url: "https://example.com/me" }], status: "busy" })],
-  post: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Post number ${i}, with a little text in it.`, kind: "short", parent: i % 3 ? null : postRef(i + 1), embed: null, attachments: null })],
-  post_long: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Title ${i}\n${"Lorem ipsum dolor sit amet. ".repeat(70)}`, kind: "long", parent: null, embed: null, attachments: null })],
-  post_media: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Look ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${tsid(BASE + 500_000_000)}`)] })],
+  post: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Post number ${i}, with a little text in it.`, kind: "short", parent: i % 3 ? null : postRef(i + 1), embed: null, attachments: null }),
+  ],
+  post_long: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Title ${i}\n${"Lorem ipsum dolor sit amet. ".repeat(70)}`, kind: "long", parent: null, embed: null, attachments: null }),
+  ],
+  post_media: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Look ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${tsid(BASE + 500_000_000)}`)] }),
+  ],
   tag: (i) => {
     const uri = postRef(i % 5000);
     const label = `tag${Math.floor(i / 5000)}x${i % 7}`;
@@ -244,7 +253,7 @@ for (let i = 0; i < counts.follows; i++) {
   const [path, body] = KINDS.follow(i);
   account.store.set(url(path), body);
 }
-account.store.set(...((([p, b]) => [url(p), b])(KINDS.profile())));
+account.store.set(...(([p, b]) => [url(p), b])(KINDS.profile()));
 const objects = [...account.store.keys()].length;
 const storedBytes = [...account.store.values()].reduce((s, b) => s + b.length, 0);
 

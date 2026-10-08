@@ -1,0 +1,10 @@
+dist
+api
+node_modules
+tools/node_modules
+qa/out
+qa/failures
+package-lock.json
+tools/package-lock.json
+*.md
+src/data.ts

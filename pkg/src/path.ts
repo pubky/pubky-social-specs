@@ -99,9 +99,7 @@ export function parsePath(path: string | null): Located | null {
   else if (namespace !== "social") {
     // A namespace should carry an epoch as its second segment; named only when it has that shape
     const versioned = epoch !== undefined && isEpoch(epoch);
-    resource = versioned
-      ? { kind: "foreign", namespace, version: epoch, rest: segments.slice(3) }
-      : { kind: "foreign", namespace, rest: segments.slice(2) };
+    resource = versioned ? { kind: "foreign", namespace, version: epoch, rest: segments.slice(3) } : { kind: "foreign", namespace, rest: segments.slice(2) };
   } else if (epoch === "v1") resource = dispatch(root, segments.slice(3));
   else if (epoch !== undefined && isEpoch(epoch)) resource = { kind: "unsupportedVersion", version: epoch };
   else resource = { kind: "unknown" };

@@ -42,8 +42,7 @@ const expectedCounts = () => {
 const notesOf = (report, path) => report.notes.filter((n) => n.path === path).map((n) => n.message);
 const nonZero = (counts) => Object.fromEntries(Object.entries(counts).filter(([, n]) => n > 0));
 
-const v1Urls = (port) =>
-  [...port.store.keys()].filter((u) => !u.startsWith(LEGACY) && u !== FLAG).sort();
+const v1Urls = (port) => [...port.store.keys()].filter((u) => !u.startsWith(LEGACY) && u !== FLAG).sort();
 const tree = (port) => new Map([...port.store].filter(([u]) => u !== FLAG));
 const flagOf = (port) => JSON.parse(decoder.decode(port.store.get(FLAG)));
 const puts = (port) => port.calls.filter((c) => c.op === "putJson" || c.op === "putBytes");
@@ -177,9 +176,7 @@ describe("migration engine", () => {
       assert.strictEqual(report.total, rows.size);
       assert.strictEqual(report.done, rows.size);
       assert.deepStrictEqual(nonZero(report.counts), expectedCounts());
-      const dropped = Object.fromEntries(
-        [...rows].filter(([, { expected }]) => expected.dropped?.length).map(([path, { expected }]) => [path, expected.dropped]),
-      );
+      const dropped = Object.fromEntries([...rows].filter(([, { expected }]) => expected.dropped?.length).map(([path, { expected }]) => [path, expected.dropped]));
       assert.deepStrictEqual(report.droppedValues, dropped);
       assert.strictEqual(report.dropped, Object.values(dropped).flat().length);
 
@@ -230,7 +227,10 @@ describe("migration engine", () => {
       port.calls.length = 0;
       const second = await runMigration({ owner, port, rescan: true });
       assert.strictEqual(second.status, "done");
-      assert.deepStrictEqual(puts(port).map((c) => c.url), [FLAG]);
+      assert.deepStrictEqual(
+        puts(port).map((c) => c.url),
+        [FLAG],
+      );
       assert.ok(!port.calls.some((c) => c.op === "delete"));
       assert.strictEqual(second.counts.written, 0);
       assert.strictEqual(second.counts.already_present, first.counts.written);
@@ -241,7 +241,10 @@ describe("migration engine", () => {
       const third = await runMigration({ owner, port });
       assert.strictEqual(third.status, "already_migrated");
       assert.deepStrictEqual(third.skipped, first.skipped);
-      assert.deepStrictEqual(port.calls.map((c) => c.op), ["head", "get"]);
+      assert.deepStrictEqual(
+        port.calls.map((c) => c.op),
+        ["head", "get"],
+      );
     });
 
     it("a flag from an older transform revision is walked again", async () => {
@@ -294,7 +297,12 @@ describe("migration engine", () => {
     });
 
     it("a 0.x object deleted during its copy takes the copy with it", async () => {
-      const follow = url(`pub/pubky.app/follows/${corpus.vectors.find((v) => v.name.startsWith("follow:")).input.path.split("/").pop()}`);
+      const follow = url(
+        `pub/pubky.app/follows/${corpus.vectors
+          .find((v) => v.name.startsWith("follow:"))
+          .input.path.split("/")
+          .pop()}`,
+      );
       const post = url("pub/pubky.app/posts/0034A0X7NJ52E");
       let port;
       port = legacyPort({
@@ -327,7 +335,10 @@ describe("migration engine", () => {
       assert.strictEqual(report.status, "aborted");
       assert.strictEqual(report.error.code, "PRIV_UNSUPPORTED");
       assert.match(report.error.message, /private storage \(\/priv\/\)/);
-      assert.deepStrictEqual(port.calls.map((c) => c.op), ["head"]);
+      assert.deepStrictEqual(
+        port.calls.map((c) => c.op),
+        ["head"],
+      );
     });
 
     it("a flag probe the homeserver fails is IO_ERROR, not a missing /priv/", async () => {
@@ -350,7 +361,10 @@ describe("migration engine", () => {
       assert.strictEqual(report.mode, "dry");
       assert.deepStrictEqual(report.counts, real.counts);
       assert.deepStrictEqual(report.skipped, real.skipped);
-      assert.deepStrictEqual(port.calls.filter((c) => !["list", "get"].includes(c.op)), [{ op: "head", url: FLAG }]);
+      assert.deepStrictEqual(
+        port.calls.filter((c) => !["list", "get"].includes(c.op)),
+        [{ op: "head", url: FLAG }],
+      );
       assert.deepStrictEqual(v1Urls(port), []);
       assert.ok(!port.store.has(FLAG));
     });
@@ -620,7 +634,12 @@ describe("migration engine", () => {
     it("a port whose GET gives no Uint8Array rejects the run as a fault, and records nothing", async () => {
       const follow = url([...rows.keys()].find((p) => p.includes("/follows/")));
       const blob = url("pub/pubky.app/blobs/VJAHM32NETJ12EWAAM11BQVX78");
-      for (const [target, odd] of [[follow, [1, 2]], [follow, "{}"], [blob, "orphan bytes"], [blob, new ArrayBuffer(4)]]) {
+      for (const [target, odd] of [
+        [follow, [1, 2]],
+        [follow, "{}"],
+        [blob, "orphan bytes"],
+        [blob, new ArrayBuffer(4)],
+      ]) {
         const port = legacyPort();
         const faulty = delegate(port, { get: async (u) => (u === target ? odd : port.get(u)) });
         await assert.rejects(runMigration({ owner, port: faulty }), (e) => e instanceof TypeError && /gave no Uint8Array|must be a Uint8Array/.test(e.message));
@@ -1311,9 +1330,7 @@ describe("migration engine", () => {
       const hash = transforms.mediaId(big);
       const blobPath = `pub/pubky.app/blobs/${hash}`;
       const filePath = "pub/pubky.app/files/0033000000010";
-      const file = encoder.encode(
-        JSON.stringify({ name: "big.png", created_at: 1727740800000000, src: url(blobPath), content_type: "image/png", size: big.length }),
-      );
+      const file = encoder.encode(JSON.stringify({ name: "big.png", created_at: 1727740800000000, src: url(blobPath), content_type: "image/png", size: big.length }));
       const port = legacyPort();
       port.store.set(url(filePath), file);
       port.store.set(url(blobPath), big);
@@ -1337,6 +1354,5 @@ describe("migration engine", () => {
       rest.delete(write.meta.url);
       assert.deepStrictEqual(rest, tree(alone));
     });
-
   });
 });

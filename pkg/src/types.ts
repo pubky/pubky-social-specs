@@ -60,7 +60,6 @@ export type UrlArg<K extends ObjectKind = ObjectKind> = Given<`PubkyUrl.${K}`, `
 /** An owner-relative path argument. */
 export type PathArg = Given<"OwnerPath", PathText>;
 
-
 /** A media type the package maps to an extension; any other string is taken too, as `.bin`. */
 export type MimeType = (typeof validMimeTypes)[number];
 
@@ -259,10 +258,7 @@ export interface StoredCopy {
 }
 
 /** A path as a LIST gave it, or a 0.x object with what proves it belongs to the target. */
-export type Listing =
-  | PathArg
-  | { path: PathArg; src: string }
-  | { path: PathArg; uri: string; label: string; src?: string | null; contentType?: string | null };
+export type Listing = PathArg | { path: PathArg; src: string } | { path: PathArg; uri: string; label: string; src?: string | null; contentType?: string | null };
 
 export type ParsedUri = { owner: Owner; root: Root; path: OwnerPath | "" } & (
   | { kind: "user" }

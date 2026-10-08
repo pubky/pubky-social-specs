@@ -21,9 +21,7 @@ interface Meta {
 }
 
 /** A write as a reader of the stored bytes gets it, and where it goes. */
-export type MigratedWrite =
-  | { kind: Exclude<ObjectKind, "file">; object: Record<string, unknown>; meta: Meta }
-  | { kind: "file"; object: { bytes: Uint8Array }; meta: Meta };
+export type MigratedWrite = { kind: Exclude<ObjectKind, "file">; object: Record<string, unknown>; meta: Meta } | { kind: "file"; object: { bytes: Uint8Array }; meta: Meta };
 
 export type MigrateResult = { writes: MigratedWrite[]; dropped: Dropped[] } | { skip: SkipReason; note?: string };
 

@@ -71,7 +71,12 @@ const sessionOver = (storage, z32 = owner) => ({ info: { publicKey: { z32: () =>
 // A storage whose every call throws `error`
 const failing = (error) =>
   Object.fromEntries(
-    ["list", "getBytes", "exists", "putJson", "putBytes", "delete"].map((op) => [op, async () => { throw error; }]),
+    ["list", "getBytes", "exists", "putJson", "putBytes", "delete"].map((op) => [
+      op,
+      async () => {
+        throw error;
+      },
+    ]),
   );
 
 describe("pubky SDK port", () => {
@@ -109,11 +114,7 @@ describe("pubky SDK port", () => {
     ];
     for (const [error, kind, status] of table) {
       const port = sdkPort(sessionOver(failing(error)));
-      for (const call of [
-        () => port.putJson(url("pub/social/v1/a"), {}),
-        () => port.putBytes(url("pub/social/v1/a"), new Uint8Array()),
-        () => port.delete(url("pub/social/v1/a")),
-      ]) {
+      for (const call of [() => port.putJson(url("pub/social/v1/a"), {}), () => port.putBytes(url("pub/social/v1/a"), new Uint8Array()), () => port.delete(url("pub/social/v1/a"))]) {
         await assert.rejects(call(), (e) => {
           assert.strictEqual(e.name, "MigrationPortError");
           assert.strictEqual(e.kind, kind, error.message);
@@ -130,7 +131,10 @@ describe("pubky SDK port", () => {
     const port = sdkPort(sessionOver(storage));
     assert.deepStrictEqual(await port.get(url("pub/pubky.app/a")), encoder.encode("x"));
     assert.strictEqual(await port.get(url("pub/pubky.app/b")), null);
-    assert.deepStrictEqual(storage.calls, [["getBytes", "/pub/pubky.app/a"], ["getBytes", "/pub/pubky.app/b"]]);
+    assert.deepStrictEqual(storage.calls, [
+      ["getBytes", "/pub/pubky.app/a"],
+      ["getBytes", "/pub/pubky.app/b"],
+    ]);
     assert.strictEqual(await sdkPort(sessionOver(failing(answered(410)))).get(url("pub/a")), null);
     await assert.rejects(sdkPort(sessionOver(failing(answered(401)))).get(url("pub/a")), { kind: "unauthorized" });
   });
@@ -140,21 +144,53 @@ describe("pubky SDK port", () => {
     const port = sdkPort(sessionOver(storage));
     assert.strictEqual(await port.head(url("pub/a")), true);
     assert.strictEqual(await port.head(url("priv/social/v1/_migrated.json")), false);
-    assert.deepStrictEqual(storage.calls, [["exists", "/pub/a"], ["exists", "/priv/social/v1/_migrated.json"]]);
+    assert.deepStrictEqual(storage.calls, [
+      ["exists", "/pub/a"],
+      ["exists", "/priv/social/v1/_migrated.json"],
+    ]);
 
     // A HEAD answer has no body, so its 403 alone cannot say why
     const headless = (get) =>
       sessionOver({
-        exists: async () => { throw answered(403); },
+        exists: async () => {
+          throw answered(403);
+        },
         get,
         getBytes: async () => assert.fail("the retry downloads the object"),
       });
     const flag = url("priv/social/v1/_migrated.json");
-    await assert.rejects(sdkPort(headless(async () => { throw answered(403, PRE_PRIV); })).head(flag), { kind: "unsupported", status: 403 });
-    await assert.rejects(sdkPort(headless(async () => { throw answered(403, "missing capability"); })).head(flag), { kind: "unauthorized" });
-    assert.strictEqual(await sdkPort(headless(async () => { throw answered(404); })).head(flag), false);
+    await assert.rejects(
+      sdkPort(
+        headless(async () => {
+          throw answered(403, PRE_PRIV);
+        }),
+      ).head(flag),
+      { kind: "unsupported", status: 403 },
+    );
+    await assert.rejects(
+      sdkPort(
+        headless(async () => {
+          throw answered(403, "missing capability");
+        }),
+      ).head(flag),
+      { kind: "unauthorized" },
+    );
+    assert.strictEqual(
+      await sdkPort(
+        headless(async () => {
+          throw answered(404);
+        }),
+      ).head(flag),
+      false,
+    );
     let cancelled = 0;
-    const response = { body: { cancel: async () => { cancelled++; } } };
+    const response = {
+      body: {
+        cancel: async () => {
+          cancelled++;
+        },
+      },
+    };
     assert.strictEqual(await sdkPort(headless(async () => response)).head(flag), true);
     assert.strictEqual(cancelled, 1);
     assert.strictEqual(await sdkPort(headless(async () => ({ body: null }))).head(flag), true);
@@ -266,7 +302,10 @@ describe("pubky SDK port", () => {
     assert.deepStrictEqual(storage.store.get(url("pub/social/v1/a")), encoder.encode("{}"));
     await port.putBytes(url("pub/social/v1/b"), new Uint8Array([1]), { ifAbsent: true });
     await port.putJson(url("pub/social/v1/a"), { b: 1 });
-    assert.deepStrictEqual(storage.calls.map(([op]) => op), ["exists", "exists", "exists", "putBytes", "putJson"]);
+    assert.deepStrictEqual(
+      storage.calls.map(([op]) => op),
+      ["exists", "exists", "exists", "putBytes", "putJson"],
+    );
     assert.deepStrictEqual(storage.store.get(url("pub/social/v1/a")), encoder.encode('{"b":1}'));
   });
 
@@ -317,5 +356,4 @@ describe("pubky SDK port", () => {
     assert.ok(storage.calls.filter(([op]) => op === "list").length > legacyTree().size / 3);
     assert.strictEqual((await runMigration({ owner, port: sdkPort(sessionOver(storage)) })).status, "already_migrated");
   });
-
 });

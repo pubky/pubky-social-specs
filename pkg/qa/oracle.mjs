@@ -9,9 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const target = process.env.CARGO_TARGET_DIR ?? `${root}target`;
 // SURFACE_ORACLE names a binary outright, for a build kept apart from the one in use
-const binary =
-  process.env.SURFACE_ORACLE ??
-  ["release", "debug"].map((profile) => `${target}/${profile}/surface_oracle`).find((path) => fs.existsSync(path));
+const binary = process.env.SURFACE_ORACLE ?? ["release", "debug"].map((profile) => `${target}/${profile}/surface_oracle`).find((path) => fs.existsSync(path));
 
 /** Answers `requests` in order. One process per batch: its stdin closes when the batch ends. */
 export function ask(requests) {

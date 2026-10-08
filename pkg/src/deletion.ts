@@ -12,10 +12,7 @@ import { compareBytes } from "./text.js";
 import { isBookmarkId, isObjectKind, LEGACY_ROOT, legacyMediaKey, mediaStem, type ObjectKind, socialPath, splitPubky, stableKey } from "./uri.js";
 
 /** A path as a LIST gives it, or a 0.x object with what proves it belongs to the target. */
-export type Listing =
-  | string
-  | { path: string; src: string }
-  | { path: string; uri: string; label: string; src?: string | null; contentType?: string | null };
+export type Listing = string | { path: string; src: string } | { path: string; uri: string; label: string; src?: string | null; contentType?: string | null };
 
 type V0Tag = { path: string; uri: string; label: string; src: string | null; contentType: string | null };
 type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
@@ -29,7 +26,10 @@ function entryOf(listing: unknown, index: number): Entry {
   const l = inputOf(listing, at, ["path", "src", "uri", "label", "contentType"]);
   const path = string.parse(l.path, `${at}.path`);
   if (l.uri === undefined) return { path, file: { src: string.parse(l.src, `${at}.src`) } };
-  return { path, tag: { path, uri: string.parse(l.uri, `${at}.uri`), label: string.parse(l.label, `${at}.label`), src: maybe(l.src, `${at}.src`), contentType: maybe(l.contentType, `${at}.contentType`) } };
+  return {
+    path,
+    tag: { path, uri: string.parse(l.uri, `${at}.uri`), label: string.parse(l.label, `${at}.label`), src: maybe(l.src, `${at}.src`), contentType: maybe(l.contentType, `${at}.contentType`) },
+  };
 }
 
 const notACopy = (kind: string, id: string, path: string) => fail(`not a stored copy of ${kind} ${id}: ${path}`);

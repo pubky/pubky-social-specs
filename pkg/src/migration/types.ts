@@ -18,15 +18,7 @@ export type Outcome =
 
 export type Counts = Record<Outcome, number>;
 
-export type Phase =
-  | "probe"
-  | "listing"
-  | "migrating"
-  | "flag"
-  | "done"
-  | "incomplete"
-  | "paused"
-  | "aborted";
+export type Phase = "probe" | "listing" | "migrating" | "flag" | "done" | "incomplete" | "paused" | "aborted";
 
 export type ErrorCode =
   /** Another tab holds the lock for this owner. */

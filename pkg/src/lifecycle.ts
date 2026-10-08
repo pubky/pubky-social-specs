@@ -29,7 +29,6 @@ function isPrivRooted(uri: string): boolean {
   return path === "priv" || path?.startsWith("priv/") === true;
 }
 
-
 function mediaRefs(value: Post): string[] {
   const refs = value.attachments.map((a) => a.uri);
   const { cover } = envelopeRefs(value);

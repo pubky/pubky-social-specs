@@ -82,7 +82,11 @@ function collect<V>(input: unknown, build: (value: unknown, each: Each) => void)
 
 // The copy that was checked, with ordinary prototypes again, for the caller to keep
 const plain = (value: unknown): unknown =>
-  Array.isArray(value) ? value.map(plain) : typeof value === "object" && value !== null && !ArrayBuffer.isView(value) ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, plain(v)])) : value;
+  Array.isArray(value)
+    ? value.map(plain)
+    : typeof value === "object" && value !== null && !ArrayBuffer.isView(value)
+      ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, plain(v)]))
+      : value;
 
 /** Every issue of a profile input, as `buildUser` would refuse it. */
 export function validateUser(input: unknown): Validation<T.NewUser> {

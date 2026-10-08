@@ -96,7 +96,13 @@ describe("pubky-social-specs/client", () => {
     hs.store.set(`pubky://${OTTO}/pub/social/v1/posts/0034A0X7NJ52C/0034A0X7NJ52C.json`, encoder.encode("{not json"));
     const listed = await all(social.posts.list(OTTO));
     assert.strictEqual(listed.length, 4);
-    assert.deepStrictEqual(listed.filter((r) => r.ok).map((r) => r.object.content).sort(), ["post 0", "post 1", "post 2"]);
+    assert.deepStrictEqual(
+      listed
+        .filter((r) => r.ok)
+        .map((r) => r.object.content)
+        .sort(),
+      ["post 0", "post 1", "post 2"],
+    );
     const bad = listed.find((r) => !r.ok);
     assert.ok(bad.error.message.startsWith("Validation Error: "));
     assert.deepStrictEqual(await all(createSocialClient(hs.session(RIO)).posts.list(RIO)), []);
@@ -109,7 +115,10 @@ describe("pubky-social-specs/client", () => {
     setClock(() => T0 + 1);
     await social.posts.edit({ url: post.url }, { ...post.object, content: "y" }, { root: "private" });
     await social.posts.delete(post.id);
-    assert.deepStrictEqual([...hs.store.keys()].filter((u) => u.includes(post.id)), []);
+    assert.deepStrictEqual(
+      [...hs.store.keys()].filter((u) => u.includes(post.id)),
+      [],
+    );
   });
 
   it("reads another user's tree through the public storage, and only through it", async () => {
@@ -142,7 +151,10 @@ describe("pubky-social-specs/client", () => {
     const bookmark = await social.bookmarks.add("https://example.com");
     const feed = await social.feeds.add({ name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent" });
     const lists = await Promise.all([social.follows.list(), social.mutes.list(), social.tags.list(), social.bookmarks.list(), social.feeds.list()].map(all));
-    assert.deepStrictEqual(lists.map((l) => l.length), [1, 1, 1, 1, 1]);
+    assert.deepStrictEqual(
+      lists.map((l) => l.length),
+      [1, 1, 1, 1, 1],
+    );
     assert.strictEqual(lists[2][0].object.label, "rust");
     await social.follows.remove(RIO);
     await social.mutes.remove(RIO);

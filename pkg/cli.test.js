@@ -10,10 +10,15 @@ describe("pubky-social-migrate arguments", () => {
 
   it("reads every flag", () => {
     assert.deepStrictEqual(parseArgs(["--recovery", "a.pkarr"]), { ...defaults, recovery: "a.pkarr" });
-    assert.deepStrictEqual(
-      parseArgs(["--dry-run", "--recovery", "a.pkarr", "--passphrase-env", "PASS", "--testnet", "docker-host", "--rescan", "--json"]),
-      { ...defaults, recovery: "a.pkarr", passphraseEnv: "PASS", testnet: "docker-host", dryRun: true, rescan: true, json: true },
-    );
+    assert.deepStrictEqual(parseArgs(["--dry-run", "--recovery", "a.pkarr", "--passphrase-env", "PASS", "--testnet", "docker-host", "--rescan", "--json"]), {
+      ...defaults,
+      recovery: "a.pkarr",
+      passphraseEnv: "PASS",
+      testnet: "docker-host",
+      dryRun: true,
+      rescan: true,
+      json: true,
+    });
   });
 
   it("takes --testnet with or without a host", () => {
@@ -40,7 +45,11 @@ describe("pubky-social-migrate arguments", () => {
       [["--recovery", "a", "extra"], /unknown argument extra/],
     ];
     for (const [argv, message] of refused) {
-      assert.throws(() => parseArgs(argv), (e) => e instanceof UsageError && message.test(e.message), argv.join(" "));
+      assert.throws(
+        () => parseArgs(argv),
+        (e) => e instanceof UsageError && message.test(e.message),
+        argv.join(" "),
+      );
     }
   });
 
@@ -77,7 +86,13 @@ describe("pubky-social-migrate arguments", () => {
 
   it("prints what the homeserver sent with every control character escaped, in text and in JSON", () => {
     const report = {
-      status: "already_migrated", mode: "run", done: 0, total: 0, counts: { written: 0 }, dropped: 0, droppedValues: {},
+      status: "already_migrated",
+      mode: "run",
+      done: 0,
+      total: 0,
+      counts: { written: 0 },
+      dropped: 0,
+      droppedValues: {},
       skipped: { "\u001b]0;x\u0007": ["\u001b[2J", "a\u009bb\u007f"] },
       notes: [{ path: "p\u0085", message: "m\u001b[31m" }],
       error: { code: "IO_ERROR", message: "e\r\n\u001b" },
@@ -99,7 +114,15 @@ describe("pubky-social-migrate arguments", () => {
 
   // A terminal as the prompt meets one
   const terminal = () => {
-    const input = Object.assign(new EventEmitter(), { isTTY: true, raw: false, setRawMode(on) { this.raw = on; }, pause() {}, resume() {} });
+    const input = Object.assign(new EventEmitter(), {
+      isTTY: true,
+      raw: false,
+      setRawMode(on) {
+        this.raw = on;
+      },
+      pause() {},
+      resume() {},
+    });
     const written = [];
     return { input, output: { write: (text) => written.push(text) }, written };
   };

@@ -186,13 +186,18 @@ describe("migration", () => {
 
   it("a freed handle is refused, an owner that is not a pubky too", () => {
     rejects(() => createMigration("nope"), /52 ASCII characters/);
-    assert.throws(() => createMigration("nope"), (e) => e instanceof ValidationError && e.reason === "the string is not 52 ASCII characters");
+    assert.throws(
+      () => createMigration("nope"),
+      (e) => e instanceof ValidationError && e.reason === "the string is not 52 ASCII characters",
+    );
     // A wrong type is the caller's fault, never a refusal the engine would record as invalid data
-    assert.throws(() => migrate(createMigration(owner), "pub/pubky.app/profile.json", "{}"), (e) => e instanceof TypeError && !(e instanceof ValidationError));
+    assert.throws(
+      () => migrate(createMigration(owner), "pub/pubky.app/profile.json", "{}"),
+      (e) => e instanceof TypeError && !(e instanceof ValidationError),
+    );
     const spent = createMigration(owner);
     spent.free();
     rejects(() => migrate(spent, "pub/pubky.app/profile.json", stored({ name: "Alice" })), "pubky-social-specs/migration: migrate() argument 1 must be a Migration handle");
     rejects(() => migrateBlob(spent, "pub/pubky.app/blobs/AKSZ57W2RFKHV1EHK007FQQ8TW", 1, "x"), "pubky-social-specs/migration: migrateBlob() argument 1 must be a Migration handle");
   });
 });
-

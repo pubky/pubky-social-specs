@@ -296,10 +296,16 @@ export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"Pos
  * `publicPaths` are the paths of the post's public versions as a LIST gave them, `privateHead`
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
  */
-export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.PathArg[]; legacyPaths?: T.PathArg[] | null; privateHead?: T.PathArg | null }): { copies: T.Copy[]; deletes: T.OwnerPath[] } {
+export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.PathArg[]; legacyPaths?: T.PathArg[] | null; privateHead?: T.PathArg | null }): {
+  copies: T.Copy[];
+  deletes: T.OwnerPath[];
+} {
   const given = inputOf(own(post, "post"), "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
   const head = given.privateHead === undefined || given.privateHead === null ? null : text(given.privateHead, "post.privateHead");
-  return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head) as { copies: T.Copy[]; deletes: T.OwnerPath[] };
+  return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head) as {
+    copies: T.Copy[];
+    deletes: T.OwnerPath[];
+  };
 }
 
 /**
@@ -308,14 +314,20 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
  * that could be read. A media candidate is deleted only once nothing else references it, which
  * only the caller can know.
  */
-export function planDelete(owner: T.Given<"Owner">, post: { id: T.Given<"PostId">; legacyPaths?: T.PathArg[] | null; copies?: T.StoredCopy[] | null; versions?: T.Post[] | null }): { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] } {
+export function planDelete(
+  owner: T.Given<"Owner">,
+  post: { id: T.Given<"PostId">; legacyPaths?: T.PathArg[] | null; copies?: T.StoredCopy[] | null; versions?: T.Post[] | null },
+): { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] } {
   const given = inputOf(own(post, "post"), "post", ["id", "legacyPaths", "copies", "versions"]);
   const copies = arrayOf(given.copies ?? [], "post.copies").map((copy, index) => {
     const given = inputOf(copy, `post.copies[${index}]`, ["root", "path"]);
     return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
   });
   const versions = arrayOf(given.versions ?? [], "post.versions").map((version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
-  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions) as { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] };
+  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions) as {
+    deletes: T.OwnerPath[];
+    mediaGcCandidates: T.OwnerPath[];
+  };
 }
 
 /**

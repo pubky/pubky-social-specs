@@ -4,17 +4,7 @@
 
 import { LEGACY_ROOT, splitPubky } from "../path.js";
 
-const BUCKETS = [
-  "files",
-  "blobs",
-  "posts",
-  "tags",
-  "follows",
-  "profile",
-  "feeds",
-  "bookmarks",
-  "mutes",
-] as const;
+const BUCKETS = ["files", "blobs", "posts", "tags", "follows", "profile", "feeds", "bookmarks", "mutes"] as const;
 
 /** One pass of the walk, named by the 0.x resource segment. */
 export type Bucket = (typeof BUCKETS)[number];
@@ -28,16 +18,11 @@ const legacyBucket = (legacyRelative: string): Bucket | null => {
   const slash = legacyRelative.indexOf("/");
   if (slash <= 0 || slash === legacyRelative.length - 1) return null;
   const segment = legacyRelative.slice(0, slash);
-  return (BUCKETS as readonly string[]).includes(segment) && segment !== "profile"
-    ? (segment as Bucket)
-    : null;
+  return (BUCKETS as readonly string[]).includes(segment) && segment !== "profile" ? (segment as Bucket) : null;
 };
 
 /** Items grouped by bucket in walk order, and the ones no pass takes. */
-const ordered = <T>(
-  items: T[],
-  legacyRelative: (item: T) => string,
-): { passes: [Bucket, T[]][]; rest: T[] } => {
+const ordered = <T>(items: T[], legacyRelative: (item: T) => string): { passes: [Bucket, T[]][]; rest: T[] } => {
   const groups = new Map<Bucket, T[]>(BUCKETS.map((bucket) => [bucket, []]));
   const rest: T[] = [];
   for (const item of items) {

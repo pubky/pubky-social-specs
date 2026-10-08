@@ -27,7 +27,10 @@ const same = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[
 const built = ({ object, body, ...where }) => ({ ...where, body: b64(body) });
 // Stored text as a caller would hold it after a read
 const held = (codec, arg) => codec.plain(parse(codec, json(arg)));
-const plain = (f) => (...args) => f(...args.map((a) => a.s));
+const plain =
+  (f) =>
+  (...args) =>
+    f(...args.map((a) => a.s));
 
 const ops = {
   frozenTrim: plain(text.frozenTrim),

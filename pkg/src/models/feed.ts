@@ -90,14 +90,15 @@ export const feed: Model<Feed> = {
     });
     each(() => checkIcon(value.icon));
     each(() => checkSafeInt(value.created_at));
-    if (id !== null) each(() => {
-      checkHashId(id, "id");
-      // A reader that does not know the content filter cannot rebuild the writer's id input
-      if (f.content !== "unknown") {
-        const expected = idOf(value);
-        if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
-      }
-    });
+    if (id !== null)
+      each(() => {
+        checkHashId(id, "id");
+        // A reader that does not know the content filter cannot rebuild the writer's id input
+        if (f.content !== "unknown") {
+          const expected = idOf(value);
+          if (expected !== id) fail(`Invalid ID: expected ${expected}, found ${id}`, "id");
+        }
+      });
   },
 };
 

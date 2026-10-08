@@ -2,8 +2,27 @@
 
 import assert from "node:assert";
 import {
-  buildBookmark, buildFeed, buildFile, buildFollow, buildPost, buildTag, buildUri, buildUser, createMediaHasher, decodeContent, decodeObject,
-  deletionPaths, editPost, encodeContent, encodeObject, limits, listPrefix, parseUri, planDelete, planPublish, ValidationError,
+  buildBookmark,
+  buildFeed,
+  buildFile,
+  buildFollow,
+  buildPost,
+  buildTag,
+  buildUri,
+  buildUser,
+  createMediaHasher,
+  decodeContent,
+  decodeObject,
+  deletionPaths,
+  editPost,
+  encodeContent,
+  encodeObject,
+  limits,
+  listPrefix,
+  parseUri,
+  planDelete,
+  planPublish,
+  ValidationError,
 } from "pubky-social-specs";
 
 const me = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
@@ -59,7 +78,17 @@ show("A feed", buildFeed(me, { name: "Rust", icon: "star", reach: "all", layout:
 
 // Deleting spans both epochs and both roots
 show("Deleting a follow", deletionPaths({ kind: "follow", id: them }));
-show("Deleting a post", planDelete(me, { id: draft.id, copies: [{ root: "private", path: draft.path }, { root: "private", path: edited.path }], versions: [edited.object] }));
+show(
+  "Deleting a post",
+  planDelete(me, {
+    id: draft.id,
+    copies: [
+      { root: "private", path: draft.path },
+      { root: "private", path: edited.path },
+    ],
+    versions: [edited.object],
+  }),
+);
 show("LIST prefixes", [listPrefix(me, "public"), listPrefix(me, "private"), listPrefix(me, "legacy")]);
 
 // A value the data model refuses is a ValidationError with the reference message

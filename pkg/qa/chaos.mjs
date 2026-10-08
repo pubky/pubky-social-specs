@@ -20,16 +20,7 @@ const LEGACY = url("pub/pubky.app/");
 const FLAG = url("priv/social/v1/_migrated.json");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const KNOWN_CODES = new Set([
-  "ALREADY_RUNNING",
-  "PRIV_UNSUPPORTED",
-  "CAPS_MISSING",
-  "QUOTA",
-  "SESSION_EXPIRED",
-  "IO_ERROR",
-  "UNSUPPORTED_EPOCH",
-  "ABORTED",
-]);
+const KNOWN_CODES = new Set(["ALREADY_RUNNING", "PRIV_UNSUPPORTED", "CAPS_MISSING", "QUOTA", "SESSION_EXPIRED", "IO_ERROR", "UNSUPPORTED_EPOCH", "ABORTED"]);
 const RUN_TIMEOUT_MS = 60_000;
 const MAX_RUNS = 30;
 
@@ -83,17 +74,10 @@ const buildTree = (seed) => {
     const fileId = tsid(micros);
     const postId = tsid(micros + 1);
     tree.set(`pub/pubky.app/blobs/${hash}`, bytes);
-    tree.set(
-      `pub/pubky.app/files/${fileId}`,
-      encoder.encode(
-        JSON.stringify({ name: `chaos ${i}.bin`, created_at: micros, src: url(`pub/pubky.app/blobs/${hash}`), content_type: type, size }),
-      ),
-    );
+    tree.set(`pub/pubky.app/files/${fileId}`, encoder.encode(JSON.stringify({ name: `chaos ${i}.bin`, created_at: micros, src: url(`pub/pubky.app/blobs/${hash}`), content_type: type, size })));
     tree.set(
       `pub/pubky.app/posts/${postId}`,
-      encoder.encode(
-        JSON.stringify({ content: `chaos media ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${fileId}`)] }),
-      ),
+      encoder.encode(JSON.stringify({ content: `chaos media ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${fileId}`)] })),
     );
   }
   return tree;
@@ -157,7 +141,22 @@ const sameObject = (u, a, b) => {
 
 const PROFILES = {
   // Faults a homeserver or the network between can give for the call that gets them
-  main: { network: 4, outage: 1, rate_limited: 2, hang: 1, truncate: 2, reorder: 2, delete_source: 1, concurrent_writer: 1, delete_during_copy: 1, quota: 0.3, rejected: 1, unauthorized: 0.15, lost_response: 2, not_found_delete: 1 },
+  main: {
+    network: 4,
+    outage: 1,
+    rate_limited: 2,
+    hang: 1,
+    truncate: 2,
+    reorder: 2,
+    delete_source: 1,
+    concurrent_writer: 1,
+    delete_during_copy: 1,
+    quota: 0.3,
+    rejected: 1,
+    unauthorized: 0.15,
+    lost_response: 2,
+    not_found_delete: 1,
+  },
   "quota-rate": { quota: 1, rate_limited: 6 },
   "lost-response": { lost_response: 1 },
   // Any kind on any call, statuses included, whether or not a homeserver would answer it there
@@ -456,10 +455,7 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
     const events = [];
     let report;
     try {
-      report = await Promise.race([
-        runMigration({ owner, port, sleep: noSleep, onProgress: (e) => events.push(e) }),
-        timeout(RUN_TIMEOUT_MS),
-      ]);
+      report = await Promise.race([runMigration({ owner, port, sleep: noSleep, onProgress: (e) => events.push(e) }), timeout(RUN_TIMEOUT_MS)]);
     } catch (e) {
       violations.push({ invariant: "never-throws", run: i, detail: String(e?.stack ?? e).slice(0, 500) });
       break;
@@ -549,7 +545,10 @@ const runSeed = async (seed, { profile, rate, schedule, verbose }) => {
   }
   // The flag's lists say what happened to the 0.x tree it covers
   for (const reason of skipReasons) {
-    const expected = [...now].filter(([, r]) => r.skip === reason).map(([p]) => p).sort();
+    const expected = [...now]
+      .filter(([, r]) => r.skip === reason)
+      .map(([p]) => p)
+      .sort();
     const got = [...(skipped[reason] ?? [])].filter((p) => !excused.has(p)).sort();
     const expectedLeft = expected.filter((p) => !excused.has(p));
     if (finalReport.status === "done" && JSON.stringify(got) !== JSON.stringify(expectedLeft)) {
@@ -652,7 +651,16 @@ const summary = {
 };
 for (let seed = from; seed < from + seeds; seed++) {
   const rand = xorshift(seed * 31 + 7);
-  const baseRate = variant === "main" ? 0.01 + rand() * 0.11 : variant === "quota-rate" ? 0.02 + rand() * 0.2 : variant === "lost-response" ? 0.05 + rand() * 0.4 : variant === "phantom-404" ? 0.02 + rand() * 0.1 : 0.01 + rand() * 0.05;
+  const baseRate =
+    variant === "main"
+      ? 0.01 + rand() * 0.11
+      : variant === "quota-rate"
+        ? 0.02 + rand() * 0.2
+        : variant === "lost-response"
+          ? 0.05 + rand() * 0.4
+          : variant === "phantom-404"
+            ? 0.02 + rand() * 0.1
+            : 0.01 + rand() * 0.05;
   const rate = baseRate * rateScale;
   const t0 = performance.now();
   const r = await runSeed(seed, { profile, rate });

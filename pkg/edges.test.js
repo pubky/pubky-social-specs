@@ -140,7 +140,11 @@ describe("edges", () => {
       const src = `pubky://${OTTO}/pub/pubky.app/blobs/${h}`;
       const good = { path: `${LEGACY}files/0034A0X7NJ52C`, src };
       assert.deepStrictEqual(deletionPaths({ kind: "file", id: h, listings: [good] }).slice(0, 2), [good.path, `${LEGACY}blobs/${h}`]);
-      for (const bad of [{ ...good, path: `${LEGACY}posts/0034A0X7NJ52C` }, { ...good, path: `${LEGACY}files/nope` }, { ...good, src: `${src}x` }]) {
+      for (const bad of [
+        { ...good, path: `${LEGACY}posts/0034A0X7NJ52C` },
+        { ...good, path: `${LEGACY}files/nope` },
+        { ...good, src: `${src}x` },
+      ]) {
         refuses(() => deletionPaths({ kind: "file", id: h, listings: [bad] }), /^Validation Error: not a stored copy of file/);
       }
       refuses(() => deletionPaths({ kind: "file", id: h, listings: [{ path: "/x", uri: "u", label: "l" }] }), /^Validation Error: not a stored copy of file/);
@@ -157,7 +161,10 @@ describe("edges", () => {
     it("a private reference in a media position that is no media is refused by name", () => {
       for (const uri of [`pubky://${OTTO}/priv`, `pubky://${OTTO}/priv/social/v1/feeds/x.json`]) {
         const draft = buildPost(OTTO, { kind: "image", content: "c", root: "private", attachments: [{ uri }] });
-        refuses(() => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object }), /^Validation Error: cannot publish: a private reference in a media position is not (a media object|media)/);
+        refuses(
+          () => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: draft.object }),
+          /^Validation Error: cannot publish: a private reference in a media position is not (a media object|media)/,
+        );
       }
     });
 
@@ -182,7 +189,10 @@ describe("edges", () => {
       const pub = (e) => `/pub/social/v1/posts/${id}/${e}.json`;
       const priv = (e) => `/priv/social/v1/posts/${id}/${e}.json`;
       const plan = planUnpublish({ id, publicPaths: [pub(late), pub(id), pub(last), pub(mid)], privateHead: priv(mid) });
-      assert.deepStrictEqual(plan.copies, [{ from: pub(late), to: priv(late) }, { from: pub(last), to: priv(last) }]);
+      assert.deepStrictEqual(plan.copies, [
+        { from: pub(late), to: priv(late) },
+        { from: pub(last), to: priv(last) },
+      ]);
       assert.deepStrictEqual(plan.deletes, [pub(id), pub(mid), pub(late), pub(last)]);
       assert.deepStrictEqual(planUnpublish({ id, publicPaths: [pub(mid), pub(last)] }).copies, [{ from: pub(last), to: priv(last) }]);
     });
@@ -191,18 +201,35 @@ describe("edges", () => {
       const media = privateMedia();
       const draft = buildPost(OTTO, { kind: "article", title: "T", body: "B", cover_image: media.url, root: "private" });
       const content = `${draft.object.content.slice(0, -1)},"x":1152921504606846976}`;
-      refuses(() => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: { ...draft.object, content } }), "Validation Error: cannot publish: integer 1152921504606846976 outside the JSON-safe range");
+      refuses(
+        () => planPublish(OTTO, { id: draft.id, editId: draft.editId, post: { ...draft.object, content } }),
+        "Validation Error: cannot publish: integer 1152921504606846976 outside the JSON-safe range",
+      );
     });
 
     it("a delete takes each version public before private", () => {
       const post = buildPost(OTTO, { content: "x" });
       const pub = `/pub/social/v1/posts/${post.id}/${post.id}.json`;
       const priv = `/priv/social/v1/posts/${post.id}/${post.id}.json`;
-      assert.deepStrictEqual(planDelete(OTTO, { id: post.id, copies: [{ root: "private", path: priv }, { root: "public", path: pub }] }).deletes, [pub, priv]);
+      assert.deepStrictEqual(
+        planDelete(OTTO, {
+          id: post.id,
+          copies: [
+            { root: "private", path: priv },
+            { root: "public", path: pub },
+          ],
+        }).deletes,
+        [pub, priv],
+      );
       setClock(() => T0 + 1);
       const edit = specs.editPost(post.url, post.object).editId;
       const at = (root, e) => `/${root}/social/v1/posts/${post.id}/${e}.json`;
-      const copies = [["priv", edit], ["pub", edit], ["priv", post.id], ["pub", post.id]].map(([r, e]) => ({ root: r === "pub" ? "public" : "private", path: at(r, e) }));
+      const copies = [
+        ["priv", edit],
+        ["pub", edit],
+        ["priv", post.id],
+        ["pub", post.id],
+      ].map(([r, e]) => ({ root: r === "pub" ? "public" : "private", path: at(r, e) }));
       assert.deepStrictEqual(planDelete(OTTO, { id: post.id, copies }).deletes, [at("pub", post.id), at("priv", post.id), at("pub", edit), at("priv", edit)]);
       assert.strictEqual(parseUri(`pubky://${OTTO}${pub}`).kind, "post");
       assert.strictEqual(buildUri(OTTO, "post", post.id), `pubky://${OTTO}/pub/social/v1/posts/${post.id}`);

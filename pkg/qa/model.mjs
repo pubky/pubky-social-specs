@@ -156,7 +156,10 @@ class Tree extends MemoryPort {
 
   /** Owner-relative paths stored under `prefix`, the client's LIST. */
   paths(prefix) {
-    return [...this.store.keys()].filter((u) => u.startsWith(url(prefix))).map(rel).sort();
+    return [...this.store.keys()]
+      .filter((u) => u.startsWith(url(prefix)))
+      .map(rel)
+      .sort();
   }
 }
 
@@ -193,7 +196,10 @@ const create = async (tree, build) => {
 const headOf = (tree, id, root) => {
   const dir = `/${root === "public" ? "pub" : "priv"}/social/v1/posts/${id}/`;
   const versions = tree.paths(dir).filter((p) => p.endsWith(".json"));
-  const newest = versions.map((p) => ({ p, editId: api.parseUri(url(p)).editId })).sort((a, b) => (a.editId < b.editId ? -1 : 1)).at(-1);
+  const newest = versions
+    .map((p) => ({ p, editId: api.parseUri(url(p)).editId }))
+    .sort((a, b) => (a.editId < b.editId ? -1 : 1))
+    .at(-1);
   if (newest === undefined) return null;
   return { path: newest.p, url: url(newest.p), object: api.decodeObject(url(newest.p), tree.store.get(url(newest.p)), "post") };
 };
@@ -236,7 +242,11 @@ const keysOfLegacy = (() => {
   for (const [p, bytes] of [...rows.filter(([p]) => p.includes("/files/")), ...rows.filter(([p]) => !p.includes("/files/"))]) {
     try {
       const result = transforms.migrate(run, url(`/${p}`), bytes);
-      if ("writes" in result) out.set(`/${p}`, result.writes.map((w) => keyOf(w.meta.path)));
+      if ("writes" in result)
+        out.set(
+          `/${p}`,
+          result.writes.map((w) => keyOf(w.meta.path)),
+        );
     } catch {}
   }
   run.free();
@@ -393,7 +403,10 @@ class Unpublish extends Step {
   }
 
   async apply(model, tree) {
-    const id = pick(postIds(tree).filter((p) => !model.privatePosts.has(p) && tree.paths(`/pub/social/v1/posts/${p}/`).length > 0), this.i);
+    const id = pick(
+      postIds(tree).filter((p) => !model.privatePosts.has(p) && tree.paths(`/pub/social/v1/posts/${p}/`).length > 0),
+      this.i,
+    );
     if (id === undefined) return;
     const legacy = `/pub/pubky.app/posts/${id}`;
     const privateHead = headOf(tree, id, "private")?.path ?? null;
@@ -589,11 +602,22 @@ const property = fc.asyncProperty(fc.commands(commands, { maxCommands: Number(ar
 
 const details = await fc.check(property, { numRuns: runs, seed, ...(args.path ? { path: args.path } : {}), verbose: args.verbose ? 1 : 0 });
 for (const { testing } of instances) testing.setClock();
-const summary = { runs: details.numRuns, executed, seed, ms: Date.now() - started, failed: details.failed, knownResurrections: Object.fromEntries(known), steps: Object.fromEntries([...stats].sort()) };
+const summary = {
+  runs: details.numRuns,
+  executed,
+  seed,
+  ms: Date.now() - started,
+  failed: details.failed,
+  knownResurrections: Object.fromEntries(known),
+  steps: Object.fromEntries([...stats].sort()),
+};
 if (details.failed) {
   summary.path = details.counterexamplePath;
   summary.counterexample = String(details.counterexample?.[0]);
-  summary.error = String(details.errorInstance?.message ?? details.error).split("\n").slice(0, 12).join("\n");
+  summary.error = String(details.errorInstance?.message ?? details.error)
+    .split("\n")
+    .slice(0, 12)
+    .join("\n");
 }
 console.log(JSON.stringify(summary, null, 1));
 process.exitCode = details.failed ? 1 : 0;

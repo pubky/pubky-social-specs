@@ -105,11 +105,11 @@ describe("migration against a testnet homeserver", function () {
     try {
       const recovery = path.join(dir, "account.pkarr");
       writeFileSync(recovery, keypair.createRecoveryFile("e2e passphrase"), { mode: 0o600 });
-      const run = spawnSync(
-        process.execPath,
-        [CLI, "--recovery", recovery, "--passphrase-env", "E2E_PASSPHRASE", "--testnet", HOST, "--rescan", "--dry-run", "--json"],
-        { env: { ...process.env, E2E_PASSPHRASE: "e2e passphrase" }, encoding: "utf8", timeout: 120_000 },
-      );
+      const run = spawnSync(process.execPath, [CLI, "--recovery", recovery, "--passphrase-env", "E2E_PASSPHRASE", "--testnet", HOST, "--rescan", "--dry-run", "--json"], {
+        env: { ...process.env, E2E_PASSPHRASE: "e2e passphrase" },
+        encoding: "utf8",
+        timeout: 120_000,
+      });
       assert.strictEqual(run.status, 0, run.stderr);
       const report = JSON.parse(run.stdout);
       assert.strictEqual(report.status, "done");

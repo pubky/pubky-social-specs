@@ -43,11 +43,7 @@ export function canonicalExternal(raw: string): string | null {
 
 /** Dispatch on the untrimmed string, so a pasted leading space defeats it on purpose. */
 export function canonicalUniversal(raw: string): string | null {
-  const canonical = raw.startsWith("pubky")
-    ? canonicalPubky(raw)
-    : raw.startsWith("http://") || raw.startsWith("https://")
-      ? canonicalWeb(raw)
-      : canonicalExternal(raw);
+  const canonical = raw.startsWith("pubky") ? canonicalPubky(raw) : raw.startsWith("http://") || raw.startsWith("https://") ? canonicalWeb(raw) : canonicalExternal(raw);
   return canonical !== null && codePointLen(canonical) <= limits.referenceUriMaxLength ? canonical : null;
 }
 
@@ -58,13 +54,7 @@ export type Schemes = "pubky" | "pubky or web" | "web" | "";
  * value the root rule, the ownership rule and the versionless rule. Returns the canonical
  * form, or the fragment of the refusal that follows the field name.
  */
-export function reference(
-  uri: string,
-  schemes: Schemes,
-  max: number,
-  publicRoot: boolean,
-  owner: string | null,
-): { canonical: string } | { refusal: string } {
+export function reference(uri: string, schemes: Schemes, max: number, publicRoot: boolean, owner: string | null): { canonical: string } | { refusal: string } {
   const shape = { refusal: `must be a canonical${schemes && " "}${schemes} URI of at most ${max} code points: ${uri}` };
   const isPubky = uri.startsWith("pubky");
   let canonical: string | null;
@@ -84,14 +74,7 @@ export function reference(
 }
 
 /** A stored reference is the fixed point of its canonical spelling. */
-export function checkReference(
-  field: string,
-  uri: string,
-  schemes: Schemes,
-  max: number,
-  publicRoot: boolean,
-  owner: string | null,
-): void {
+export function checkReference(field: string, uri: string, schemes: Schemes, max: number, publicRoot: boolean, owner: string | null): void {
   const result = reference(uri, schemes, max, publicRoot, owner);
   if ("refusal" in result) fail(`${field} ${result.refusal}`, field);
   if (result.canonical !== uri) fail(`${field} must be spelled in canonical form: ${uri}`, field);

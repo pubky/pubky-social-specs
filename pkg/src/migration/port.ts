@@ -98,8 +98,7 @@ const MAPPED: Partial<Record<number, PortErrorKind>> = {
  * means the root does not exist is `unsupported` only where the adapter knows that; here it
  * is `rejected`.
  */
-const refusal = (status: number, message?: string): MigrationPortError =>
-  new MigrationPortError(MAPPED[status] ?? (status >= 500 ? "network" : "rejected"), message, status);
+const refusal = (status: number, message?: string): MigrationPortError => new MigrationPortError(MAPPED[status] ?? (status >= 500 ? "network" : "rejected"), message, status);
 
 const portErrorKind = (error: unknown): PortErrorKind => (error instanceof MigrationPortError ? error.kind : "network");
 

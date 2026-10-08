@@ -41,9 +41,7 @@ class MemoryPort implements MigrationPort {
   async list(prefixUrl: string, cursor?: string): Promise<{ urls: string[]; next?: string }> {
     await this.#enter("list", prefixUrl);
     if (prefixUrl === "") return { urls: [] };
-    const matching = [...this.store.keys()]
-      .filter((url) => url.startsWith(prefixUrl) && (cursor === undefined || url > cursor))
-      .sort();
+    const matching = [...this.store.keys()].filter((url) => url.startsWith(prefixUrl) && (cursor === undefined || url > cursor)).sort();
     const urls = matching.slice(0, this.#pageSize);
     const last = urls.at(-1);
     return matching.length > this.#pageSize && last !== undefined ? { urls, next: last } : { urls };

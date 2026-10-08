@@ -51,9 +51,7 @@ export function buildChecked(owner: string, kind: ObjectKind, id = ""): `pubky:/
   const named =
     located !== null &&
     located.kind === kind &&
-    (located.kind === "user" ||
-      located.kind === "file" ||
-      (located.kind === "post" ? located.editId === undefined && located.id === id : "id" in located && located.id === id));
+    (located.kind === "user" || located.kind === "file" || (located.kind === "post" ? located.editId === undefined && located.id === id : "id" in located && located.id === id));
   return named ? uri : fail(`not ${kind === "file" ? "a media file name" : `the id of a ${kind}`}: ${id}`, "id");
 }
 

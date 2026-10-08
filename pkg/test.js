@@ -9,10 +9,38 @@ import { setClock } from "./dist/testing.js";
 import * as postModel from "./dist/models/post.js";
 
 const {
-  ValidationError, limits, validMimeTypes, postKinds, feedReaches, feedLayouts, feedSorts, collectionLayouts,
-  decodeObject, encodeObject, decodeContent, encodeContent,
-  buildUser, buildPost, editPost, buildFeed, feedId, buildTag, buildBookmark, buildFollow, buildMute, buildFile, createMediaHasher,
-  planPublish, planUnpublish, planDelete, deletionPaths, parseUri, buildUri, listPrefix, toPath, hashMedia,
+  ValidationError,
+  limits,
+  validMimeTypes,
+  postKinds,
+  feedReaches,
+  feedLayouts,
+  feedSorts,
+  collectionLayouts,
+  decodeObject,
+  encodeObject,
+  decodeContent,
+  encodeContent,
+  buildUser,
+  buildPost,
+  editPost,
+  buildFeed,
+  feedId,
+  buildTag,
+  buildBookmark,
+  buildFollow,
+  buildMute,
+  buildFile,
+  createMediaHasher,
+  planPublish,
+  planUnpublish,
+  planDelete,
+  deletionPaths,
+  parseUri,
+  buildUri,
+  listPrefix,
+  toPath,
+  hashMedia,
 } = specs;
 
 const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
@@ -38,13 +66,58 @@ describe("pubky-social-specs", () => {
 
   describe("the entry", () => {
     it("exports exactly this, and nothing loads a wasm", () => {
-      assert.deepStrictEqual(Object.keys(specs).sort(), [
-        "ValidationError", "buildBookmark", "buildFeed", "buildFile", "buildFollow", "buildMute", "buildPost", "buildTag", "buildUri", "buildUser",
-        "collectionLayouts", "createMediaHasher", "decodeContent", "decodeObject", "deletionPaths", "editPost", "encodeContent", "encodeObject",
-        "feedId", "feedLayouts", "feedReaches", "feedSorts", "hashMedia", "limits", "listPrefix", "parseEditId", "parseMediaId", "parseOwner", "parseOwnerPath",
-        "parsePostId", "parsePostRef", "parsePubkyUrl", "parseUri", "planDelete", "planPublish", "planUnpublish", "postKinds", "toPath", "validMimeTypes",
-        "feedSchema", "postSchema", "tagSchema", "userSchema", "validateFeed", "validatePost", "validateTag", "validateUser",
-      ].sort());
+      assert.deepStrictEqual(
+        Object.keys(specs).sort(),
+        [
+          "ValidationError",
+          "buildBookmark",
+          "buildFeed",
+          "buildFile",
+          "buildFollow",
+          "buildMute",
+          "buildPost",
+          "buildTag",
+          "buildUri",
+          "buildUser",
+          "collectionLayouts",
+          "createMediaHasher",
+          "decodeContent",
+          "decodeObject",
+          "deletionPaths",
+          "editPost",
+          "encodeContent",
+          "encodeObject",
+          "feedId",
+          "feedLayouts",
+          "feedReaches",
+          "feedSorts",
+          "hashMedia",
+          "limits",
+          "listPrefix",
+          "parseEditId",
+          "parseMediaId",
+          "parseOwner",
+          "parseOwnerPath",
+          "parsePostId",
+          "parsePostRef",
+          "parsePubkyUrl",
+          "parseUri",
+          "planDelete",
+          "planPublish",
+          "planUnpublish",
+          "postKinds",
+          "toPath",
+          "validMimeTypes",
+          "feedSchema",
+          "postSchema",
+          "tagSchema",
+          "userSchema",
+          "validateFeed",
+          "validatePost",
+          "validateTag",
+          "validateUser",
+        ].sort(),
+      );
       assert.strictEqual(typeof WebAssembly.instantiate, "function");
     });
 
@@ -317,7 +390,10 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(decodeObject(follow.url, follow.body, "follow"), follow.object);
       const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
       assert.deepStrictEqual(decodeObject(media.url, utf8("hi"), "file"), utf8("hi"));
-      assert.throws(() => decodeObject(follow.url, new Uint8Array(), "post"), (e) => e instanceof ValidationError && e.field === "uri" && /names a follow, not a post/.test(e.reason));
+      assert.throws(
+        () => decodeObject(follow.url, new Uint8Array(), "post"),
+        (e) => e instanceof ValidationError && e.field === "uri" && /names a follow, not a post/.test(e.reason),
+      );
       misuse(() => decodeObject(follow.url, follow.body, "posts"), /kind must be an object kind/);
     });
 
@@ -368,7 +444,7 @@ describe("pubky-social-specs", () => {
       refuses(read('{"name":1,"bio":'), "Validation Error: invalid type: integer `1`, expected a string");
       refuses(read('{"name":"a\\tb­","name":"x"}'), "Validation Error: duplicate field `name`");
       refuses(read('{"bio":"\\u00ad"}'), "Validation Error: missing field `name`");
-      refuses(read('{"name":"­é\\n"}'.replace('"­', '{"x":"­').replace('\\n"}', '\\n"}}')), 'Validation Error: invalid type: map, expected a string');
+      refuses(read('{"name":"­é\\n"}'.replace('"­', '{"x":"­').replace('\\n"}', '\\n"}}')), "Validation Error: invalid type: map, expected a string");
       refuses(() => decodeObject(url, new Uint8Array([0x22, 0xff, 0x22])), /invalid type: string|invalid unicode code point/);
       refuses(() => decodeObject(buildUri(OTTO, "post", "0034A0X7NJ52G"), utf8("{}")), "Validation Error: a versionless post reference is never a stored object");
       refuses(() => decodeObject(`pubky://${OTTO}/pub/other.app/v1/x`, utf8("{}")), "Validation Error: a foreign namespace is not a social object");
@@ -383,7 +459,17 @@ describe("pubky-social-specs", () => {
     });
 
     it("a polluted Object.prototype or Array.prototype never reaches a built or encoded object", () => {
-      const polluted = { parent: "https://evil.example/", root: "private", embed: "https://evil.example/", lock: buildUri(RIO, "user"), slug: "x", $unknown: '{"evil":1}', kind: "article", title: "t", name: "n" };
+      const polluted = {
+        parent: "https://evil.example/",
+        root: "private",
+        embed: "https://evil.example/",
+        lock: buildUri(RIO, "user"),
+        slug: "x",
+        $unknown: '{"evil":1}',
+        kind: "article",
+        title: "t",
+        name: "n",
+      };
       const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
       Object.assign(Object.prototype, polluted);
       Array.prototype[0] = { uri: "https://evil.example/" };
@@ -421,14 +507,23 @@ describe("pubky-social-specs", () => {
       let deep = { name: "x" };
       for (let i = 0; i < 40; i++) deep = { links: [deep] };
       misuse(() => encodeObject(url, deep), /must be plain data nested at most 32 deep/);
-      const trap = { ...base, get bio() { throw new RangeError("mine"); } };
+      const trap = {
+        ...base,
+        get bio() {
+          throw new RangeError("mine");
+        },
+      };
       assert.throws(() => encodeObject(url, trap), RangeError);
       misuse(() => encodeObject(url, new Map()), /user\.name must be given/);
     });
 
     it("reads a caller's value once, before any rule: a getter or a Proxy cannot answer twice", () => {
       let reads = 0;
-      const input = { get content() { return ++reads === 1 ? "first" : "x".repeat(5000); } };
+      const input = {
+        get content() {
+          return ++reads === 1 ? "first" : "x".repeat(5000);
+        },
+      };
       assert.strictEqual(text(buildPost(OTTO, input).body).includes('"first"'), true);
       assert.strictEqual(reads, 1);
       const traps = [];
@@ -437,7 +532,12 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(traps, ["ownKeys", "name", "bio"]);
       // One object reached twice is read once
       let shared = 0;
-      const attachment = { get uri() { shared++; return "https://example.com/a.png"; } };
+      const attachment = {
+        get uri() {
+          shared++;
+          return "https://example.com/a.png";
+        },
+      };
       buildPost(OTTO, { kind: "image", content: "c", attachments: [attachment, attachment] });
       assert.strictEqual(shared, 1);
     });
@@ -501,7 +601,11 @@ describe("pubky-social-specs", () => {
       const gone = planDelete(OTTO, {
         id: draft.id,
         legacyPaths: [`/pub/pubky.app/posts/${draft.id}`],
-        copies: [{ root: "private", path: edited.path }, { root: "public", path: plan.put.path }, { root: "private", path: draft.path }],
+        copies: [
+          { root: "private", path: edited.path },
+          { root: "public", path: plan.put.path },
+          { root: "private", path: draft.path },
+        ],
         versions: [edited.object, plan.put.object],
       });
       assert.deepStrictEqual(gone.deletes, [`/pub/pubky.app/posts/${draft.id}`, draft.path, plan.put.path, edited.path]);
@@ -549,7 +653,11 @@ describe("pubky-social-specs", () => {
         ["file", "0000000000000000000000000G"],
         ["file", "0000000000000000000000000G.exe"],
       ]) {
-        assert.throws(() => buildUri(OTTO, kind, id), (e) => e instanceof ValidationError && e.field === "id", `${kind} ${id}`);
+        assert.throws(
+          () => buildUri(OTTO, kind, id),
+          (e) => e instanceof ValidationError && e.field === "id",
+          `${kind} ${id}`,
+        );
       }
       const media = buildFile(OTTO, { bytes: utf8("hello"), type: "image/png" });
       const parsed = parseUri(media.url);
@@ -558,7 +666,15 @@ describe("pubky-social-specs", () => {
     });
 
     it("classifies what is no social object as a kind, never an error", () => {
-      assert.deepStrictEqual(parseUri(`pubky://${OTTO}/pub/other.app/v2/a/b`), { owner: OTTO, root: "public", path: "/pub/other.app/v2/a/b", kind: "foreign", namespace: "other.app", version: "v2", rest: ["a", "b"] });
+      assert.deepStrictEqual(parseUri(`pubky://${OTTO}/pub/other.app/v2/a/b`), {
+        owner: OTTO,
+        root: "public",
+        path: "/pub/other.app/v2/a/b",
+        kind: "foreign",
+        namespace: "other.app",
+        version: "v2",
+        rest: ["a", "b"],
+      });
       assert.strictEqual(parseUri(`pubky://${OTTO}/pub/social/v9/x`).kind, "unsupportedVersion");
       assert.strictEqual(parseUri(`pubky://${OTTO}/pub/social/v1/nope`).kind, "unknown");
       assert.strictEqual(parseUri(`pubky${OTTO}`).kind, "user");

@@ -387,7 +387,14 @@ export class Reader {
 }
 
 const ESCAPES: Record<number, string> = {
-  0x22: '"', 0x5c: "\\", 0x2f: "/", 0x62: "\b", 0x66: "\f", 0x6e: "\n", 0x72: "\r", 0x74: "\t",
+  0x22: '"',
+  0x5c: "\\",
+  0x2f: "/",
+  0x62: "\b",
+  0x66: "\f",
+  0x6e: "\n",
+  0x72: "\r",
+  0x74: "\t",
 };
 
 /** One document: a value and nothing after it. */
