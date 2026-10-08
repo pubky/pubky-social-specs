@@ -43,7 +43,7 @@ export class Reader {
     throw new JsonError(message);
   }
 
-  peek(): number | undefined {
+  private peek(): number | undefined {
     return this.bytes[this.pos];
   }
 
