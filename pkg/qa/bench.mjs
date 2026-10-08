@@ -218,27 +218,18 @@ class BenchPort {
 }
 
 const account = new BenchPort();
+const store = ([path, body]) => account.store.set(url(path), body);
 const counts = { posts: 5000, tags: 15000, follows: 500, blobs: 50 };
 for (let i = 0; i < counts.blobs; i++) {
   const bytes = blobOf(1 << 20, i + 7);
   const hash = mediaId(bytes);
-  account.store.set(url(`pub/pubky.app/blobs/${hash}`), bytes);
-  const [path, body] = fileFor(i, hash, bytes.length);
-  account.store.set(url(path), body);
+  store([`pub/pubky.app/blobs/${hash}`, bytes]);
+  store(fileFor(i, hash, bytes.length));
 }
-for (let i = 0; i < counts.posts; i++) {
-  const [path, body] = i % 10 === 0 ? KINDS.post_media(i) : i % 25 === 1 ? KINDS.post_long(i) : KINDS.post(i);
-  account.store.set(url(path), body);
-}
-for (let i = 0; i < counts.tags; i++) {
-  const [path, body] = KINDS.tag(i);
-  account.store.set(url(path), body);
-}
-for (let i = 0; i < counts.follows; i++) {
-  const [path, body] = KINDS.follow(i);
-  account.store.set(url(path), body);
-}
-account.store.set(...(([p, b]) => [url(p), b])(KINDS.profile()));
+for (let i = 0; i < counts.posts; i++) store(i % 10 === 0 ? KINDS.post_media(i) : i % 25 === 1 ? KINDS.post_long(i) : KINDS.post(i));
+for (let i = 0; i < counts.tags; i++) store(KINDS.tag(i));
+for (let i = 0; i < counts.follows; i++) store(KINDS.follow(i));
+store(KINDS.profile());
 const objects = [...account.store.keys()].length;
 const storedBytes = [...account.store.values()].reduce((s, b) => s + b.length, 0);
 
