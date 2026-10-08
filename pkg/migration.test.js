@@ -175,6 +175,12 @@ describe("migration engine", () => {
     });
   });
 
+  it("MemoryPort refuses a page size that would end a LIST before it read anything", () => {
+    for (const pageSize of [0, -1, 1.5, NaN, 1001]) assert.throws(() => new MemoryPort({ pageSize }), RangeError, String(pageSize));
+
+    assert.doesNotThrow(() => new MemoryPort({ pageSize: 1 }));
+  });
+
   describe("runMigration", () => {
     // An uninterrupted run over the tree: its report, its flag, and the tree it leaves besides
     let whole;

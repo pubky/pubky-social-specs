@@ -17,7 +17,7 @@ export interface MemoryPortOptions {
    * device would.
    */
   intercept?: (op: PortOp, url: string) => void | Promise<void>;
-  /** URLs per LIST page; a homeserver caps it at 1000. */
+  /** URLs per LIST page, an integer from 1 to 1000 (1000 by default); a homeserver caps it at 1000. A `RangeError` refuses anything else. */
   pageSize?: number;
 }
 
@@ -46,7 +46,10 @@ class MemoryPort implements MigrationPort {
   constructor(options: MemoryPortOptions = {}) {
     this.#privSupported = options.privSupported ?? true;
     this.#intercept = options.intercept;
-    this.#pageSize = options.pageSize ?? 1000;
+    const pageSize = options.pageSize ?? 1000;
+    // An empty first page would read as an empty tree, and a run would finish having seen nothing
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 1000) throw new RangeError(`MemoryPort: pageSize must be an integer from 1 to 1000, not ${pageSize}`);
+    this.#pageSize = pageSize;
   }
 
   /** One page of the stored URLs under `prefixUrl`, as `MigrationPort.list` defines it. */
