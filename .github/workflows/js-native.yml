@@ -1,0 +1,184 @@
+name: npm package (native)
+
+# The gates of the native TypeScript package. `dist` is built here only, by the pinned
+# toolchain, and every other job tests that build. Actions are pinned by commit.
+
+on:
+  push:
+    branches: [main, v1]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.97.0"
+  WASM_PACK: "0.13.1"
+  NODE: "24.13.0"
+
+defaults:
+  run:
+    working-directory: pkg
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          cache-targets: "wasm32-unknown-unknown"
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: wasm-pack@${{ env.WASM_PACK }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - run: npm ci --ignore-scripts
+      - name: Build dist (tsc, then the migrator's wasm, cargo --locked)
+        run: npm run build
+      - name: The build left the tracked files untouched
+        run: |
+          if [ -n "$(git status --porcelain .)" ]; then git status --short .; exit 1; fi
+      # The crate's answers, which the data check and the parity fuzz compare against
+      - name: Build the surface oracle
+        working-directory: .
+        run: cargo build --locked --release --features surface --bin surface_oracle
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: pkg/dist
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: oracle
+          path: target/release/surface_oracle
+          if-no-files-found: error
+
+  checks:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SURFACE_ORACLE: ${{ github.workspace }}/oracle/surface_oracle
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: oracle
+          path: oracle
+      - run: chmod +x "$SURFACE_ORACLE"
+      - run: npm ci --ignore-scripts
+      - run: npm run tools
+      - name: Typecheck
+        run: npx tsc -p . --noEmit
+      - name: The declarations as a consumer compiles them
+        run: npm run types
+      - name: typescript-eslint, strict and type-checked
+        run: npm run lint
+      - name: The layering
+        run: npm run deps
+      - name: Format
+        run: npm run format:check
+      - name: The public surface is the committed one
+        run: npm run api
+      - name: The generated tables are the crate's
+        run: node qa/data.mjs --check
+      - name: Unit tests from the sources, with coverage floors per module
+        run: npm run coverage
+      - name: Offline vector replay against the build
+        run: npx mocha vectors.test.js
+      - name: Parity with the crate on fresh seeded cases
+        run: npm run score -- --fuzz 20000
+      - name: Hostile arguments
+        run: node --expose-gc --max-old-space-size=3072 qa/boundary.mjs
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - run: npm ci --ignore-scripts
+      - name: Pack
+        run: echo "TARBALL=$(npm pack --json | jq -r '.[0].filename')" >> "$GITHUB_ENV"
+      - name: publint on the tarball
+        run: npx publint --strict "$TARBALL"
+      - name: Are the types wrong, on the tarball
+        run: npx attw "$TARBALL" --profile esm-only
+      - name: The tarball holds exactly the agreed files
+        run: tar -tzf "$TARBALL" | sed 's#^package/##' | sort | diff -u api/files.txt -
+      - name: Bundle size per entry, tree-shaking and cold start
+        run: npm run size
+
+  matrix:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20.19.0", "22", "24"]
+    runs-on: ubuntu-latest
+    env:
+      SURFACE_ORACLE: ${{ github.workspace }}/oracle/surface_oracle
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: oracle
+          path: oracle
+      - run: chmod +x "$SURFACE_ORACLE"
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
+  runtimes:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - run: npm ci --ignore-scripts
+      - name: Node
+        run: node qa/smoke.mjs
+      - name: Deno
+        run: deno run --allow-read --allow-env qa/smoke.mjs
+      - name: Bun
+        run: bun qa/smoke.mjs
+      - name: Chromium
+        run: |
+          npx playwright install --with-deps chromium
+          node qa/browser.mjs

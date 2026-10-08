@@ -1,0 +1,82 @@
+name: npm package (native), nightly
+
+# The long runs: the parity fuzz, the chaos variants, the model fuzz at 10k runs, the property
+# tests at a random seed, and both mutation passes. Results are kept as artifacts.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.97.0"
+  WASM_PACK: "0.13.1"
+  NODE: "24.13.0"
+
+defaults:
+  run:
+    working-directory: pkg
+
+jobs:
+  build:
+    uses: ./.github/workflows/js-native.yml
+
+  long:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      SURFACE_ORACLE: ${{ github.workspace }}/oracle/surface_oracle
+    strategy:
+      fail-fast: false
+      matrix:
+        run:
+          - name: parity
+            cmd: npm run score -- --fuzz 50000 --seed "$GITHUB_RUN_NUMBER"
+          - name: model
+            cmd: npm run model -- --runs 10000 --seed "$GITHUB_RUN_NUMBER"
+          - name: properties
+            cmd: FC_SEED="$GITHUB_RUN_NUMBER" FC_RUNS=5000 npx mocha property.test.js validate.test.js
+          - name: chaos-main
+            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant main --seeds 1000 --out qa/out/chaos-main.json
+          - name: chaos-quota-rate
+            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant quota-rate --seeds 300 --out qa/out/chaos-quota-rate.json
+          - name: chaos-lost-response
+            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant lost-response --seeds 300 --out qa/out/chaos-lost-response.json
+          - name: chaos-phantom-404
+            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant phantom-404 --seeds 300 --out qa/out/chaos-phantom-404.json
+          - name: chaos-any-kind
+            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant any-kind --seeds 300 --out qa/out/chaos-any-kind.json
+          - name: stryker
+            cmd: npm run mutation
+          - name: named-mutations
+            cmd: node qa/mutate.mjs --seeds 150 --out qa/out/mutate.json
+    name: ${{ matrix.run.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: pkg/dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: oracle
+          path: oracle
+      - run: chmod +x "$SURFACE_ORACLE"
+      - run: npm ci --ignore-scripts
+      - run: ${{ matrix.run.cmd }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-${{ matrix.run.name }}
+          path: |
+            pkg/qa/out/*.json
+            pkg/qa/out/stryker/report.json
+            pkg/qa/failures
+          if-no-files-found: ignore

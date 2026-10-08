@@ -1,0 +1,55 @@
+name: npm package (native), reproducible build
+
+# Rebuilds dist from the released tag with the pinned toolchain and compares it, file by file,
+# with the dist of the tarball npm serves for that version.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The tag to rebuild, such as v1.0.0-beta.2"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.97.0"
+  WASM_PACK: "0.13.1"
+  NODE: "24.13.0"
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: wasm-pack@${{ env.WASM_PACK }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE }}
+      - name: Build dist from the tag
+        working-directory: pkg
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+      - name: Compare with the published tarball
+        working-directory: pkg
+        run: |
+          version="${TAG#v}"
+          mkdir -p "$RUNNER_TEMP/published"
+          npm pack "pubky-social-specs@$version" --pack-destination "$RUNNER_TEMP/published"
+          tar -xzf "$RUNNER_TEMP"/published/*.tgz -C "$RUNNER_TEMP/published"
+          diff -r dist "$RUNNER_TEMP/published/package/dist"
+          echo "dist rebuilt from $TAG is byte for byte the published one"

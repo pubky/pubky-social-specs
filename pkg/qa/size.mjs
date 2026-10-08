@@ -8,22 +8,27 @@ import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 
-const entry = new URL("../dist/index.js", import.meta.url).pathname;
+const at = (file) => new URL(`../dist/${file}`, import.meta.url).pathname;
+const entry = at("index.js");
 
 const PROBES = [
-  // [what is imported, gzipped budget in bytes, what must not be in the bundle]
-  ["{ buildUri }", 3_000, ["Too many attachments", "WebAssembly"]],
-  ["{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
-  ["{ limits }", 1_000, ["blake3", "WebAssembly"]],
-  ["{ buildPost }", 20_000, ["WebAssembly"]],
-  ["{ decodeObject }", 22_000, ["WebAssembly"]],
-  ["* as all", 30_000, ["WebAssembly"]],
+  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
+  ["index.js", "{ buildUri }", 3_000, ["Too many attachments", "WebAssembly"]],
+  ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
+  ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],
+  ["index.js", "{ buildPost }", 20_000, ["WebAssembly"]],
+  ["index.js", "{ decodeObject }", 22_000, ["WebAssembly"]],
+  ["index.js", "{ validatePost }", 17_000, ["WebAssembly"]],
+  ["index.js", "* as all", 30_000, ["WebAssembly"]],
+  ["testing.js", "* as all", 1_000, ["WebAssembly", "Too many attachments"]],
+  ["migration/index.js", "* as all", 340_000, []],
+  ["migration/adapters/pubky-sdk.js", "* as all", 3_000, ["WebAssembly"]],
 ];
 
 let failed = false;
-for (const [names, budget, absent] of PROBES) {
+for (const [file, names, budget, absent] of PROBES) {
   const { outputFiles } = await build({
-    stdin: { contents: `import ${names} from ${JSON.stringify(entry)}; globalThis.keep = ${names.replace(/[{}* ]|as /g, "")};`, resolveDir: "." },
+    stdin: { contents: `import ${names} from ${JSON.stringify(at(file))}; globalThis.keep = ${names.replace(/[{}* ]|as /g, "")};`, resolveDir: "." },
     bundle: true,
     minify: true,
     format: "esm",
@@ -36,7 +41,7 @@ for (const [names, budget, absent] of PROBES) {
   const ok = gzipped <= budget && dragged.length === 0;
   failed ||= !ok;
   console.log(
-    `${ok ? "ok  " : "FAIL"} import ${names.padEnd(18)} ${String(code.length).padStart(7)} B min  ${String(gzipped).padStart(6)} B gzip  (budget ${budget})${dragged.length ? `  drags in: ${dragged.join(", ")}` : ""}`,
+    `${ok ? "ok  " : "FAIL"} ${file.padEnd(32)} import ${names.padEnd(18)} ${String(code.length).padStart(7)} B min  ${String(gzipped).padStart(6)} B gzip  (budget ${budget})${dragged.length ? `  drags in: ${dragged.join(", ")}` : ""}`,
   );
 }
 
