@@ -129,10 +129,18 @@ export function buildFeed(owner: string | null, input: unknown, each: Each = thr
   const given = { tags: member(each, () => tagList.parse(i.tags, "input.tags"), null), domain: member(each, () => tagList.parse(i.domain_tags, "input.domain_tags"), null) };
   const name = member(each, () => string.parse(i.name, "input.name"), "");
   const icon = member(each, () => string.parse(i.icon, "input.icon"), "");
-  const content = i.content === null || i.content === undefined ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", i.content, "content"), null);
-  const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", i.reach, "reach"), "all");
-  const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", i.layout, "layout"), "columns");
-  const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", i.sort, "sort"), "recent");
+  // Every member's shape before any name is judged: the reference reads the whole input first
+  const raw = (js: unknown, field: string, fallback: string) => member(each, () => string.parse(js, `input.${field}`), fallback);
+  const names = {
+    content: i.content === null || i.content === undefined ? null : raw(i.content, "content", "note"),
+    reach: raw(i.reach, "reach", "all"),
+    layout: raw(i.layout, "layout", "columns"),
+    sort: raw(i.sort, "sort", "recent"),
+  };
+  const content = names.content === null ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", names.content, "content"), null);
+  const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", names.reach, "reach"), "all");
+  const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", names.layout, "layout"), "columns");
+  const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", names.sort, "sort"), "recent");
   const tags = member(each, () => filter(given.tags, "tags"), null);
   const domainTags = member(each, () => filter(given.domain, "domain_tags"), null);
   // The config is checked as the builder makes it, before the feed's own rules run it again:

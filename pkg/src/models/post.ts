@@ -430,16 +430,19 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const description = trimmedOrNull(opt(i.description, "input.description"));
     const entries = member(each, () => items.parse(i.items, "input.items"), null) ?? [];
     const cover = opt(i.cover_image, "input.cover_image");
-    const layout: CollectionLayout | null =
-      i.layout === null || i.layout === undefined ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", i.layout, "layout"), null);
-    const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
+    // Every member's shape before the layout's name is judged: the reference reads the whole input first
+    const layoutName = opt(i.layout, "input.layout");
     const { root, slug } = placement(i);
+    const layout: CollectionLayout | null = layoutName === null ? null : member<CollectionLayout | null>(each, () => known(collectionLayouts, "collection layout", layoutName, "layout"), null);
+    const content = collection.write({ name, description, items: entries, cover_image: cover, layout, extra: new Map() });
     return create({ content, kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
   const i = inputOf(input, "input", ["kind", "content", "parent", "embed", "attachments", "lock", "root", "slug"], each);
   const content = frozenTrim(str(i.content, "input.content"));
-  const typed = i.kind === null || i.kind === undefined ? "note" : member<PostKind>(each, () => known(postKinds, "content kind", i.kind, "kind"), "note");
+  const kindName = opt(i.kind, "input.kind");
   const thread = threaded(i);
   const { root, slug } = placement(i);
+  // The kind's name is judged once every member's shape was read, as the reference reads the whole input first
+  const typed = kindName === null ? "note" : member<PostKind>(each, () => known(postKinds, "content kind", kindName, "kind"), "note");
   return create({ content, kind: typed, ...thread, extra: new Map() }, root, slug);
 }

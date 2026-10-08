@@ -44,6 +44,18 @@ describe("invariants", () => {
     refuses(() => decodeObject(url, utf8('{"x":1,"x"y}')), "Validation Error: expected `:`");
   });
 
+  it("a builder reads the shape of every member before it judges a name", () => {
+    // Found by the coverage-guided fuzzer: the reference reads the whole input first
+    assert.throws(
+      () => specs.buildFeed(OTTO, { reach: "all", layout: "griran", name: "n", icon: "a" }),
+      (e) => e instanceof specs.ArgumentError && e.field === "input.sort",
+    );
+    assert.throws(
+      () => buildPost(OTTO, { kind: "poll", content: "x", attachments: [{ uri: 1 }] }),
+      (e) => e instanceof specs.ArgumentError && e.field === "input.attachments[0].uri",
+    );
+  });
+
   it("bytes in shared memory are copied before they are read", () => {
     const user = buildUser(OTTO, { name: "Ann" });
     const shared = new Uint8Array(new SharedArrayBuffer(user.body.length));
