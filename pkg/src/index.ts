@@ -20,6 +20,7 @@
 // argument is copied by `snapshot` first, and only the copy is read.
 
 import { plainBytes } from "./bytes.js";
+import { rememberUnknown, warnIfUnknownDropped } from "./dev.js";
 import { snapshot } from "./input.js";
 import * as ids from "./ids.js";
 import * as deletion from "./deletion.js";
@@ -89,6 +90,15 @@ const own = (value: unknown, name: string): unknown => snapshot(value, name);
  * Throws a `ValidationError` when the bytes are no valid object there. Other people's data can
  * be anything, so decode it inside a try. A post of a kind this version does not know is
  * refused too: it has rules this version cannot check.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, decodeObject } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const { url, body } = buildPost(owner, { content: "Hello" });
+ * const post = decodeObject(url, body, "post");
+ * console.log(post.content);
+ * ```
  */
 export function decodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
@@ -105,6 +115,7 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
   const read = objects.read(at, bytesOf(bytes, "bytes"));
   if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.body } : read.body;
   const object = objects.modelOf(read.kind).codec.plain(read.value) as T.Stored[keyof T.Stored];
+  rememberUnknown(at, object);
   return kind === undefined ? ({ kind: read.kind, object } as T.Decoded) : object;
 }
 
@@ -115,12 +126,26 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
  *
  * `at` is the URL it goes to. `{ kind, root? }` instead checks the object by the rules that
  * need no path, for bytes bound somewhere the data model does not name.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, decodeObject, encodeObject } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const { url, body } = buildPost(owner, { content: "Hello" });
+ * const read = decodeObject(url, body, "post");
+ * // A spread keeps the members another client added, in $unknown
+ * const bytes = encodeObject(url, { ...read, content: "Hello again" });
+ * console.log(bytes.length);
+ * ```
  */
 export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root | null }, object: T.Stored[keyof T.Stored] | Uint8Array | ArrayBuffer): T.Bytes {
   at = own(at, "at") as typeof at;
   object = own(object, "object") as typeof object;
   const media = plainBytes(object);
-  if (typeof at === "string") return objects.write(url(at, "at"), media ?? object);
+  if (typeof at === "string") {
+    if (media === null) warnIfUnknownDropped(at, object, "encodeObject");
+    return objects.write(url(at, "at"), media ?? object);
+  }
   const where = inputOf(at, "at", ["kind", "root"]);
   return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, media ?? object);
 }
@@ -129,6 +154,15 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
  * The envelope inside the `content` of an article or a collection; null for any other kind.
  * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
  * content is not a readable envelope.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, decodeContent } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const article = buildPost(owner, { kind: "article", title: "On pubky", body: "..." });
+ * const envelope = decodeContent(article.object);
+ * if (envelope?.kind === "article") console.log(envelope.content.title);
+ * ```
  */
 export function decodeContent(post: T.Post): { kind: "article"; content: T.ArticleContent } | { kind: "collection"; content: T.CollectionContent } | null {
   const given = own(post, "post");
@@ -150,6 +184,13 @@ export function decodeContent(post: T.Post): { kind: "article"; content: T.Artic
  * The `content` string of an article (an envelope with a `title`) or a collection (one with a
  * `name`), for a post about to be edited. It only spells the envelope: the rules run when the
  * post is passed to `editPost` or `encodeObject`.
+ *
+ * @example
+ * ```ts
+ * import { encodeContent } from "pubky-social-specs";
+ * const content = encodeContent({ title: "On pubky", body: "...", cover_image: null });
+ * console.log(content);
+ * ```
  */
 export function encodeContent(content: T.ArticleContent | T.CollectionContent): string {
   const given = own(content, "content");
@@ -163,6 +204,15 @@ export function encodeContent(content: T.ArticleContent | T.CollectionContent): 
  * A fresh profile for `owner`, a bare public key. Name, bio, status and link titles are
  * trimmed; `image` and each link `url` are stored as written and must be canonical already.
  * To change a stored profile and keep what this version does not know: decode, edit, encode.
+ *
+ * @example
+ * ```ts
+ * import { buildUser } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const profile = buildUser(owner, { name: "Alice", bio: "Hiking and Rust" });
+ * // PUT profile.body at profile.path with the SDK session
+ * console.log(profile.path);
+ * ```
  */
 export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.User> {
   return built(owner, users.user.codec as Codec<never>, users.buildUser(key(owner, "owner"), own(input, "input")));
@@ -173,6 +223,16 @@ export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`,
  * and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`.
  * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, buildUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * const hello = buildPost(owner, { content: "Hello" });
+ * const reply = buildPost(owner, { content: "Welcome", parent: buildUri(friend, "post", "0034A0X7NJ52C") });
+ * console.log(hello.path, reply.object.parent);
+ * ```
  */
 export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, input: I & T.CheckedPost<I>): T.BuiltPost {
   return builtPost(owner, posts.buildPost(key(owner, "owner"), own(input, "input")));
@@ -184,12 +244,22 @@ export function buildPost<const I extends T.NewPost>(owner: T.Given<"Owner">, in
  * storage: the owner and the post id are read from it. `post` is the stored post as it should
  * now read, the `.object` of a decode with its changes. `root` defaults to the head's own; a
  * slug is not carried over from the head.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, editPost } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const first = buildPost(owner, { content: "Helo" });
+ * const fixed = editPost(first.url, { ...first.object, content: "Hello" });
+ * console.log(fixed.id === first.id, fixed.editId > first.editId);
+ * ```
  */
 export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { root?: T.Root | null; slug?: string | null } | null): T.BuiltPost {
   post = own(post, "post") as T.Post;
   options = own(options, "options") as typeof options;
   const head = uris.parse(url(headUri, "headUri"));
   if (head.kind !== "post" || head.editId === undefined) return fail(`not the URI of a stored post version: ${headUri}`);
+  warnIfUnknownDropped(headUri, post, "editPost");
   const given = options === undefined || options === null ? {} : inputOf(options, "options", ["root", "slug"]);
   const root = given.root === undefined || given.root === null ? head.root : rootOf(given.root, "options.root");
   const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "options.slug");
@@ -201,12 +271,31 @@ export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { ro
  * A feed at its private path. The id is derived from the filter alone (reach, layout, sort,
  * content, tags), so two feeds with one filter are one feed whatever their names, and an
  * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
+ *
+ * @example
+ * ```ts
+ * import { buildFeed } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const feed = buildFeed(owner, { name: "Rust", icon: "crab", reach: "all", layout: "columns", sort: "recent", tags: ["rust"] });
+ * console.log(feed.path);
+ * ```
  */
 export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.Feed> {
   return built(owner, feeds.feed.codec as Codec<never>, feeds.buildFeed(key(owner, "owner"), own(input, "input")));
 }
 
-/** The id of a feed object: an edited filter moves the feed, and this is where to. */
+/**
+ * The id of a feed object: an edited filter moves the feed, and this is where to.
+ *
+ * @example
+ * ```ts
+ * import { buildFeed, feedId } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const feed = buildFeed(owner, { name: "Rust", icon: "crab", reach: "all", layout: "columns", sort: "recent" });
+ * const moved = feedId({ ...feed.object, feed: { ...feed.object.feed, sort: "popularity" } });
+ * console.log(moved !== feed.id);
+ * ```
+ */
 export function feedId(feed: T.Feed): string {
   return feeds.feedId(feeds.feed.codec.parse(own(feed, "feed"), "feed"));
 }
@@ -214,22 +303,64 @@ export function feedId(feed: T.Feed): string {
 /**
  * A tag on `uri`, a reference: for a post, `buildUri(author, "post", id)`. The builder trims
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
+ *
+ * @example
+ * ```ts
+ * import { buildTag, buildUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * const tag = buildTag(owner, buildUri(friend, "post", "0034A0X7NJ52C"), "Rust");
+ * console.log(tag.object.label);
+ * ```
  */
 export function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: string): T.Built<T.Tag> {
   return built(owner, graph.tag.codec as Codec<never>, graph.buildTag(key(owner, "owner"), text(uri, "uri"), text(label, "label")));
 }
 
-/** A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked. */
+/**
+ * A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked.
+ *
+ * @example
+ * ```ts
+ * import { buildBookmark, parseUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const bookmark = buildBookmark(owner, "https://example.com/a");
+ * const parsed = parseUri(bookmark.url);
+ * if (parsed.kind === "bookmark") console.log(parsed.target);
+ * ```
+ */
 export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.Built<T.Bookmark> {
   return built(owner, graph.bookmark.codec as Codec<never>, graph.buildBookmark(key(owner, "owner"), text(target, "target")));
 }
 
-/** A follow of `followee`, a bare public key, stored under the public root. */
+/**
+ * A follow of `followee`, a bare public key, stored under the public root.
+ *
+ * @example
+ * ```ts
+ * import { buildFollow } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * const follow = buildFollow(owner, friend);
+ * console.log(follow.path);
+ * ```
+ */
 export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner> {
   return built(owner, graph.follow.codec as Codec<never>, graph.buildFollow(key(owner, "owner"), key(followee, "followee")));
 }
 
-/** A mute, stored under the private root. */
+/**
+ * A mute, stored under the private root.
+ *
+ * @example
+ * ```ts
+ * import { buildMute } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * const mute = buildMute(owner, friend);
+ * console.log(mute.path);
+ * ```
+ */
 export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner> {
   return built(owner, graph.mute.codec as Codec<never>, graph.buildMute(key(owner, "owner"), key(mutee, "mutee")));
 }
@@ -242,6 +373,17 @@ export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.B
  * `type` picks the extension of the path; one the package does not map, an empty one included,
  * gets `.bin`. Empty bytes and bytes over `limits.maxFileSizeBytes` are refused; with an `id`
  * the size is the caller's to check.
+ *
+ * @example
+ * ```ts
+ * import { buildFile, buildPost } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const bytes = new TextEncoder().encode("a picture");
+ * const file = buildFile(owner, { bytes, type: "image/png" });
+ * // PUT the bytes at file.path, then reference them
+ * const post = buildPost(owner, { kind: "image", content: "", attachments: [{ uri: file.url, alt: "a picture" }] });
+ * console.log(post.object.attachments[0]?.uri === file.url);
+ * ```
  */
 export function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFile {
   const given = inputOf(own(input, "input"), "input", ["bytes", "id", "type", "root"]);
@@ -254,6 +396,16 @@ export function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFil
 /**
  * A media id fed a chunk at a time, for bytes too large to hold at once or hashed off the main
  * thread. `id()` is what `buildFile` gives for the same bytes, and may be read at any point.
+ *
+ * @example
+ * ```ts
+ * import { buildFile, createMediaHasher } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const hasher = createMediaHasher();
+ * for (const chunk of ["a pic", "ture"]) hasher.update(new TextEncoder().encode(chunk));
+ * const file = buildFile(owner, { id: hasher.id(), type: "image/png" });
+ * console.log(file.id);
+ * ```
  */
 export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): T.MediaId } {
   const hasher = ids.createMediaHasher();
@@ -264,6 +416,15 @@ export function createMediaHasher(): { update(chunk: Uint8Array): void; id(): T.
  * The media id of a `Blob` (a `File` included) or a stream of bytes, read a chunk at a time:
  * the thread is free between chunks, so a large file does not freeze a page. The same id as
  * `buildFile` gives for the same bytes; pass it there as `id`.
+ *
+ * @example
+ * ```ts
+ * import { buildFile, hashMedia } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const blob = new Blob(["a picture"], { type: "image/png" });
+ * const id = await hashMedia(blob);
+ * console.log(buildFile(owner, { id, type: blob.type }).path);
+ * ```
  */
 export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
   // Typed for a caller, checked for one that is not
@@ -283,6 +444,16 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
 /**
  * Publishing one private version: the media copies to run first, then the post to PUT. Every
  * path in a plan is owner-relative.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, planPublish } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const draft = buildPost(owner, { content: "Soon", root: "private" });
+ * const plan = planPublish(owner, { id: draft.id, editId: draft.editId, post: draft.object });
+ * // Run plan.copies first, then PUT plan.put.body at plan.put.path
+ * console.log(plan.copies.length, plan.put.path);
+ * ```
  */
 export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post }): { copies: T.Copy[]; put: T.BuiltPost } {
   const given = inputOf(own(version, "version"), "version", ["id", "editId", "post"]);
@@ -295,6 +466,16 @@ export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"Pos
  * Unpublishing: the copies back into the private root, then the deletes, each in order.
  * `publicPaths` are the paths of the post's public versions as a LIST gave them, `privateHead`
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, planPublish, planUnpublish } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const draft = buildPost(owner, { content: "Soon", root: "private" });
+ * const { put } = planPublish(owner, { id: draft.id, editId: draft.editId, post: draft.object });
+ * const plan = planUnpublish({ id: draft.id, publicPaths: [put.path] });
+ * console.log(plan.copies, plan.deletes);
+ * ```
  */
 export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.PathArg[]; legacyPaths?: T.PathArg[] | null; privateHead?: T.PathArg | null }): {
   copies: T.Copy[];
@@ -313,6 +494,15 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
  * `copies` are the stored versions found by LIST, each `{ root, path }`; `versions` the ones
  * that could be read. A media candidate is deleted only once nothing else references it, which
  * only the caller can know.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, planDelete } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const post = buildPost(owner, { content: "Gone soon" });
+ * const plan = planDelete(owner, { id: post.id, copies: [{ root: "public", path: post.path }], versions: [post.object] });
+ * console.log(plan.deletes, plan.mediaGcCandidates);
+ * ```
  */
 export function planDelete(
   owner: T.Given<"Owner">,
@@ -335,6 +525,13 @@ export function planDelete(
  * profile, a follow, and the 1.x path of everything else. For a post, a file and a tag the
  * other copies come from `listings`, the owner-relative paths found by LIST (and for a 0.x
  * File object or tag, what proves it belongs to this one); a post with no listings gives none.
+ *
+ * @example
+ * ```ts
+ * import { deletionPaths } from "pubky-social-specs";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * console.log(deletionPaths({ kind: "follow", id: friend }));
+ * ```
  */
 export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: T.Listing[] | null }): T.OwnerPath[] {
   const given = inputOf(own(target, "target"), "target", ["kind", "id", "listings"]);
@@ -346,6 +543,14 @@ export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings
  * `pubky<owner>/...` are both read. Throws only when the string is neither, or its path holds
  * a segment no canonical path has (`..`, an empty one, `%`, whitespace), or its root is not
  * `pub` or `priv`. A 0.x path reads as `{ kind: "foreign", namespace: "pubky.app" }`.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, parseUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const parsed = parseUri(buildPost(owner, { content: "Hello" }).url);
+ * if (parsed.kind === "post") console.log(parsed.id, parsed.editId);
+ * ```
  */
 export function parseUri(uri: string): T.ParsedUri {
   const parsed = uris.parse(text(uri, "uri")) as T.ParsedUri;
@@ -367,6 +572,13 @@ export function parseUri(uri: string): T.ParsedUri {
  * feed gets its private path. The owner and the id are checked: an id the kind cannot have,
  * such as one holding `/` or `..`, is refused, so only a URI `parseUri` reads as that object
  * comes out.
+ *
+ * @example
+ * ```ts
+ * import { buildUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * console.log(buildUri(owner, "user"), buildUri(owner, "post", "0034A0X7NJ52C"));
+ * ```
  */
 export function buildUri(owner: T.Given<"Owner">, kind: "user"): T.PubkyUrl<"user">;
 export function buildUri(owner: T.Given<"Owner">, kind: "post", id: T.Given<"PostId">): T.PostRef;
@@ -377,7 +589,17 @@ export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string
   return uris.buildChecked(key(owner, "owner"), text(kind, "kind") as T.ObjectKind, kind === "user" ? "" : text(id, "id"));
 }
 
-/** The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate. */
+/**
+ * The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate.
+ *
+ * @example
+ * ```ts
+ * import { listPrefix } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * // LIST this with the SDK to see every 1.x public object
+ * console.log(listPrefix(owner, "public"));
+ * ```
+ */
 export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `pubky://${string}` {
   return uris.listPrefix(key(owner, "owner"), tree);
 }
@@ -385,6 +607,14 @@ export function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "legacy"): `p
 /**
  * The owner-relative path of a `pubky://` URL, as the SDK's storage calls, every plan and
  * `deletionPaths` take it: a URL a LIST gave, with `pubky://<owner>` stripped.
+ *
+ * @example
+ * ```ts
+ * import { buildPost, toPath } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const { url } = buildPost(owner, { content: "Hello" });
+ * console.log(toPath(url));
+ * ```
  */
 export function toPath(uri: string): T.OwnerPath {
   const parsed = uris.parse(text(uri, "uri"));
@@ -394,24 +624,59 @@ export function toPath(uri: string): T.OwnerPath {
 // Where data enters: a string from a form, a LIST or another app, checked once and branded,
 // so nothing downstream checks it again. Each throws a `ValidationError` naming what it refuses.
 
-/** A bare public key as an `Owner`. */
+/**
+ * A bare public key as an `Owner`.
+ *
+ * @example
+ * ```ts
+ * import { parseOwner, buildFollow } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const fromForm = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * console.log(buildFollow(owner, parseOwner(fromForm)).path);
+ * ```
+ */
 export function parseOwner(value: string): T.Owner {
   return key(value, "owner") as T.Owner;
 }
 
-/** A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule. */
+/**
+ * A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule.
+ *
+ * @example
+ * ```ts
+ * import { parsePostId, buildUri } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * console.log(buildUri(owner, "post", parsePostId("0034A0X7NJ52C")));
+ * ```
+ */
 export function parsePostId(value: string): T.PostId {
   ids.timestampIdMicros(text(value, "id"), "id");
   return value as T.PostId;
 }
 
-/** A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one. */
+/**
+ * A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one.
+ *
+ * @example
+ * ```ts
+ * import { parseEditId } from "pubky-social-specs";
+ * console.log(parseEditId("0034A0X7NJ52C"));
+ * ```
+ */
 export function parseEditId(value: string): T.EditId {
   ids.timestampIdMicros(text(value, "editId"), "editId");
   return value as T.EditId;
 }
 
-/** A media id as a `MediaId`: the canonical spelling of a content hash. */
+/**
+ * A media id as a `MediaId`: the canonical spelling of a content hash.
+ *
+ * @example
+ * ```ts
+ * import { parseMediaId } from "pubky-social-specs";
+ * console.log(parseMediaId("AKSZ57W2RFKHV1EHK007FQQ8TW"));
+ * ```
+ */
 export function parseMediaId(value: string): T.MediaId {
   ids.checkHashId(text(value, "id"), "id");
   return value as T.MediaId;
@@ -421,6 +686,12 @@ export function parseMediaId(value: string): T.MediaId {
  * The URL of a stored object as a `PubkyUrl`, in its full `pubky://` spelling: a post's must
  * name one version. A path under another namespace, an unknown leaf or a post reference is
  * refused.
+ *
+ * @example
+ * ```ts
+ * import { parsePubkyUrl } from "pubky-social-specs";
+ * console.log(parsePubkyUrl("pubky8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json"));
+ * ```
  */
 export function parsePubkyUrl(value: string): T.PubkyUrl {
   const parsed = uris.parse(text(value, "uri"));
@@ -428,7 +699,17 @@ export function parsePubkyUrl(value: string): T.PubkyUrl {
   return `pubky://${parsed.owner}${parsed.path}` as T.PubkyUrl;
 }
 
-/** An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments. */
+/**
+ * An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments.
+ *
+ * @example
+ * ```ts
+ * import { parseOwnerPath, deletionPaths } from "pubky-social-specs";
+ * // A path a LIST gave, branded once
+ * const path = parseOwnerPath("/pub/social/v1/posts/0034A0X7NJ52C/0034A0X7NJ52C.json");
+ * console.log(deletionPaths({ kind: "post", id: "0034A0X7NJ52C", listings: [path] }));
+ * ```
+ */
 export function parseOwnerPath(value: string): T.OwnerPath {
   const path = text(value, "path");
   const segments = path.slice(1).split("/");
@@ -436,7 +717,17 @@ export function parseOwnerPath(value: string): T.OwnerPath {
   return path as T.OwnerPath;
 }
 
-/** A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless. */
+/**
+ * A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless.
+ *
+ * @example
+ * ```ts
+ * import { parsePostRef, buildPost } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const parent = parsePostRef("pubky://dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio/pub/social/v1/posts/0034A0X7NJ52C");
+ * console.log(buildPost(owner, { content: "Agreed", parent }).object.parent);
+ * ```
+ */
 export function parsePostRef(value: string): T.PostRef {
   const parsed = uris.parse(text(value, "uri"));
   if (parsed.kind !== "post" || parsed.editId !== undefined) fail(`not a reference to a post: ${value}`, "uri");

@@ -20,7 +20,9 @@ const PROBES = [
   ["index.js", "{ decodeObject }", 22_000, ["WebAssembly"]],
   ["index.js", "{ validatePost }", 17_000, ["WebAssembly"]],
   ["index.js", "* as all", 30_000, ["WebAssembly"]],
-  ["testing.js", "* as all", 1_000, ["WebAssembly", "Too many attachments"]],
+  ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
+  ["testing.js", "* as all", 22_000, ["WebAssembly"]],
+  ["client/index.js", "{ createSocialClient }", 28_000, ["WebAssembly"]],
   ["migration/index.js", "* as all", 340_000, []],
   ["migration/adapters/pubky-sdk.js", "* as all", 3_000, ["WebAssembly"]],
 ];
@@ -43,6 +45,22 @@ for (const [file, names, budget, absent] of PROBES) {
   console.log(
     `${ok ? "ok  " : "FAIL"} ${file.padEnd(32)} import ${names.padEnd(18)} ${String(code.length).padStart(7)} B min  ${String(gzipped).padStart(6)} B gzip  (budget ${budget})${dragged.length ? `  drags in: ${dragged.join(", ")}` : ""}`,
   );
+}
+
+// A production build drops the development warnings, code and text
+{
+  const { outputFiles } = await build({
+    stdin: { contents: `import { decodeObject, encodeObject, editPost } from ${JSON.stringify(entry)}; globalThis.keep = [decodeObject, encodeObject, editPost];`, resolveDir: "." },
+    bundle: true,
+    minify: true,
+    format: "esm",
+    write: false,
+    logLevel: "silent",
+    define: { "process.env.NODE_ENV": '"production"' },
+  });
+  const kept = outputFiles[0].text.includes("$unknown members the object was read with");
+  failed ||= kept;
+  console.log(`${kept ? "FAIL" : "ok  "} a production build drops the development warning`);
 }
 
 // A cold process: load the entry, build one post. No init, so this is the whole start

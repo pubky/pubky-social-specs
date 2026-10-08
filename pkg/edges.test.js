@@ -3,7 +3,8 @@
 
 import assert from "assert";
 import * as specs from "./dist/index.js";
-import { setClock } from "./dist/testing.js";
+import { execFileSync } from "node:child_process";
+import { fakeOwner, sampleFeed, samplePost, sampleUser, setClock } from "./dist/testing.js";
 import { canonicalExternal, canonicalPubky, canonicalUniversal, reference } from "./dist/canonicalize.js";
 import { hashText } from "./dist/ids.js";
 
@@ -99,6 +100,53 @@ describe("edges", () => {
     it("takes back as $unknown only the text of an object", () => {
       const read = specs.decodeObject(url, post('"note"'), "post");
       for (const $unknown of ["{", "[1]", "1", '{"content":"x"}']) misuse(() => specs.encodeObject(url, { ...read, $unknown }), /post\.\$unknown must be/);
+    });
+  });
+
+  describe("the testing subpath", () => {
+    it("gives well-formed owners, the same for the same n, and fixtures that decode", () => {
+      assert.strictEqual(fakeOwner(3), fakeOwner(3));
+      assert.notStrictEqual(fakeOwner(3), fakeOwner(4));
+      for (let n = 0; n < 50; n++) assert.strictEqual(parseOwner(fakeOwner(n)), fakeOwner(n));
+      assert.throws(() => fakeOwner(-1), TypeError);
+      const post = samplePost({ kind: "link", content: "https://example.com" }, RIO);
+      assert.strictEqual(specs.decodeObject(post.url, post.body, "post").kind, "link");
+      assert.strictEqual(sampleUser().object.name, "Sample User");
+      assert.deepStrictEqual(sampleFeed({ tags: ["Rust"] }).object.feed.tags, ["rust"]);
+    });
+  });
+
+  describe("the development warning", () => {
+    const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
+    const stored = utf8('{"content":"x","kind":"note","parent":null,"embed":null,"attachments":[],"x_new":1}');
+    const warnings = (fn) => {
+      const original = console.warn;
+      const seen = [];
+      console.warn = (message) => seen.push(message);
+      try {
+        fn();
+      } finally {
+        console.warn = original;
+      }
+      return seen;
+    };
+
+    it("names an object written back without the members it was read with, and stays quiet otherwise", () => {
+      const read = specs.decodeObject(url, stored, "post");
+      assert.deepStrictEqual(
+        warnings(() => specs.encodeObject(url, { ...read, content: "kept" })),
+        [],
+      );
+      const { content, kind, parent, embed, attachments, lock } = read;
+      const [warning] = warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock }));
+      assert.match(warning, /encodeObject for .* carries 0 of the 1 \$unknown members/);
+      assert.strictEqual(warnings(() => specs.editPost(url, { content, kind, parent, embed, attachments, lock })).length, 1);
+    });
+
+    it("is silent in production", () => {
+      const script = `import * as s from "./dist/index.js"; const u = ${JSON.stringify(url)}; const r = s.decodeObject(u, new TextEncoder().encode(${JSON.stringify(new TextDecoder().decode(stored))}), "post"); console.warn = () => { throw new Error("warned"); }; const { $unknown, ...rest } = r; s.encodeObject(u, rest); console.log("quiet");`;
+      const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], { env: { ...process.env, NODE_ENV: "production" } }).toString();
+      assert.strictEqual(out.trim(), "quiet");
     });
   });
 
