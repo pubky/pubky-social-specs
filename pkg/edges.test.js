@@ -141,6 +141,9 @@ describe("edges", () => {
       const [warning] = warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock }));
       assert.match(warning, /encodeObject for .* carries 0 of the 1 \$unknown members/);
       assert.strictEqual(warnings(() => specs.editPost(url, { content, kind, parent, embed, attachments, lock })).length, 1);
+      // The latest read at a URL is the one that counts
+      specs.decodeObject(url, utf8('{"content":"x","kind":"note","parent":null,"embed":null,"attachments":[]}'), "post");
+      assert.deepStrictEqual(warnings(() => specs.encodeObject(url, { content, kind, parent, embed, attachments, lock })), []);
     });
 
     it("is silent in production", () => {

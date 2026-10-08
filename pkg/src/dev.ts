@@ -22,10 +22,12 @@ function countUnknown(value: unknown, depth = 0): number {
   return n;
 }
 
-/** Notes what a decode at `url` carried beyond the known members. */
+/** Notes what the latest decode at `url` carried beyond the known members. */
 export function rememberUnknown(url: string, object: unknown): void {
   if (!development) return;
   const n = countUnknown(object);
+  // The latest read at a URL is the one an edit starts from
+  unknownAt.delete(url);
   if (n === 0) return;
   if (unknownAt.size >= REMEMBERED) unknownAt.delete(unknownAt.keys().next().value as string);
   unknownAt.set(url, n);
