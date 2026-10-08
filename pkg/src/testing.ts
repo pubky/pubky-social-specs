@@ -126,6 +126,9 @@ export interface MemoryHomeserver {
 // What the SDK throws for a missing file or directory, which the port maps to absent
 const notFound = (url: string) => Object.assign(new Error(`404 Not Found: ${url}`), { name: "RequestError", data: { statusCode: 404 } });
 
+// Answered on a later tick, as the SDK answers, so a throw is a rejection
+const later = <R>(answer: () => R): Promise<R> => Promise.resolve().then(answer);
+
 /**
  * An in-memory homeserver with the calls, arguments and answers of `@synonymdev/pubky` 0.14,
  * for tests and examples: a missing file or directory is a `RequestError` with
@@ -158,30 +161,30 @@ export function memoryHomeserver(): MemoryHomeserver {
     if (bytes === undefined) throw notFound(url);
     return bytes;
   };
-  const response = (bytes: Uint8Array): SdkResponse => ({
-    headers: { get: (name) => (name.toLowerCase() === "content-length" ? String(bytes.length) : null) },
-    body: (() => {
-      let done = false;
-      const reader = {
-        read: () => {
-          const chunk = done ? { done: true } : { done: false, value: bytes };
-          done = true;
-          return Promise.resolve(chunk);
-        },
-        cancel: () => Promise.resolve(),
-      };
-      return { getReader: () => reader, cancel: () => Promise.resolve() };
-    })(),
-    arrayBuffer: () => Promise.resolve(bytes.slice().buffer),
-  });
+  const response = (bytes: Uint8Array): SdkResponse => {
+    let done = false;
+    const reader = {
+      read: () => {
+        const chunk = done ? { done: true } : { done: false, value: bytes };
+        done = true;
+        return Promise.resolve(chunk);
+      },
+      cancel: () => Promise.resolve(),
+    };
+    return {
+      headers: { get: (name) => (name.toLowerCase() === "content-length" ? String(bytes.length) : null) },
+      body: { getReader: () => reader, cancel: () => Promise.resolve() },
+      arrayBuffer: () => Promise.resolve(bytes.slice().buffer),
+    };
+  };
   const sessionOf = (key: Given<"Owner">): MemorySession => {
     const url = (path: string) => `pubky://${key}${path}`;
     return {
       info: { publicKey: { z32: () => key }, capabilities: ["/pub/social/v1/:rw", "/priv/social/v1/:rw"] },
       storage: {
-        list: (path, cursor, reverse, limit) => Promise.resolve().then(() => listed(url(path), cursor, reverse, limit)),
-        getBytes: (path) => Promise.resolve().then(() => read(url(path))),
-        get: (path) => Promise.resolve().then(() => response(read(url(path)))),
+        list: (path, cursor, reverse, limit) => later(() => listed(url(path), cursor, reverse, limit)),
+        getBytes: (path) => later(() => read(url(path))),
+        get: (path) => later(() => response(read(url(path)))),
         exists: (path) => Promise.resolve(files.has(url(path))),
         putJson: (path, body) => Promise.resolve(void files.set(url(path), new TextEncoder().encode(JSON.stringify(body)))),
         putBytes: (path, bytes) => Promise.resolve(void files.set(url(path), new Uint8Array(bytes))),
@@ -198,9 +201,9 @@ export function memoryHomeserver(): MemoryHomeserver {
     friendSession: sessionOf(friend),
     sessionOf,
     publicStorage: {
-      list: (address, cursor, reverse, limit) => Promise.resolve().then(() => listed(address, cursor, reverse, limit)),
+      list: (address, cursor, reverse, limit) => later(() => listed(address, cursor, reverse, limit)),
       getBytes: (address) =>
-        Promise.resolve().then(() => {
+        later(() => {
           // Only the public root is anyone's to read
           if (!address.includes("/pub/")) throw notFound(address);
           return read(address);

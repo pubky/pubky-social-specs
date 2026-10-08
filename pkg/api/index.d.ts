@@ -13,14 +13,15 @@ export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
  * and for a post the author. Media comes back as its bytes, a view of the ones given.
  *
- * Throws a `ValidationError` when the bytes are no valid object there. Other people's data can
- * be anything, so decode it inside a try. A post of a kind this version does not know is
- * refused too: it has rules this version cannot check.
+ * Other people's data can be anything, so decode it inside a try, or with `tryDecodeObject`. A
+ * post of a kind this version does not know is refused too: it has rules this version cannot
+ * check.
  *
  * @throws `ValidationError` when the bytes are no valid object at `uri` (`code` `json` for bytes
  *  that are not the stored shape, the rule's code otherwise, `field` the member), `code: "path"`
- *  for a URL that names no stored object or another kind than `kind`; `ArgumentError` for bytes
- *  that are not a `Uint8Array` or an `ArrayBuffer`.
+ *  for a URL that names no stored object or another kind than `kind`, `code: "unknown_name"` for
+ *  a `kind` that is no stored kind; `ArgumentError` for bytes that are not a `Uint8Array` or an
+ *  `ArrayBuffer`.
  *
  * @example
  * ```ts
@@ -43,8 +44,9 @@ export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuf
  * need no path, for bytes bound somewhere the data model does not name.
  *
  * @throws `ValidationError` when `object` breaks a rule of its kind at `at`, with the member as
- *  `field`; `ArgumentError` for a member the stored object does not have, a value of the wrong
- *  type, or bytes passed for an object.
+ *  `field`, and `code: "unknown_name"` for an `at.kind` that is no stored kind; `ArgumentError`
+ *  for a member the stored object does not have, a value of the wrong type, or bytes passed for
+ *  an object.
  *
  * @example
  * ```ts
@@ -67,8 +69,7 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
 }, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
  * The envelope inside the `content` of an article or a collection; null for any other kind.
- * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
- * content is not a readable envelope.
+ * `post` is a stored post, the `.object` of a result.
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
  *  article or a collection is not its envelope.
@@ -190,7 +191,8 @@ export declare function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.
 /**
  * The id of a feed object: an edited filter moves the feed, and this is where to.
  *
- * @throws `ValidationError` when the feed breaks one of its rules.
+ * @throws `ValidationError` when the feed breaks one of its rules; `ArgumentError` for a member of
+ *  the wrong type or one the stored feed does not have.
  *
  * @example
  * ```ts
@@ -659,10 +661,10 @@ export declare function microsToDate(micros: number): Date;
 export declare function dateToMicros(date: Date | number): number;
 /**
  * `decodeObject` with the refusal returned instead of thrown, for a feed of other people's data
- * where a bad object is routine. A wrong argument still throws.
+ * where a bad object is routine. An argument of the wrong type still throws.
  *
- * @throws `ArgumentError` for arguments of the wrong type; a refusal of the bytes is returned, not
- *  thrown.
+ * @throws `ArgumentError` for arguments of the wrong type; a `ValidationError`, of the bytes, the
+ *  URL or the kind, is returned, not thrown.
  *
  * @example
  * ```ts

@@ -162,8 +162,8 @@ describe("edges", () => {
   });
 
   describe("deletion paths of a 0.x tag", () => {
-    const legacyTag = (uri, label) => ({ path: `${LEGACY}tags/${hashText(`${uri}:${label}`)}`, uri, label });
     const idFor = (target, label) => hashText(`${target}:${label}`);
+    const legacyTag = (uri, label) => ({ path: `${LEGACY}tags/${idFor(uri, label)}`, uri, label });
 
     it("respells each 0.x target as its 1.x tag does, and proves the copy by both ids", () => {
       const post = "0034A0X7NJ52C";

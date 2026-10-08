@@ -45,7 +45,7 @@ export type MediaId = Brand<string, "MediaId">;
  */
 export type PubkyUrl<K extends ObjectKind = ObjectKind> = Brand<`pubky://${string}`, `PubkyUrl.${K}`>;
 
-/** The prefix to LIST one of an owner's trees, `pubky://<owner>/pub/social/v1/`: no object is stored at it. */
+/** The prefix to LIST one of an owner's trees, such as `pubky://<owner>/pub/social/v1/`: no object is stored at it. */
 export type ListPrefix = Brand<`pubky://${string}/`, "ListPrefix">;
 
 /** An owner-relative path, `/pub/...` or `/priv/...`: what the SDK's storage calls and every plan take. */

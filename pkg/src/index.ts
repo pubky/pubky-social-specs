@@ -75,11 +75,18 @@ function bytesOf(value: unknown, name: string): T.Bytes {
 
 const strings = (value: unknown, name: string): string[] => arrayOf(value, name).map((item, index) => text(item, `${name}[${index}]`));
 
+/** An optional string argument: absent and null are none. */
+const optionalText = (value: unknown, name: string): string | null => (value === undefined || value === null ? null : text(value, name));
+
+/** An object argument, copied first, with no member outside `allowed`. */
+const membersOf = (value: unknown, name: string, allowed: readonly string[]): Record<string, unknown> => inputOf(snapshot(value, name), name, allowed);
+
+const urlOf = (owner: string, path: string): string => `pubky://${owner}${path}`;
+
 type Made<V> = { id: string; path: string; value: V; body: string };
 
 function built<V, P, Id extends string = string>(owner: string, codec: Codec<V>, made: Made<V>): T.Built<P, Id> {
-  const url = `pubky://${owner}${made.path}` as T.Built<P, Id>["url"];
-  return { id: made.id as Id, path: made.path as T.OwnerPath, url, object: codec.plain(made.value) as P, body: utf8(made.body) };
+  return { id: made.id as Id, path: made.path as T.OwnerPath, url: urlOf(owner, made.path) as T.Built<P, Id>["url"], object: codec.plain(made.value) as P, body: utf8(made.body) };
 }
 
 const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<posts.Post, T.Post, T.PostId>(owner, posts.post.codec, made), editId: made.editId as T.EditId });
@@ -89,14 +96,15 @@ const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...buil
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
  * and for a post the author. Media comes back as its bytes, a view of the ones given.
  *
- * Throws a `ValidationError` when the bytes are no valid object there. Other people's data can
- * be anything, so decode it inside a try. A post of a kind this version does not know is
- * refused too: it has rules this version cannot check.
+ * Other people's data can be anything, so decode it inside a try, or with `tryDecodeObject`. A
+ * post of a kind this version does not know is refused too: it has rules this version cannot
+ * check.
  *
  * @throws `ValidationError` when the bytes are no valid object at `uri` (`code` `json` for bytes
  *  that are not the stored shape, the rule's code otherwise, `field` the member), `code: "path"`
- *  for a URL that names no stored object or another kind than `kind`; `ArgumentError` for bytes
- *  that are not a `Uint8Array` or an `ArrayBuffer`.
+ *  for a URL that names no stored object or another kind than `kind`, `code: "unknown_name"` for
+ *  a `kind` that is no stored kind; `ArgumentError` for bytes that are not a `Uint8Array` or an
+ *  `ArrayBuffer`.
  *
  * @example
  * ```ts
@@ -135,8 +143,9 @@ export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kin
  * need no path, for bytes bound somewhere the data model does not name.
  *
  * @throws `ValidationError` when `object` breaks a rule of its kind at `at`, with the member as
- *  `field`; `ArgumentError` for a member the stored object does not have, a value of the wrong
- *  type, or bytes passed for an object.
+ *  `field`, and `code: "unknown_name"` for an `at.kind` that is no stored kind; `ArgumentError`
+ *  for a member the stored object does not have, a value of the wrong type, or bytes passed for
+ *  an object.
  *
  * @example
  * ```ts
@@ -168,8 +177,7 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
 
 /**
  * The envelope inside the `content` of an article or a collection; null for any other kind.
- * `post` is a stored post, the `.object` of a result. Throws a `ValidationError` when the
- * content is not a readable envelope.
+ * `post` is a stored post, the `.object` of a result.
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
  *  article or a collection is not its envelope.
@@ -299,7 +307,7 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
   warnIfUnknownDropped(headUri, post, "editPost");
   const given = options === undefined || options === null ? {} : inputOf(options, "options", ["root", "slug"]);
   const root = given.root === undefined || given.root === null ? head.root : rootOf(given.root, "options.root");
-  const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "options.slug");
+  const slug = optionalText(given.slug, "options.slug");
   const value = posts.post.codec.parse(post, "post");
   return builtPost(me, posts.editPost(me, value, head.id, head.editId, root, slug));
 }
@@ -328,7 +336,8 @@ export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.
 /**
  * The id of a feed object: an edited filter moves the feed, and this is where to.
  *
- * @throws `ValidationError` when the feed breaks one of its rules.
+ * @throws `ValidationError` when the feed breaks one of its rules; `ArgumentError` for a member of
+ *  the wrong type or one the stored feed does not have.
  *
  * @example
  * ```ts
@@ -445,11 +454,11 @@ export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.B
  * ```
  */
 export function buildFile(owner: T.Given<"Owner">, input: T.NewFile): T.BuiltFile {
-  const given = inputOf(snapshot(input, "input"), "input", ["bytes", "id", "type", "root"]);
+  const given = membersOf(input, "input", ["bytes", "id", "type", "root"]);
   if ((given.bytes === undefined) === (given.id === undefined)) misuse("input", "given either bytes or an id");
   const source = given.bytes !== undefined ? { bytes: bytesOf(given.bytes, "input.bytes") } : { id: text(given.id, "input.id") };
   const made = files.buildFile(key(owner, "owner"), source, text(given.type, "input.type"), rootOf(given.root, "input.root"));
-  return { id: made.id as T.MediaId, path: made.path as T.OwnerPath, url: `pubky://${owner}${made.path}` as T.PubkyUrl<"file"> };
+  return { id: made.id as T.MediaId, path: made.path as T.OwnerPath, url: urlOf(owner, made.path) as T.PubkyUrl<"file"> };
 }
 
 /**
@@ -525,9 +534,9 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  * ```
  */
 export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"PostId">; editId: T.Given<"EditId">; post: T.Post; slug?: string | null }): { copies: T.Copy[]; put: T.BuiltPost } {
-  const given = inputOf(snapshot(version, "version"), "version", ["id", "editId", "post", "slug"]);
+  const given = membersOf(version, "version", ["id", "editId", "post", "slug"]);
   const value = posts.post.codec.parse(given.post, "version.post");
-  const slug = given.slug === undefined || given.slug === null ? null : text(given.slug, "version.slug");
+  const slug = optionalText(given.slug, "version.slug");
   const plan = lifecycle.planPublish(key(owner, "owner"), text(given.id, "version.id"), text(given.editId, "version.editId"), value, slug);
   return { copies: plan.copies as T.Copy[], put: builtPost(owner, plan.put) };
 }
@@ -554,12 +563,10 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
   copies: T.Copy[];
   deletes: T.OwnerPath[];
 } {
-  const given = inputOf(snapshot(post, "post"), "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
-  const head = given.privateHead === undefined || given.privateHead === null ? null : text(given.privateHead, "post.privateHead");
-  return lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head) as {
-    copies: T.Copy[];
-    deletes: T.OwnerPath[];
-  };
+  const given = membersOf(post, "post", ["id", "publicPaths", "legacyPaths", "privateHead"]);
+  const head = optionalText(given.privateHead, "post.privateHead");
+  const plan = lifecycle.planUnpublish(text(given.id, "post.id"), strings(given.publicPaths, "post.publicPaths"), strings(given.legacyPaths ?? [], "post.legacyPaths"), head);
+  return plan as ReturnType<typeof planUnpublish>;
 }
 
 /**
@@ -584,16 +591,13 @@ export function planDelete(
   owner: T.Given<"Owner">,
   post: { id: T.Given<"PostId">; legacyPaths?: T.PathArg[] | null; copies?: T.StoredCopy[] | null; versions?: T.Post[] | null },
 ): { deletes: T.OwnerPath[]; mediaGcCandidates: T.OwnerPath[] } {
-  const given = inputOf(snapshot(post, "post"), "post", ["id", "legacyPaths", "copies", "versions"]);
+  const given = membersOf(post, "post", ["id", "legacyPaths", "copies", "versions"]);
   const copies = arrayOf(given.copies ?? [], "post.copies").map((copy, index) => {
     const given = inputOf(copy, `post.copies[${index}]`, ["root", "path"]);
     return { root: rootOf(given.root, `post.copies[${index}].root`), path: text(given.path, `post.copies[${index}].path`) };
   });
   const versions = arrayOf(given.versions ?? [], "post.versions").map((version, index) => posts.post.codec.parse(version, `post.versions[${index}]`));
-  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions) as {
-    deletes: T.OwnerPath[];
-    mediaGcCandidates: T.OwnerPath[];
-  };
+  return lifecycle.planDelete(key(owner, "owner"), text(given.id, "post.id"), strings(given.legacyPaths ?? [], "post.legacyPaths"), copies, versions) as ReturnType<typeof planDelete>;
 }
 
 /**
@@ -614,7 +618,7 @@ export function planDelete(
  * ```
  */
 export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: T.Listing[] | null }): T.OwnerPath[] {
-  const given = inputOf(snapshot(target, "target"), "target", ["kind", "id", "listings"]);
+  const given = membersOf(target, "target", ["kind", "id", "listings"]);
   return deletion.deletionPaths(text(given.kind, "target.kind") as T.ObjectKind, text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings")) as T.OwnerPath[];
 }
 
@@ -799,7 +803,7 @@ export function parseMediaId(value: string): T.MediaId {
 export function parsePubkyUrl(value: string): T.PubkyUrl {
   const parsed = uris.parse(text(value, "uri"));
   if (!isObjectKind(parsed.kind) || parsed.path === "" || (parsed.kind === "post" && parsed.editId === undefined)) fail("path", `not the URL of a stored object: ${value}`, "uri");
-  return `pubky://${parsed.owner}${parsed.path}` as T.PubkyUrl;
+  return urlOf(parsed.owner, parsed.path) as T.PubkyUrl;
 }
 
 /**
@@ -863,7 +867,7 @@ export function parseOwnerPath(value: string): T.OwnerPath {
 export function parsePostRef(value: string): T.PostRef {
   const parsed = uris.parse(text(value, "uri"));
   if (parsed.kind !== "post" || parsed.editId !== undefined) fail("path", `not a reference to a post: ${value}`, "uri");
-  return `pubky://${parsed.owner}${parsed.path}` as T.PostRef;
+  return urlOf(parsed.owner, parsed.path) as T.PostRef;
 }
 
 /**
@@ -922,10 +926,10 @@ export function dateToMicros(date: Date | number): number {
 
 /**
  * `decodeObject` with the refusal returned instead of thrown, for a feed of other people's data
- * where a bad object is routine. A wrong argument still throws.
+ * where a bad object is routine. An argument of the wrong type still throws.
  *
- * @throws `ArgumentError` for arguments of the wrong type; a refusal of the bytes is returned, not
- *  thrown.
+ * @throws `ArgumentError` for arguments of the wrong type; a `ValidationError`, of the bytes, the
+ *  URL or the kind, is returned, not thrown.
  *
  * @example
  * ```ts
