@@ -767,6 +767,24 @@ describe("migration engine", () => {
       assert.ok(!v1Urls(port).some((u) => u.includes("/follows/")));
     });
 
+    it("a PUT that landed with its answer lost and whose retry is refused counts written, from the read-back", async () => {
+      const port = legacyPort();
+      let tries = 0;
+      const lossy = delegate(port, {
+        putJson: async (target, object, options) => {
+          if (!target.includes("/pub/social/v1/follows/")) return port.putJson(target, object, options);
+          if (++tries > 1) throw refusal(400);
+          await port.putJson(target, object, options);
+          throw new TypeError("fetch failed");
+        },
+      });
+      const report = await runMigration({ owner, port: lossy, sleep: noSleep });
+      assert.strictEqual(report.status, "done");
+      assert.strictEqual(tries, 2);
+      assert.strictEqual(report.counts.put_rejected, 0);
+      assert.strictEqual(report.counts.written, expectedCounts().written);
+    });
+
     it("a 500 on a PUT is not a refusal: the run ends incomplete and the next one, without rescan, writes it", async () => {
       const profile = url("pub/social/v1/profile.json");
       let failing = true;

@@ -525,14 +525,23 @@ class Run {
       );
       if (!isFailure(put)) {
         made.push(claim);
-      } else if (put.failed === "exists") {
+        continue;
+      }
+      if (put.failed === "exists") {
         // Written by someone else since the LIST: theirs stays, and it is not this run's to delete
         claim.settle(true);
-      } else {
-        made.forEach((m) => m.settle(true));
-        const outcome = put.failed === "network" ? "io_error" : "put_rejected";
-        return this.#count(outcome, path, put.message);
+        continue;
       }
+      // The flag keeps put_rejected for good, yet a refused retry may follow a try that landed
+      // and lost its answer, so only a read-back that finds no copy makes the refusal final
+      const landed = put.failed === "network" ? put : await this.#holds(write);
+      if (landed === true) {
+        made.push(claim);
+        continue;
+      }
+      made.forEach((m) => m.settle(true));
+      if (isFailure(landed)) return this.#count("io_error", path, landed.message);
+      return this.#count("put_rejected", path, put.message);
     }
     if (made.length === 0) return this.#count("already_present", path);
 

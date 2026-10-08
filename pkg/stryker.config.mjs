@@ -23,7 +23,7 @@ export default {
     // #claim, leaving out #fence between them. Line ranges: move them with the code
     "src/migration/engine.ts:185-196",
     "src/migration/engine.ts:486-502",
-    "src/migration/engine.ts:518-605",
+    "src/migration/engine.ts:518-614",
   ],
   // The mocha runner does not take mocha 12 yet, so each mutant runs the suites as a command,
   // the fastest killers first and stopping at the first failure
