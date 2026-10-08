@@ -14,6 +14,8 @@ export type JsonObject = Map<string, Json>;
 const U64_MAX = 0xffff_ffff_ffff_ffffn;
 
 const QUOTE = 0x22;
+const BACKSLASH = 0x5c;
+const isDigit = (b: number) => b >= 0x30 && b <= 0x39;
 
 // A short run of ASCII spelled without a decoder call, which costs more than the run itself;
 // anything else goes through the decoder, which also checks the encoding
@@ -26,8 +28,6 @@ function shortText(bytes: Uint8Array, start: number, end: number): string | null
   }
   return out;
 }
-const BACKSLASH = 0x5c;
-const isDigit = (b: number) => b >= 0x30 && b <= 0x39;
 
 export class Reader {
   pos = 0;
@@ -43,7 +43,7 @@ export class Reader {
     throw new JsonError(message);
   }
 
-  peek(): number | undefined {
+  private peek(): number | undefined {
     return this.bytes[this.pos];
   }
 
@@ -67,14 +67,6 @@ export class Reader {
       if (b === undefined) this.fail("EOF while parsing a value");
       if (b !== rest.charCodeAt(i)) this.fail("expected ident");
     }
-  }
-
-  enter(): void {
-    if (++this.depth === 128) this.fail("recursion limit exceeded");
-  }
-
-  leave(): void {
-    this.depth--;
   }
 
   /** Any value. `null`, `true` and `false` are read whole, so `nul` is an error here. */
@@ -110,6 +102,45 @@ export class Reader {
     }
   }
 
+  private open(): void {
+    this.pos++;
+    if (++this.depth === 128) this.fail("recursion limit exceeded");
+  }
+
+  private close(): void {
+    this.depth--;
+    this.pos++;
+  }
+
+  // Up to the next element of the open array or object, past its comma; false at `close`
+  private next(close: number, first: boolean): boolean {
+    let b = this.peekToken();
+    if (b === close) return false;
+    const list = close === 0x5d;
+    if (b === undefined) this.fail(list ? "EOF while parsing a list" : "EOF while parsing an object");
+    if (!first) {
+      if (b !== 0x2c) this.fail(list ? "expected `,` or `]`" : "expected `,` or `}`");
+      this.pos++;
+      b = this.peekToken();
+      if (b === close) this.fail("trailing comma");
+      if (b === undefined) this.fail("EOF while parsing a value");
+    }
+    return true;
+  }
+
+  private key(): string {
+    if (this.peekToken() !== QUOTE) this.fail("key must be a string");
+    this.pos++;
+    return this.string();
+  }
+
+  private colon(): void {
+    const b = this.peekToken();
+    if (b === undefined) this.fail("EOF while parsing an object");
+    if (b !== 0x3a) this.fail("expected `:`");
+    this.pos++;
+  }
+
   // The two below are `array` and `object` with the element read inline: a hostile document
   // nests thousands of them, and a closure per container is most of what it costs
 
@@ -120,79 +151,30 @@ export class Reader {
 
   private items(): Json[] {
     const base = this.stack.length;
-    this.pos++;
-    this.enter();
-    for (;;) {
-      let b = this.peekToken();
-      if (b === 0x5d) break;
-      if (b === undefined) this.fail("EOF while parsing a list");
-      if (this.stack.length > base) {
-        if (b !== 0x2c) this.fail("expected `,` or `]`");
-        this.pos++;
-        b = this.peekToken();
-        if (b === 0x5d) this.fail("trailing comma");
-        if (b === undefined) this.fail("EOF while parsing a value");
-      }
-      this.stack.push(this.value());
-    }
-    this.leave();
-    this.pos++;
+    this.open();
+    while (this.next(0x5d, this.stack.length === base)) this.stack.push(this.value());
+    this.close();
     return this.stack.splice(base);
   }
 
   private members(): JsonObject {
     // The last of two equal keys wins, and no key is the object's prototype
     const members: JsonObject = new Map();
-    this.pos++;
-    this.enter();
-    let first = true;
-    for (;;) {
-      let b = this.peekToken();
-      if (b === 0x7d) break;
-      if (b === undefined) this.fail("EOF while parsing an object");
-      if (!first) {
-        if (b !== 0x2c) this.fail("expected `,` or `}`");
-        this.pos++;
-        b = this.peekToken();
-      }
-      first = false;
-      if (b === 0x7d) this.fail("trailing comma");
-      if (b === undefined) this.fail("EOF while parsing a value");
-      if (b !== QUOTE) this.fail("key must be a string");
-      this.pos++;
-      const key = this.string();
-      const colon = this.peekToken();
-      if (colon === undefined) this.fail("EOF while parsing an object");
-      if (colon !== 0x3a) this.fail("expected `:`");
-      this.pos++;
+    this.open();
+    for (let first = true; this.next(0x7d, first); first = false) {
+      const key = this.key();
+      this.colon();
       members.set(key, this.value());
     }
-    this.leave();
-    this.pos++;
+    this.close();
     return members;
   }
 
   /** An array, `element` reading each item. */
   array(element: () => void): void {
-    this.pos++;
-    this.enter();
-    let first = true;
-    for (;;) {
-      let b = this.peekToken();
-      if (b === 0x5d) break;
-      if (b === undefined) this.fail("EOF while parsing a list");
-      if (!first) {
-        if (b !== 0x2c) this.fail("expected `,` or `]`");
-        this.pos++;
-        b = this.peekToken();
-        if (b === 0x5d) this.fail("trailing comma");
-        if (b === undefined) this.fail("EOF while parsing a value");
-      }
-      first = false;
-      element();
-    }
-    this.leave();
-    this.pos++;
+    this.open();
+    for (let first = true; this.next(0x5d, first); first = false) element();
+    this.close();
   }
 
   /**
@@ -200,32 +182,13 @@ export class Reader {
    * judges a key; it returns what reads the value.
    */
   object(member: (key: string) => () => void): void {
-    this.pos++;
-    this.enter();
-    let first = true;
-    for (;;) {
-      let b = this.peekToken();
-      if (b === 0x7d) break;
-      if (b === undefined) this.fail("EOF while parsing an object");
-      if (!first) {
-        if (b !== 0x2c) this.fail("expected `,` or `}`");
-        this.pos++;
-        b = this.peekToken();
-      }
-      first = false;
-      if (b === 0x7d) this.fail("trailing comma");
-      if (b === undefined) this.fail("EOF while parsing a value");
-      if (b !== QUOTE) this.fail("key must be a string");
-      this.pos++;
-      const read = member(this.string());
-      const colon = this.peekToken();
-      if (colon === undefined) this.fail("EOF while parsing an object");
-      if (colon !== 0x3a) this.fail("expected `:`");
-      this.pos++;
+    this.open();
+    for (let first = true; this.next(0x7d, first); first = false) {
+      const read = member(this.key());
+      this.colon();
       read();
     }
-    this.leave();
-    this.pos++;
+    this.close();
   }
 
   private hex(): number {
@@ -382,8 +345,8 @@ const ESCAPES = new Map<number, string>([
 ]);
 
 /** One document: a value and nothing after it. */
-export function readJson(input: Uint8Array | string): Json {
-  const reader = new Reader(typeof input === "string" ? utf8(input) : input);
+export function readJson(text: string): Json {
+  const reader = new Reader(utf8(text));
   const value = reader.value();
   reader.end();
   return value;

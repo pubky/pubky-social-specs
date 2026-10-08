@@ -16,8 +16,6 @@ export interface Codec<T> {
   plain(value: T): unknown;
   /** A caller's value, checked for its shape. `at` names it in the error. */
   parse(js: unknown, at: string): T;
-  /** An absent member of this type reads as null. */
-  optional?: true;
   /** What an absent member reads as, when not an error. */
   absent?: () => T;
   /** Not written when null. */
@@ -90,12 +88,12 @@ export function option<T>(inner: Codec<T>): Codec<T | null> {
     write: (value) => (value === null ? "null" : inner.write(value)),
     plain: (value) => (value === null ? null : inner.plain(value)),
     parse: (js, at) => (js === null || js === undefined ? null : inner.parse(js, at)),
-    optional: true,
+    absent: () => null,
   };
 }
 
 /** An optional member that is left out of the text when null. */
-export const omitted = <T>(inner: Codec<T>): Codec<T | null> => ({ ...option(inner), absent: () => null, skipNull: true });
+export const omitted = <T>(inner: Codec<T>): Codec<T | null> => ({ ...option(inner), skipNull: true });
 
 /** A member that reads as `make()` when absent. */
 export const defaulted = <T>(inner: Codec<T>, make: () => T): Codec<T> => ({ ...inner, absent: make });
@@ -123,17 +121,19 @@ export type Extra = { extra: JsonObject };
 // read into a JS value and written back would lose the difference between `1` and `1.0`
 function unknownOf(js: unknown, at: string, known: readonly string[]): JsonObject {
   if (js === undefined) return new Map();
-  if (typeof js !== "string") misuse(`${at}.$unknown`, "the text it was read with");
+  const where = `${at}.$unknown`;
+  const refuse: () => never = () => misuse(where, "the text it was read with");
+  if (typeof js !== "string") refuse();
   checkWellFormed(js);
   let members: Json;
   try {
     members = readJson(js);
   } catch (e) {
-    if (e instanceof JsonError) return misuse(`${at}.$unknown`, "the text it was read with");
+    if (e instanceof JsonError) refuse();
     throw e;
   }
-  if (!(members instanceof Map)) return misuse(`${at}.$unknown`, "the text it was read with");
-  for (const key of known) if (members.has(key)) misuse(`${at}.$unknown`, `without the known member ${key}`);
+  if (!(members instanceof Map)) refuse();
+  for (const key of known) if (members.has(key)) misuse(where, `without the known member ${key}`);
   return members;
 }
 
@@ -143,21 +143,22 @@ type Fields<T extends Extra> = { [K in Exclude<keyof T, "extra">]-?: Codec<T[K]>
 /** An object that keeps the members it does not know, under `extra`. */
 export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<T> {
   const names = Object.keys(fields);
-  const entries = Object.entries<Codec<unknown>>(fields);
-  const absent = (codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : codec.optional ? null : missing());
+  // A Map, so no key reaches a prototype
+  const codecs = new Map(Object.entries<Codec<unknown>>(fields));
+  const absent = (codec: Codec<unknown>, missing: () => never) => (codec.absent ? codec.absent() : missing());
   return {
     read(r: Reader) {
       if (r.peekToken() !== 0x7b) invalidType(r, `struct ${name}`);
       const out: Record<string, unknown> = {};
       const extra: JsonObject = new Map();
       r.object((key) => {
-        const codec = Object.hasOwn(fields, key) ? (fields as Record<string, Codec<unknown>>)[key] : undefined;
+        const codec = codecs.get(key);
         if (!codec) return () => void extra.set(key, r.value());
         // A known key seen twice is refused as it is read, before its colon
         if (Object.hasOwn(out, key)) r.fail(`duplicate field \`${key}\``);
         return () => void (out[key] = codec.read(r));
       });
-      for (const [key, codec] of entries) {
+      for (const [key, codec] of codecs) {
         if (!Object.hasOwn(out, key)) out[key] = absent(codec, () => r.fail(`missing field \`${key}\``));
       }
       out.extra = extra;
@@ -165,7 +166,7 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
     },
     write(value) {
       const known: string[] = [];
-      for (const [key, codec] of entries) {
+      for (const [key, codec] of codecs) {
         const member = (value as Record<string, unknown>)[key];
         if (!(codec.skipNull && member === null)) known.push(`${writeString(key)}:${codec.write(member)}`);
       }
@@ -173,7 +174,7 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
     },
     plain(value) {
       const out: Record<string, unknown> = {};
-      for (const [key, codec] of entries) out[key] = codec.plain((value as Record<string, unknown>)[key]);
+      for (const [key, codec] of codecs) out[key] = codec.plain((value as Record<string, unknown>)[key]);
       if (value.extra.size > 0) out.$unknown = writeJson(value.extra);
       return out;
     },
@@ -181,12 +182,12 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
       if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
       const given = js as Record<string, unknown>;
       for (const key of Object.keys(given)) {
-        if (key !== "$unknown" && !Object.hasOwn(fields, key)) {
+        if (key !== "$unknown" && !codecs.has(key)) {
           misuse(`${at}.${key}`, "a member of the stored object: pass the .object a builder or decodeObject returned (members this version does not know travel in its $unknown)");
         }
       }
       const out: Record<string, unknown> = {};
-      for (const [key, codec] of entries) {
+      for (const [key, codec] of codecs) {
         const member = given[key];
         out[key] = member === undefined ? absent(codec, () => misuse(`${at}.${key}`, "given")) : codec.parse(member, `${at}.${key}`);
       }

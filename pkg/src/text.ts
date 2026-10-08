@@ -18,8 +18,8 @@ const WHITESPACE: readonly (readonly [number, number])[] = [
   [0x205f, 0x205f],
   [0x3000, 0x3000],
 ];
-const unit = (n: number) => `\\u${n.toString(16).padStart(4, "0")}`;
-const WS = WHITESPACE.map(([lo, hi]) => (lo === hi ? unit(lo) : `${unit(lo)}-${unit(hi)}`)).join("");
+const uEscape = (n: number) => `\\u${n.toString(16).padStart(4, "0")}`;
+const WS = WHITESPACE.map(([lo, hi]) => (lo === hi ? uEscape(lo) : `${uEscape(lo)}-${uEscape(hi)}`)).join("");
 const ANY_WS = new RegExp(`[${WS}]`);
 const CONTROL_OR_WS = new RegExp(`[\\x00-\\x1f\\x7f${WS}]`);
 

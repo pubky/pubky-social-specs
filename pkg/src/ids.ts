@@ -6,11 +6,7 @@ import { utf8, utf8Len } from "./text.js";
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 export const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 
-/**
- * Bytes in Crockford base32; exported for the vector generator.
- * @internal
- */
-export const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
+const crockford = (bytes: Uint8Array): string => radix(bytes, CROCKFORD, 5);
 
 // An id is valid only spelled as the encoder spells it: an alias (`O` for `0`, lowercase)
 // would name the same object under another homeserver key. `spare` is the mask of the bits
