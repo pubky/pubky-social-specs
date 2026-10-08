@@ -59,7 +59,7 @@
     "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run model -- --runs 25 --seed 1",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
-    "score": "node --max-old-space-size=1536 qa/score.mjs",
+    "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
     "model": "node --max-old-space-size=1536 qa/model.mjs",
     "mutation": "stryker run",
     "tools": "npm ci --ignore-scripts --prefix tools",
