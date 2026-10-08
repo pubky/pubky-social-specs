@@ -1,7 +1,8 @@
 name: npm package (native), nightly
 
 # The long runs: the parity fuzz, the chaos variants, the model fuzz at 10k runs, the property
-# tests at a random seed, and both mutation passes. Results are kept as artifacts.
+# tests at a random seed, both mutation passes, and the coverage-guided fuzz of each target,
+# whose grown corpus is then replayed against the reference. Results are kept as artifacts.
 
 on:
   schedule:
@@ -49,6 +50,13 @@ jobs:
             cmd: npm run mutation
           - name: named-mutations
             cmd: node qa/mutate.mjs --seeds 150 --out qa/out/mutate.json
+          # One CPU-hour per target a night, the grown corpus then asked of the reference
+          - name: fuzz-decode
+            cmd: sh qa/fuzz/run.sh decode 3600 && node --max-old-space-size=1536 qa/fuzz/replay.mjs
+          - name: fuzz-uri
+            cmd: sh qa/fuzz/run.sh uri 3600 && node --max-old-space-size=1536 qa/fuzz/replay.mjs
+          - name: fuzz-build
+            cmd: sh qa/fuzz/run.sh build 3600 && node --max-old-space-size=1536 qa/fuzz/replay.mjs
     name: ${{ matrix.run.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -74,4 +82,6 @@ jobs:
             pkg/qa/out/*.json
             pkg/qa/out/stryker/report.json
             pkg/qa/failures
+            pkg/qa/fuzz/corpus
+            pkg/qa/fuzz/crashes
           if-no-files-found: ignore

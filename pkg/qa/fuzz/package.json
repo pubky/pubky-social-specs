@@ -1,0 +1,9 @@
+{
+  "name": "pubky-social-specs-fuzz",
+  "private": true,
+  "description": "Coverage-guided fuzzing of the package with jazzer.js. Its prebuilt fuzzer needs glibc 2.38 or later; run.sh runs it in a container where the host is older.",
+  "type": "module",
+  "devDependencies": {
+    "@jazzer.js/core": "4.0.0"
+  }
+}

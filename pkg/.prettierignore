@@ -8,3 +8,7 @@ package-lock.json
 tools/package-lock.json
 *.md
 src/data.ts
+qa/fuzz/corpus
+qa/fuzz/crashes
+qa/fuzz/node_modules
+qa/fuzz/*.log
