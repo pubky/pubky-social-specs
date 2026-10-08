@@ -73,12 +73,12 @@ const strings = (value: unknown, name: string): string[] => arrayOf(value, name)
 
 type Made<V> = { id: string; path: string; value: V; body: string };
 
-function built<P, Id extends string = string>(owner: string, codec: Codec<never>, made: Made<unknown>): T.Built<P, Id> {
+function built<V, P, Id extends string = string>(owner: string, codec: Codec<V>, made: Made<V>): T.Built<P, Id> {
   const url = `pubky://${owner}${made.path}` as T.Built<P, Id>["url"];
-  return { id: made.id as Id, path: made.path as T.OwnerPath, url, object: codec.plain(made.value as never) as P, body: utf8(made.body) };
+  return { id: made.id as Id, path: made.path as T.OwnerPath, url, object: codec.plain(made.value) as P, body: utf8(made.body) };
 }
 
-const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<T.Post, T.PostId>(owner, posts.post.codec as Codec<never>, made), editId: made.editId as T.EditId });
+const builtPost = (owner: string, made: posts.Minted): T.BuiltPost => ({ ...built<posts.Post, T.Post, T.PostId>(owner, posts.post.codec, made), editId: made.editId as T.EditId });
 
 /**
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
@@ -213,7 +213,7 @@ export function encodeContent(content: T.ArticleContent | T.CollectionContent): 
  * ```
  */
 export function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.User> {
-  return built(owner, users.user.codec as Codec<never>, users.buildUser(key(owner, "owner"), snapshot(input, "input")));
+  return built(owner, users.user.codec, users.buildUser(key(owner, "owner"), snapshot(input, "input")));
 }
 
 /**
@@ -279,7 +279,7 @@ export function editPost(headUri: T.UrlArg<"post">, post: T.Post, options?: { ro
  * ```
  */
 export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.Feed> {
-  return built(owner, feeds.feed.codec as Codec<never>, feeds.buildFeed(key(owner, "owner"), snapshot(input, "input")));
+  return built(owner, feeds.feed.codec, feeds.buildFeed(key(owner, "owner"), snapshot(input, "input")));
 }
 
 /**
@@ -312,7 +312,7 @@ export function feedId(feed: T.Feed): string {
  * ```
  */
 export function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: string): T.Built<T.Tag> {
-  return built(owner, graph.tag.codec as Codec<never>, graph.buildTag(key(owner, "owner"), text(uri, "uri"), text(label, "label")));
+  return built(owner, graph.tag.codec, graph.buildTag(key(owner, "owner"), text(uri, "uri"), text(label, "label")));
 }
 
 /**
@@ -328,7 +328,7 @@ export function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: strin
  * ```
  */
 export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.Built<T.Bookmark> {
-  return built(owner, graph.bookmark.codec as Codec<never>, graph.buildBookmark(key(owner, "owner"), text(target, "target")));
+  return built(owner, graph.bookmark.codec, graph.buildBookmark(key(owner, "owner"), text(target, "target")));
 }
 
 /**
@@ -344,7 +344,7 @@ export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.B
  * ```
  */
 export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">): T.Built<T.Follow, T.Owner> {
-  return built(owner, graph.follow.codec as Codec<never>, graph.buildFollow(key(owner, "owner"), key(followee, "followee")));
+  return built(owner, graph.follow.codec, graph.buildFollow(key(owner, "owner"), key(followee, "followee")));
 }
 
 /**
@@ -360,7 +360,7 @@ export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">)
  * ```
  */
 export function buildMute(owner: T.Given<"Owner">, mutee: T.Given<"Owner">): T.Built<T.Mute, T.Owner> {
-  return built(owner, graph.mute.codec as Codec<never>, graph.buildMute(key(owner, "owner"), key(mutee, "mutee")));
+  return built(owner, graph.mute.codec, graph.buildMute(key(owner, "owner"), key(mutee, "mutee")));
 }
 
 /**
