@@ -206,13 +206,13 @@ What the campaign found, all fixed:
 - A hostile `$unknown` text leaked the reader's internal error; a sparse array of 2^32 entries
   was walked; an array where a kind goes reached string formatting; a typed array whose
   `length` lies reached the hash.
-- A name outside a closed set, in an object a caller wrote, was stored as `"unknown"`. It is
-  refused now; only a name a read gave is written back.
+- A name outside a closed set, in an object a caller wrote, was stored as `"unknown"`. Both the
+  crate and the package now keep such a name with its spelling, so what a read gave is what is
+  written back; a builder still refuses a name it does not know.
 - An options bag with a misspelled member was accepted and the member ignored.
 
-Two things are as the crate has them and are stated, not fixed: a stored name a version does not
-know is written back as `"unknown"` by that version, in either language; and a public key that is
-no key is refused without naming the argument.
+A public key that is no key is refused with the crate's message; the package adds the argument's
+name as `field` and a hint when the value starts with `pubky`.
 
 ## Running anything here on a small machine
 

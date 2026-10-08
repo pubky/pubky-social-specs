@@ -81,7 +81,7 @@ const MAX_USERNAME_LENGTH: usize = 50;
 fn validate(&self, _id: Option<&str>) -> Result<(), String> {
     let name_length = self.name.chars().count();  // Unicode code points
     if name_length > MAX_USERNAME_LENGTH {
-        return Err("Validation Error: Invalid name length".into());
+        return Err("Validation Error: name must be 3 to 50 code points".into());
     }
     Ok(())
 }
