@@ -1788,7 +1788,7 @@ dependencies = [
 
 [[package]]
 name = "pubky-social-specs"
-version = "1.0.0-beta.1"
+version = "1.0.0-alpha.5"
 dependencies = [
  "anyhow",
  "base32",

@@ -1,6 +1,6 @@
 {
   "name": "pubky-social-specs",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-alpha.5",
   "description": "The Pubky social data model: builders, validation and URIs as plain synchronous functions",
   "license": "MIT",
   "type": "module",

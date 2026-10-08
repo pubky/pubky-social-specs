@@ -5,7 +5,7 @@ A release makes two promises, and each entry below lists its changes under both.
 ## What a release promises
 
 **The API**: the functions, types and entries of this package. From 1.0.0 they follow semver:
-a minor release adds, a major release may remove or change a signature. Before 1.0.0 a beta may
+a minor release adds, a major release may remove or change a signature. Before 1.0.0 a prerelease may
 break them, and each break is marked below. `pkg/api/*.d.ts` holds the declarations as agreed,
 and CI fails when the build's differ from them. A refusal's message is the crate's, word for
 word; one changes only when the crate's does, and is then listed under API.
@@ -20,7 +20,7 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
-## Unreleased (1.0.0-beta.2)
+## Unreleased
 
 ### API
 
@@ -105,7 +105,7 @@ These follow the crate, which changes with them:
 - `deletionPaths` for a mute returns its 0.x copy first.
 - `planPublish` keeps the slug and writes the envelope with its members in the kind's order.
 
-## 1.0.0-beta.1
+### Where this release starts
 
 The native TypeScript implementation of the 1.x data model, with the crate's migration compiled
 to wasm under `pubky-social-specs/migration`. See `MIGRATION.md` for the 0.x to 1.x path.

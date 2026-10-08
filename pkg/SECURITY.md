@@ -10,7 +10,7 @@ public issue for it. Say which version, which entry (`.`, `/migration`, `/migrat
 ## Supported versions
 
 The latest release of the current major line gets fixes. Before 1.0.0, that is the latest
-`1.0.0-beta` release; older betas are not patched.
+`1.0.0-alpha` release; older prereleases are not patched.
 
 ## Verifying a release
 
