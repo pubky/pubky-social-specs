@@ -186,6 +186,31 @@ describe("pubky-social-specs/client", () => {
 });
 
 describe("the client over memoryHomeserver", () => {
+  it("lists another user's posts past any file in posts/ that names no post", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { friend, friendSession, publicStorage, session } = memoryHomeserver();
+    await createSocialClient(friendSession).posts.create({ content: "kept" });
+    await friendSession.storage.putBytes("/pub/social/v1/posts/not-an-id/x.json", new Uint8Array([1]));
+    await friendSession.storage.putBytes("/pub/social/v1/posts/README", new Uint8Array([1]));
+    const read = [];
+    for await (const post of createSocialClient(session, { publicStorage }).posts.list(friend)) if (post.ok) read.push(post.object.content);
+    assert.deepStrictEqual(read, ["kept"]);
+  });
+
+  it("uploads the very bytes it hashed, whatever happens to the caller's view after", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { owner, session } = memoryHomeserver();
+    const sent = [];
+    const put = session.storage.putBytes;
+    session.storage.putBytes = (path, bytes) => (sent.push(bytes), put(path, bytes));
+    const bytes = new Uint8Array([1, 2, 3]);
+    const file = await createSocialClient(session).files.upload(bytes, "image/png");
+    bytes[0] = 9;
+    assert.notStrictEqual(sent[0], bytes);
+    assert.deepStrictEqual([...sent[0]], [1, 2, 3]);
+    assert.strictEqual(file.url.startsWith(`pubky://${owner}/pub/social/v1/files/`), true);
+  });
+
   it("checks a post id and a root before a LIST names a directory with them", async () => {
     const { memoryHomeserver } = await import("./dist/testing.js");
     const { ValidationError } = await import("./dist/index.js");

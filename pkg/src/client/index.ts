@@ -212,9 +212,16 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         const key = parseOwner(author);
         const ids = new Set<string>();
         const prefix = `${roots.public}posts/`;
+        // Someone else's tree may hold any file under posts/; only a post version names a post
         for await (const url of listed(key, prefix)) {
-          const id = pathOf(key, url).slice(prefix.length).split("/")[0];
-          if (id !== undefined && id !== "") ids.add(id);
+          let at: T.ParsedUri;
+          try {
+            at = parseUri(url);
+          } catch (e) {
+            if (e instanceof ValidationError) continue;
+            throw e;
+          }
+          if (at.kind === "post" && at.editId !== undefined) ids.add(at.id);
         }
         for (const id of ids) {
           const read = await newest(key, id, "public");
@@ -292,8 +299,10 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     files: {
       /** PUTs media where its hash names it, public unless `root` says otherwise. */
       async upload(bytes: Uint8Array, type: T.MimeType | (string & {}), root: T.Root = "public"): Promise<T.BuiltFile> {
-        const built = buildFile(owner, { bytes, type, root });
-        await storage.putBytes(built.path, bytes);
+        // One copy, hashed and sent: the caller's view may change while the PUT is in flight
+        const copy = new Uint8Array(bytes);
+        const built = buildFile(owner, { bytes: copy, type, root });
+        await storage.putBytes(built.path, copy);
         return built;
       },
       /** The bytes of media at `url`, checked against the hash that names them; null when absent. */
