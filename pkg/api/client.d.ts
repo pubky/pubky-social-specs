@@ -57,7 +57,7 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         }): Promise<T.BuiltPost>;
         /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
         list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post, "post">>;
-        /** Deletes every version of an own post in both roots, newest last. */
+        /** Deletes every version of an own post in both roots, newest last, and its 0.x copy first when there is one. */
         delete(id: T.Given<"PostId">): Promise<void>;
     };
     /** The owner's profile: get anyone's, set or update the owner's. */
@@ -74,13 +74,19 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         remove: (followee: T.Given<"Owner">) => Promise<void>;
         list: (author?: T.Given<"Owner">) => AsyncGenerator<Read<T.Follow, "follow">, any, any>;
     };
-    /** The owner's mutes, private: add, remove, list. */
+    /**
+     * The owner's mutes, private: add, remove, list. `remove` deletes the 0.x copy first; a
+     * session not granted the 0.x tree leaves that copy and still deletes the 1.x one.
+     */
     mutes: {
         add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner, "mute">>;
         remove: (mutee: T.Given<"Owner">) => Promise<void>;
         list: () => AsyncGenerator<Read<T.Mute, "mute">, any, any>;
     };
-    /** The owner's tags: add, remove, list. */
+    /**
+     * The owner's tags: add, remove, list. `add` reads the tag's address first: a tag already
+     * there, which another app may have added to, is kept as it is and returned.
+     */
     tags: {
         add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>>;
         remove: (id: string) => Promise<void>;

@@ -60,7 +60,10 @@ const PAGE = 1000;
 // A post id another copy of the package minted first: build again, which mints the next one
 const MINT_ATTEMPTS = 5;
 
-const isNotFound = (error: unknown): boolean => (error as { data?: { statusCode?: unknown } } | null)?.data?.statusCode === 404;
+const statusOf = (error: unknown): unknown => (error as { data?: { statusCode?: unknown } } | null)?.data?.statusCode;
+const isNotFound = (error: unknown): boolean => statusOf(error) === 404;
+// What a session without a grant for a path is told
+const isRefused = (error: unknown): boolean => statusOf(error) === 401 || statusOf(error) === 403;
 
 // `missing` where the homeserver has nothing; any other failure goes on
 const orMissing = async <R, M>(call: Promise<R>, missing: M): Promise<R | M> => {
@@ -103,7 +106,11 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
   const pathOf = (author: string, url: string): string => url.slice(`pubky://${author}`.length);
   // The 1.x roots, owner-relative, as the core spells them
-  const roots = { public: pathOf(owner, listPrefix(owner, "public")), private: pathOf(owner, listPrefix(owner, "private")) };
+  const roots = {
+    public: pathOf(owner, listPrefix(owner, "public")),
+    private: pathOf(owner, listPrefix(owner, "private")),
+    legacy: pathOf(owner, listPrefix(owner, "legacy")),
+  };
   const own = { list: (path: string, cursor: string | null) => storage.list(path, cursor, false, pageSize, false), get: (path: string) => storage.getBytes(path) };
   const reader = (author: string) => {
     if (author === owner) return own;
@@ -162,8 +169,16 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     await storage.putBytes(built.path, built.body);
     return built;
   };
+  // A 0.x copy goes first, so a reindex cannot bring the object back from it. A session granted
+  // only the 1.x tree, as an app should ask, may not touch it: the 1.x copies still go
   const remove = async (paths: readonly string[]) => {
-    for (const path of paths) await orMissing(storage.delete(path), undefined);
+    for (const path of paths) {
+      try {
+        await orMissing(storage.delete(path), undefined);
+      } catch (error) {
+        if (!(path.startsWith(roots.legacy) && isRefused(error))) throw error;
+      }
+    }
   };
 
   // The one place a post's directory is spelled from what a caller gave: checked first, so no
@@ -233,11 +248,14 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
           if (read !== null) yield read;
         }
       },
-      /** Deletes every version of an own post in both roots, newest last. */
+      /** Deletes every version of an own post in both roots, newest last, and its 0.x copy first when there is one. */
       async delete(id: T.Given<"PostId">): Promise<void> {
         // Only the post's versions are the post: another file in its directory is no copy of it
         const listings: string[] = [];
         for await (const url of ownVersions(id)) if (isVersion(url)) listings.push(pathOf(owner, url));
+        // A migrated post keeps its 0.x copy, which a reindex would read back as the post
+        const legacy = `${roots.legacy}posts/${parsePostId(id)}`;
+        if (await storage.exists(legacy)) listings.push(legacy);
         await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
       },
     },
@@ -265,7 +283,10 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: (author: T.Given<"Owner"> = owner) => readAll(parseOwner(author), `${roots.public}follows/`, "follow"),
     },
 
-    /** The owner's mutes, private: add, remove, list. */
+    /**
+     * The owner's mutes, private: add, remove, list. `remove` deletes the 0.x copy first; a
+     * session not granted the 0.x tree leaves that copy and still deletes the 1.x one.
+     */
     mutes: {
       async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner, "mute">> {
         return stored(buildMute(owner, mutee));
@@ -274,10 +295,19 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: () => readAll(owner, `${roots.private}mutes/`, "mute"),
     },
 
-    /** The owner's tags: add, remove, list. */
+    /**
+     * The owner's tags: add, remove, list. `add` reads the tag's address first: a tag already
+     * there, which another app may have added to, is kept as it is and returned.
+     */
     tags: {
       async add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>> {
-        return stored(buildTag(owner, uri, label));
+        const built = buildTag(owner, uri, label);
+        // One tag address is shared by every app of the owner's: a tag already there keeps what
+        // the others wrote into it, and only bytes that are no tag are written over
+        const there = await orMissing(storage.getBytes(built.path), null);
+        if (there === null) return stored(built);
+        const read = decoded<T.Tag, "tag">(built.url, built.path, () => decodeObject(built.url, there, "tag"));
+        return read.ok ? { ...built, object: read.object, body: new Uint8Array(there) } : stored(built);
       },
       remove: (id: string) => remove(deletionPaths({ kind: "tag", id })),
       list: (author: T.Given<"Owner"> = owner) => readAll(parseOwner(author), `${roots.public}tags/`, "tag"),

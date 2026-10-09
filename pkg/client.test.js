@@ -186,6 +186,46 @@ describe("pubky-social-specs/client", () => {
 });
 
 describe("the client over memoryHomeserver", () => {
+  it("unmutes with a session not granted the 0.x tree: the 1.x mute still goes", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { friend, owner, session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const mute = await social.mutes.add(friend);
+    await session.storage.putBytes(`/pub/pubky.app/mutes/${friend}`, new Uint8Array([1]));
+    const remove = session.storage.delete;
+    session.storage.delete = async (path) => {
+      if (path.startsWith("/pub/pubky.app/")) throw Object.assign(new Error("403"), { data: { statusCode: 403 } });
+      return remove(path);
+    };
+    await social.mutes.remove(friend);
+    assert.strictEqual(await session.storage.exists(mute.path), false);
+    void owner;
+  });
+
+  it("adds a tag without writing over one already at its address", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const first = await social.tags.add("https://example.com/a", "rust");
+    // Another app of the owner's added a member to the same tag
+    const theirs = new TextEncoder().encode(text(first.body).replace(/}$/, ',"by":"other"}'));
+    await session.storage.putBytes(first.path, theirs);
+    const again = await social.tags.add("https://example.com/a", "rust");
+    assert.strictEqual(text(await session.storage.getBytes(first.path)), text(theirs));
+    assert.strictEqual(text(again.body), text(theirs));
+  });
+
+  it("deletes a migrated post's 0.x copy with its versions", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const post = await social.posts.create({ content: "migrated" });
+    await session.storage.putBytes(`/pub/pubky.app/posts/${post.id}`, new Uint8Array([1]));
+    await social.posts.delete(post.id);
+    assert.strictEqual(await session.storage.exists(`/pub/pubky.app/posts/${post.id}`), false);
+    assert.strictEqual(await session.storage.exists(post.path), false);
+  });
+
   it("refuses a LIST answer outside the tree it asked about", async () => {
     const { memoryHomeserver } = await import("./dist/testing.js");
     const { friend, friendSession, owner, publicStorage, session } = memoryHomeserver();
