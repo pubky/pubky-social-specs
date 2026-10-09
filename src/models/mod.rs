@@ -79,6 +79,26 @@ macro_rules! wire_names {
                 value.wire_name().to_string()
             }
         }
+
+        // A string on the wire, the known names listed and any other kept: a derived schema
+        // would describe the Rust enum, `Unknown` as an object, and refuse a newer name
+        #[cfg(feature = "openapi")]
+        impl utoipa::PartialSchema for $ty {
+            fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+                let known = [$($name),*];
+                utoipa::openapi::ObjectBuilder::new()
+                    .schema_type(utoipa::openapi::schema::Type::String)
+                    .description(Some(format!(
+                        "One of {}, or a name a newer version writes, kept as it was read",
+                        known.join(", ")
+                    )))
+                    .examples(known)
+                    .into()
+            }
+        }
+
+        #[cfg(feature = "openapi")]
+        impl utoipa::ToSchema for $ty {}
     };
 }
 use crate::{

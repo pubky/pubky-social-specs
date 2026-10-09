@@ -29,7 +29,6 @@ const POSTS_SEGMENT: &str = "posts/";
 /// Used primarily to best display the content in UI
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
 pub enum PubkySocialPostKind {
     #[default]

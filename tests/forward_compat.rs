@@ -246,3 +246,27 @@ fn every_json_wire_type_ignores_unknown_fields() {
         config("all", "list", "popularity", "null")
     ));
 }
+
+/// On the wire these enums are strings, a newer name included, and so is their schema: no
+/// closed `enum` that would refuse a newer name, no object for the catch-all.
+#[cfg(feature = "openapi")]
+#[test]
+fn the_open_enums_are_strings_in_the_openapi_schema() {
+    fn schema<T: utoipa::PartialSchema>() -> serde_json::Value {
+        serde_json::to_value(T::schema()).unwrap()
+    }
+    for s in [
+        schema::<PubkySocialPostKind>(),
+        schema::<PubkySocialFeedReach>(),
+        schema::<PubkySocialFeedLayout>(),
+        schema::<PubkySocialFeedSort>(),
+        schema::<PubkySocialCollectionLayout>(),
+    ] {
+        assert_eq!(s["type"], "string", "{s}");
+        assert!(s.get("enum").is_none() && s.get("oneOf").is_none(), "{s}");
+    }
+    assert!(schema::<PubkySocialPostKind>()["description"]
+        .as_str()
+        .unwrap()
+        .contains("collection"));
+}

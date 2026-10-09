@@ -20,7 +20,6 @@ use utoipa::ToSchema;
 /// Enum representing the reach of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
 pub enum PubkySocialFeedReach {
     Following,
@@ -44,7 +43,6 @@ wire_names!(PubkySocialFeedReach {
 /// Enum representing the layout of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
 pub enum PubkySocialFeedLayout {
     Columns,
@@ -64,7 +62,6 @@ wire_names!(PubkySocialFeedLayout {
 /// Enum representing the sort order of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[non_exhaustive]
 pub enum PubkySocialFeedSort {
     Recent,

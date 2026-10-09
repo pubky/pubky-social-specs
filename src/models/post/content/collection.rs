@@ -13,7 +13,6 @@ use super::super::PubkySocialPost;
 /// Unrecognized values deserialize as `Unknown`, spelling kept, so future layouts never
 /// invalidate the whole post (same policy as `PubkySocialPostKind`).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialCollectionLayout {
