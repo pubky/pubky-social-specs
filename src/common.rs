@@ -15,10 +15,72 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn timestamp() -> i64 {
+    #[cfg(feature = "surface")]
+    if let Some(now) = pinned::clock() {
+        return now;
+    }
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_micros() as i64
+}
+
+/// A clock and a mint guard a caller sets, so an answer of the surface depends on its request
+/// alone and can be recorded and replayed. Both belong to the thread that set them: another
+/// thread of the same process keeps the wall clock and the process's own guard.
+#[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+pub(crate) mod pinned {
+    use std::cell::Cell;
+    use std::sync::atomic::{AtomicI64, Ordering};
+
+    thread_local! {
+        static CLOCK: Cell<Option<i64>> = const { Cell::new(None) };
+        static GUARD: AtomicI64 = const { AtomicI64::new(0) };
+    }
+
+    pub(crate) fn clock() -> Option<i64> {
+        CLOCK.with(Cell::get)
+    }
+
+    /// Pins this thread's clock and guard until `clear`.
+    pub(crate) fn set(now_micros: i64, last_minted: i64) {
+        CLOCK.with(|clock| clock.set(Some(now_micros)));
+        GUARD.with(|guard| guard.store(last_minted, Ordering::SeqCst));
+    }
+
+    pub(crate) fn clear() {
+        CLOCK.with(|clock| clock.set(None));
+    }
+
+    pub(crate) fn last_minted() -> i64 {
+        GUARD.with(|guard| guard.load(Ordering::SeqCst))
+    }
+
+    /// `mint` over this thread's guard.
+    pub(crate) fn with_guard<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
+        GUARD.with(mint)
+    }
+}
+
+/// The mint over the guard of this thread's pin when there is one, else the process's.
+fn minting<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
+    #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+    if pinned::clock().is_some() {
+        return pinned::with_guard(mint);
+    }
+    mint(&LAST_MINTED_MICROS)
+}
+
+/// A JSON error as this crate words it: the parser's message without its position. A position
+/// counts bytes of one spelling of the text, so it is no part of what a reader refused.
+pub(crate) fn json_error(e: &serde_json::Error) -> String {
+    let message = e.to_string();
+    // Built from the error's own numbers rather than searched for: a message can quote text
+    let position = format!(" at line {} column {}", e.line(), e.column());
+    match message.strip_suffix(&position) {
+        Some(stripped) => stripped.to_string(),
+        None => message,
+    }
 }
 
 /// The 25 code points with White_Space=Yes at Unicode 15.1. Frozen: never
@@ -166,7 +228,7 @@ const CLOCK_ROLLBACK_TOLERANCE_MICROS: i64 = 1_000_000;
 /// process, or per wasm instance; two tabs each keep their own.
 /// `timestamp()` stays the raw clock for `created_at` fields.
 pub fn mint_timestamp_micros() -> i64 {
-    mint_from(timestamp(), &LAST_MINTED_MICROS)
+    minting(|guard| mint_from(timestamp(), guard))
 }
 
 /// Ids may sit this far ahead of the reader's clock and still validate.
@@ -177,25 +239,29 @@ pub const MAX_FUTURE_MICROS: i64 = 2 * 60 * 60 * 1_000_000;
 const SUCCESSOR_SPREAD_MICROS: i64 = 60 * 1_000_000;
 
 /// The same mint with a floor. When the clock is past the floor this is the ordinary mint.
-/// When it is not, as it is when a post was created by a faster clock, the successor lands at
-/// `floor + 1 + (salt mod room)`: the clock cannot separate two clients that are both behind
-/// the head, so the salt does, and callers derive it from the bytes being written so only
-/// identical writes share a path. `room` is bounded by the validity window, and a floor with
-/// no room left is an error rather than an id no reader accepts. A floor far ahead does not
-/// poison later mints: the rollback tolerance treats the next clock reading as a correction.
+/// When it is not, as it is when a post was created by a faster clock or edited in the instant
+/// it was created, the successor lands at `floor + 1 + (salt mod room)`: the clock cannot
+/// separate two clients that are both behind the head, so the salt does, and callers derive it
+/// from the bytes being written so only identical writes share a path. The successor must stay
+/// inside the validity window, so a floor that leaves less than the whole spread below the
+/// future bound is an error: a narrower spread would let two different edits share a path. A
+/// salted successor does not move the mint guard.
 pub fn mint_timestamp_micros_above(floor: i64, salt: u64) -> Result<i64, String> {
     let now = timestamp();
     if now > floor {
-        return Ok(mint_from(now, &LAST_MINTED_MICROS));
+        return Ok(minting(|guard| mint_from(now, guard)));
     }
-    let room = (now + MAX_FUTURE_MICROS)
+    (now + MAX_FUTURE_MICROS)
         .checked_sub(floor)
         .and_then(|r| r.checked_sub(1))
-        .filter(|r| *r > 0)
+        .filter(|r| *r >= SUCCESSOR_SPREAD_MICROS)
         .ok_or("Validation Error: the current version leaves no room for a newer id")?;
-    let spread = room.min(SUCCESSOR_SPREAD_MICROS) as u64;
-    let target = floor + 1 + (salt % spread) as i64;
-    Ok(mint_from(target, &LAST_MINTED_MICROS))
+    let spread = SUCCESSOR_SPREAD_MICROS as u64;
+    // Returned as it is, past the guard: the guard keeps two mints of one instant apart, and a
+    // successor is told apart by its salt. Moving the guard up to it would put the guard ahead
+    // of the clock, the next plain mint would read that as a clock correction and issue the
+    // raw clock again, which an earlier mint of the same instant already holds.
+    Ok(floor + 1 + (salt % spread) as i64)
 }
 
 fn mint_from(now: i64, last_minted: &AtomicI64) -> i64 {

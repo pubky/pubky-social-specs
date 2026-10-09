@@ -484,7 +484,8 @@ fn v1_kind(kind: &legacy_v0::V0PostKind) -> PubkySocialPostKind {
         V0::Link => PubkySocialPostKind::Link,
         V0::File => PubkySocialPostKind::File,
         V0::Collection => PubkySocialPostKind::Collection,
-        V0::Unknown => PubkySocialPostKind::Unknown,
+        // The v0 reader kept no spelling for a kind it did not know
+        V0::Unknown => PubkySocialPostKind::Unknown("unknown".to_string()),
     }
 }
 
@@ -745,7 +746,7 @@ fn transform_feed(feed: legacy_v0::V0Feed, ctx: &MigrationCtx) -> Result<Migrate
     let filter = |labels: Option<Vec<String>>| labels.filter(|labels| !labels.is_empty());
     let config = feed.feed;
     let content = match config.content.as_ref().map(v1_kind) {
-        Some(PubkySocialPostKind::Unknown) => return Err(Skip::UnknownFeedContent.into()),
+        Some(PubkySocialPostKind::Unknown(_)) => return Err(Skip::UnknownFeedContent.into()),
         content => content,
     };
     let config = PubkySocialFeedConfig::new(

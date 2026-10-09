@@ -1,0 +1,14 @@
+{
+  // The declarations as a consumer compiles them: with the DOM lib, so a `body` has to be
+  // something `fetch` takes, and with no access to the sources.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "dom", "esnext.disposable"],
+    "module": "nodenext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "types": []
+  },
+  "include": ["*.ts"]
+}

@@ -13,17 +13,13 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::str::FromStr;
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
 /// Enum representing the reach of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialFeedReach {
     Following,
@@ -32,92 +28,51 @@ pub enum PubkySocialFeedReach {
     All,
     Wot,
     Me,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
-impl PubkySocialFeedReach {
-    /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-
-    /// The frozen wire spelling. One function, so the id input and every other text
-    /// rendering of a value can never disagree.
-    pub fn wire_name(&self) -> &'static str {
-        match self {
-            Self::Following => "following",
-            Self::Followers => "followers",
-            Self::Friends => "friends",
-            Self::All => "all",
-            Self::Wot => "wot",
-            Self::Me => "me",
-            Self::Unknown => "unknown",
-        }
-    }
-}
+wire_names!(PubkySocialFeedReach {
+    Following => "following",
+    Followers => "followers",
+    Friends => "friends",
+    All => "all",
+    Wot => "wot",
+    Me => "me",
+});
 
 /// Enum representing the layout of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialFeedLayout {
     Columns,
     Wide,
     Visual,
     List,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
-impl PubkySocialFeedLayout {
-    /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-
-    /// The frozen wire spelling, see [`PubkySocialFeedReach::wire_name`].
-    pub fn wire_name(&self) -> &'static str {
-        match self {
-            Self::Columns => "columns",
-            Self::Wide => "wide",
-            Self::Visual => "visual",
-            Self::List => "list",
-            Self::Unknown => "unknown",
-        }
-    }
-}
+wire_names!(PubkySocialFeedLayout {
+    Columns => "columns",
+    Wide => "wide",
+    Visual => "visual",
+    List => "list",
+});
 
 /// Enum representing the sort order of the feed.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialFeedSort {
     Recent,
     Popularity,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
-impl PubkySocialFeedSort {
-    /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-
-    /// The frozen wire spelling, see [`PubkySocialFeedReach::wire_name`].
-    pub fn wire_name(&self) -> &'static str {
-        match self {
-            Self::Recent => "recent",
-            Self::Popularity => "popularity",
-            Self::Unknown => "unknown",
-        }
-    }
-}
+wire_names!(PubkySocialFeedSort {
+    Recent => "recent",
+    Popularity => "popularity",
+});
 
 /// Configuration object for the feed. The whole of a feed's identity: two feeds with the
 /// same config are the same feed, whatever they are named.
@@ -188,7 +143,7 @@ fn canonical_filter(tags: Option<Vec<String>>, field: &str) -> Result<Option<Vec
     };
     if tags.is_empty() {
         return Err(format!(
-            "Validation Error: {field} must not be an empty list; pass None for no filter"
+            "Validation Error: {field} must not be an empty list; leave it out for no filter"
         ));
     }
     if tags.iter().any(|tag| sanitize_tag_label(tag).is_empty()) {
@@ -332,17 +287,12 @@ impl PubkySocialFeed {
         }
     }
 
-    /// The id of the config, for a writer. Only a valid, fully spellable config has one.
-    /// Validation first, because a config the rules reject can render a string another config
-    /// also renders (`tags: Some([])` and `tags: None` are the same six segments). Then the
-    /// content kind: two future kinds render as one segment and would collide, and a reader
-    /// skips the id check for exactly those feeds, so nothing would notice. Such a feed keeps
-    /// the id it was read under, which is what a name-only edit needs.
+    /// The id of the config, for a writer. Only a valid config has one: a config the rules
+    /// reject can render a string another config also renders (`tags: Some([])` and
+    /// `tags: None` are the same six segments). A content kind this version does not know
+    /// renders with the spelling it was read with, so it derives the writer's id.
     pub fn derive_id(&self) -> Result<String, String> {
         self.validate(None, &ValidationCtx { root: Self::ROOT })?;
-        if !self.feed.content.as_ref().is_none_or(|c| c.is_known()) {
-            return Err("Validation Error: a feed carrying an unknown content kind has no derivable id; keep the id it was read under".into());
-        }
         Ok(self.create_id())
     }
 
@@ -360,7 +310,6 @@ impl PubkySocialFeed {
 /// publishing is a plain byte copy, and because the id is derived from the config alone the
 /// two copies can never disagree about what the feed filters.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub struct FeedPaths {
     /// Where the builder writes.
     pub private: String,
@@ -438,8 +387,8 @@ impl HashId for PubkySocialFeed {
     /// printable token: '-' would collide with the legal label `["-"]`. `name`, `icon`,
     /// `created_at` and `extra` stay outside: a feed is what it filters, not how it looks.
     ///
-    /// Meaningful only for a config this crate can spell; writers go through
-    /// [`PubkySocialFeed::derive_id`], which refuses an unknown content kind.
+    /// Writers go through [`PubkySocialFeed::derive_id`], which validates the config first. A
+    /// name this version does not know is spelled as it was read, so it derives the writer's id.
     fn get_id_data(&self) -> String {
         let list =
             |l: &Option<Vec<String>>| l.as_ref().map_or_else(String::new, |list| list.join(","));
@@ -488,14 +437,8 @@ impl Validatable for PubkySocialFeed {
         validate_safe_json_int(self.created_at)?;
 
         if let Some(id) = id {
-            // The id is a write-side guarantee. A reader that does not know the content
-            // filter cannot rebuild the writer's string around it, so it takes the id as
-            // named, but only a canonically spelled one; reach, layout and sort are rejected
-            // above, before ever reaching here.
             validate_hash_id_format(id)?;
-            if self.feed.content.as_ref().is_none_or(|c| c.is_known()) {
-                self.validate_id(id)?;
-            }
+            self.validate_id(id)?;
         }
 
         Ok(())
@@ -850,15 +793,36 @@ mod tests {
     fn test_unknown_enums_and_the_write_side_id() {
         for (config, field) in [
             (
-                stored(None, None, R::Unknown, L::List, S::Recent, None),
+                stored(
+                    None,
+                    None,
+                    R::Unknown("galaxy".into()),
+                    L::List,
+                    S::Recent,
+                    None,
+                ),
                 "reach",
             ),
             (
-                stored(None, None, R::All, L::Unknown, S::Recent, None),
+                stored(
+                    None,
+                    None,
+                    R::All,
+                    L::Unknown("spiral".into()),
+                    S::Recent,
+                    None,
+                ),
                 "layout",
             ),
             (
-                stored(None, None, R::All, L::List, S::Unknown, None),
+                stored(
+                    None,
+                    None,
+                    R::All,
+                    L::List,
+                    S::Unknown("random".into()),
+                    None,
+                ),
                 "sort",
             ),
         ] {
@@ -867,18 +831,21 @@ mod tests {
                 .unwrap_err();
             assert!(e.contains(field) && e.contains("unknown"), "{e}");
         }
-        // An unknown content filter leaves the id unrebuildable, so the id is taken as named
+        // An unknown content filter keeps its spelling, so its id is rebuilt and checked
         let f = feed(stored(
             None,
             None,
             R::All,
             L::List,
             S::Recent,
-            Some(PubkySocialPostKind::Unknown),
+            Some(PubkySocialPostKind::Unknown("podcast".into())),
         ));
+        assert!(f.get_id_data().contains(":podcast:"));
+        assert!(f.validate(Some(&f.create_id()), &PRIV_CTX).is_ok());
         assert!(f
             .validate(Some("8Z8CWH8NVYQY39ZEBFGKQWWEKG"), &PRIV_CTX)
-            .is_ok());
+            .unwrap_err()
+            .contains("Invalid ID"));
         // a known content filter is still checked
         let f = feed(stored(
             None,
@@ -1008,21 +975,20 @@ mod tests {
         ));
         assert_eq!(known.derive_id().unwrap(), known.create_id());
 
-        // Two future kinds would both render "unknown" and land on one id, and a reader skips
-        // the id check for them, so the collision would go unseen.
-        let unknown = feed(stored(
-            None,
-            None,
-            R::All,
-            L::List,
-            S::Recent,
-            Some(PubkySocialPostKind::Unknown),
-        ));
-        let e = unknown.derive_id().unwrap_err();
-        assert!(
-            e.starts_with("Validation Error: ") && e.contains("no derivable id"),
-            "{e}"
-        );
+        // Two future kinds keep their names, so they derive two ids
+        let kind = |name: &str| {
+            feed(stored(
+                None,
+                None,
+                R::All,
+                L::List,
+                S::Recent,
+                Some(PubkySocialPostKind::Unknown(name.into())),
+            ))
+            .derive_id()
+            .unwrap()
+        };
+        assert_ne!(kind("podcast"), kind("poll"));
 
         // A config the rules reject has no id either: Some([]) renders the same six segments
         // as None, so handing back its hash would name another feed's file.
@@ -1159,14 +1125,20 @@ mod tests {
             R::All,
             R::Wot,
             R::Me,
-            R::Unknown,
+            R::Unknown("galaxy".into()),
         ] {
             assert_eq!(r.wire_name(), serde_name(&r));
         }
-        for l in [L::Columns, L::Wide, L::Visual, L::List, L::Unknown] {
+        for l in [
+            L::Columns,
+            L::Wide,
+            L::Visual,
+            L::List,
+            L::Unknown("spiral".into()),
+        ] {
             assert_eq!(l.wire_name(), serde_name(&l));
         }
-        for s in [S::Recent, S::Popularity, S::Unknown] {
+        for s in [S::Recent, S::Popularity, S::Unknown("random".into())] {
             assert_eq!(s.wire_name(), serde_name(&s));
         }
         for k in [
@@ -1177,7 +1149,7 @@ mod tests {
             PubkySocialPostKind::Link,
             PubkySocialPostKind::File,
             PubkySocialPostKind::Collection,
-            PubkySocialPostKind::Unknown,
+            PubkySocialPostKind::Unknown("podcast".into()),
         ] {
             assert_eq!(k.wire_name(), serde_name(&k));
         }

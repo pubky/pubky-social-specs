@@ -1,10 +1,7 @@
-use crate::common::{check_extra, code_point_len, frozen_trim, trimmed_or_none};
+use crate::common::{check_extra, code_point_len, frozen_trim, json_error, trimmed_or_none};
 use crate::limits::VALIDATION_LIMITS;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
@@ -13,27 +10,23 @@ use super::super::PubkySocialPost;
 
 /// Creator-chosen default layout for experiencing a collection.
 ///
-/// Unrecognized values deserialize as `Unknown` so future layouts never
+/// Unrecognized values deserialize as `Unknown`, spelling kept, so future layouts never
 /// invalidate the whole post (same policy as `PubkySocialPostKind`).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
-#[serde(rename_all = "snake_case")]
+#[serde(from = "String", into = "String")]
 #[non_exhaustive]
 pub enum PubkySocialCollectionLayout {
     Grid,
     List,
     Visual,
-    #[serde(other)]
-    Unknown,
+    Unknown(String),
 }
 
-impl PubkySocialCollectionLayout {
-    /// `false` only for the `Unknown` catch-all a newer writer's value lands in.
-    pub fn is_known(&self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-}
+wire_names!(PubkySocialCollectionLayout {
+    Grid => "grid",
+    List => "list",
+    Visual => "visual",
+});
 
 impl FromStr for PubkySocialCollectionLayout {
     type Err = String;
@@ -135,7 +128,7 @@ pub(crate) fn validate_collection_post(post: &PubkySocialPost) -> Result<(), Str
         serde_json::from_str(&post.content).map_err(|e| {
             format!(
                 "Validation Error: Collection content must be a valid JSON envelope: {}",
-                e
+                json_error(&e)
             )
         })?;
     validate_collection_envelope(&envelope)
@@ -156,7 +149,7 @@ fn validate_collection_envelope(envelope: &PubkySocialCollectionContent) -> Resu
     let name_max = VALIDATION_LIMITS.collection_name_max_length;
     if !(name_min..=name_max).contains(&name_chars) {
         return Err(format!(
-            "Validation Error: Collection name must be {}..={} characters",
+            "Validation Error: Collection name must be {} to {} characters",
             name_min, name_max
         ));
     }
@@ -172,19 +165,14 @@ fn validate_collection_envelope(envelope: &PubkySocialCollectionContent) -> Resu
             ));
         }
     }
-    if envelope.items.len() > VALIDATION_LIMITS.collection_items_max_count {
-        return Err(format!(
-            "Validation Error: Collection cannot have more than {} items",
-            VALIDATION_LIMITS.collection_items_max_count
-        ));
-    }
+    // The item count is checked with the post's list caps, before any reference is read
     for (index, item) in envelope.items.iter().enumerate() {
         check_extra(&item.extra, &["uri", "note"])?;
         if let Some(note) = &item.note {
             let max = VALIDATION_LIMITS.collection_item_note_max_length;
             if frozen_trim(note).is_empty() || code_point_len(note) > max {
                 return Err(format!(
-                    "Validation Error: items[{index}].note must be 1..={max} code points and not blank"
+                    "Validation Error: items[{index}].note must be 1 to {max} code points and not blank"
                 ));
             }
         }
@@ -339,7 +327,7 @@ mod tests {
             .validate(Some(&id), &PUB_CTX)
             .expect_err("101-char padded name must fail max length");
         assert!(
-            err.contains("1..=100"),
+            err.contains("1 to 100"),
             "error should report the length range, got: {err}"
         );
     }
@@ -580,7 +568,15 @@ mod tests {
         let id = post.create_id();
         assert!(post.validate(Some(&id), &PUB_CTX).is_ok());
         let envelope: PubkySocialCollectionContent = serde_json::from_str(&post.content).unwrap();
-        assert_eq!(envelope.layout, Some(PubkySocialCollectionLayout::Unknown));
+        assert_eq!(
+            envelope.layout,
+            Some(PubkySocialCollectionLayout::Unknown("spiral".into()))
+        );
+        // written back with its spelling
+        assert_eq!(
+            serde_json::to_string(&envelope).unwrap(),
+            r#"{"name":"X","items":[],"layout":"spiral"}"#
+        );
     }
 
     #[test]

@@ -23,13 +23,13 @@ fn config(reach: &str, layout: &str, sort: &str, content: &str) -> String {
 fn unknown_feed_enum_values_deserialize_to_unknown() {
     let c: PubkySocialFeedConfig =
         serde_json::from_str(&config("galaxy", "columns", "recent", "null")).unwrap();
-    assert_eq!(c.reach, PubkySocialFeedReach::Unknown);
+    assert_eq!(c.reach, PubkySocialFeedReach::Unknown("galaxy".into()));
     let c: PubkySocialFeedConfig =
         serde_json::from_str(&config("all", "spiral", "recent", "null")).unwrap();
-    assert_eq!(c.layout, PubkySocialFeedLayout::Unknown);
+    assert_eq!(c.layout, PubkySocialFeedLayout::Unknown("spiral".into()));
     let c: PubkySocialFeedConfig =
         serde_json::from_str(&config("all", "columns", "random", "null")).unwrap();
-    assert_eq!(c.sort, PubkySocialFeedSort::Unknown);
+    assert_eq!(c.sort, PubkySocialFeedSort::Unknown("random".into()));
 }
 
 #[test]
@@ -61,23 +61,34 @@ fn unknown_primary_feed_enum_fails_validation_with_a_clear_message() {
     assert!(err.contains("reach") && err.contains("unknown"), "{err}");
 }
 
-/// The id is a write-side guarantee. A v1.x writer that knows a `short` post kind names the
-/// file after "all:columns:recent:short::", a string this reader cannot rebuild: it has no
-/// spelling for the value. So it takes the id as named and treats the filter as no filter.
+/// A v1.x writer that knows a `short` post kind names the file after
+/// "all:columns:recent:short::". This reader keeps the name as spelled, so it rebuilds that
+/// string and checks the id like any other.
 #[test]
-fn an_unknown_content_filter_leaves_the_id_unchecked() {
+fn an_unknown_content_filter_keeps_the_id_checked() {
     let feed = format!(
         r#"{{"feed":{},"name":"Shorts","created_at":1727740800000000}}"#,
         config("all", "columns", "recent", r#""short""#)
     );
-    // the first is blake3("all:columns:recent:short::")[..16] in Crockford, what that writer
-    // wrote; the second is an arbitrary hash, and any id is accepted because none can be checked
-    for id in ["CGJ944DEG4TZ7ZGS5F1GYTWRTW", "8Z8CWH8NVYQY39ZEBFGKQWWEKG"] {
-        let f = <PubkySocialFeed as Validatable>::try_from(feed.as_bytes(), id, &PUB_CTX).unwrap();
-        assert_eq!(f.feed.content, Some(PubkySocialPostKind::Unknown));
-    }
-    // the guard stops at `content`: an unknown reach is still a rejection, by name
-    // an unknown filter skips the hash comparison, never the id's own spelling rule
+    // blake3("all:columns:recent:short::")[..16] in Crockford, what that writer wrote
+    let f = <PubkySocialFeed as Validatable>::try_from(
+        feed.as_bytes(),
+        "CGJ944DEG4TZ7ZGS5F1GYTWRTW",
+        &PUB_CTX,
+    )
+    .unwrap();
+    assert_eq!(
+        f.feed.content,
+        Some(PubkySocialPostKind::Unknown("short".into()))
+    );
+    let e = <PubkySocialFeed as Validatable>::try_from(
+        feed.as_bytes(),
+        "8Z8CWH8NVYQY39ZEBFGKQWWEKG",
+        &PUB_CTX,
+    )
+    .unwrap_err();
+    assert!(e.contains("Invalid ID"), "{e}");
+    // an unknown reach is still a rejection, by name, and the id keeps its spelling rule
     let e = <PubkySocialFeed as Validatable>::try_from(feed.as_bytes(), "not-an-id", &PUB_CTX)
         .unwrap_err();
     assert!(e.contains("Validation Error"), "{e}");
@@ -104,12 +115,18 @@ fn from_str_never_produces_unknown() {
 fn unknown_secondary_enum_degrades_instead_of_rejecting() {
     let c: PubkySocialFeedConfig =
         serde_json::from_str(&config("all", "columns", "recent", r#""totally-new-kind""#)).unwrap();
-    assert_eq!(c.content, Some(PubkySocialPostKind::Unknown));
+    assert_eq!(
+        c.content,
+        Some(PubkySocialPostKind::Unknown("totally-new-kind".into()))
+    );
     assert_eq!(c.validate(None, &PUB_CTX), Ok(()));
 
     let c: PubkySocialCollectionContent =
         serde_json::from_str(r#"{"name":"X","layout":"spiral"}"#).unwrap();
-    assert_eq!(c.layout, Some(PubkySocialCollectionLayout::Unknown));
+    assert_eq!(
+        c.layout,
+        Some(PubkySocialCollectionLayout::Unknown("spiral".into()))
+    );
 }
 
 fn round_trips<T: DeserializeOwned + serde::Serialize>(wire: &[&str]) {
@@ -136,24 +153,24 @@ fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
     ]);
     round_trips::<PubkySocialCollectionLayout>(&["grid", "list", "visual"]);
     assert_eq!(
-        serde_json::to_string(&PubkySocialFeedReach::Unknown).unwrap(),
-        "\"unknown\""
+        serde_json::to_string(&PubkySocialFeedReach::Unknown("galaxy".into())).unwrap(),
+        "\"galaxy\""
     );
     assert_eq!(
-        serde_json::to_string(&PubkySocialFeedLayout::Unknown).unwrap(),
-        "\"unknown\""
+        serde_json::to_string(&PubkySocialFeedLayout::Unknown("spiral".into())).unwrap(),
+        "\"spiral\""
     );
     assert_eq!(
-        serde_json::to_string(&PubkySocialFeedSort::Unknown).unwrap(),
-        "\"unknown\""
+        serde_json::to_string(&PubkySocialFeedSort::Unknown("random".into())).unwrap(),
+        "\"random\""
     );
     assert_eq!(
-        serde_json::to_string(&PubkySocialPostKind::Unknown).unwrap(),
-        "\"unknown\""
+        serde_json::to_string(&PubkySocialPostKind::Unknown("podcast".into())).unwrap(),
+        "\"podcast\""
     );
     assert_eq!(
-        serde_json::to_string(&PubkySocialCollectionLayout::Unknown).unwrap(),
-        "\"unknown\""
+        serde_json::to_string(&PubkySocialCollectionLayout::Unknown("spiral".into())).unwrap(),
+        "\"spiral\""
     );
 }
 
@@ -172,20 +189,20 @@ fn is_known_is_false_only_for_unknown() {
     ] {
         assert!(r.is_known());
     }
-    assert!(!R::Unknown.is_known());
+    assert!(!R::Unknown("galaxy".into()).is_known());
     for l in [L::Columns, L::Wide, L::Visual, L::List] {
         assert!(l.is_known());
     }
-    assert!(!L::Unknown.is_known());
+    assert!(!L::Unknown("spiral".into()).is_known());
     for s in [S::Recent, S::Popularity] {
         assert!(s.is_known());
     }
-    assert!(!S::Unknown.is_known());
+    assert!(!S::Unknown("random".into()).is_known());
     use PubkySocialCollectionLayout as C;
     for c in [C::Grid, C::List, C::Visual] {
         assert!(c.is_known());
     }
-    assert!(!C::Unknown.is_known());
+    assert!(!C::Unknown("spiral".into()).is_known());
 }
 
 fn with_unknown_field(json: &str) -> String {
@@ -228,4 +245,28 @@ fn every_json_wire_type_ignores_unknown_fields() {
         r#"{{"feed":{},"name":"All","created_at":1727740800000000}}"#,
         config("all", "list", "popularity", "null")
     ));
+}
+
+/// On the wire these enums are strings, a newer name included, and so is their schema: no
+/// closed `enum` that would refuse a newer name, no object for the catch-all.
+#[cfg(feature = "openapi")]
+#[test]
+fn the_open_enums_are_strings_in_the_openapi_schema() {
+    fn schema<T: utoipa::PartialSchema>() -> serde_json::Value {
+        serde_json::to_value(T::schema()).unwrap()
+    }
+    for s in [
+        schema::<PubkySocialPostKind>(),
+        schema::<PubkySocialFeedReach>(),
+        schema::<PubkySocialFeedLayout>(),
+        schema::<PubkySocialFeedSort>(),
+        schema::<PubkySocialCollectionLayout>(),
+    ] {
+        assert_eq!(s["type"], "string", "{s}");
+        assert!(s.get("enum").is_none() && s.get("oneOf").is_none(), "{s}");
+    }
+    assert!(schema::<PubkySocialPostKind>()["description"]
+        .as_str()
+        .unwrap()
+        .contains("collection"));
 }

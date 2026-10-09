@@ -15,6 +15,9 @@ pub mod migrate;
 mod mime;
 mod models;
 mod normalize;
+#[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+#[doc(hidden)]
+pub mod surface;
 pub mod traits;
 mod types;
 mod uri;
@@ -75,6 +78,6 @@ pub use uri::{
     tag_uri_builder, user_uri_builder, ParsedUri, Resource, Visibility,
 };
 
-// The JS surface; its functions share names with the Rust ones they wrap, so it stays a module
-#[cfg(target_arch = "wasm32")]
+// The migrator as the npm package loads it
+#[cfg(all(target_arch = "wasm32", feature = "migrator"))]
 pub mod wasm;

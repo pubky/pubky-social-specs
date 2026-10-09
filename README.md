@@ -15,7 +15,7 @@ Rust types, builders, and validation for Pubky social data models. The builders 
 cargo add pubky-social-specs
 ```
 
-**JavaScript / TypeScript** ([npm](https://www.npmjs.com/package/pubky-social-specs)): see [`pkg/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/pkg/README.md).
+**JavaScript / TypeScript** ([npm](https://www.npmjs.com/package/pubky-social-specs)): see [`pkg/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/pkg/README.md). The package is a native TypeScript implementation of this crate's 1.x surface, held to it by the surface oracle (feature `surface`, see [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md)); only its migration subpath is this crate compiled to wasm.
 
 ## Rust quick start
 
@@ -78,7 +78,7 @@ shares (parent, embed, attachments, lock, the preserved `extra` map, the byte ca
 and the versioned `posts/{id}/{editId}.json` layout under a namespace); the `PostKind` type
 parameter carries one namespace's kind vocabulary and its per-kind content rules. An app that
 needs its own kinds instantiates the same envelope under its own namespace, with the same wire
-shape, and never touches the social kind set. Every message the npm package throws and every
+shape, and never touches the social kind set. Every refusal the npm package throws for the data model and every
 `Validatable` rejection starts with `Validation Error: `; a `PostKind::validate_content` returns
 its messages with that prefix already, the envelope hands them through unchanged.
 
@@ -117,7 +117,7 @@ The crates.io and npm jobs run in parallel. If npm fails after the crate already
 
 ### Rehearsing
 
-In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_run` checked. It runs all the checks and the build and uploads the npm tarball and the wasm as artifacts, but publishes nothing. Unchecking `dry_run` only publishes from a tag, on a branch the run fails.
+In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_run` checked. It runs all the checks and the build and uploads the npm tarball as an artifact, but publishes nothing. Unchecking `dry_run` only publishes from a tag, on a branch the run fails.
 
 ### One-time setup
 
@@ -147,7 +147,7 @@ Both registries match on the repository name, and npm also checks it against `re
 
 ### Using a build that is not published yet
 
-A git dependency cannot give you the npm package, because the wasm and its glue are build output and never committed. Build a tarball instead:
+A git dependency cannot give you the npm package, because `dist/`, the compiled modules and the migrator's wasm, is build output and never committed. Build a tarball instead:
 
 ```bash
 cd pkg && npm run build && npm pack

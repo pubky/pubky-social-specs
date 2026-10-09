@@ -1,14 +1,12 @@
 use crate::common::{
-    mint_timestamp_micros, mint_timestamp_micros_above, timestamp, validate_timestamp_id_format,
-    MAX_FUTURE_MICROS,
+    json_error, mint_timestamp_micros, mint_timestamp_micros_above, timestamp,
+    validate_timestamp_id_format, MAX_FUTURE_MICROS,
 };
 use crate::limits::VALIDATION_LIMITS;
 use base32::{encode, Alphabet};
 use blake3::Hasher;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Big-endian microseconds in Crockford base32: bytewise order is chronological order.
 fn encode_timestamp_id(micros: i64) -> String {
@@ -106,7 +104,6 @@ pub trait HashId {
 /// The storage root a path lives under. Its serde spelling is the word a parsed URI's
 /// visibility uses; the path segment is [`Root::segment`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 pub enum Root {
     #[serde(rename = "public")]
     Pub,
@@ -147,16 +144,16 @@ pub trait Validatable: Sized + Serialize + DeserializeOwned {
     /// fold, so a reader that rewrote would disagree with the bytes on the homeserver and with
     /// any id derived from them.
     fn try_from(blob: &[u8], id: &str, ctx: &ValidationCtx) -> Result<Self, ValidationError> {
+        // The cap holds the bytes as stored; defaults the reader fills in are not counted
         check_size(blob.len(), Self::MAX_BYTES)?;
-        let instance: Self =
-            serde_json::from_slice(blob).map_err(|e| format!("Validation Error: {e}"))?;
-        instance.validate(Some(id), ctx)?;
+        let instance: Self = serde_json::from_slice(blob)
+            .map_err(|e| format!("Validation Error: {}", json_error(&e)))?;
+        instance.validate_fields(Some(id), ctx)?;
         Ok(instance)
     }
 
-    /// The cap first, then the model's own rules, so no in-memory path (builders, JSON
-    /// import) can skip the cap. On the read path this re-serializes an object whose raw
-    /// bytes already passed; that cost is accepted for one code path.
+    /// The cap on the written form first, then the model's own rules, so no in-memory path
+    /// (builders, JSON import) can skip the cap.
     fn validate(&self, id: Option<&str>, ctx: &ValidationCtx) -> Result<(), ValidationError> {
         self.validate_size()?;
         self.validate_fields(id, ctx)

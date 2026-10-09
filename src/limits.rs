@@ -14,12 +14,9 @@
 //! ```
 
 use serde::Serialize;
-#[cfg(target_arch = "wasm32")]
-use tsify_next::Tsify;
 
 /// Bundled validation limits for quick consumption.
 #[derive(Debug, Clone, Copy, Serialize)]
-#[cfg_attr(target_arch = "wasm32", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationLimits {
     /// Maximum media file size in bytes, aligned with the homeserver upload cap.

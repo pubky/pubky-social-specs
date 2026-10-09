@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { Keypair } from "@synonymdev/pubky";
-import { runMigration } from "../../../pkg/migration/index.js";
-import { sdkPort } from "../../../pkg/migration/adapters/pubky-sdk.js";
+import { runMigration } from "../../../pkg/dist/migration/index.js";
+import { sdkPort } from "../../../pkg/dist/migration/adapters/pubky-sdk.js";
 import { homeserver, pubky } from "../testnet.mjs";
 import { json, runCli } from "./lib.mjs";
 

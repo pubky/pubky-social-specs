@@ -161,9 +161,11 @@ fn user(rng: &mut Rng) -> Case {
             ("blank name", "name must not be blank", |v| {
                 v["name"] = json!(" \u{3000} ")
             }),
-            ("name over the cap", "Invalid name length", |v| {
-                v["name"] = json!("a".repeat(51))
-            }),
+            (
+                "name over the cap",
+                "name must be 3 to 50 code points",
+                |v| v["name"] = json!("a".repeat(51)),
+            ),
             ("empty bio", "bio must not be blank", |v| {
                 v["bio"] = json!("")
             }),

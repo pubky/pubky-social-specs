@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "pubky-social-specs",
+  "entryPoints": ["../src/index.ts", "../src/testing.ts", "../src/client/index.ts", "../src/migration/index.ts", "../src/migration/adapters/pubky-sdk.ts"],
+  "tsconfig": "../tsconfig.json",
+  "out": "../qa/out/api-reference",
+  "readme": "../README.md",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "treatWarningsAsErrors": false,
+  "validation": { "notExported": false, "invalidLink": true, "notDocumented": false }
+}

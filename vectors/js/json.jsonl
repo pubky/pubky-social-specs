@@ -1,0 +1,400 @@
+{"q":{"op":"json","args":[{"j":"\"\nb\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"NaN"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"01"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid number","last":0}}
+{"q":{"op":"json","args":[{"j":"[[true,,\"bC\\b\\f\\r\\t\"],\"😀 YbxB\",\"a éb0é\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"é\":{\"\":{\"😀\":-4139783.818704612E-1},\"a\":{},\"a\":undefined,\"b\":[tru]}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":" \"\\uD83D\\uDE00\\ud83d\\n\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"6841034623588779"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Njg0MTAzNDYyMzU4ODc3OQ=="}}
+{"q":{"op":"json","args":[{"j":"{:\"B\\ude00a8\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"1."}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"{null:NaN,\"__proto__\":1E+30,null:-596E-3,a:{}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[[\"8\\\"x9\"],\"é\\n1\",264.0194739470637792092E+4,[-644525370588086093811]]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W1siOFwieDkiXSwiw6lcbjEiLDI2NDAxOTQuNzM5NDcwNjM4LFstNi40NDUyNTM3MDU4ODA4NjFlKzIwXV0="}}
+{"q":{"op":"json","args":[{"j":"{\"9\":{null:171.2310028720015651833e3,\"é\":[\"\",\"\\ud83dx\\ud83d\\nC\"x]}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"\"a\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImEi"}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"{\"__proto__\":\"\\ud83d\\u0041BA\\uD83D\\uDE00z\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"Yx\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ill4Ig=="}}
+{"q":{"op":"json","args":[{"j":"{"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing an object","last":0}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"zZ\\u12g4Y\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"0.1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MC4x"}}
+{"q":{"op":"json","args":[{"j":" 331"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"﻿[]x"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"a\":-694.804908340e-3}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyJhIjotMC42OTQ4MDQ5MDgzNH0="}}
+{"q":{"op":"json","args":[{"j":"\"aZ\\ud83d\\n9\\/\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"[[0] {}  1.0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `]`","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"2.50"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Mi41"}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"227.42874058343E0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MjI3LjQyODc0MDU4MzQz"}}
+{"q":{"op":"json","args":[{"j":"{\"10\":[]}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyIxMCI6W119"}}
+{"q":{"op":"json","args":[{"j":"-445e-130"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTQuNDVlLTEyOA=="}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[68816914263872056,false,{\"9\":{\"9\":1.0e-0,\"9\":\"\",\"\":\"é\\ud83d\\n\"} ,\"\":{\"10\":undefined,\"9\":1.2345678901},\"a\":{\"9\":1e-7,\"\":133036401324.55944865210E+122,null:false,\"__proto__\":nul},\"__proto__\":nul},{\"10\":falsy,\"9\":{\"é\":1e309,\"b\":\"😀CY\\u0041\",\"__proto__\":\"\\\\X\"},1:falsy}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"\":-554.392587078E-280}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyLugIAiOi01LjU0MzkyNTg3MDc4ZS0yNzh9"}}
+{"q":{"op":"json","args":[{"j":"{\"é\":{\"10\":undefined,\"\\/aB\\ud83dx\\x\":[-5161,,21649,\"B\"1]},\"Y\\uD83D\\uDE00\":null},\"9\":nul,\"10\":[{},28815.657805]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{null:1.2345678901234567890123,\"10\":-2.17476217,\"cCz9__proto__\":[ false,[\"1z1\"] ,{\"a\":1.7976931348623157e308},3345452070896970],\"b\":[84,[1e309],[]],}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\": \"\",\"\\/ \":\"__proto__￿\\b\\f\\r\\tXX\",\"b\":\n[null,\"\\uD83D\\uDE00\",{\"__proto__\":true},4.35]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"39"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Mzk="}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[\"\\uD83D\\uDE00Ccc\",falsy,\"8\\ud83d10\",488]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\/\\b\\f\\r\\t0C\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ii9cYlxmXHJcdDBDIg=="}}
+{"q":{"op":"json","args":[{"j":"{:{\"9\":{\"😀\": \"\\u001f\",\"\":null},\"__proto__\":[\"\\u00e9BY1BX\",undefined],\"a\":{\"__proto__\":undefined},\"a\":0x10},\"a\":{\"é\":[,\"\n\",\"Z\",394.224668246669215840101E+6\n]},:301e21,\"8y\\uD83D\\uDE00Zy0\":0.1}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"18446744073709551616"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MS44NDQ2NzQ0MDczNzA5NTUyZSsxOQ=="}}
+{"q":{"op":"json","args":[{"j":"\"8\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ijgi"}}
+{"q":{"op":"json","args":[{"j":"[\"9z\\ud83d\\né9a\",\"\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"4121.33853624E1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NDEyMTMuMzg1MzYyNA=="}}
+{"q":{"op":"json","args":[{"j":"+1"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: recursion limit exceeded","last":0}}
+{"q":{"op":"json","args":[{"j":"[,]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"__proto__\\u001f\\\\\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Il9fcHJvdG9fX1x1MDAxZlxcIg=="}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"\\\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"é\":[]}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyLDqSI6W119"}}
+{"q":{"op":"json","args":[{"j":"[[nul,undefined,[\"c9Z0Y\\u0041\",]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"838.22035"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ODM4LjIyMDM1"}}
+{"q":{"op":"json","args":[{"j":"{\"é\":\"\\u12\"]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"9007199254740992"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTAwNzE5OTI1NDc0MDk5Mg=="}}
+{"q":{"op":"json","args":[{"j":"\"0c\\u120\"x"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\"{}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `:`","last":0}}
+{"q":{"op":"json","args":[{"j":"-59740788495620128492.4358441784179800"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTUuOTc0MDc4ODQ5NTYyMDEzZSsxOQ=="}}
+{"q":{"op":"json","args":[{"j":"-1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTE="}}
+{"q":{"op":"json","args":[{"j":"[1e-7,\"B\t\\u12g4\",[[,\"\\uD83D\\uDE00881\",62],undefined],]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"2.5e-324"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NWUtMzI0"}}
+{"q":{"op":"json","args":[{"j":"{\"é\":{ []},\"10\":[[]],\"B😀99\":[\"8\\u001f\\x\"],\"é\":\t\r-}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"0.00001234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MC4wMDAwMTIzNA=="}}
+{"q":{"op":"json","args":[{"j":"{\"9\":\"9x😀01\",\"😀\":[ true,\"B\\ud83d\\n\",{\"__proto__\":\"😀 8c\",\"9\":nul,\"\":false,\"a\":tru}],\"9\":true}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"\"\ncZz0c\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"[[falsy,1e+,]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"NaN"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[ 388e304,true]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[\fnull , {\"é\":\"9\\\"\\n99\",\"\":nul],null:[\"\\b\\f\\r\\t\"x , \"c\\/a\\u12g4\"\n , \"\\ude00b8__proto__yc\" , nul]} , \"￿\\ude00AC\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"9 \""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IjnigKgi"}}
+{"q":{"op":"json","args":[{"j":"430592580901219313.186319123465"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NC4zMDU5MjU4MDkwMTIxOTNlKzE3"}}
+{"q":{"op":"json","args":[{"j":"[{\"b\":-996,\"9\": {},\"é\":\"0aX\\ud83da\"],\"a\":tru},[\"\\u12😀\\ude00x😀9\","}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"123456789.123456789e-5"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MTIzNC41Njc4OTEyMzQ1Njg="}}
+{"q":{"op":"json","args":[{"j":"\"X\\ud83d\\ude00\\ud83d\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\n\"\\ud83d\\u0041\\b\\f\\r\\tXY\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"94"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTQ="}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: recursion limit exceeded","last":0}}
+{"q":{"op":"json","args":[{"j":"1e309"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: number out of range","last":0}}
+{"q":{"op":"json","args":[{"j":"[\"8z\\ud83dxB\t\",1.2345678901234567890123,{\"b\":593e0,\"z\":\"\\u12\",\"\":\"8\\n8\tX\"}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\u00e9\\\\\\b\\f\\r\\t\\\\\\ud83d\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\":tru}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[\"BY\\u12g4\\ud83d\\ude009\\u00e9\",0e999999999999,[[-174e+3,1E+30,\"z\n\\\"\\ud83d\\n\",], 1E+30,{\"😀\":-357,\"8\":null,\"\": undefined,\"10\":\n1e15}]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"NaN"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"1e-400"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MC4w"}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"{null:{},\"😀\":\"\\ud83d\\ude00A\\ud83d\\n98\\u0041\",\"__proto__\":{\"😀\":\"\\u00e9\\u12\\ud83d\\n\",\"😀\":{\"10\":falsy,\"0X0\\x\":-425},\"b\"=falsy,\"é\":-9507E49}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[\"\\n\\u0041C0z\",,[]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"cX\\u12g4a1\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"2.50"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Mi41"}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"[{\"a\":418.91177417509109798050277,\"é\":\"ax\",\"9\":\"8Z\\nA\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a list","last":0}}
+{"q":{"op":"json","args":[{"j":"false"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ZmFsc2U="}}
+{"q":{"op":"json","args":[{"j":"{\"9\":928588,:falsy,\"\":NaN,\"\":true}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"\\uD83D\\uDE00Yb\\ud83d\\ude00\\ud83d\\na\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"-"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[-9223372036854775808,\t\r[-7239523457687722304264331.55457308150992106E-1]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a list","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"{\"10\":[undefined],\"😀\":﻿{\"b\":[\t\r5261834715,\"b\":76169592918853516245.110715614,1:0e999999999999}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"\"88aC9\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\u0000\\u0000\\b\\f\\r\\t\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Iu6AgFx1MDAwMFx1MDAwMFxiXGZcclx0Ig=="}}
+{"q":{"op":"json","args":[{"j":"[[],310.73018890923510910395662e-2,123456789.123456789e-5,+1]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"é\":7119849120126697620.49846087788,\"😀\":undefined}x"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[1e30]x"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"nul\n"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[\"baX\\ud83d\\u0041\",\"9\\\"aCB\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MWUtNw=="}}
+{"q":{"op":"json","args":[{"j":"\"0X\tX\\\\\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[]\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"{\"\\b\\f\\r\\té\\\\9\":0.1,\"9\":\n[\"\\uD83D\\u}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"10\":{\"10\":null,\"é\":falsy,\"a\":[\"\",\"\\x\",\"\"],\"a\":\"zByB\"}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"a\":{\"a\\ude00\\uD83D\\uDE00\":\"￿\\u001f\";\"10\":-516266717387837331.3"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"1\\x\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"\":{\"10\":\"y\",\"10\":-664,\"😀\":[ undefined,\"\",1e-400]},\"9Z8\":[\"\\n\",{a:tru}},[]]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[\t\rfalse,-9223372036854775808,-8459.3,[{\"\":-337e-3x},{\" b\\ud83d\\u0041Ab\":false,:null,\"\":null,1:\"8x0\\u001f\\x\"}},nul]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `}`","last":0}}
+{"q":{"op":"json","args":[{"j":"\"Yb￿ \""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Illi77+/4oCoIg=="}}
+{"q":{"op":"json","args":[{"j":"[2.50,,\"y\\ud83d\\n \",,\"Y\\uD83D\\uDE00\\ud83d9a\",,\nnull]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"false"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ZmFsc2U="}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[null,\"\",\"\tB\\u001f\\u129\\ude00\",-319.316244320e-0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":" {\"\":\"c￿\\u12g4\\ud83d\\ude00\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\t\rfalsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1d"}}
+{"q":{"op":"json","args":[{"j":" [1e999999999999,[],{\"é\":0e999999999999,\"é\":[\" \"]}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: number out of range","last":0}}
+{"q":{"op":"json","args":[{"j":"[{\"0Y0\":{\"é\":\"c\",1:\"😀Ycz\",\"😀\":1078353602246465722445.7949498669314529834282E-29x,\"\":\"\\ud83d\\u0041béZ\"}}]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"﻿{\"\":NaN1,\"YY1\"\"za \\xB\",1:[{\"\":,\"\":null,\"9\":\"b1Yy\"},4.35,[]]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"X\tC__proto__\\ud83d\\ude00\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"9\":\"A8\\u001f\\u12g4Y\",\"a\":[825,[,tru,\f\"y\\/b1\\ud83d\\ude00z\"]]1}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"\":[n,,true,,{\"__proto__\":+1,\"9\":-9223372036854775809},,\"0\\/8\\u0000B9\" ],\"😀\":[{,}],\"b\":[[5e-324,true]]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\t1b\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\uD83D\\uDE00\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IvCfmIDugIAi"}}
+{"q":{"op":"json","args":[{"j":"\"￿1\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Iu+/vzEi"}}
+{"q":{"op":"json","args":[{"j":"[{\"10\":[\n,nulx,0,\f-9943806147105381877392714.34338604873487237101e2],\"9\":-9223372036854775809,\"a\":\"\",}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\":[true],:tru}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{:{\"b\":nul,\"__proto__\":{\"9\":\"\"}},\"😀\":123456789.123456789e-5}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[{\"9\":undefined\n,\"10\":{\"9\"::\t\r,\"a\"= NaN,\"\"::tru,\"😀\":tru},\"\\u00e9\t\":,\"\":9737361550055547685452574.437793223661196325E+112},{\"10\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"b\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImIi"}}
+{"q":{"op":"json","args":[{"j":"{\"\":\"Bz\",\"é\":.5}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MWUtNw=="}}
+{"q":{"op":"json","args":[{"j":"1.2345678901234567890123"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MS4yMzQ1Njc4OTAxMjM0NTY3"}}
+{"q":{"op":"json","args":[{"j":"\"\\u00e9\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IsOpIg=="}}
+{"q":{"op":"json","args":[{"j":"\f"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"1e999999999999"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: number out of range","last":0}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"{\"__proto__\":,\"__proto__\":undefined}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\t\r{\"b\":{\"9\":{\"éYX\":\"A￿\"},\"é\":\"ZAZé😀\\u12g4\",},,\"😀\":652533e+309}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"--1"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid number","last":0}}
+{"q":{"op":"json","args":[{"j":"18446744073709551616"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MS44NDQ2NzQ0MDczNzA5NTUyZSsxOQ=="}}
+{"q":{"op":"json","args":[{"j":"undefined}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"9\":\"\\ud83dxb\txé\",\"__proto__\":{\"é\":,\"__proto__\":tru,\"b\":\"\\u12xZXb\"},\"é\":{\"a\":\n,\"😀\":false,\"1,}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"-65176635669043409"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTY1MTc2NjM1NjY5MDQzNDA5"}}
+{"q":{"op":"json","args":[{"j":"\t\r\"aX\\ud83d\\ude00\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImF/WPCfmIAi"}}
+{"q":{"op":"json","args":[{"j":"-"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"-9007199254740993"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTkwMDcxOTkyNTQ3NDA5OTM="}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"\n{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"t"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[-620.9340905190895938622696;[\f{\"b\":\n\"b\\u001fy\",,\"😀\"\"x0C\",,\"a\":998e+3},{\"10\":,\"\":-2168550998.5684E-0\n,\"9\":715104755604494848,\"10\":0.00001234},true,\"YYz01\"]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `]`","last":0}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"4"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NA=="}}
+{"q":{"op":"json","args":[{"j":"150E58"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MS41ZSs2MA=="}}
+{"q":{"op":"json","args":[{"j":"{\"1\":[]}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyIxIjpbXX0="}}
+{"q":{"op":"json","args":[{"j":"\"x__proto__bZ\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Iu6AgHhfX3Byb3RvX19iWiI="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"false"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ZmFsc2U="}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"\"Y\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ilki"}}
+{"q":{"op":"json","args":[{"j":"1.0e-0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MS4w"}}
+{"q":{"op":"json","args":[{"j":"-4019694127870547694545779"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTQuMDE5Njk0MTI3ODcwNTQ3N2UrMjQ="}}
+{"q":{"op":"json","args":[{"j":"92335814"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTIzMzU4MTQ="}}
+{"q":{"op":"json","args":[{"j":"215E+3"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MjE1MDAwLjA="}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"{\"é\":nul,\"é\":\"c\t\",\"é\":1e-400,\"\":true}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"y\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Inki"}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[[\" \\xcC\\b\\f\\r\\t\t\",240.186212699, [\"8\",\"z1\\u001fZ\",tru,258.21731007000]],[{\"10\":\"\",null:falsy,a:\"\\ud83d\\u0041\\u12\",\"😀\":\"b\nB\\u12\"},1,\"\",\"\"]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"[true]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W3RydWVd"}}
+{"q":{"op":"json","args":[{"j":"\f{\"😀\":null}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"\"Z__proto__\\b\\f\\r\\t\\x\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\n\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IlxuIg=="}}
+{"q":{"op":"json","args":[{"j":"{\"a\":\"bé\n8c \",\"10\":false,\"__proto__\":[{\"a,\"a\"=[ {\"😀\":true,60470287,\"__proto__\":\"9y \"x,\"10\":},falsy,]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"48305264420"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NDgzMDUyNjQ0MjA="}}
+{"q":{"op":"json","args":[{"j":"[{\"😀\":undefined,\"__proto__\":\"XAYc\",\"__proto__\":\n243.3865854654E-62,,\"\":\"0\"1}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[{\"b\":\"b\\u12B\",\"é\":{\"10\": 1e16}]},1e+,]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"NaN"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: recursion limit exceeded","last":0}}
+{"q":{"op":"json","args":[{"j":"[1e15,falsy]1"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":{\"9\":undefined,\"😀\":\"\",\"é\":{\"__proto__\":-,:\"Y\\\\\"},\"b\":\fnull},1:72109582E81,\"😀\":[{},\"bB0Y9\",[1e-400]]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"bZc\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImJaYyI="}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1d"}}
+{"q":{"op":"json","args":[{"j":"[0.00001234,\"\\\\b\" ]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"WzAuMDAwMDEyMzQsIlxcYiJd"}}
+{"q":{"op":"json","args":[{"j":"\"éY\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IsOpWSI="}}
+{"q":{"op":"json","args":[{"j":"[{\"Yb8a0\":true},\"yZ\"]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W3siWWI4YTAiOnRydWV9LCJ5WiJd"}}
+{"q":{"op":"json","args":[{"j":"false"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ZmFsc2U="}}
+{"q":{"op":"json","args":[{"j":"\"\\ud83d\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":{\"__proto__\":{},\"__proto__\":true,\"10\":true,a:{},\"a\":[\"\\ud83d\\nYé\"]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"10\":{\"a\":\"\\u12A\"}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"Y\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ilki"}}
+{"q":{"op":"json","args":[{"j":"9007199254740993.0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTAwNzE5OTI1NDc0MDk5Mi4w"}}
+{"q":{"op":"json","args":[{"j":"[{\"9\":-214.033574}]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W3siOSI6LTIxNC4wMzM1NzR9XQ=="}}
+{"q":{"op":"json","args":[{"j":"{\"__proto__\":NaN}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":{\"\":[ \"\nAA\\u0041Y\",-929.815029]},\"a\"::null,\"10\":[],1:[]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"5071135549461273029026"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NS4wNzExMzU1NDk0NjEyNzRlKzIx"}}
+{"q":{"op":"json","args":[{"j":"[NaN1,\"99Y1Z\",{\"9\":[undefined],\"__proto__\":-490,\"10\":true}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"8y\\u12g4\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\":551,\"é\":\"z\",\"__proto__\":9009529534.3982,\"9\":[\"\\ud83d\\ud83d\\ude00\\/8\\/\",-9223372036854775808,\"\\u12\\u00e9\tx\",[]]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"[989.69,{\"b\":{\"b\":1.2345678901234567890123},\"b\":{\"b\":\"\\u0000Xy\",\"\\n\\u001f\":undefined,\"10\":\"\\u12g4\\ud83d\\u0041\\u0041\"},\"a\"\"AX\\x\"},{},4891200167398]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[null,[]x]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `]`","last":0}}
+{"q":{"op":"json","args":[{"j":"false"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ZmFsc2U="}}
+{"q":{"op":"json","args":[{"j":"531096327882"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NTMxMDk2MzI3ODgy"}}
+{"q":{"op":"json","args":[{"j":"[true,\"\\ud83d\\u0041Y\",{\"é\":{} ,null:{\"a\":144.260873871004730992},\"10\"=nul,\"\":[\"Y\",\"\",\"\nyBb\",false]},{\"\":{\"__proto__\":\"09￿\\ude00__proto__\",\"9\":-971.963669341,\"9\t__proto__A8\": false},\"é\":false,\"10\":{\"__proto__\":,\"a\":736.759205643569060],\"9\\ud83d\\u0041yZB1\":\"0\\uD83D\\uDE00\\\\9\\u12A\",\"é\"::787089},\"__proto__\":NaNx},]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"Xc0Y\\ud83d\\ude00\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IlhjMFnwn5iAIg=="}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\u001f\\ud83d\\ude00x\\u12z\\\"\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"699.057476249306e3"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Njk5MDU3LjQ3NjI0OTMwNg=="}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\n-682.282813E3"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTY4MjI4Mi44MTM="}}
+{"q":{"op":"json","args":[{"j":"403461010408763410688856"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NC4wMzQ2MTAxMDQwODc2MzQzZSsyMw=="}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"-11.82654974848946"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTExLjgyNjU0OTc0ODQ4OTQ2"}}
+{"q":{"op":"json","args":[{"j":"810113543459790657.005546932437E3"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OC4xMDExMzU0MzQ1OTc5MDdlKzIw"}}
+{"q":{"op":"json","args":[{"j":"NaN"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"a\":-9223372036854775809,,\"__proto__\":\"x\\ud83d\",\"é\":[5e-324,{\"\\/\\uD83D\\uDE00zC\":229.839647776,\"b\":4954244920938022565.86E270,\"😀\":\"z\\ud83d\\ude00\nC\\ud83d\\u0041\"}],}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"127.73308027"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MTI3LjczMzA4MDI3"}}
+{"q":{"op":"json","args":[{"j":"\n267.112980957701367768413e3"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MjY3MTEyLjk4MDk1NzcwMTQ="}}
+{"q":{"op":"json","args":[{"j":"[[],\fnul]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"4.35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NC4zNQ=="}}
+{"q":{"op":"json","args":[{"j":"{:{\"10\":﻿{\"10\":1e-400,\"10\":tru,\"10\":false,\"10\":123456789.123456789e-5},\"__proto__\":{\"10\":true },1:\"8😀\",\"9\":[-873.975318732066984492082,71202890E+12]}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"-898.362126045487115"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTg5OC4zNjIxMjYwNDU0ODcx"}}
+{"q":{"op":"json","args":[{"j":"\"Z\\u12x\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[,false,--1,[{\"10\":\"\\u001f\",null:1e-400,\"é\":true},{\"10\":1e,\"a\"::null,\"😀\":677.5471306872},\"Y\",{\"a\":\"\\/zY\",a::0,\"😀\":true},]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"-6047494651050562624398.3937e+160"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTYuMDQ3NDk0NjUxMDUwNTYyNWUrMTgx"}}
+{"q":{"op":"json","args":[{"j":"[Na]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"941"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTQx"}}
+{"q":{"op":"json","args":[{"j":"{\"é\":false}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyLDqSI6ZmFsc2V9"}}
+{"q":{"op":"json","args":[{"j":"{\"10\":\",\"x\\u001f1\":{\"\\u0000\":{\"\"-32177129232e9,\"a\":falsy},\"__proto__\":{\"b\":undefined}},\"aY0y\":[18446744073709551615,{\"10\":\"\",\"9\":342123821245413005166e-0,\"😀\":falsy}],\"10\":{\"a\":{\"10\":\"b\\\"\\ude00YB\",a:\"\\\\\\u0000\"},\"a\":\"\",\"10\":\"\\x\"}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `}`","last":0}}
+{"q":{"op":"json","args":[{"j":"[{\"__proto__\":\ftrue},{},[false,{\"é\":tru,\"\":,\"😀\":\"1z\\b\\f\\r\\t\"}],{\"a\":[],\"9\":-1,\"b\": {null:415535e+15,\"x\":false},\"10\":\"\\\\\"}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"{\"10\":\"c\",\"10\":nul,\"10\":[[\"😀0b\t\"]},false,\"\\ud83dx\\ud83dC\"],null:[,{\"😀\"NaN,\"9\":0.000001,\"\":tru,\"😀\"=n}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"10\":{\"😀\":{\"\":\"\\u0041\\u0000\\u1"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IiI="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\f1e-7"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"9\":\"\"}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyI5IjoiIn0="}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"{null:false,\"9\":{\"é\":[\"\\\\😀1\\ude00\\ude00Y\",undefined,nul]},\"a\": -382865219907499470184849.6839353 ,\"\":[ falsy,{}]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"437E24"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NC4zN2UrMjY="}}
+{"q":{"op":"json","args":[{"j":"\"\\u001f8\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ilx1MDAxZjgi"}}
+{"q":{"op":"json","args":[{"j":"\"\\u12g4\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid escape","last":0}}
+{"q":{"op":"json","args":[{"j":"1764666124E+0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MTc2NDY2NjEyNC4w"}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":undefine,\"é\":{\"10\":\"\"}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"tru\n"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"8￿18a\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ijjvv78xOGEi"}}
+{"q":{"op":"json","args":[{"j":"[\"\\u0041\tCzCa\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MA=="}}
+{"q":{"op":"json","args":[{"j":"-2"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTI="}}
+{"q":{"op":"json","args":[{"j":"-150E29"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTEuNWUrMzE="}}
+{"q":{"op":"json","args":[{"j":"{\"C\":\"ZY\\b\\f\\r\\tcA\",\"a\\uD83D\\uDE00\":,null:{\"\":{}}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":{\"__proto,\"a\"={\"a\":1e30,\"😀\":\"x81\\\"\",\"\":[\"\\u00009\"]},:\"Cy\\b\\f\\r\\tyBZ\",}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `:`","last":0}}
+{"q":{"op":"json","args":[{"j":" \"0\\ud83dCAa\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"463.063e-0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NDYzLjA2Mw=="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"Y1\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IlkxIg=="}}
+{"q":{"op":"json","args":[{"j":"{\"a0Y\"::[],\"é\":true,\"__proto__\":true}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[4.35]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"WzQuMzVd"}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"\"zYzZ\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"InpZeloi"}}
+{"q":{"op":"json","args":[{"j":"[-1,\n1e15,tru]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\":nul \"é\":[\"8\\ud83dY\\ud83d\\u0041\"]}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[{\"9\"=1e30},\"😀\\nA0\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `:`","last":0}}
+{"q":{"op":"json","args":[{"j":"[]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"[1.e3,-79345686026773,{\"a\":tru}],\"\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid number","last":0}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"0.1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MC4x"}}
+{"q":{"op":"json","args":[{"j":"null"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"[\"C0\\ud83d\\n\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"9007199254740992"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"OTAwNzE5OTI1NDc0MDk5Mg=="}}
+{"q":{"op":"json","args":[{"j":"{,}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"10\"::true}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":" [[nul,{\"__proto__\":-322E-3,\"😀\":nul,\"9\":1e30}],{\"10\":[\"A\",694.3099e+159,\"A\\/cz\"],\"b\":[]},[NaN,{\"b\"null,\"__proto__\":false,\"b\":\t\r\"\\ud83d\\u0000\\\"\\b\\f\\r\\t😀\"}]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"-164420031"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTE2NDQyMDAzMQ=="}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"{\"9\":01,\"\":﻿true,\"__proto__8Y\":,\"__proto__\":0}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid number","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"\"\\uD83D\\uDE00\\ud83d\\u0041c\""}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"b\":608.51320460933e+241x}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected `,` or `}`","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"é\":nul,\"10\":[\"9z\\ud83d\\u0041\"],\"\":[],\"a\":329e-17}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"\"Xa\\u001fcy\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IlhhXHUwMDFmY3ki"}}
+{"q":{"op":"json","args":[{"j":"{\"😀\":nul}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"NaN,"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"10\":\t\r[\"c8\\u0000\",[1,{\"b\":\"\",\"__proto__\":\"0😀\\ud83dx\",\"a\":\"b9\\b\\f\\r\\t__proto__\\ud83d\\ude00\",\"\":133269477862830855201}]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: unexpected end of hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[32.9024230847,tru,{}]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"-827.920288415081077e1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTgyNzkuMjAyODg0MTUwODE="}}
+{"q":{"op":"json","args":[{"j":"[\"\\nY\\\"X\n\",{\"10\":126359966271427430849.6,\"b\":0e9999999]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"é\":tru,\"__proto__\":[-232.416120026965118848E-20],\"9\":[\"8a\\ud83d\\n1\"],\"__proto__\"::﻿1}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{\"__proto__\":{\"\\ud83d\\ude00\\nzb\":\"Y__proto__XB\"}}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyJfX3Byb3RvX18iOnsi8J+YgFxuemIiOiJZX19wcm90b19fWEIifX0="}}
+{"q":{"op":"json","args":[{"j":"\t\r{\"é\":0.30000000000000004,\"9\":[[0]]}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyI5IjpbWzBdXSwiw6kiOjAuMzAwMDAwMDAwMDAwMDAwMDR9"}}
+{"q":{"op":"json","args":[{"j":"\"A\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IkEi"}}
+{"q":{"op":"json","args":[{"j":"[null,\"Xz99\",{},\"\n0cYZY\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: control character (\\u0000-\\u001F) found while parsing a string","last":0}}
+{"q":{"op":"json","args":[{"j":"undefined"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"nul"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\t\rnull"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"bnVsbA=="}}
+{"q":{"op":"json","args":[{"j":"{\"B\":\"AXX0Xz\",\"10\":849e+3,\"a\":falsy,\"9\":-891710.868}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"\"8\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ijgi"}}
+{"q":{"op":"json","args":[{"j":"\"b\\n z\\u0041B\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImJcbuKAqHpBQiI="}}
+{"q":{"op":"json","args":[{"j":"468.7272245490"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NDY4LjcyNzIyNDU0OQ=="}}
+{"q":{"op":"json","args":[{"j":"\"a1a9\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ImExYTki"}}
+{"q":{"op":"json","args":[{"j":"[[{\"9\":-897.74e+1,\"__proto__\":falsy,a:196.64877238E4x},tru,\"\\u00e9\\u0000a😀\",],true,[1e16]],-4981145041618239E0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[NaN],undefined,nul]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"{}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"e30="}}
+{"q":{"op":"json","args":[{"j":"\"y\\u001f80😀0\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"InlcdTAwMWY4MPCfmIAwIg=="}}
+{"q":{"op":"json","args":[{"j":"{\"__proto__\":falsy}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"{1:tru,\"__proto__\":[98454782603088594011133.077411861478719,falsy,[7,\"\":\"Y￿￿\"]}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: key must be a string","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1d"}}
+{"q":{"op":"json","args":[{"j":"15216875991323087607"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MTUyMTY4NzU5OTEzMjMwODc2MDc="}}
+{"q":{"op":"json","args":[{"j":"\"A1Xz\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IkExWHoi"}}
+{"q":{"op":"json","args":[{"j":"\"x\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"Ingi"}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"[[\"\",14,{}],true,nulx]x"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"[[],\"Z8\\ude008\",{\"a\":[1E+30,-4354,\"x\",-976.9E1],\"__proto__\":{\"a\":1E+30},\"Yé8\\u12g4\\uD"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"[undefined,{\"10\":\"a\\ud83d\\ude00\"},{\"a\":-303511462137719562799,false]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[1e999999999999,66,{},{\"b\"::9007199254740992,} ]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: number out of range","last":0}}
+{"q":{"op":"json","args":[{"j":"[0,,[2.5e-324,\"yB\\u0041\\ude00CC\"],,\"\\ud83d\\uD83D\\uDE00y\",,[[\"9\"\n],\" c\"]]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"1e15"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MTAwMDAwMDAwMDAwMDAwMC4w"}}
+{"q":{"op":"json","args":[{"j":"[\"\\ude00\\\"\\u00000\\u12\"]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: lone leading surrogate in hex escape","last":0}}
+{"q":{"op":"json","args":[{"j":"\"zax\\/\\u0041\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"InpheC9BfyI="}}
+{"q":{"op":"json","args":[{"j":"\"\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"In8i"}}
+{"q":{"op":"json","args":[{"j":"463e+277"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"NC42M2UrMjc5"}}
+{"q":{"op":"json","args":[{"j":"\"\"}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: trailing characters","last":0}}
+{"q":{"op":"json","args":[{"j":"[NaN]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"tru"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: EOF while parsing a value","last":0}}
+{"q":{"op":"json","args":[{"j":"\"B\\\\CY😀\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"IkJcXENZ8J+YgCI="}}
+{"q":{"op":"json","args":[{"j":"falsy"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected ident","last":0}}
+{"q":{"op":"json","args":[{"j":"1e-400"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"MC4w"}}
+{"q":{"op":"json","args":[{"j":"805552698529877\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"ODA1NTUyNjk4NTI5ODc3"}}
+{"q":{"op":"json","args":[{"j":"[]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"W10="}}
+{"q":{"op":"json","args":[{"j":"-126 "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"LTEyNg=="}}
+{"q":{"op":"json","args":[{"j":"{\"\\u0000\\u0000\\u00e9y\":NaN;\"9\":[true,{},[]];\"é\":{null=\"c8b\"}}"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[undefined,123456789.123456789e-5,[811.21563473712201744126206e20},\"a__proto__\\ud83dx8\\ud83dB\",\f],\"Zz\"\n]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: expected value","last":0}}
+{"q":{"op":"json","args":[{"j":"[--1]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: invalid number","last":0}}
+{"q":{"op":"json","args":[{"j":"true"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"dHJ1ZQ=="}}
+{"q":{"op":"json","args":[{"j":"{\"é\":\" z0c\"}"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"eyLDqSI6IuKAqHowYyJ9"}}
