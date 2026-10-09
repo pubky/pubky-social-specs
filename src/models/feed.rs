@@ -387,8 +387,8 @@ impl HashId for PubkySocialFeed {
     /// printable token: '-' would collide with the legal label `["-"]`. `name`, `icon`,
     /// `created_at` and `extra` stay outside: a feed is what it filters, not how it looks.
     ///
-    /// Meaningful only for a config this crate can spell; writers go through
-    /// [`PubkySocialFeed::derive_id`], which refuses an unknown content kind.
+    /// Writers go through [`PubkySocialFeed::derive_id`], which validates the config first. A
+    /// name this version does not know is spelled as it was read, so it derives the writer's id.
     fn get_id_data(&self) -> String {
         let list =
             |l: &Option<Vec<String>>| l.as_ref().map_or_else(String::new, |list| list.join(","));
