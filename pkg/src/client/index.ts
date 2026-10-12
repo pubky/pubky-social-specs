@@ -344,8 +344,9 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     files: {
       /** PUTs media where its hash names it, public unless `root` says otherwise. */
       async upload(bytes: Uint8Array, type: T.MimeType | (string & {}), root: T.Root = "public"): Promise<T.BuiltFile> {
-        // One copy, hashed and sent: the caller's view may change while the PUT is in flight
-        const copy = new Uint8Array(bytes);
+        // One copy, hashed and sent: the caller's view may change while the PUT is in flight.
+        // encodeObject refuses a value that is no bytes, which the copy would coerce
+        const copy = new Uint8Array(encodeObject({ kind: "file", root }, bytes));
         const built = buildFile(owner, { bytes: copy, type, root });
         await storage.putBytes(built.path, copy);
         return built;

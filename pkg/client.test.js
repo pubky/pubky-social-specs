@@ -3,7 +3,7 @@
 
 import assert from "assert";
 import { createSocialClient } from "./dist/client/index.js";
-import { buildPost } from "./dist/index.js";
+import { ArgumentError, buildPost } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
 import { OTTO, RIO, T0, text } from "./core.fixture.js";
 import { answered, fakeHomeserver } from "./sdk.fixture.js";
@@ -217,6 +217,14 @@ describe("the client over memoryHomeserver", () => {
     session.storage.delete = refuse(session.storage.delete);
     await social.posts.delete(post.id);
     assert.strictEqual(await session.storage.exists(post.path), false);
+  });
+
+  it("uploads only bytes: a number or an array is refused, never coerced", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    for (const value of [4, [1, 2]]) await assert.rejects(social.files.upload(value, "image/png"), (e) => e instanceof ArgumentError);
+    assert.strictEqual(text(await session.storage.getBytes((await social.files.upload(new Uint8Array([104, 105]), "text/plain")).path)), "hi");
   });
 
   it("adds a tag without writing over one already at its address", async () => {
