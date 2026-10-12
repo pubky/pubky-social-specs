@@ -322,6 +322,10 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(parseUri(long.url).target, undefined);
       assert.strictEqual(buildFollow(OTTO, RIO).path, `/pub/social/v1/follows/${RIO}.json`);
       assert.strictEqual(buildMute(OTTO, RIO).path, `/priv/social/v1/mutes/${RIO}.json`);
+      const badTarget = caught(() => buildBookmark(OTTO, "not a uri"));
+      assert.deepStrictEqual([badTarget.constructor, badTarget.code, badTarget.field], [ValidationError, "reference", "target"]);
+      const mutee = caught(() => buildMute(OTTO, "nope"));
+      assert.deepStrictEqual([mutee.constructor, mutee.code, mutee.field], [ValidationError, "format", "mutee"]);
     });
 
     it("a feed is named by its filter, folded and sorted", () => {
@@ -332,6 +336,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(feedId(built.object), built.id);
       assert.notStrictEqual(feedId({ ...built.object, feed: { ...built.object.feed, sort: "popularity" } }), built.id);
       refuses(() => buildFeed(OTTO, { name: "x", icon: "star", reach: "galaxy", layout: "columns", sort: "recent" }), "Validation Error: Invalid feed reach: galaxy");
+      misuse(() => feedId({ ...built.object, feed: { ...built.object.feed, tags: [1] } }), /feed\.feed\.tags\[0\] must be a string/);
     });
 
     it("media goes by the hash of its bytes, from the bytes or from an id hashed elsewhere", () => {
@@ -341,6 +346,13 @@ describe("pubky-social-specs", () => {
       const hasher = createMediaHasher();
       for (let at = 0; at < bytes.length; at += 7001) hasher.update(bytes.subarray(at, at + 7001));
       assert.strictEqual(hasher.id(), file.id);
+      // The id of no bytes, and an id read halfway with the feed going on
+      assert.strictEqual(createMediaHasher().id(), "NW9MKEFNZ6GTD8209QN3DQ6994");
+      const halfway = createMediaHasher();
+      halfway.update(new Uint8Array([1]));
+      assert.strictEqual(halfway.id(), buildFile(OTTO, { bytes: new Uint8Array([1]), type: "image/png" }).id);
+      halfway.update(new Uint8Array([2]));
+      assert.strictEqual(halfway.id(), "PZBQ010FF079VVZPQG1RNFN6DR");
       assert.deepStrictEqual(buildFile(OTTO, { id: hasher.id(), type: "IMAGE/PNG; q=1", root: "private" }).path, `/priv/social/v1/files/${file.id}.png`);
       assert.ok(buildFile(OTTO, { bytes, type: "application/x-unknown" }).path.endsWith(".bin"));
       refuses(() => buildFile(OTTO, { bytes: new Uint8Array(0), type: "image/png" }), "Validation Error: File size cannot be zero");
@@ -355,6 +367,7 @@ describe("pubky-social-specs", () => {
       const { id } = buildFile(OTTO, { bytes, type: "image/png" });
       assert.strictEqual(await hashMedia(new Blob([bytes])), id);
       assert.strictEqual(await hashMedia(new Blob([bytes]).stream()), id);
+      assert.strictEqual(await hashMedia(new Blob([])), "NW9MKEFNZ6GTD8209QN3DQ6994");
       await assert.rejects(hashMedia("bytes"), (e) => e instanceof TypeError && /source must be a Blob or a ReadableStream/.test(e.message));
       await assert.rejects(hashMedia(new Response("text").body.pipeThrough(new TextDecoderStream())), /a chunk of source must be a Uint8Array/);
     });
@@ -546,8 +559,16 @@ describe("pubky-social-specs", () => {
       const media = buildFile(OTTO, { bytes: utf8("hi"), type: "image/png" });
       assert.strictEqual(specs.parseMediaId(media.id), media.id);
       refuses(() => specs.parseOwner("nope"), /not 52 ASCII characters/);
-      refuses(() => specs.parsePostId(media.id), /Invalid ID length/);
-      refuses(() => specs.parseMediaId(built.id), /Invalid ID length/);
+      for (const [parse, value] of [
+        [specs.parsePostId, media.id],
+        [specs.parseEditId, media.id],
+        [specs.parseEditId, built.editId.toLowerCase()],
+        [specs.parseMediaId, built.id],
+      ]) {
+        const e = caught(() => parse(value));
+        assert.deepStrictEqual([e.constructor, e.code], [ValidationError, "format"], `${parse.name}(${value})`);
+      }
+      misuse(() => specs.parseEditId(1), /editId must be a string/);
       refuses(() => specs.parsePubkyUrl(buildUri(OTTO, "post", built.id)), /not the URL of a stored object/);
       refuses(() => specs.parsePubkyUrl(`pubky://${OTTO}/pub/pubky.app/posts/x`), /not the URL of a stored object/);
       refuses(() => specs.parsePostRef(built.url), /not a reference to a post/);
@@ -603,6 +624,7 @@ describe("pubky-social-specs", () => {
       });
       assert.deepStrictEqual(gone.deletes, [`/pub/pubky.app/posts/${draft.id}`, draft.path, plan.put.path, edited.path]);
       assert.deepStrictEqual(gone.mediaGcCandidates, [media.path, media.path.replace("/priv/", "/pub/")].sort());
+      refuses(() => planDelete(OTTO, { id: draft.id, legacyPaths: ["/pub/x"] }), `Validation Error: not a legacy path of post ${draft.id}: /pub/x`);
     });
 
     it("a head from a faster clock still gets a successor, the same one for the same edit", () => {

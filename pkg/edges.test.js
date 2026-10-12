@@ -5,7 +5,7 @@ import assert from "assert";
 import * as specs from "./dist/index.js";
 import { execFileSync } from "node:child_process";
 import { fakeOwner, sampleFeed, samplePost, sampleUser, setClock } from "./dist/testing.js";
-import { canonicalExternal, canonicalPubky, canonicalUniversal, reference } from "./dist/canonicalize.js";
+import { canonicalExternal, canonicalPubky, canonicalUniversal, canonicalWeb, reference } from "./dist/canonicalize.js";
 import { hashText } from "./dist/ids.js";
 import { OTTO, RIO, T0, misuse, refuses, utf8 } from "./core.fixture.js";
 
@@ -51,6 +51,17 @@ describe("edges", () => {
       assert.strictEqual(canonicalPubky(`xxxxx${OTTO}/pub/x`), null);
     });
 
+    it("a pubky segment is taken as written, so a dot segment or a percent, query or fragment character is refused", () => {
+      for (const segment of ["..", ".", "%2e", "a?b", "a#b"]) assert.strictEqual(canonicalPubky(`pubky://${OTTO}/pub/${segment}/x`), null, segment);
+    });
+
+    it("a web reference keeps its spelling, userinfo and port, trimmed of frozen whitespace, and needs a host", () => {
+      assert.strictEqual(canonicalWeb("https://u:p@Example.COM:8080/a?b#c"), "https://u:p@Example.COM:8080/a?b#c");
+      assert.strictEqual(canonicalWeb("https://u@v@example.com/"), "https://u@v@example.com/");
+      assert.strictEqual(canonicalWeb(" https://x.com\u3000"), "https://x.com");
+      for (const raw of ["https://:443/", "https://u@"]) assert.strictEqual(canonicalWeb(raw), null, raw);
+    });
+
     it("an external reference has a whole scheme before its colon and something after it", () => {
       assert.strictEqual(canonicalExternal("MAILTO:a@b"), "mailto:a@b");
       for (const raw of [":x", "x:", "ab!c:x", "1ab:x", "Pubky:x", "HTTPS:x"]) assert.strictEqual(canonicalExternal(raw), null, raw);
@@ -61,6 +72,10 @@ describe("edges", () => {
       const at = (n) => `https://e.com/${"a".repeat(n - "https://e.com/".length)}`;
       assert.strictEqual(canonicalUniversal(at(max)), at(max));
       assert.strictEqual(canonicalUniversal(at(max + 1)), null);
+      // The short pubky form is measured once it is spelled in full, three characters longer
+      const short = (n) => `pubky${OTTO}/${"a".repeat(n - 58)}`;
+      assert.strictEqual(canonicalUniversal(short(max - 3)).length, max);
+      assert.strictEqual(canonicalUniversal(short(max - 2)), null);
     });
 
     it("a pubky reference is refused when private, another user's, or versioned where the member forbids it", () => {

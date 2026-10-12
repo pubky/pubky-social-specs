@@ -5,7 +5,7 @@
 import assert from "assert";
 import * as specs from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
-import { OTTO, RIO, T0, caught, refuses, text, utf8 } from "./core.fixture.js";
+import { OTTO, RIO, T0, caught, misuse, refuses, text, utf8 } from "./core.fixture.js";
 
 const { buildFile, buildFollow, buildPost, buildUser, decodeObject, encodeObject, planPublish } = specs;
 
@@ -186,6 +186,7 @@ describe("helpers", () => {
     assert.strictEqual(specs.dateToMicros(new Date(T0)), T0 * 1000);
     assert.strictEqual(specs.dateToMicros(T0), T0 * 1000);
     assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
+    for (const micros of [1.5, NaN, 2 ** 53, "1"]) misuse(() => specs.microsToDate(micros), /micros must be an integer of microseconds/);
   });
 
   it("parseOwnerPath takes a path beneath a root, never the root alone", () => {
@@ -196,6 +197,10 @@ describe("helpers", () => {
   it("idMicros refuses an id whose time is past the safe integer range", () => {
     const e = caught(() => specs.idMicros("FZZZZZZZZZZZY"));
     assert.deepStrictEqual([e.code, e.field], ["id", "id"]);
+    // Both sides of ±(2^53 - 1), the answers the reference gives as decimal strings
+    assert.strictEqual(specs.idMicros("00FZZZZZZZZZY"), Number.MAX_SAFE_INTEGER);
+    assert.strictEqual(specs.idMicros("ZZG0000000002"), -Number.MAX_SAFE_INTEGER);
+    for (const id of ["00G0000000000", "ZZG0000000000"]) assert.strictEqual(caught(() => specs.idMicros(id)).code, "id", id);
     assert.strictEqual(specs.idMicros(buildPost(OTTO, { content: "x" }).id), T0 * 1000);
   });
 
