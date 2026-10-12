@@ -39,6 +39,8 @@ export function build(owner: string, kind: ObjectKind, id: string): `pubky://${s
 
 /** `build`, and only for an id the parser reads back as that object: no other path comes out. */
 export function buildChecked(owner: string, kind: ObjectKind, id: string): `pubky://${string}` {
+  // The reference holds the id of a follow or a mute as a key, refused before it is spelled
+  if (kind === "follow" || kind === "mute") checkPublicKey(id, "id");
   const uri = build(owner, kind, id);
   const canonical = canonicalPubky(uri);
   const located = canonical === null ? null : parsePath(splitPubky(canonical)?.path ?? null);
@@ -46,7 +48,7 @@ export function buildChecked(owner: string, kind: ObjectKind, id: string): `pubk
     located !== null &&
     located.kind === kind &&
     (located.kind === "user" || located.kind === "file" || (located.kind === "post" ? located.editId === undefined && located.id === id : "id" in located && located.id === id));
-  return named ? uri : fail("format", `not ${kind === "file" ? "a media file name" : `the id of a ${kind}`}: ${id}`, "id");
+  return named ? uri : fail("format", `value cannot be spelled canonically: ${uri}`, "id");
 }
 
 /** The LIST prefix of a tree. Not a URI: the trailing slash is deliberate. */

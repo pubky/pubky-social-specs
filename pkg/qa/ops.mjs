@@ -1,14 +1,11 @@
 // Each oracle operation as the package answers it, in the oracle's own shape: stored bytes as
 // base64, a refusal as its message. Wherever the public entry has the function, that is what
-// is called, so the scoreboard measures what a caller gets. The URI builders are the one
-// exception: the reference spells any id, and the public `buildUri` refuses one its parser
-// would not read back, so the spelling is scored on the package's own unchecked builder.
+// is called, so the scoreboard measures what a caller gets.
 
 import * as api from "../dist/index.js";
 import * as text from "../dist/text.js";
 import * as ids from "../dist/ids.js";
 import * as canon from "../dist/canonicalize.js";
-import * as uri from "../dist/uri.js";
 import * as legacy from "../dist/legacy.js";
 import { mimeToExt } from "../dist/mime.js";
 import { JsonError, readJson } from "../dist/json/read.js";
@@ -102,14 +99,7 @@ const ops = {
   deletionPaths: (target) => api.deletionPaths(JSON.parse(target.j)),
 
   listPrefix: (a, tree) => api.listPrefix(a.s, JSON.parse(tree.j)),
-  userUri: (a) => api.buildUri(a.s, "user"),
-  postUri: (a, b) => uri.build(a.s, "post", b.s),
-  followUri: (a, b) => uri.build(a.s, "follow", b.s),
-  muteUri: (a, b) => uri.build(a.s, "mute", b.s),
-  bookmarkUri: (a, b) => uri.build(a.s, "bookmark", b.s),
-  tagUri: (a, b) => uri.build(a.s, "tag", b.s),
-  fileUri: (a, b) => uri.build(a.s, "file", b.s),
-  feedUri: (a, b) => uri.build(a.s, "feed", b.s),
+  buildUri: (a, b, c) => api.buildUri(a.s, b.s, c.s),
 };
 
 /** `{ok, last}` or `{err, last}`, as the oracle answers the same request. */

@@ -795,19 +795,42 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             .into()
         }
         // The builders check the owner key; the second part is spelled as given
-        "userUri" => crate::user_uri_builder(PubkyId::try_from(a.s()?)?.to_string()).into(),
-        "postUri" | "followUri" | "muteUri" | "bookmarkUri" | "tagUri" | "fileUri" | "feedUri" => {
-            let owner = PubkyId::try_from(a.s()?)?.to_string();
-            let leaf = a.s()?.to_string();
-            match op {
-                "postUri" => crate::post_uri_builder(owner, leaf),
-                "followUri" => crate::follow_uri_builder(owner, leaf),
-                "muteUri" => crate::mute_uri_builder(owner, leaf),
-                "bookmarkUri" => crate::bookmark_uri_builder(owner, leaf),
-                "tagUri" => crate::tag_uri_builder(owner, leaf),
-                "fileUri" => crate::file_uri_builder(owner, leaf),
-                _ => crate::feed_uri_builder(owner, leaf),
+        // The public builder is the checked one: the URI is spelled, reparsed and must name the
+        // same object
+        "buildUri" => {
+            let user_id = PubkyId::try_from(a.s()?)?;
+            let kind = a.s()?;
+            let id = a.s()?.to_string();
+            let (resource, visibility) = match kind {
+                "user" => (Resource::User, Visibility::Public),
+                "post" => (
+                    Resource::Post {
+                        id,
+                        version: None,
+                        label: None,
+                    },
+                    Visibility::Public,
+                ),
+                "follow" => (
+                    Resource::Follow(PubkyId::try_from(id.as_str())?),
+                    Visibility::Public,
+                ),
+                "mute" => (
+                    Resource::Mute(PubkyId::try_from(id.as_str())?),
+                    Visibility::Private,
+                ),
+                "bookmark" => (Resource::Bookmark(id), Visibility::Private),
+                "tag" => (Resource::Tag(id), Visibility::Public),
+                "file" => (Resource::File(id), Visibility::Public),
+                "feed" => (Resource::Feed(id), Visibility::Private),
+                _ => return Err(format!("surface: no object kind {kind}")),
+            };
+            ParsedUri {
+                user_id,
+                visibility,
+                resource,
             }
+            .try_to_uri_str()?
             .into()
         }
         _ => return Err(format!("surface: no operation {op}")),

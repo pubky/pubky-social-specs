@@ -242,6 +242,7 @@ describe("pubky-social-specs", () => {
       refuses(() => buildUser(OTTO, { name: "Al\ud800ice" }), lone);
       refuses(() => buildTag(OTTO, buildUri(RIO, "user"), "\udc00"), lone);
       refuses(() => parseUri("pubky://\ud83d"), lone);
+      assert.strictEqual(caught(() => decodeContent({ kind: "article", content: '{"title":"\ud800","body":"b"}' })).code, "format");
       assert.strictEqual(buildUser(OTTO, { name: "Al😀ce" }).object.name, "Al😀ce");
     });
   });
@@ -355,6 +356,8 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(halfway.id(), "PZBQ010FF079VVZPQG1RNFN6DR");
       assert.deepStrictEqual(buildFile(OTTO, { id: hasher.id(), type: "IMAGE/PNG; q=1", root: "private" }).path, `/priv/social/v1/files/${file.id}.png`);
       assert.ok(buildFile(OTTO, { bytes, type: "application/x-unknown" }).path.endsWith(".bin"));
+      // A type is folded and cut at its parameters, and its subtype may hold a +
+      assert.ok(buildFile(OTTO, { bytes, type: "Image/SVG+XML; charset=utf-8" }).path.endsWith(".svg"));
       refuses(() => buildFile(OTTO, { bytes: new Uint8Array(0), type: "image/png" }), "Validation Error: File size cannot be zero");
       refuses(() => buildFile(OTTO, { id: "not-a-hash", type: "image/png" }), /Invalid ID length/);
       assert.deepStrictEqual(decodeObject(file.url, bytes), { kind: "file", bytes });
@@ -411,6 +414,22 @@ describe("pubky-social-specs", () => {
       refuses(() => editPost(OTTO, follow.path, buildPost(OTTO, { content: "x" }).object), notAUri);
       assert.strictEqual(toPath(follow.url), follow.path);
       assert.strictEqual(toPath(`pubky://${OTTO}/pub/pubky.app/follows/${RIO}`), `/pub/pubky.app/follows/${RIO}`);
+      // Every kind, under each root it can be stored in
+      const post = buildPost(OTTO, { content: "x" });
+      const media = buildFile(OTTO, { bytes: utf8("x"), type: "image/png" });
+      for (const built of [
+        buildUser(OTTO, { name: "Alice" }),
+        post,
+        buildPost(OTTO, { content: "x", root: "private" }),
+        buildMute(OTTO, RIO),
+        buildBookmark(OTTO, post.url.replace(/\/[^/]+\.json$/, "")),
+        buildTag(OTTO, buildUri(RIO, "user"), "rust"),
+        media,
+        buildFile(OTTO, { bytes: utf8("x"), type: "image/png", root: "private" }),
+        buildFeed(OTTO, { name: "Rust", icon: "crab", reach: "all", layout: "columns", sort: "recent" }),
+      ]) {
+        assert.strictEqual(toPath(built.url), built.path, built.url);
+      }
       refuses(() => toPath(`pubky://${OTTO}`), /not the URL of a stored object/);
       refuses(() => toPath(`pubky://${OTTO}/pub/../x`), /Not a canonical pubky URI/);
     });
@@ -452,7 +471,9 @@ describe("pubky-social-specs", () => {
       refuses(read('{"name":"a\\tb­","name":"x"}'), "Validation Error: duplicate field `name`");
       refuses(read('{"bio":"\\u00ad"}'), "Validation Error: missing field `name`");
       refuses(read('{"name":"­é\\n"}'.replace('"­', '{"x":"­').replace('\\n"}', '\\n"}}')), "Validation Error: invalid type: map, expected a string");
-      refuses(() => decodeObject(url, new Uint8Array([0x22, 0xff, 0x22])), /invalid type: string|invalid unicode code point/);
+      // The encoding is checked at the closing quote, before the string's type
+      refuses(() => decodeObject(url, new Uint8Array([0x22, 0xff, 0x22])), "Validation Error: invalid unicode code point");
+      refuses(() => decodeObject(url, Uint8Array.from([...utf8('{"name":"A'), 0xc3, ...utf8('l"}')])), "Validation Error: invalid unicode code point");
       refuses(() => decodeObject(buildUri(OTTO, "post", "0034A0X7NJ52G"), utf8("{}")), "Validation Error: a versionless post reference is never a stored object");
       refuses(() => decodeObject(`pubky://${OTTO}/pub/other.app/v1/x`, utf8("{}")), "Validation Error: a foreign namespace is not a social object");
     });
@@ -674,6 +695,9 @@ describe("pubky-social-specs", () => {
           `${kind} ${id}`,
         );
       }
+      // The reference's words: its emitter reparses the spelling, and holds a followee as a key
+      refuses(() => buildUri(OTTO, "post", "not-an-id"), `Validation Error: value cannot be spelled canonically: pubky://${OTTO}/pub/social/v1/posts/not-an-id`);
+      refuses(() => buildUri(OTTO, "follow", "nope"), "Validation Error: the string is not 52 ASCII characters");
       const media = buildFile(OTTO, { bytes: utf8("hello"), type: "image/png" });
       const parsed = parseUri(media.url);
       assert.strictEqual(parsed.filename, `${media.id}.png`);

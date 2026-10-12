@@ -132,6 +132,30 @@ function path(r) {
   return out;
 }
 
+/** Containers nested around the recursion limit: arrays, objects, or both in turn. */
+function nested(r) {
+  const n = r.pick([126, 127, 128, 129]);
+  const shape = r.pick(["array", "object", "mixed"]);
+  const arrays = Array.from({ length: n }, (_, i) => shape === "array" || (shape === "mixed" && i % 2 === 0));
+  const opens = arrays.map((array) => (array ? "[" : '{"a":')).join("");
+  // Sometimes one closer short, which the parser meets only after the depth
+  const closes = arrays
+    .map((array) => (array ? "]" : "}"))
+    .reverse()
+    .slice(r.chance(0.2) ? 1 : 0)
+    .join("");
+  return opens + "1" + closes;
+}
+
+/** Stored text as bytes with an invalid UTF-8 sequence inside a string, which only the byte channel can carry. */
+function notUtf8(r, text) {
+  const bytes = Buffer.from(text, "utf8");
+  const quote = bytes.indexOf(0x22, r.below(bytes.length));
+  const at = quote < 0 ? bytes.length : quote + 1;
+  const bad = Buffer.from(r.pick([[0xff], [0xc3], [0xed, 0xa0, 0x80], [0xf8, 0x88, 0x80, 0x80, 0x80], [0xc0, 0xaf]]));
+  return { b: Buffer.concat([bytes.subarray(0, at), bad, bytes.subarray(at)]).toString("base64") };
+}
+
 /** A reference as a user could store one: pubky in both forms, web, any other scheme, or noise; `arm` picks one. */
 function uri(r, arm = r.below(4)) {
   const host = r.pick([OWNER, OWNER, OTHER, spelled(r, ZBASE32, 52), `u:p@${OWNER}`, `${OWNER}:80`, OWNER.toUpperCase()]);
@@ -664,7 +688,7 @@ export const families = {
               ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`, "/pub/social/v1/profile.json"])
               : `pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`,
           ),
-          { j: stored(r, storedUser(r)) },
+          r.chance(0.05) ? notUtf8(r, stored(r, storedUser(r))) : { j: stored(r, storedUser(r)) },
         ),
   ids: (r) =>
     r.pick([
@@ -673,7 +697,7 @@ export const families = {
       () => request("hashId", s(spelled(r, CROCKFORD, 26))),
       () => request("mediaId", { b: Buffer.from(r.many(200, () => r.below(256))).toString("base64") }),
     ])(),
-  json: (r) => request("json", { j: r.chance(0.02) ? "[".repeat(r.pick([126, 127, 128, 129])) + "]".repeat(r.pick([126, 127, 128])) : json(r) }),
+  json: (r) => request("json", { j: r.chance(0.04) ? nested(r) : json(r) }),
   canonical: (r) => {
     const op = r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]);
     // Mostly a reference of the arm's own scheme, so its rules past the prefix are reached
@@ -687,6 +711,13 @@ export const families = {
       () => request("stableKey", s(r.pick(["", "/", "/"]) + path(r))),
       () =>
         request(
+          "stableKey",
+          s(
+            `/${r.pick(["pub", "priv"])}/${r.pick(["social/v1", "pubky.app"])}/${r.pick([`posts/${timestampIdOf(NOW - r.below(1e12))}`, `tags/${hashIdText(r)}`, `files/${hashIdText(r)}.png`, `blobs/${hashIdText(r)}`, `follows/${OTHER}.json`, "profile.json", "last_read", "settings"])}`,
+          ),
+        ),
+      () =>
+        request(
           "legacyMediaKey",
           s(
             r.pick([
@@ -697,8 +728,44 @@ export const families = {
           ),
         ),
       () => request("listPrefix", s(r.pick([OWNER, str(r, 8)])), { j: JSON.stringify(r.pick(["public", "private", "legacy"])) }),
-      () => request("userUri", s(r.pick([OWNER, OTHER, spelled(r, ZBASE32, 52)]))),
-      () => request(r.pick(["postUri", "followUri", "muteUri", "bookmarkUri", "tagUri", "fileUri", "feedUri"]), s(r.pick([OWNER, spelled(r, ZBASE32, 52)])), s(str(r, 8))),
-      () => request("mimeToExt", s(r.pick(["image/png", "IMAGE/JPEG; q=1", " image/png", "text/xml", "application/octet-stream", "a/b/c", "/", "image/", str(r, 8)]))),
+      () => {
+        const kind = r.pick(["user", "post", "follow", "mute", "bookmark", "tag", "file", "feed"]);
+        // Mostly an id of the kind, so the reparse gate is reached past the spelling
+        const ids = {
+          user: () => "",
+          post: () => timestampIdOf(NOW - r.below(1e12)),
+          follow: () => key(r),
+          mute: () => key(r),
+          bookmark: () => r.pick(["~" + hashIdText(r), spelled(r, base64url, r.below(12)), "_x"]),
+          tag: () => hashIdText(r),
+          file: () => `${hashIdText(r)}${r.pick(["", "."])}${r.pick(EXTENSIONS)}`,
+          feed: () => hashIdText(r),
+        };
+        const id = r.chance(0.7) ? ids[kind]() : r.pick([str(r, 8), `${ids[kind]()}/x`, `${ids[kind]()}.json`, "", spelled(r, CROCKFORD, 13)]);
+        return request("buildUri", s(r.pick([OWNER, OWNER, spelled(r, ZBASE32, 52)])), s(kind), s(id));
+      },
+      () =>
+        request(
+          "mimeToExt",
+          s(
+            r.pick([
+              "image/png",
+              "IMAGE/JPEG; q=1",
+              " image/png",
+              "text/xml",
+              "application/octet-stream",
+              "image/svg+xml",
+              "Image/SVG+XML; charset=utf-8",
+              "application/ld+json",
+              "application/vnd.ms-excel",
+              "a!#$&^_.+-/b",
+              "image/sv g",
+              "a/b/c",
+              "/",
+              "image/",
+              str(r, 8),
+            ]),
+          ),
+        ),
     ])(),
 };

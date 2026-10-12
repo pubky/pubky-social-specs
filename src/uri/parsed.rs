@@ -46,13 +46,17 @@ impl ParsedUri {
         let leaf = match &self.resource {
             Resource::User => {
                 if root == Root::Priv {
-                    return Err("the profile lives under the public root".to_string());
+                    return Err(
+                        "Validation Error: the profile lives under the public root".to_string()
+                    );
                 }
                 PubkySocialUser::PATH_SEGMENT.to_string()
             }
             Resource::Post { id, version, label } => match (version, label) {
                 (None, Some(_)) => {
-                    return Err("a label without a version cannot be spelled".to_string())
+                    return Err(
+                        "Validation Error: a label without a version cannot be spelled".to_string(),
+                    )
                 }
                 (None, None) => format!("posts/{id}"),
                 (Some(v), None) => format!("posts/{id}/{v}.json"),
@@ -61,13 +65,15 @@ impl ParsedUri {
             Resource::Follow(pk) => format!("follows/{pk}.json"),
             Resource::Mute(pk) => {
                 if root == Root::Pub {
-                    return Err("mutes live under the private root".to_string());
+                    return Err("Validation Error: mutes live under the private root".to_string());
                 }
                 format!("mutes/{pk}.json")
             }
             Resource::Bookmark(filename) => {
                 if root == Root::Pub {
-                    return Err("bookmarks live under the private root".to_string());
+                    return Err(
+                        "Validation Error: bookmarks live under the private root".to_string()
+                    );
                 }
                 format!("bookmarks/{filename}.json")
             }
@@ -88,9 +94,13 @@ impl ParsedUri {
                 return self.verify_emitted([PROTOCOL, self.user_id.as_ref(), &path].concat());
             }
             Resource::UnsupportedVersion { .. } => {
-                return Err("an unsupported epoch does not carry its path".to_string())
+                return Err(
+                    "Validation Error: an unsupported epoch does not carry its path".to_string(),
+                )
             }
-            Resource::Unknown => return Err("Cannot convert Unknown resource to URI".to_string()),
+            Resource::Unknown => {
+                return Err("Validation Error: Cannot convert Unknown resource to URI".to_string())
+            }
         };
         let path = social_path(root, &leaf);
         let out = [PROTOCOL, self.user_id.as_ref(), &path].concat();
@@ -101,7 +111,9 @@ impl ParsedUri {
     fn verify_emitted(&self, out: String) -> Result<String, String> {
         match ParsedUri::try_from(out.as_str()) {
             Ok(reparsed) if reparsed == *self => Ok(out),
-            _ => Err(format!("value cannot be spelled canonically: {out}")),
+            _ => Err(format!(
+                "Validation Error: value cannot be spelled canonically: {out}"
+            )),
         }
     }
 }
