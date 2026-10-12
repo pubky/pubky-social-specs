@@ -202,6 +202,23 @@ describe("the client over memoryHomeserver", () => {
     void owner;
   });
 
+  it("deletes a post with a session refused the 0.x tree, probe included: the 1.x versions still go", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const post = await social.posts.create({ content: "hello" });
+    const refuse =
+      (call) =>
+      async (path, ...rest) => {
+        if (path.startsWith("/pub/pubky.app/")) throw Object.assign(new Error("403"), { data: { statusCode: 403 } });
+        return call(path, ...rest);
+      };
+    session.storage.exists = refuse(session.storage.exists);
+    session.storage.delete = refuse(session.storage.delete);
+    await social.posts.delete(post.id);
+    assert.strictEqual(await session.storage.exists(post.path), false);
+  });
+
   it("adds a tag without writing over one already at its address", async () => {
     const { memoryHomeserver } = await import("./dist/testing.js");
     const { session } = memoryHomeserver();

@@ -171,6 +171,15 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   };
   // A 0.x copy goes first, so a reindex cannot bring the object back from it. A session granted
   // only the 1.x tree, as an app should ask, may not touch it: the 1.x copies still go
+  // The probe for a 0.x copy, which such a session may be refused too: no copy it can delete
+  const legacyExists = async (path: string): Promise<boolean> => {
+    try {
+      return await storage.exists(path);
+    } catch (error) {
+      if (isRefused(error)) return false;
+      throw error;
+    }
+  };
   const remove = async (paths: readonly string[]) => {
     for (const path of paths) {
       try {
@@ -255,7 +264,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         for await (const url of ownVersions(id)) if (isVersion(url)) listings.push(pathOf(owner, url));
         // A migrated post keeps its 0.x copy, which a reindex would read back as the post
         const legacy = `${roots.legacy}posts/${parsePostId(id)}`;
-        if (await storage.exists(legacy)) listings.push(legacy);
+        if (await legacyExists(legacy)) listings.push(legacy);
         await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
       },
     },
