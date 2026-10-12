@@ -53,18 +53,9 @@ function text(value: unknown, name: string): string {
   return checkWellFormed(value, name);
 }
 
-/** A URL argument. A path passed for one is the commonest first mistake, so it is named as such. */
-function url(value: unknown, name: string): string {
-  const given = text(value, name);
-  if (given.startsWith("/")) fail("path", `${name} must be a pubky:// URL, not the path ${given}: pass the url of a builder result`, name);
-  return given;
-}
-
-/** A public key argument: refused under its own name, which the reference text does not carry. */
+/** A public key argument, refused under its own name, which the reference text does not carry. */
 function key(value: unknown, name: string): string {
   const given = text(value, name);
-  // The commonest wrong spelling, which the reference words only as a wrong length
-  if (given.startsWith("pubky")) fail("format", `${name} must be the bare public key, not ${given}: parseOwner reads it out of a pubky:// URL`, name);
   ids.checkPublicKey(given, name);
   return given;
 }
@@ -120,7 +111,7 @@ export function decodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uin
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): T.Decoded;
 export function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind?: T.ObjectKind): T.Decoded | T.Stored[keyof T.Stored] | T.Bytes {
-  const at = url(uri, "uri");
+  const at = text(uri, "uri");
   bytes = snapshot(bytes, "bytes") as T.Bytes;
   if (kind !== undefined) {
     nameOf(kind, "kind", OBJECT_KINDS);
@@ -170,7 +161,7 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
       warnIfUnknownDropped(at, object, "encodeObject");
       warnIfMilliseconds(object, "encodeObject");
     }
-    return objects.write(url(at, "at"), media ?? object);
+    return objects.write(text(at, "at"), media ?? object);
   }
   const where = inputOf(at, "at", ["kind", "root"]);
   return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, media ?? object);
@@ -301,7 +292,7 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
   const me = key(owner, "owner");
   post = snapshot(post, "post") as T.Post;
   options = snapshot(options, "options") as typeof options;
-  const head = parsedAt(url(headUri, "headUri"), "headUri");
+  const head = parsedAt(text(headUri, "headUri"), "headUri");
   if (head.kind !== "post" || head.editId === undefined) return fail("path", `not the URI of a stored post version: ${headUri}`, "headUri");
   // Only the owner writes their tree: an edit of another user's post is a reply or a quote
   if (head.owner !== me) fail("path", `the head ${headUri} is in another user's tree, not ${me}'s`, "headUri");

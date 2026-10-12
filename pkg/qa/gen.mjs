@@ -644,12 +644,12 @@ export const families = {
   },
   user: (r) =>
     r.chance(0.5)
-      ? request("createUser", s(r.chance(0.97) ? OWNER : str(r, 4)), { j: JSON.stringify(userInput(r)) })
+      ? request("createUser", s(r.chance(0.97) ? OWNER : r.pick([str(r, 4), `pubky://${OWNER}`, `pubky${OWNER}`])), { j: JSON.stringify(userInput(r)) })
       : request(
           "decode",
           s(
             r.chance(0.1)
-              ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`])
+              ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`, "/pub/social/v1/profile.json"])
               : `pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`,
           ),
           { j: stored(r, storedUser(r)) },

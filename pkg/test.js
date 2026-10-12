@@ -174,10 +174,9 @@ describe("pubky-social-specs", () => {
       const many = caught(() => buildPost(OTTO, { content: "x", attachments: Array.from({ length: 11 }, () => ({ uri: "https://a.example" })) }));
       assert.deepStrictEqual([many.code, many.field, many.limit], ["count", "attachments", 10]);
       assert.strictEqual(caught(() => buildPost(OTTO, { content: "x", parent: "not a uri" })).code, "reference");
-      assert.strictEqual(
-        caught(() => buildUser("pubky://" + OTTO, { name: "Alice" })).message,
-        `Validation Error: owner must be the bare public key, not pubky://${OTTO}: parseOwner reads it out of a pubky:// URL`,
-      );
+      // An owner given as a URL gets the reference's answer for a key, under the argument's name
+      const url = caught(() => buildUser("pubky://" + OTTO, { name: "Alice" }));
+      assert.deepStrictEqual([url.message, url.code, url.field], ["Validation Error: the string is not 52 ASCII characters", "format", "owner"]);
       // A shape refusal names its member too
       const shape = caught(() => buildPost(OTTO, { content: "x", attachments: [{ uri: 1 }] }));
       assert.ok(shape instanceof specs.ArgumentError && shape instanceof TypeError);
@@ -391,11 +390,12 @@ describe("pubky-social-specs", () => {
       refuses(() => decodeObject(follow.url, follow.body, "posts"), /kind must be one of user, post/);
     });
 
-    it("a path passed where a URL goes is named as one, and toPath gives the path of a URL", () => {
+    it("a path passed where a URL goes is refused as no canonical URI, and toPath gives the path of a URL", () => {
       const follow = buildFollow(OTTO, RIO);
-      refuses(() => decodeObject(follow.path, follow.body), /uri must be a pubky:\/\/ URL, not the path \/pub\/social\/v1\/follows/);
-      refuses(() => encodeObject(follow.path, follow.object), /at must be a pubky:\/\/ URL/);
-      refuses(() => editPost(OTTO, follow.path, buildPost(OTTO, { content: "x" }).object), /headUri must be a pubky:\/\/ URL/);
+      const notAUri = `Validation Error: Not a canonical pubky URI: ${follow.path}`;
+      refuses(() => decodeObject(follow.path, follow.body), notAUri);
+      refuses(() => encodeObject(follow.path, follow.object), notAUri);
+      refuses(() => editPost(OTTO, follow.path, buildPost(OTTO, { content: "x" }).object), notAUri);
       assert.strictEqual(toPath(follow.url), follow.path);
       assert.strictEqual(toPath(`pubky://${OTTO}/pub/pubky.app/follows/${RIO}`), `/pub/pubky.app/follows/${RIO}`);
       refuses(() => toPath(`pubky://${OTTO}`), /not the URL of a stored object/);

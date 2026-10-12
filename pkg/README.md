@@ -296,8 +296,8 @@ console.log(removal.mediaGcCandidates); // media the post referenced: delete it 
 
 ## Common mistakes
 
-- An owner written as `pubky://<key>` is refused: `owner must be the bare public key`. `parseOwner` reads the key out of such a URL.
-- A path passed where a URL goes is refused with `code: "path"`, and the message says it is a path.
+- An owner written as `pubky://<key>` is refused as a key of the wrong length, with `field: "owner"`. `parseOwner` reads the key out of such a URL.
+- A path passed where a URL goes is refused as `Not a canonical pubky URI`, with `code: "path"`: pass the `url` a builder returned, or the one a LIST gave.
 - The `url` a builder returned names one version of a post. As a reference it is refused (`must be versionless`): use `buildUri(author, "post", id)`.
 - The bare `pubky://<owner>` is the user, not the profile file. `decodeObject` refuses it; the profile is at `buildUri(owner, "user")`.
 - `created_at` set from `Date.now()` is milliseconds. Outside a production build `encodeObject` warns; `dateToMicros(Date.now())` gives microseconds.
