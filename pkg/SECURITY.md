@@ -17,7 +17,7 @@ The latest release of the current major line gets fixes. Before 1.0.0, that is t
 Releases are published from GitHub Actions with npm provenance, `dist` is built only in CI from a
 pinned toolchain, and a workflow rebuilds it from the tag and compares it with the published
 tarball. `npm audit signatures` checks the provenance of an installed copy. The migration wasm is
-embedded in `dist/migration/glue.js` with its SHA-256, which `init()` checks before compiling it.
+embedded in `dist/migration/glue.js` with its SHA-256, which the migration's loader (`src/migration/wasm.ts`) checks before compiling it.
 Under the `workerd` condition the bundler compiles the shipped `dist/migration/glue.wasm` at deploy
 time, so the module arrives compiled and the digest check, which needs bytes, is the bundler's.
 

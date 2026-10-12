@@ -29,7 +29,10 @@ only in CI, from the pinned toolchain, and a job rebuilds it from the tag and co
 
 ## The checks
 
-`npm test` runs the suites, the data check, the examples and a short model fuzz. Every other
+`npm test` runs the suites, the data check, the examples and a short model fuzz. The data
+check, a re-recording and `surface_vectors` need the pinned Rust (`RUST_TOOLCHAIN` in
+`.github/workflows/js-native.yml`, 1.97.0 today): the debug escape table follows rustc's
+Unicode tables, so another rustc reports `src/data.ts` as stale with nothing wrong. Every other
 check, what it covers and how to run it on a small machine is in the root `TESTING.md`; before
 a pull request, also run `npm run types`, `npm run api`, `npm run lint`, `npm run deps`,
 `npm run format:check` and `npm run coverage`.
