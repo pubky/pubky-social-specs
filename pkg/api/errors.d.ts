@@ -21,7 +21,9 @@ export declare const PREFIX = "Validation Error: ";
 export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format" | "id" | "reference" | "unknown_name" | "unsafe_integer" | "path" | "conflict" | "migration";
 /**
  * A value the data model refuses. The message is the reference text, "Validation Error: "
- * included, and `reason` the same text without it; `code` says which kind of rule, for a
+ * included, where the reference has a rule for the value; a value only JavaScript can hold (a
+ * lone surrogate, an integer past 2^53) and a function with no reference twin get the
+ * package's own words after the same prefix. `reason` is the text without the prefix; `code` says which kind of rule, for a
  * program to act on. `field` names the member or argument refused (`content`,
  * `attachments[0].uri`, `owner`), absent when the refusal is about the object as a whole.
  * `limit` is the bound a `size`, `length` or `count` refusal broke. `instanceof` holds across

@@ -325,7 +325,7 @@ try {
 }
 ```
 
-A `ValidationError` has `message`, the reference text starting with `Validation Error: `; `reason`, the same text without the prefix; `code`, one of the set below, stable across releases where the text is not; `field`, the member or argument refused, absent when the whole object is; and `limit`, the bound a `size`, `length` or `count` refusal broke. `instanceof` holds across two installed copies of the package.
+A `ValidationError` has `message`, the reference text starting with `Validation Error: ` (the package's own words after the same prefix where the reference has no rule, as for a lone surrogate); `reason`, the same text without the prefix; `code`, one of the set below, stable across releases where the text is not; `field`, the member or argument refused, absent when the whole object is; and `limit`, the bound a `size`, `length` or `count` refusal broke. `instanceof` holds across two installed copies of the package.
 
 | `code` | the rule | `limit` |
 |---|---|---|

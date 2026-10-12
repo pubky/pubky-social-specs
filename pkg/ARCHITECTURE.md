@@ -56,7 +56,12 @@ where it enters.
 Everything the crate decides is decided the same way here: ids, paths, canonical bytes, and
 the refusal messages, word for word. The package adds only what JavaScript needs: argument
 shapes (`TypeError`), the `$unknown` text, branded types, the async helpers, the migration
-engine's I/O. The recorded vectors and the differential fuzz hold the two equal; the root
+engine's I/O. It words a refusal of its own only where the crate has no answer: a value only
+JavaScript can hold (a lone surrogate, an integer past 2^53, an id time `idMicros` cannot
+return exactly) and the checks of functions with no crate twin, such as `editPost`'s head or
+`toPath`. Those are still `ValidationError`s, since the class follows the type of the value: a
+value of the wrong type is an `ArgumentError`, a string or number of the right one that is
+refused is a `ValidationError`, whoever words it. The recorded vectors and the differential fuzz hold the two equal; the root
 `TESTING.md` describes both. A behaviour of the reference (a message, an id rule, a path)
 changes in the crate first, then here, then the vectors are re-recorded, as `CONTRIBUTING.md`
 says.
