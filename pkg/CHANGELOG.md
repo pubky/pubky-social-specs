@@ -8,7 +8,8 @@ A release makes two promises, and each entry below lists its changes under both.
 a minor release adds, a major release may remove or change a signature. Before 1.0.0 a prerelease may
 break them, and each break is marked below. `pkg/api/*.d.ts` holds the declarations as agreed,
 and CI fails when the build's differ from them. A refusal's message is the crate's, word for
-word; one changes only when the crate's does, and is then listed under API.
+word, wherever the crate has the rule; one changes only when the crate's does, and is then
+listed under API.
 
 **The stored bytes**: the paths, the ids and the bytes a builder writes and a reader takes. They
 follow the data model of the `pubky-social-specs` crate, not this package's version. Within the
@@ -44,7 +45,10 @@ again.
 - New: outside production, a warning when an encoded `created_at` reads as milliseconds.
 - Messages: the crate words a few refusals anew, the same in both: lengths say their bounds
   (`name must be 3 to 50 code points`), a range is `1 to 64`, not `1..=64`, an empty filter list
-  says to leave it out, and a path that names no object says so.
+  says to leave it out, and a path that names no object says so. `buildUri` refuses an id its
+  kind cannot have as the crate's emitter does (`value cannot be spelled canonically: <uri>`, a
+  followee or mutee as a key), and an owner written as a URL or a path passed for a URL gets the
+  crate's refusal instead of the package's own hint.
 - A caller's array past 10,000 items is refused before it is walked, and bytes in shared memory
   are copied before they are read.
 - Packaging: TypeScript below 5.7 fails to compile against the package instead of reading its
@@ -77,7 +81,8 @@ again.
   before compiling it.
 - The migration engine spells each write URL from the write's kind and id and refuses a
   transform that names another; a LIST past about a million objects aborts, and a flag over
-  64 MiB reads as none.
+  64 MiB reads as none. A copy found at a write's URL is the run's own only when the crate reads
+  it, so another writer's copy the crate refuses is never deleted as ours.
 - The CLI asks the passphrase on the terminal with echo off, refuses a recovery file others can
   read, and signs out on an uncaught error too.
 - The default clock draws the microsecond inside the millisecond at random, so two copies of the
