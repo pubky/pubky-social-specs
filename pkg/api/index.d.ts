@@ -72,7 +72,8 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
  * `post` is a stored post, the `.object` of a result.
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
- *  article or a collection is not its envelope.
+ *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
+ *  surrogate.
  *
  * @example
  * ```ts

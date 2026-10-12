@@ -41,7 +41,7 @@ For a full homeserver flow, see [`examples/create_user.rs`](https://github.com/p
 
 - **Validation consistency:** same validation rules as Pubky indexers, and the same canonical forms on the wire.
 - **Auto IDs and paths:** generates IDs, paths, and URLs according to Pubky standards.
-- **Single source of truth:** the Rust models drive native consumers and the WASM bindings.
+- **Single source of truth:** the Rust models drive native consumers, and the TypeScript npm package is held equal to them by recorded vectors and a differential fuzz.
 - **No silent rewrites:** builders canonicalize (an attachment name is trimmed there), and after that a value is stored as written and counted as written, so reading never repairs what a writer stored.
 
 ## Features

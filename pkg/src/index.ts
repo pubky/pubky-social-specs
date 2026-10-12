@@ -172,7 +172,8 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
  * `post` is a stored post, the `.object` of a result.
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
- *  article or a collection is not its envelope.
+ *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
+ *  surrogate.
  *
  * @example
  * ```ts

@@ -38,44 +38,18 @@ Characters **outside the BMP** (U+10000 and above) require a **surrogate pair** 
 
 **Note**: Characters in the BMP (ASCII, Chinese, Japanese, Korean, Arabic, Hebrew, Cyrillic, Greek, Thai, etc.) all use 1 UTF-16 unit and are **unaffected** by this difference.
 
-## Our Solution: WASM-Based Validation
+## Our Solution: Code Points on Both Sides
 
-All validation in `pubky-social-specs` happens **inside the WASM module** (Rust), not in JavaScript.
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    JavaScript Client                     │
-│                                                         │
-│   const { object } = createUser(owner, {                │
-│       name: "Alice🔥",                                  │
-│       bio: "Hello 𓀀"                                   │
-│   });                                                   │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                    WASM Module (Rust)                    │
-│                                                         │
-│   1. Deserialize JSON                                   │
-│   2. Validate as stored, never rewritten                │
-│      (lengths via .chars().count())     ◄── Single      │
-│   3. Return Result                           Source     │
-│                                              of Truth   │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Why This Works
-
-1. **Single Source of Truth**: All validation uses Rust's `.chars().count()` (Unicode code points)
-2. **No JS Validation Needed**: JavaScript delegates entirely to WASM
-3. **Consistent Results**: Same behavior for emoji, Chinese, cuneiform, etc.
+Every length rule counts Unicode code points. The Rust crate counts them with `.chars().count()`.
+The `pubky-social-specs` npm package is a TypeScript implementation of the same rules: it
+counts code points too, never UTF-16 units, and its differential tests hold every answer equal
+to the crate's, so a name of fifty emoji is accepted by both and one of fifty-one is refused by
+both.
 
 ### Example: Username Validation
 
 ```rust
-// In Rust (WASM)
+// In Rust
 const MAX_USERNAME_LENGTH: usize = 50;
 
 fn validate(&self, _id: Option<&str>) -> Result<(), String> {
@@ -96,40 +70,29 @@ fn validate(&self, _id: Option<&str>) -> Result<(), String> {
 
 ## Client-Side Validation
 
-For client-side validation (for UX feedback), we recommend relying on the existing pubky-social-specs validation in the WASM module.
+For client-side validation (for UX feedback), rely on the validators of the `pubky-social-specs` npm package: they count code points exactly as the crate does.
 
 ### How to Validate in Your Application
 
-The WASM module validates every object a builder creates, `readObject` reads or `validate` is given. Use these methods for validation:
+A builder throws a `ValidationError` at the first refusal; `validateUser` and its siblings run the same rules and collect every issue without minting anything:
 
 ```javascript
-import { init, createUser, validate, userUriBuilder } from "pubky-social-specs";
+import { buildUser, validateUser, ValidationError } from "pubky-social-specs";
 
-await init();
-
-// Method 1: Using a builder
+// Method 1: a builder, which refuses at the first rule broken
 try {
-    const { object } = createUser(userId, {
+    buildUser(userId, {
         name: "Alice🔥",       // Emoji counts as 1 character
         bio: "Bio with 𓀀",    // Hieroglyph counts as 1 character
     });
     console.log("User is valid!");
 } catch (error) {
-    showError(error.message);  // Validation failed
+    if (error instanceof ValidationError) showError(error.message);
 }
 
-// Method 2: An object read or edited in memory
-try {
-    validate(userUriBuilder(userId), {
-        name: "Alice🔥",
-        bio: "Bio with 𓀀",
-    });
-    console.log("User is valid!");
-} catch (error) {
-    showError(error.message);  // Validation failed
-}
-
-// Both methods throw on validation failure - no manual checks needed!
+// Method 2: every issue of a form at once
+const result = validateUser({ name: "Al", bio: "Bio with 𓀀" });
+if (!result.success) for (const issue of result.issues) showError(issue.message);
 ```
 
 ### JavaScript Length Methods Comparison
@@ -179,7 +142,7 @@ Even `.chars().count()` doesn't handle complex **grapheme clusters** (what users
 
 | Aspect | Approach |
 |--------|----------|
-| **Validation Location** | WASM (Rust) only |
+| **Validation Location** | The crate, and the npm package, which counts the same way |
 | **Length Method** | `.chars().count()` (Unicode code points) |
 | **JS Client** | Use `[...str].length` if local validation needed |
 | **Affected Characters** | Emoji, ancient scripts, musical symbols |
