@@ -91,6 +91,11 @@ describe("validators", function () {
       validateUser({ name: "Alice", "x.y": 1, "a[0]": 2, 'q"b': 3 }).issues.map((i) => i.path),
       [["x.y"], ["a[0]"], ['q"b']],
     );
+    // and a refused key spelled like a member does not hide that member's own issue
+    assert.deepStrictEqual(
+      validateUser({ name: "Alice", "links.0.url": 1, links: [{ title: "x", url: "invalid" }] }).issues.map((i) => i.path),
+      [["links.0.url"], ["links", 0, "url"]],
+    );
   });
 
   it("stop at a hundred issues, so a hostile input costs no more than a form", () => {

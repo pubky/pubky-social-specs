@@ -56,7 +56,8 @@ function pathOf(field: string | undefined): (string | number)[] {
   return [...bare.matchAll(/\[("(?:[^"\\]|\\.)*")\]|\[(\d+)\]|([^.[\]]+)/g)].map((m) => (m[1] !== undefined ? (JSON.parse(m[1]) as string) : m[2] !== undefined ? Number(m[2]) : (m[3] as string)));
 }
 
-const key = (path: (string | number)[]) => path.join(".");
+// Structural, so a literal key `links.0.url` is not the member links[0].url
+const key = (path: (string | number)[]) => JSON.stringify(path);
 
 // More than a form shows; an input with more stops there, so a hostile one costs no more
 const MAX_ISSUES = 100;
