@@ -128,14 +128,17 @@ const lastCharacter = (bytes) => {
 
 /**
  * The passphrase typed on the terminal with echo off, as bytes the caller zeroes, or null when
- * `input` is no terminal. Ctrl-C or Ctrl-D give up.
+ * `input` is no terminal. Ctrl-C or Ctrl-D give up, and so does a signal, which would otherwise
+ * end the process with the terminal left in raw mode.
  */
-const askPassphrase = (input, output) =>
+const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"];
+const askPassphrase = (input, output, signals = process) =>
   new Promise((resolve, reject) => {
     if (!input.isTTY || typeof input.setRawMode !== "function") return resolve(null);
     output.write("Recovery passphrase: ");
     let typed = Buffer.alloc(0);
     const done = (error) => {
+      for (const signal of SIGNALS) signals.removeListener(signal, onSignal);
       input.setRawMode(false);
       input.pause();
       input.removeListener("data", onData);
@@ -159,6 +162,8 @@ const askPassphrase = (input, output) =>
         chunk.fill(0);
       }
     };
+    const onSignal = () => done(new UsageError("no passphrase given"));
+    for (const signal of SIGNALS) signals.once(signal, onSignal);
     input.setRawMode(true);
     input.resume();
     input.on("data", onData);

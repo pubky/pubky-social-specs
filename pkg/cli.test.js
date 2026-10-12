@@ -163,6 +163,17 @@ describe("pubky-social-migrate arguments", () => {
     }
   });
 
+  it("a signal during the prompt gives up and restores the terminal", async () => {
+    const { input, output } = terminal();
+    const signals = new EventEmitter();
+    const asked = askPassphrase(input, output, signals);
+    input.emit("data", Buffer.from("sec"));
+    signals.emit("SIGTERM");
+    await assert.rejects(asked, (e) => e instanceof UsageError);
+    assert.strictEqual(input.raw, false);
+    assert.strictEqual(signals.listenerCount("SIGTERM") + signals.listenerCount("SIGINT"), 0, "no handler outlives the prompt");
+  });
+
   it("gives up on Ctrl-C, and asks nothing where there is no terminal", async () => {
     const { input, output } = terminal();
     const asked = askPassphrase(input, output);
