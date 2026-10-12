@@ -19,12 +19,12 @@ use crate::models::deletion;
 use crate::models::legacy_v0::{APP_PATH, PUBLIC_PATH};
 use crate::traits::{hash_id_from, HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx};
 use crate::{
-    feed_paths, list_prefix_builder, mime, plan_feed_publish, private_list_prefix_builder, Listing,
-    ObjectKind, ParsedUri, PubkyId, PubkySocialAttachment, PubkySocialBookmark,
-    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig,
-    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile,
-    PubkySocialFollow, PubkySocialMute, PubkySocialObject, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
+    list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
+    PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout,
+    PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute,
+    PubkySocialObject, PubkySocialPost, PubkySocialPostKind, PubkySocialTag, PubkySocialUser,
+    PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -713,12 +713,6 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             created(&owner, &id, &PubkySocialFeed::create_path(&id), &feed)?
         }
         "feedId" => a.parsed::<PubkySocialFeed>()?.derive_id()?.into(),
-        "feedPaths" => {
-            let id = a.s()?;
-            // The plan checks the id; the paths alone would spell any string
-            plan_feed_publish(id)?;
-            value(&feed_paths(id))?
-        }
 
         "createTag" => {
             let owner = PubkyId::try_from(a.s()?)?;
@@ -732,7 +726,6 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             let made = crate::create_bookmark(a.s()?)?;
             created(&owner, &made.filename, &made.path, &made.bookmark)?
         }
-        "bookmarkId" => crate::bookmark_filename(a.s()?)?.into(),
         "bookmarkTarget" => {
             let id = a.s()?;
             let content = a.j()?;
