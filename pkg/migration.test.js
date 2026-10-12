@@ -1081,6 +1081,16 @@ describe("migration engine", () => {
       }
     });
 
+    it("a copy equal in value but one the reference refuses is not this run's, and stays", async () => {
+      // created_at written as a float: JSON.parse reads 1.0 as 1, the reference refuses it
+      const asFloat = (port, at) => port.store.set(at, encoder.encode(new TextDecoder().decode(port.store.get(at)).replace(/("created_at":)(\d+)/, "$1$2.0")));
+      const { port, destination } = raceAt(FOLLOW, asFloat);
+      const report = await runMigration({ owner, port });
+      assert.deepStrictEqual(report.skipped.deleted_mid_run, [FOLLOW]);
+      assert.ok(port.store.has(destination()), "another writer's copy stays");
+      assert.ok(!port.calls.some((c) => c.op === "delete"));
+    });
+
     it("a blob copy is deleted only while it holds the bytes this run wrote", async () => {
       const blob = [...rows.keys()].find((p) => p.includes("/blobs/"));
       for (const theirs of [false, true]) {
