@@ -4,7 +4,7 @@
 // reach a rule.
 
 import { plainBytes } from "./bytes.js";
-import { misuse } from "./errors.js";
+import { fieldOf, misuse } from "./errors.js";
 
 // No list of the model (at most 100 items) and no history a caller walks comes near this, and
 // walking this many costs milliseconds
@@ -41,7 +41,7 @@ export function snapshot(value: unknown, at: string): unknown {
       out = Array.from({ length }, (_, index) => (Object.hasOwn(js, index) ? copy(js[index], `${where}[${index}]`, depth + 1) : undefined));
     } else {
       const record = Object.create(null) as Record<string, unknown>;
-      for (const key of Object.keys(js)) record[key] = copy((js as Record<string, unknown>)[key], `${where}.${key}`, depth + 1);
+      for (const key of Object.keys(js)) record[key] = copy((js as Record<string, unknown>)[key], fieldOf(where, key), depth + 1);
       out = record;
     }
     open.delete(js);

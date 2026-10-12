@@ -88,6 +88,8 @@ export declare function nameOf<T extends string>(js: unknown, at: string, names:
  */
 export type Each = (rule: () => void) => void;
 export declare const throwing: Each;
+/** The field of a caller's key under `at`: dotted as JS spells it, quoted when the key is no identifier. */
+export declare const fieldOf: (at: string, key: string) => string;
 /** A member parsed under `each`: what `parse` gives, or `fallback` when a collecting `each` kept its refusal. */
 export declare function member<T>(each: Each, parse: () => T, fallback: T): T;
 export {};

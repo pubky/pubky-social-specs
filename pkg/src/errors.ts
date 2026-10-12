@@ -121,6 +121,9 @@ export function nameOf<T extends string>(js: unknown, at: string, names: readonl
 export type Each = (rule: () => void) => void;
 export const throwing: Each = (rule) => rule();
 
+/** The field of a caller's key under `at`: dotted as JS spells it, quoted when the key is no identifier. */
+export const fieldOf = (at: string, key: string): string => (/^[A-Za-z_$][\w$]*$/.test(key) ? `${at}.${key}` : `${at}[${JSON.stringify(key)}]`);
+
 /** A member parsed under `each`: what `parse` gives, or `fallback` when a collecting `each` kept its refusal. */
 export function member<T>(each: Each, parse: () => T, fallback: T): T {
   let out = fallback;

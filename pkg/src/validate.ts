@@ -49,11 +49,11 @@ export interface StandardSchemaV1<Input = unknown, Output = Input> {
   };
 }
 
-/** `links[0].title` or `input.links[0].title` as `["links", 0, "title"]`. */
+/** `links[0].title` or `input.links[0].title` as `["links", 0, "title"]`, and `input["x.y"]` as `["x.y"]`. */
 function pathOf(field: string | undefined): (string | number)[] {
   if (field === undefined) return [];
-  const bare = field.startsWith("input.") ? field.slice("input.".length) : field === "input" ? "" : field;
-  return [...bare.matchAll(/([^.[\]]+)|\[(\d+)\]/g)].map((m) => (m[2] === undefined ? (m[1] as string) : Number(m[2])));
+  const bare = field === "input" || field.startsWith("input.") || field.startsWith("input[") ? field.slice("input".length) : field;
+  return [...bare.matchAll(/\[("(?:[^"\\]|\\.)*")\]|\[(\d+)\]|([^.[\]]+)/g)].map((m) => (m[1] !== undefined ? (JSON.parse(m[1]) as string) : m[2] !== undefined ? Number(m[2]) : (m[3] as string)));
 }
 
 const key = (path: (string | number)[]) => path.join(".");

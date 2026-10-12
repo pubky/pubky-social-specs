@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { type Each, fail, member, misuse, throwing } from "../errors.js";
+import { type Each, fail, fieldOf, member, misuse, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -183,7 +183,7 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
       const given = js as Record<string, unknown>;
       for (const key of Object.keys(given)) {
         if (key !== "$unknown" && !codecs.has(key)) {
-          misuse(`${at}.${key}`, "a member of the stored object: pass the .object a builder or decodeObject returned (members this version does not know travel in its $unknown)");
+          misuse(fieldOf(at, key), "a member of the stored object: pass the .object a builder or decodeObject returned (members this version does not know travel in its $unknown)");
         }
       }
       const out: Record<string, unknown> = {};
@@ -215,7 +215,7 @@ export function rootOf(js: unknown, at: string): "public" | "private" {
 export function inputOf(js: unknown, at: string, allowed: readonly string[], each: Each = throwing): Record<string, unknown> {
   if (typeof js !== "object" || js === null || Array.isArray(js)) misuse(at, "an object");
   const given = js as Record<string, unknown>;
-  for (const key of Object.keys(given)) if (!allowed.includes(key)) each(() => misuse(`${at}.${key}`, `one of ${allowed.join(", ")}`));
+  for (const key of Object.keys(given)) if (!allowed.includes(key)) each(() => misuse(fieldOf(at, key), `one of ${allowed.join(", ")}`));
   return given;
 }
 

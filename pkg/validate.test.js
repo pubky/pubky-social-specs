@@ -86,6 +86,11 @@ describe("validators", function () {
       validateTag({ uri: "https://x.com", label: "ok", extra: 1 }).issues.map((i) => i.path),
       [["extra"]],
     );
+    // A key holding path syntax is one key, never a nested member
+    assert.deepStrictEqual(
+      validateUser({ name: "Alice", "x.y": 1, "a[0]": 2, 'q"b': 3 }).issues.map((i) => i.path),
+      [["x.y"], ["a[0]"], ['q"b']],
+    );
   });
 
   it("stop at a hundred issues, so a hostile input costs no more than a form", () => {
