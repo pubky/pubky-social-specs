@@ -27,10 +27,10 @@ jobs:
       - name: Run native tests
         run: cargo nextest run --no-fail-fast
 
-      # `surface` adds the oracle the npm package is checked against, and the test that the
-      # recorded answers under vectors/js are the ones the crate gives now
+      # `surface` adds the oracle the npm package is checked against. The recorded answers
+      # under vectors/js follow the pinned toolchain's Unicode tables, so js-native checks them
       - name: Run native tests with the migrator, the replay tooling and the surface oracle
-        run: cargo nextest run --no-fail-fast --features replay,surface
+        run: cargo nextest run --no-fail-fast --features replay,surface -E 'not test(recorded_answers_are_current)'
 
   msrv:
     name: MSRV (1.89)

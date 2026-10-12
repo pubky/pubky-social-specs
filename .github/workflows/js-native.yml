@@ -49,6 +49,11 @@ jobs:
       - name: Build the surface oracle
         working-directory: .
         run: cargo build --locked --release --features surface --bin surface_oracle
+      # The recorded answers quote text through Rust's Debug, whose escapes follow the
+      # toolchain's Unicode tables, so they are checked here, on the pinned toolchain only
+      - name: The recorded vectors are the crate's answers
+        working-directory: .
+        run: cargo test --locked --release --features surface --test surface_vectors
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
