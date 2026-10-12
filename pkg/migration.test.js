@@ -1091,6 +1091,22 @@ describe("migration engine", () => {
       assert.ok(!port.calls.some((c) => c.op === "delete"));
     });
 
+    it("a copy past its kind's cap is not read whole, is not this run's, and stays", async () => {
+      const huge = (port, at) => port.store.set(at, encoder.encode(`{"created_at":1${" ".repeat(limits.objectMaxBytes)}}`));
+      const { port, destination } = raceAt(FOLLOW, huge);
+      const caps = [];
+      const get = port.get.bind(port);
+      port.get = (at, options) => {
+        if (at === destination()) caps.push(options?.maxBytes);
+        return get(at, options);
+      };
+      const report = await runMigration({ owner, port });
+      assert.deepStrictEqual(report.skipped.deleted_mid_run, [FOLLOW]);
+      assert.ok(port.store.has(destination()), "another writer's copy stays");
+      assert.ok(!port.calls.some((c) => c.op === "delete"));
+      assert.deepStrictEqual(caps, [limits.objectMaxBytes], "the read-back is bounded by the follow's cap");
+    });
+
     it("a blob copy is deleted only while it holds the bytes this run wrote", async () => {
       const blob = [...rows.keys()].find((p) => p.includes("/blobs/"));
       for (const theirs of [false, true]) {

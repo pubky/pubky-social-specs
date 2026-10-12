@@ -579,10 +579,12 @@ class Run {
    * something else or nothing, a failure when the GET failed.
    */
   async #holds(write: MigratedWrite): Promise<boolean | Failure> {
-    const stored = await this.#attempt(() => this.#port.get(write.meta.url));
-    if (isFailure(stored)) return stored.failed === "not_found" ? false : stored;
+    // Read no more than ours could be: a longer copy is someone else's, and is not held whole
+    const max = write.kind === "file" ? write.object.bytes.length : write.kind === "post" ? limits.postMaxBytes : limits.objectMaxBytes;
+    const stored = await this.#attempt(() => this.#port.get(write.meta.url, { maxBytes: max }));
+    if (isFailure(stored)) return stored.failed === "not_found" || stored.failed === "too_large" ? false : stored;
     const bytes = stored === null ? null : viewBytes(stored);
-    if (bytes === null) return false;
+    if (bytes === null || bytes.length > max) return false;
     if (write.kind === "file") return equalBytes(bytes, write.object.bytes);
     // Only bytes the crate reads are ours: JSON.parse alone takes a 1.0 for a 1, which it refuses
     if (!transforms.reads(write.meta.url, bytes)) return false;
