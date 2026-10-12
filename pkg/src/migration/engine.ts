@@ -1,7 +1,6 @@
 import { limits, skipReasons, transformRev } from "../data.js";
 import { viewBytes } from "../bytes.js";
 import { ValidationError } from "../errors.js";
-import { read } from "../objects.js";
 import { mediaStem, ownedPath } from "../path.js";
 import { legacyMediaKey, stableKey } from "../legacy.js";
 import { buildChecked, listPrefix } from "../uri.js";
@@ -585,13 +584,8 @@ class Run {
     const bytes = stored === null ? null : viewBytes(stored);
     if (bytes === null) return false;
     if (write.kind === "file") return equalBytes(bytes, write.object.bytes);
-    // Only bytes the reference reads are ours: JSON.parse alone takes a 1.0 for a 1, which it refuses
-    try {
-      read(write.meta.url, bytes);
-    } catch (e) {
-      if (e instanceof ValidationError) return false;
-      throw e;
-    }
+    // Only bytes the crate reads are ours: JSON.parse alone takes a 1.0 for a 1, which it refuses
+    if (!transforms.reads(write.meta.url, bytes)) return false;
     return sameJson(JSON.parse(decoder.decode(bytes)), write.object);
   }
 

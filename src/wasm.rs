@@ -128,6 +128,13 @@ pub fn migrate_blob(
 
 /// A media id computed a chunk at a time, for bytes too large to copy into the wasm whole.
 /// Opaque to JS; `hasherFinish` consumes it.
+/// Whether `bytes` stored at `url` are an object the crate reads: the engine takes a copy it
+/// finds for its own only then, since equal JSON values can still be bytes the crate refuses.
+#[wasm_bindgen]
+pub fn reads(url: &str, bytes: &[u8]) -> bool {
+    PubkySocialObject::from_uri_owned(url, bytes.to_vec()).is_ok()
+}
+
 #[wasm_bindgen]
 pub struct Hasher {
     inner: blake3::Hasher,

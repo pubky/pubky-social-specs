@@ -120,6 +120,8 @@ export const transforms = {
     if (!Number.isSafeInteger(size) || size < 0) refuse("migrateBlob", 3, "must be a non-negative integer");
     return refused(() => glue.migrateBlob(run, text("migrateBlob", 2, v0Path), size, text("migrateBlob", 4, hash)) as MigrateBlobResult);
   },
+  /** Whether the crate reads `data` stored at `url` as an object. */
+  reads: (url: string, data: Uint8Array): boolean => glue.reads(text("reads", 1, url), bytes("reads", 2, data)),
   /** The media id of `data`, fed to the wasm a view at a time: far faster than hashing in JS. */
   mediaId(data: Uint8Array): string {
     const view = bytes("mediaId", 1, data);

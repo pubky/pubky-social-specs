@@ -24,6 +24,7 @@ export function __wbg_init(source: Uint8Array | object): Promise<void>;
 export function createMigration(owner: string): Migration;
 export function migrate(migration: Migration, v0Path: string, bytes: Uint8Array): unknown;
 export function migrateBlob(migration: Migration, v0Path: string, size: number, hash: string): unknown;
+export function reads(url: string, bytes: Uint8Array): boolean;
 export function hasherNew(): Hasher;
 export function hasherUpdate(hasher: Hasher, chunk: Uint8Array): void;
 export function hasherFinish(hasher: Hasher): string;
