@@ -75,28 +75,30 @@ for (const family of Object.keys(families)) {
   // The first 50 mismatches are kept, the rest only counted
   const fuzz = { missing: 0, wrong: 0, kept: [] };
   const stats = {};
-  const refusals = new Set();
+  const refusals = new Map();
   for (let done = 0; done < cases; done += BATCH) {
     const asked = requests(family, seed + done / BATCH, Math.min(BATCH, cases - done));
     const reference = await ask(asked);
-    // How often each operation is accepted: a family that only ever refuses proves little
-    asked.forEach((q, i) => (stats[q.op] ??= [0, 0])["ok" in reference[i] ? 0 : 1]++);
+    // How often each operation is accepted: a family that only ever refuses proves little. A
+    // null answer is its own column, since for the canonicalizers it is the refusal
+    asked.forEach((q, i) => (stats[q.op] ??= [0, 0, 0])["err" in reference[i] ? 2 : reference[i].ok === null ? 1 : 0]++);
     for (const a of reference)
-      if (a.err)
-        refusals.add(
-          a.err
-            .replace(/^Validation Error: /, "")
-            .replace(/[0-9A-Za-z]{13,}/g, "…")
-            .replace(/: .*$/s, ""),
-        );
+      if (a.err) {
+        const shape = a.err
+          .replace(/^Validation Error: /, "")
+          .replace(/[0-9A-Za-z]{13,}/g, "…")
+          .replace(/: .*$/s, "");
+        refusals.set(shape, (refusals.get(shape) ?? 0) + 1);
+      }
     const batch = differing(asked, reference);
     fuzz.missing += batch.missing;
     fuzz.wrong += batch.wrong.length;
     fuzz.kept.push(...batch.wrong.slice(0, 50 - fuzz.kept.length));
   }
   if (args.stats) {
-    for (const [op, [ok, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  refused ${err}`);
+    for (const [op, [ok, none, err]] of Object.entries(stats)) console.log(`  ${op.padEnd(18)} ok ${ok}  null ${none}  refused ${err}`);
     console.log(`  ${refusals.size} distinct refusals`);
+    for (const [shape, n] of [...refusals].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(7)}  ${shape}`);
   }
   const wrong = [...vectors.wrong, ...fuzz.kept];
   const missing = vectors.missing + fuzz.missing;

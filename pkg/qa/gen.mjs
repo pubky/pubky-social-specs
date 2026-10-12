@@ -127,22 +127,26 @@ function path(r) {
   }
   if (r.chance(0.06)) out = out.replace("/", "//");
   if (r.chance(0.06)) out += "/";
+  // A segment the pubky form refuses as written, where it is the first bad one
+  if (r.chance(0.04)) out = out.replace(/\/[^/]*$/, `/${r.pick(["..", ".", "%2e", "a?b", "a#b"])}$&`);
   return out;
 }
 
-/** A reference as a user could store one: pubky in both forms, web, any other scheme. */
-function uri(r) {
+/** A reference as a user could store one: pubky in both forms, web, any other scheme, or noise; `arm` picks one. */
+function uri(r, arm = r.below(4)) {
   const host = r.pick([OWNER, OWNER, OTHER, spelled(r, ZBASE32, 52), `u:p@${OWNER}`, `${OWNER}:80`, OWNER.toUpperCase()]);
-  let out = r.pick([
+  let out = [
     () => `${r.pick(["pubky://", "pubky://", "pubky://", "pubky", "PUBKY://", "pubky:", "pubky:/", "Pubky://"])}${host}${r.pick(["/", "/", "/", ""])}${r.chance(0.9) ? path(r) : ""}`,
     () =>
-      `${r.pick(["http://", "https://", "HTTP://", "https:/", "http://?", "https://#"])}${r.pick(["example.com", "é.example", "a b", "", ":", ":443", "u@", "u:p@:80", "u@Example.COM", "[::1]:8080"])}${r.pick(["", "/", "/p?q=1#f", "/" + str(r, 6)])}`,
+      `${r.pick(["http://", "https://", "HTTP://", "https:/", "http://?", "https://#"])}${r.pick(["example.com", "é.example", "a b", "", ":", ":443", "u@", "u:p@:80", "u@Example.COM", "[::1]:8080", "example.com:8080", "u@v@example.com"])}${r.pick(["", "/", "/p?q=1#f", "/" + str(r, 6)])}`,
     () => `${r.pick(["nostr", "geo", "IPFS", "did", "magnet", "pubkyx", "http", "1a", "a+b.c-d", "é", ""])}:${str(r, 8)}`,
     () => str(r, 20),
-  ])();
+  ][arm]();
   if (r.chance(0.1)) out = r.pick([" ", "\t", "\u00a0", "\u200b", "\n"]) + out;
   if (r.chance(0.1)) out += r.pick([" ", "\u3000", "\ufeff", "\r"]);
   if (r.chance(0.03)) out += "x".repeat(r.pick([900, 1000, 1100]));
+  // The short pubky form at the cap, which it passes only before it is spelled in full
+  if (r.chance(0.02)) out = `pubky${OWNER}/${"x".repeat(r.pick([963, 964, 965, 966]))}`;
   return out;
 }
 
@@ -518,7 +522,15 @@ export const families = {
   text: (r) =>
     request(
       r.pick(["frozenTrim", "asciiFold", "codePointLen", "debug"]),
-      s(r.chance(0.2) ? String.fromCodePoint(...r.many(6, () => r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0xe0000 + r.below(0x200)]))) : str(r)),
+      s(
+        r.chance(0.2)
+          ? String.fromCodePoint(
+              ...r.many(6, () =>
+                r.pick([r.below(0x300), r.below(0x3000), 0xe000 + r.below(0x2000), 0x10000 + r.below(0x20000), 0x30000 + r.below(0xb0000), 0xe0000 + r.below(0x200), 0xf0000 + r.below(0x20000)]),
+              ),
+            )
+          : str(r),
+      ),
     ),
   graph: (r) =>
     r.pick([
@@ -662,7 +674,12 @@ export const families = {
       () => request("mediaId", { b: Buffer.from(r.many(200, () => r.below(256))).toString("base64") }),
     ])(),
   json: (r) => request("json", { j: r.chance(0.02) ? "[".repeat(r.pick([126, 127, 128, 129])) + "]".repeat(r.pick([126, 127, 128])) : json(r) }),
-  canonical: (r) => request(r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]), s(uri(r))),
+  canonical: (r) => {
+    const op = r.pick(["canonicalPubky", "canonicalWeb", "canonicalExternal", "canonicalUniversal", "canonicalUniversal"]);
+    // Mostly a reference of the arm's own scheme, so its rules past the prefix are reached
+    const arm = { canonicalPubky: 0, canonicalWeb: 1, canonicalExternal: 2 }[op];
+    return request(op, s(arm !== undefined && r.chance(0.7) ? uri(r, arm) : uri(r)));
+  },
   uri: (r) =>
     r.pick([
       () => request("parseUri", s(uri(r))),

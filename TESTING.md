@@ -46,8 +46,10 @@ request alone and a recorded request replays to the same answer.
 - **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh
   requests per family, the oracle answers them, and the package has to answer the same: stored
   bytes compared as bytes, a refusal by its message. `--family post --fuzz 1000000 --seed 3`
-  runs one family long; `--stats` prints how often each operation was accepted, since a family
-  that only ever refuses proves little. A mismatch is written to `pkg/qa/failures/<family>.json`
+  runs one family long; `--stats` prints how often each operation was accepted, answered null
+  (a refusal, for the canonicalizers) or refused, and each refusal with its count, since a
+  family that only ever refuses proves little and a refusal missing from the list is never
+  scored. A mismatch is written to `pkg/qa/failures/<family>.json`
   with the request, both answers, and nothing else needed to replay it.
 - **The round trip**: inside the `decode` operation the scoreboard also reads the bytes through
   the public `decodeObject`, writes the object back through `encodeObject`, and requires the
