@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { type Each, fail, fieldOf, member, misuse, throwing } from "../errors.js";
+import { type Each, fieldOf, member, misuse, nameOf, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -207,8 +207,7 @@ export function arrayOf(js: unknown, at: string): unknown[] {
 export function rootOf(js: unknown, at: string): "public" | "private" {
   if (js === undefined || js === null) return "public";
   const name = string.parse(js, at);
-  if (name !== "public" && name !== "private") fail("unknown_name", `unknown variant \`${name}\`, expected \`public\` or \`private\``, at);
-  return name;
+  return nameOf(name, at, ["public", "private"] as const);
 }
 
 /** The members of a caller's input object, none of them outside `allowed`. */

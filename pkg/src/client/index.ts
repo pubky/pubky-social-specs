@@ -5,6 +5,7 @@
 // never as a throw: other people's data can be anything.
 
 import {
+  ArgumentError,
   buildBookmark,
   buildFeed,
   buildFile,
@@ -194,7 +195,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   // id or root can point a LIST anywhere else
   // `root` is unknown here: a JS caller may pass anything, whatever the signature says
   const versionsOf = (author: string, id: string, root: unknown) => {
-    if (root !== "public" && root !== "private") throw new ValidationError("unknown_name", `root must be one of public, private, found ${String(root)}`, "root");
+    if (typeof root !== "string") throw new ArgumentError("root", "pubky-social-specs: root must be a string");
+    if (root !== "public" && root !== "private") throw new ValidationError("unknown_name", `unknown variant \`${root}\`, expected \`public\` or \`private\``, "root");
     return listed(author, `${roots[root]}posts/${parsePostId(id)}/`);
   };
 

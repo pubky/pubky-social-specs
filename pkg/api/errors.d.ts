@@ -80,6 +80,8 @@ export declare class ArgumentError extends TypeError {
     constructor(field: string, message: string);
 }
 export declare function misuse(what: string, expected: string): never;
+/** Refuses `name` in serde's words for an enum of `names`, which is how the reference refuses one. */
+export declare function unknownName(name: string, at: string, names: readonly string[]): never;
 /** A name a caller passes as an argument: one of `names`, another string refused, anything else a TypeError. */
 export declare function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T;
 /**

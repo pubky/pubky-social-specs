@@ -2,27 +2,31 @@
 // delete them: legacy first.
 
 import { canonicalPubky, canonicalUniversal } from "./canonicalize.js";
-import { fail, misuse, nameOf } from "./errors.js";
+import { fail, misuse } from "./errors.js";
 import { checkHashId, checkPublicKey, hashText, timestampIdFault } from "./ids.js";
 import { inputOf, string } from "./json/schema.js";
 import { deleteOrder } from "./lifecycle.js";
 import { mimeToExt } from "./mime.js";
 import { foldLabel } from "./models/label.js";
 import { compareBytes } from "./text.js";
-import { isBookmarkId, isPrivatePath, OBJECT_KINDS, mediaStem, type ObjectKind, socialPath, splitPubky } from "./path.js";
+import { isBookmarkId, mediaStem, type ObjectKind, socialPath, splitPubky } from "./path.js";
 import { LEGACY_ROOT, legacyMediaKey, stableKey } from "./legacy.js";
 
 type V0Tag = { path: string; uri: string; label: string; src: string | null; contentType: string | null };
-type Entry = { path: string; file?: { src: string }; tag?: V0Tag };
+type Entry = { path: string } | { path: string; file: { src: string } } | { path: string; tag: V0Tag };
 
 const maybe = (js: unknown, at: string) => (js === null || js === undefined ? null : string.parse(js, at));
 
+// The reference's three shapes and nothing between them, so no member is dropped on the way
 function entryOf(listing: unknown, index: number): Entry {
   const at = `listings[${index}]`;
   if (typeof listing === "string") return { path: string.parse(listing, at) };
   const l = inputOf(listing, at, ["path", "src", "uri", "label", "contentType"]);
   const path = string.parse(l.path, `${at}.path`);
-  if (l.uri === undefined) return { path, file: { src: string.parse(l.src, `${at}.src`) } };
+  if (l.uri === undefined) {
+    if (l.label !== undefined || l.contentType !== undefined) misuse(at, "a path, a 0.x File {path, src} or a 0.x tag {path, uri, label, src?, contentType?}");
+    return { path, file: { src: string.parse(l.src, `${at}.src`) } };
+  }
   return {
     path,
     tag: { path, uri: string.parse(l.uri, `${at}.uri`), label: string.parse(l.label, `${at}.label`), src: maybe(l.src, `${at}.src`), contentType: maybe(l.contentType, `${at}.contentType`) },
@@ -33,10 +37,10 @@ const notACopy = (kind: string, id: string, path: string) => fail("path", `not a
 const sorted = (paths: string[]) => [...new Set(paths)].sort(compareBytes);
 
 function postPaths(id: string, entries: Entry[]): string[] {
-  const paths = sorted(entries.map((e) => (e.file || e.tag ? notACopy("post", id, e.path) : e.path)));
+  const paths = sorted(entries.map((e) => ("file" in e || "tag" in e ? notACopy("post", id, e.path) : e.path)));
   const legacy = paths.filter((path) => path.startsWith(LEGACY_ROOT));
   // The root is the path's own first segment; a path under neither is refused by the order
-  const copies = paths.filter((path) => !path.startsWith(LEGACY_ROOT)).map((path) => ({ root: isPrivatePath(path.slice(1)) ? ("private" as const) : ("public" as const), path }));
+  const copies = paths.filter((path) => !path.startsWith(LEGACY_ROOT)).map((path) => ({ root: path.startsWith("/priv/") ? ("private" as const) : ("public" as const), path }));
   return deleteOrder(id, legacy, copies);
 }
 
@@ -67,8 +71,10 @@ function v1TagTarget(tag: V0Tag): string {
 function tagPaths(id: string, entries: Entry[]): string[] {
   checkHashId(id);
   const deletes: string[] = [];
-  for (const { path, tag } of entries) {
-    if (!tag) return notACopy("tag", id, path);
+  for (const entry of entries) {
+    const { path } = entry;
+    if (!("tag" in entry)) return notACopy("tag", id, path);
+    const { tag } = entry;
     // The 0.x id proves the entry is a tag; only the v1 id proves it is this one
     if (path !== `${LEGACY_ROOT}tags/${hashText(`${tag.uri}:${tag.label}`)}`) return notACopy("tag", id, path);
     if (hashText(`${v1TagTarget(tag)}:${foldLabel(tag.label)}`) !== id) fail("id", `legacy tag ${path} is not a copy of tag ${id}`);
@@ -83,9 +89,11 @@ function filePaths(hash: string, entries: Entry[]): string[] {
   const dirs = [socialPath("public", "files/"), socialPath("private", "files/")];
   const v0Objects: string[] = [];
   const filenames: string[] = [];
-  for (const { path, file, tag } of entries) {
-    if (tag) return notACopy("file", hash, path);
-    if (file) {
+  for (const entry of entries) {
+    const { path } = entry;
+    if ("tag" in entry) return notACopy("file", hash, path);
+    if ("file" in entry) {
+      const { file } = entry;
       // A 0.x File object belongs to this file only when its src resolves to these bytes
       const tsid = path.startsWith(`${LEGACY_ROOT}files/`) ? path.slice(`${LEGACY_ROOT}files/`.length) : null;
       if (tsid === null || timestampIdFault(tsid) !== null || legacyMediaKey(file.src) !== `files/${hash}`) return notACopy("file", hash, path);
@@ -105,7 +113,6 @@ function filePaths(hash: string, entries: Entry[]): string[] {
 
 /** The paths to DELETE for the object of `kind` named `id`, given the copies the caller found. */
 export function deletionPaths(kind: ObjectKind, id: string, listings: readonly unknown[]): string[] {
-  nameOf(kind, "kind", OBJECT_KINDS);
   const entries = listings.map(entryOf);
   switch (kind) {
     case "post":
@@ -134,6 +141,7 @@ export function deletionPaths(kind: ObjectKind, id: string, listings: readonly u
     case "bookmark":
       if (!isBookmarkId(id)) fail("format", `not a bookmark filename: ${id}`);
       return [socialPath("private", `bookmarks/${id}.json`)];
+    default:
+      return kind satisfies never;
   }
-  return misuse("kind", "an object kind");
 }

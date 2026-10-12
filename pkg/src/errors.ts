@@ -107,10 +107,17 @@ export function misuse(what: string, expected: string): never {
   throw new ArgumentError(what, `pubky-social-specs: ${what} must be ${expected}`);
 }
 
+/** Refuses `name` in serde's words for an enum of `names`, which is how the reference refuses one. */
+export function unknownName(name: string, at: string, names: readonly string[]): never {
+  const quoted = names.map((n) => `\`${n}\``);
+  const expected = quoted.length === 2 ? `${quoted[0]} or ${quoted[1]}` : `one of ${quoted.join(", ")}`;
+  return fail("unknown_name", `unknown variant \`${name}\`, expected ${expected}`, at);
+}
+
 /** A name a caller passes as an argument: one of `names`, another string refused, anything else a TypeError. */
 export function nameOf<T extends string>(js: unknown, at: string, names: readonly T[]): T {
   if (typeof js !== "string") misuse(at, "a string");
-  if (!(names as readonly string[]).includes(js)) fail("unknown_name", `${at} must be one of ${names.join(", ")}, found ${js}`, at);
+  if (!(names as readonly string[]).includes(js)) unknownName(js, at, names);
   return js as T;
 }
 

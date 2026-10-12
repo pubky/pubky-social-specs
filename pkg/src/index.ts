@@ -156,15 +156,13 @@ export function encodeObject(at: T.UrlArg | { kind: T.ObjectKind; root?: T.Root 
   at = snapshot(at, "at") as typeof at;
   object = snapshot(object, "object") as typeof object;
   const media = plainBytes(object);
+  if (media === null) warnIfMilliseconds(object, "encodeObject");
   if (typeof at === "string") {
-    if (media === null) {
-      warnIfUnknownDropped(at, object, "encodeObject");
-      warnIfMilliseconds(object, "encodeObject");
-    }
+    if (media === null) warnIfUnknownDropped(at, object, "encodeObject");
     return objects.write(text(at, "at"), media ?? object);
   }
   const where = inputOf(at, "at", ["kind", "root"]);
-  return objects.write({ kind: text(where.kind, "at.kind") as T.ObjectKind, root: rootOf(where.root, "at.root") }, media ?? object);
+  return objects.write({ kind: nameOf(where.kind, "at.kind", OBJECT_KINDS), root: rootOf(where.root, "at.root") }, media ?? object);
 }
 
 /**
@@ -612,7 +610,7 @@ export function planDelete(
  */
 export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings?: T.Listing[] | null }): T.OwnerPath[] {
   const given = membersOf(target, "target", ["kind", "id", "listings"]);
-  return deletion.deletionPaths(text(given.kind, "target.kind") as T.ObjectKind, text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings")) as T.OwnerPath[];
+  return deletion.deletionPaths(nameOf(given.kind, "target.kind", OBJECT_KINDS), text(given.id, "target.id"), arrayOf(given.listings ?? [], "target.listings")) as T.OwnerPath[];
 }
 
 /**
