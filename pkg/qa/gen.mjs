@@ -2,6 +2,7 @@
 // replayed from three numbers.
 
 import { hashId, hashText as hashOfText } from "../dist/ids.js";
+import { limits } from "../dist/data.js";
 import { NOW_MS, OTHER, OWNER, timestampIdOf } from "./lib.mjs";
 
 // The ids of generated content come from the package's own encoders: a wrong one there makes
@@ -349,15 +350,21 @@ const EXTRA = [
 ];
 
 /** A stored object: `object` spoiled, sometimes carrying members no version knows. */
-function stored(r, object) {
+function stored(r, object, max = limits.objectMaxBytes) {
   let out = spoil(r, object);
-  if (r.chance(0.3) && out.endsWith("}") && out.length > 2) out = `${out.slice(0, -1)},${r.pick(EXTRA)}}`;
+  if (!out.endsWith("}") || out.length <= 2) return out;
+  if (r.chance(0.3)) return `${out.slice(0, -1)},${r.pick(EXTRA)}}`;
+  // No field reaches the byte cap, so a padding member lands on either side of it
+  if (r.chance(0.02)) return `${out.slice(0, -1)},"pad":"${"p".repeat(Math.max(0, max + r.pick([-1, 0, 1]) - Buffer.byteLength(out) - 9))}"}`;
   return out;
 }
 
+const LINK_EXTRA = [{ rel: "me" }, { n: { toJSON: undefined, raw: "9007199254740992" } }, { é: "é", a: [1, { b: null }] }];
+
 const storedUser = (r) => {
   const o = userInput(r);
-  return { name: o.name, bio: o.bio ?? null, image: o.image ?? null, links: o.links ?? null, status: o.status ?? null };
+  const links = Array.isArray(o.links) ? o.links.map((link) => (r.chance(0.2) ? { ...link, ...r.pick(LINK_EXTRA) } : link)) : (o.links ?? null);
+  return { name: o.name, bio: o.bio ?? null, image: o.image ?? null, links, status: o.status ?? null };
 };
 
 const key = (r) => r.pick([OWNER, OTHER, OTHER, spelled(r, ZBASE32, 52)]);
@@ -609,7 +616,7 @@ export const families = {
       () => {
         const id = postId(r);
         const leaf = r.pick([`${id}/${id}.json`, `${id}/${timestampIdOf(NOW - 4e9)}-a-slug.json`, id, `${id}/${timestampIdOf(NOW + r.pick([7.1e9, 7.3e9]))}.json`]);
-        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r)) });
+        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r), limits.postMaxBytes) });
       },
     ])(),
   plan: (r) => {
@@ -680,7 +687,7 @@ export const families = {
   },
   user: (r) =>
     r.chance(0.5)
-      ? request("createUser", s(r.chance(0.97) ? OWNER : r.pick([str(r, 4), `pubky://${OWNER}`, `pubky${OWNER}`])), { j: JSON.stringify(userInput(r)) })
+      ? request("createUser", s(r.chance(0.95) ? OWNER : r.pick([str(r, 4), `pubky://${OWNER}`, `pubky${OWNER}`, key(r), `l${OWNER.slice(1)}`])), { j: JSON.stringify(userInput(r)) })
       : request(
           "decode",
           s(
@@ -688,7 +695,7 @@ export const families = {
               ? r.pick([`pubky://${OWNER}`, `pubky${OWNER}`, `pubky${OWNER}/pub/social/v1/profile.json`, "/pub/social/v1/profile.json"])
               : `pubky://${OWNER}/${r.pick(["pub", "pub", "pub", "priv"])}/social/v1/profile.json`,
           ),
-          r.chance(0.05) ? notUtf8(r, stored(r, storedUser(r))) : { j: stored(r, storedUser(r)) },
+          r.chance(0.05) ? notUtf8(r, withRaw(stored(r, storedUser(r)))) : { j: withRaw(stored(r, storedUser(r))) },
         ),
   ids: (r) =>
     r.pick([

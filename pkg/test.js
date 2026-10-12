@@ -448,6 +448,29 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual(encodeObject(url, JSON.parse(JSON.stringify(copy))), encodeObject(url, object));
     });
 
+    it("caps the bytes as stored on a read and the written form on a write", () => {
+      const url = buildUri(OTTO, "user");
+      const padded = (head, size) => utf8(`${head},"pad":"${"p".repeat(size - head.length - 10)}"}`);
+      const full = '{"name":"Alice","bio":null,"image":null,"links":null,"status":null';
+      const { object } = decodeObject(url, padded(full, 65536));
+      assert.strictEqual(encodeObject(url, object).length, 65536);
+      refuses(() => decodeObject(url, padded(full, 65537)), "Validation Error: object exceeds 65536 bytes");
+      // The reader fills in the absent bio, and the written form goes over the cap
+      const short = decodeObject(url, padded('{"name":"Alice","image":null,"links":null,"status":null', 65536));
+      assert.strictEqual(short.object.bio, null);
+      refuses(() => encodeObject(url, short.object), "Validation Error: object exceeds 65536 bytes");
+    });
+
+    it("keeps members a newer writer added to a link, and checks them", () => {
+      const url = buildUri(OTTO, "user");
+      const stored = '{"name":"Alice","bio":null,"image":null,"links":[{"title":"t","url":"https://a.b/","rel":"me"}],"status":null}';
+      const { object } = decodeObject(url, utf8(stored));
+      assert.strictEqual(object.links[0].$unknown, '{"rel":"me"}');
+      assert.strictEqual(text(encodeObject(url, object)), stored);
+      refuses(() => decodeObject(url, utf8(stored.replace('"rel":"me"', '"n":9007199254740992'))), "Validation Error: integer 9007199254740992 outside the JSON-safe range (in extra member n)");
+      refuses(() => buildUser(`l${OTTO.slice(1)}`, { name: "Alice" }), "Validation Error: invalid public key encoding");
+    });
+
     it("refuses a member it does not know outside $unknown, and an $unknown that shadows a member", () => {
       const url = buildUri(OTTO, "user");
       const { object } = buildUser(OTTO, { name: "Alice" });

@@ -49,13 +49,18 @@ const ops = {
   legacyMediaKey: plain(legacy.legacyMediaKey),
 
   // The reader's answer, and on top of it what a caller gets: read, then written back
-  // untouched, has to give the same bytes
+  // untouched, gives the same bytes, or the cap's refusal when the members the reader filled in
+  // carry the written form over it, as the reference's validate does
   decode(a, stored) {
     const read = objects.read(a.s, bytes(stored));
     const body = read.kind === "file" ? read.value : text.utf8(objects.modelOf(read.kind).codec.write(read.value));
     const decoded = api.decodeObject(a.s, bytes(stored));
-    const again = api.encodeObject(a.s, decoded.kind === "file" ? decoded.bytes : decoded.object);
-    if (!sameBytes(again, body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
+    try {
+      const again = api.encodeObject(a.s, decoded.kind === "file" ? decoded.bytes : decoded.object);
+      if (!sameBytes(again, body)) throw new Error(`a round trip changed the bytes: ${text.utf8Text(again)}`);
+    } catch (e) {
+      if (!(e instanceof api.ValidationError && e.code === "size" && body.length > e.limit)) throw e;
+    }
     return { kind: read.kind, body: b64(body) };
   },
   encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.modelOf(kind.s).codec, stored))),
