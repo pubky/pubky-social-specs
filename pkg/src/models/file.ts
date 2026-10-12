@@ -4,14 +4,14 @@ import { checkHashId, checkPublicKey, hashId } from "../ids.js";
 import { mimeToExt } from "../mime.js";
 import { type Root, socialPath } from "../path.js";
 
-/** Media is raw bytes with no JSON form: not empty, under the cap, named by its hash. */
-export function checkFile(bytes: Uint8Array, id: string | null): string {
+/** Media is raw bytes with no JSON form: not empty, under the cap, named by its hash. Hashed only to compare with `id`. */
+export function checkFile(bytes: Uint8Array, id: string | null): void {
   if (bytes.length === 0) fail("blank", "File size cannot be zero", "bytes");
   // The reference's own words, which name the cap as text
   if (bytes.length > limits.maxFileSizeBytes) fail("size", "File size exceeds maximum limit of 100MB", "bytes", limits.maxFileSizeBytes);
+  if (id === null) return;
   const hash = hashId(bytes);
-  if (id !== null && hash !== id) fail("id", `Invalid ID: expected ${hash}, found ${id}`, "id");
-  return hash;
+  if (hash !== id) fail("id", `Invalid ID: expected ${hash}, found ${id}`, "id");
 }
 
 /**
@@ -21,8 +21,10 @@ export function checkFile(bytes: Uint8Array, id: string | null): string {
 export function buildFile(owner: string, source: { bytes: Uint8Array } | { id: string }, declaredType: string, root: Root) {
   checkPublicKey(owner);
   let id: string;
-  if ("bytes" in source) id = checkFile(source.bytes, null);
-  else {
+  if ("bytes" in source) {
+    checkFile(source.bytes, null);
+    id = hashId(source.bytes);
+  } else {
     id = source.id;
     checkHashId(id, "id");
   }
