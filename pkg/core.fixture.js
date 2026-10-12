@@ -2,7 +2,7 @@
 // refused.
 
 import assert from "assert";
-import { ValidationError } from "./dist/index.js";
+import { ArgumentError, ValidationError } from "./dist/index.js";
 
 export const OTTO = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
 export const RIO = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
@@ -21,7 +21,13 @@ export const refuses = (fn, message) =>
   });
 
 // A bug in the caller: the package's own words
-export const misuse = (fn, pattern) => assert.throws(fn, (e) => e instanceof TypeError && !(e instanceof ValidationError) && pattern.test(e.message));
+export const misuse = (fn, pattern) =>
+  assert.throws(fn, (e) => {
+    // An engine TypeError, a property read on undefined, is a slip the contract excludes
+    assert.ok(e instanceof ArgumentError, `expected an ArgumentError, got ${e}`);
+    assert.match(e.message, pattern);
+    return true;
+  });
 
 // What `fn` threw; a call that returns fails the test
 export const caught = (fn) => {
