@@ -899,8 +899,8 @@ export function idMicros(id: T.Given<"PostId" | "EditId">): number {
 }
 
 /**
- * A `Date` for a stored timestamp in microseconds (`created_at`, `idMicros`), to the
- * millisecond a `Date` holds.
+ * A `Date` for a stored timestamp in microseconds (`created_at`, `idMicros`): the millisecond
+ * that holds it, so never a later one, before the epoch as after it.
  *
  * @throws `ArgumentError` for a value that is not a safe integer.
  *

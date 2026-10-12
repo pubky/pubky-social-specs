@@ -187,6 +187,14 @@ describe("helpers", () => {
     assert.strictEqual(specs.dateToMicros(T0), T0 * 1000);
     assert.strictEqual(specs.microsToDate(buildFollow(OTTO, RIO).object.created_at).getTime(), T0);
     for (const micros of [1.5, NaN, 2 ** 53, "1"]) misuse(() => specs.microsToDate(micros), /micros must be an integer of microseconds/);
+    // The millisecond that holds the instant: one microsecond before the epoch is in its last
+    for (const [micros, ms] of [
+      [1999, 1],
+      [-1, -1],
+      [-1000, -1],
+      [-1001, -2],
+    ])
+      assert.strictEqual(specs.microsToDate(micros).getTime(), ms, String(micros));
   });
 
   it("parseOwnerPath takes a path beneath a root, never the root alone", () => {
