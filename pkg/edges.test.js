@@ -228,7 +228,19 @@ describe("edges", () => {
       for (const member of ["path", "uri", "label", "src", "contentType"]) {
         misuse(() => deletionPaths({ kind: "tag", id, listings: [{ ...ok, [member]: 1 }] }), new RegExp(`listings\\[0\\]\\.${member} must be a string`));
       }
-      refuses(() => deletionPaths({ kind: "nope", id }), "Validation Error: kind must be one of user, post, follow, mute, bookmark, tag, file, feed, found nope");
+      refuses(() => deletionPaths({ kind: "nope", id }), "Validation Error: unknown variant `nope`, expected one of `user`, `post`, `follow`, `mute`, `bookmark`, `tag`, `file`, `feed`");
+      // Between the reference's shapes nothing is read, so no member is dropped
+      for (const extra of [{ label: "l" }, { contentType: "image/png" }]) {
+        misuse(
+          () => deletionPaths({ kind: "file", id: "0000000000000000000000000G", listings: [{ path: "/pub/pubky.app/files/0034000000000", src: "x", ...extra }] }),
+          /listings\[0\] must be a path, a 0\.x File/,
+        );
+      }
+    });
+
+    it("a post copy is private only under /priv/", () => {
+      const post = "0034000000000";
+      refuses(() => deletionPaths({ kind: "post", id: post, listings: ["/priv"] }), `Validation Error: not a version path of post ${post} under /pub/social/v1/posts/${post}/: /priv`);
     });
   });
 

@@ -119,6 +119,15 @@ describe("validators", function () {
     assert.ok(!("value" in failed));
   });
 
+  it("a tag and a feed answer with the value or the reference's own words", () => {
+    assert.deepStrictEqual(validateTag({ uri: "https://example.com/a", label: "Rust" }), { success: true, value: { uri: "https://example.com/a", label: "Rust" } });
+    assert.deepStrictEqual(validateTag({ uri: "https://example.com/a", label: "a,b" }).issues, [{ path: ["label"], code: "format", message: "Tag 'a,b' contains invalid character: ," }]);
+    assert.deepStrictEqual(tagSchema["~standard"].validate({ uri: "https://example.com/a", label: "rust" }), { value: { uri: "https://example.com/a", label: "rust" } });
+    const feed = { name: "Rust", icon: "crab", reach: "all", layout: "list", sort: "popularity" };
+    assert.deepStrictEqual(validateFeed(feed), { success: true, value: feed });
+    assert.deepStrictEqual(validateFeed({ ...feed, name: " " }).issues, [{ path: ["name"], code: "blank", message: "Feed name cannot be empty" }]);
+  });
+
   describe("agree with the builders", () => {
     const text = fc.oneof(fc.string({ maxLength: 30 }), fc.constantFrom("", " ", "ok", "https://example.com/a", "javascript:x"), fc.integer());
     const maybe = fc.option(text, { nil: undefined });

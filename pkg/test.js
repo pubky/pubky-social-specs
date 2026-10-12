@@ -143,7 +143,7 @@ describe("pubky-social-specs", () => {
       misuse(() => buildPost(OTTO, { content: "x", attachments: [{ uri: 1 }] }), /input\.attachments\[0\]\.uri must be a string/);
       misuse(() => decodeObject(buildUri(OTTO, "user"), "{}"), /bytes must be a Uint8Array/);
       misuse(() => decodeObject(buildUri(OTTO, "user"), new DataView(new ArrayBuffer(2))), /bytes must be a Uint8Array/);
-      refuses(() => listPrefix(OTTO, "pub"), "Validation Error: tree must be one of public, private, legacy, found pub");
+      refuses(() => listPrefix(OTTO, "pub"), "Validation Error: unknown variant `pub`, expected one of `public`, `private`, `legacy`");
       // A misspelled option is refused, not ignored
       const post = buildPost(OTTO, { content: "x" });
       misuse(() => editPost(OTTO, post.url, post.object, { rooot: "private" }), /options\.rooot must be one of root, slug/);
@@ -163,7 +163,7 @@ describe("pubky-social-specs", () => {
       misuse(() => setClock(T0), /nowMs must be a function/);
       setClock(() => T0 + 0.5);
       misuse(() => buildFollow(OTTO, RIO), /the clock given to setClock must be returning an integer of milliseconds/);
-      refuses(() => buildUri(OTTO, "posts", "x"), /kind must be one of user, post/);
+      refuses(() => buildUri(OTTO, "posts", "x"), /unknown variant `posts`, expected one of `user`, `post`/);
     });
 
     it("a refusal carries a stable code, and the bound a length or count broke", () => {
@@ -319,8 +319,11 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(parseUri(bookmark.url).target, target);
       assert.strictEqual(buildBookmark(OTTO, target).id, bookmark.id, "the id of a bookmark is the id to delete it by");
       const long = buildBookmark(OTTO, `https://example.com/${"p".repeat(200)}`);
-      assert.ok(long.id.startsWith("~") && long.object.target.length > 187);
+      assert.strictEqual(long.id, "~Q20TTDQ4RNRNT1MS87XPGS9BDM");
+      assert.strictEqual(text(long.body), `{"created_at":${T0 * 1000},"target":"https://example.com/${"p".repeat(200)}"}`);
       assert.strictEqual(parseUri(long.url).target, undefined);
+      refuses(() => decodeObject(buildUri(OTTO, "bookmark", `~${"0".repeat(26)}`), long.body), `Validation Error: bookmark filename does not hash its target: ${long.object.target}`);
+      assert.strictEqual(text(buildFollow(OTTO, RIO).body), `{"created_at":${T0 * 1000}}`);
       assert.strictEqual(buildFollow(OTTO, RIO).path, `/pub/social/v1/follows/${RIO}.json`);
       assert.strictEqual(buildMute(OTTO, RIO).path, `/priv/social/v1/mutes/${RIO}.json`);
       const badTarget = caught(() => buildBookmark(OTTO, "not a uri"));
@@ -338,6 +341,27 @@ describe("pubky-social-specs", () => {
       assert.notStrictEqual(feedId({ ...built.object, feed: { ...built.object.feed, sort: "popularity" } }), built.id);
       refuses(() => buildFeed(OTTO, { name: "x", icon: "star", reach: "galaxy", layout: "columns", sort: "recent" }), "Validation Error: Invalid feed reach: galaxy");
       misuse(() => feedId({ ...built.object, feed: { ...built.object.feed, tags: [1] } }), /feed\.feed\.tags\[0\] must be a string/);
+      // The ids the reference pins and gives
+      const plain = { feed: { tags: null, reach: "all", layout: "list", sort: "popularity", content: null }, name: "Test Feed", icon: "rss", created_at: T0 * 1000 };
+      assert.strictEqual(feedId(plain), "H91HYJTYNCGYA2EP13ZQTRVD5G");
+      const rust = buildFeed(OTTO, { name: "Rust", icon: "crab", reach: "wot", layout: "columns", sort: "recent", tags: ["rust"], domain_tags: ["dev"] });
+      assert.strictEqual(rust.id, "E7MXYTT187N9GPZFEM41AQ5JD8");
+      const body = `{"feed":{"tags":["rust"],"domain_tags":["dev"],"reach":"wot","layout":"columns","sort":"recent","content":null},"name":"Rust","icon":"crab","created_at":${T0 * 1000}}`;
+      assert.strictEqual(text(rust.body), body);
+      assert.deepStrictEqual(decodeObject(rust.url, utf8(body)).object, {
+        feed: { tags: ["rust"], domain_tags: ["dev"], reach: "wot", layout: "columns", sort: "recent", content: null },
+        name: "Rust",
+        icon: "crab",
+        created_at: T0 * 1000,
+      });
+      assert.deepStrictEqual(
+        [feedReaches, feedLayouts, feedSorts],
+        [
+          ["following", "followers", "friends", "all", "wot", "me"],
+          ["columns", "wide", "visual", "list"],
+          ["recent", "popularity"],
+        ],
+      );
     });
 
     it("media goes by the hash of its bytes, from the bytes or from an id hashed elsewhere", () => {
@@ -394,6 +418,20 @@ describe("pubky-social-specs", () => {
       }
     });
 
+    it("without a URL, an object is checked under the root given and by no rule that needs a path", () => {
+      const own = buildUri(OTTO, "post", "0034A0X7NJ52G");
+      const reply = { content: "x", kind: "note", parent: own.replace("/pub/", "/priv/"), embed: null };
+      refuses(() => encodeObject({ kind: "post" }, reply), /must not reference a private object/);
+      assert.ok(encodeObject({ kind: "post", root: "private" }, reply).length > 0);
+      // No filename to hash, no id to match, no path to name the author
+      const tag = buildTag(OTTO, buildUri(RIO, "user"), "rust").object;
+      assert.deepStrictEqual(encodeObject({ kind: "tag" }, { ...tag, label: "go" }), utf8(`{"uri":"${tag.uri}","label":"go","created_at":${tag.created_at}}`));
+      const feed = buildFeed(OTTO, { name: "All", icon: "star", reach: "all", layout: "columns", sort: "recent" }).object;
+      assert.ok(encodeObject({ kind: "feed", root: "public" }, { ...feed, feed: { ...feed.feed, sort: "popularity" } }).length > 0);
+      const long = `https://example.com/${"p".repeat(200)}`;
+      assert.ok(encodeObject({ kind: "bookmark" }, { created_at: T0 * 1000, target: long }).length > 0);
+    });
+
     it("decodeObject with the kind expected gives the object, and refuses a URL naming another kind before reading", () => {
       const follow = buildFollow(OTTO, RIO);
       assert.deepStrictEqual(decodeObject(follow.url, follow.body, "follow"), follow.object);
@@ -403,7 +441,7 @@ describe("pubky-social-specs", () => {
         () => decodeObject(follow.url, new Uint8Array(), "post"),
         (e) => e instanceof ValidationError && e.field === "uri" && /names a follow, not a post/.test(e.reason),
       );
-      refuses(() => decodeObject(follow.url, follow.body, "posts"), /kind must be one of user, post/);
+      refuses(() => decodeObject(follow.url, follow.body, "posts"), /unknown variant `posts`, expected one of `user`, `post`/);
     });
 
     it("a path passed where a URL goes is refused as no canonical URI, and toPath gives the path of a URL", () => {

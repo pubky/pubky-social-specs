@@ -14,7 +14,8 @@ import * as objects from "../dist/objects.js";
 import * as graph from "../dist/models/graph.js";
 import * as posts from "../dist/models/post.js";
 import { feed } from "../dist/models/feed.js";
-import { parse, readStored } from "../dist/models/common.js";
+import { parse, readStored, validate } from "../dist/models/common.js";
+import { rootOf } from "../dist/json/schema.js";
 import { lastMint, pin } from "../dist/clock.js";
 import { sameBytes } from "./lib.mjs";
 
@@ -23,8 +24,15 @@ const bytes = (arg) => ("j" in arg ? text.utf8(arg.j) : new Uint8Array(Buffer.fr
 const json = (arg) => arg?.j ?? "null";
 // A built object as the oracle reports it: no `object`, the body as base64
 const built = ({ object, body, ...where }) => ({ ...where, body: b64(body) });
-// Stored text as a caller would hold it after a read
-const held = (codec, arg) => codec.plain(parse(codec, json(arg)));
+const SAFE = 2n ** 53n;
+const unsafe = (v) => (typeof v === "bigint" ? v > SAFE || v < -SAFE : v !== null && typeof v === "object" && Object.values(v).some(unsafe));
+// Stored text as a caller would hold it after a read. A number holds 2^53 exactly and no integer
+// past it, so a request that needs one is a fault of the generator
+function held(codec, arg) {
+  const value = parse(codec, json(arg));
+  if (unsafe(value)) throw new Error("qa: no caller holds an integer past 2^53");
+  return codec.plain(value);
+}
 const plain =
   (f) =>
   (...args) =>
@@ -63,7 +71,14 @@ const ops = {
     }
     return { kind: read.kind, body: b64(body) };
   },
-  encodeKind: (kind, root, stored) => b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, held(objects.modelOf(kind.s).codec, stored))),
+  encodeKind(kind, root, stored) {
+    const model = objects.modelOf(kind.s);
+    const value = parse(model.codec, json(stored));
+    // Checked by the rules encodeObject runs once it has parsed, on the exact integer a caller
+    // could not have handed over
+    if (unsafe(value)) return b64(text.utf8(validate(model, value, null, rootOf(JSON.parse(json(root)), "at.root") === "public")));
+    return b64(api.encodeObject({ kind: kind.s, root: JSON.parse(json(root)) }, model.codec.plain(value)));
+  },
   // `filename` is the package's addition, so `buildUri` takes back what this gives
   parseUri: (a) => (({ filename: _, ...parsed }) => parsed)(api.parseUri(a.s)),
 

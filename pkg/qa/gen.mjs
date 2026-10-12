@@ -375,16 +375,17 @@ const withRaw = (text) => text.replace(/\{"raw":"(-?[0-9]+)"\}/g, "$1");
 const longRef = (r) => `https://example.com/${"p".repeat(r.pick([150, 167, 168, 169, 400]))}`;
 const b64url = (text) => Buffer.from(text).toString("base64url");
 const tagUri = (r) => r.pick([ref(r), ref(r), `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`]);
-const label = (r) => r.pick(["rust", "Rust", " rust ", "a,b", "a:b", "a b", "", "x".repeat(r.pick([20, 21])), "é", "😀", "RÉSUMÉ", "a\u00a0b", "a\u200bb"]);
+const label = (r) => r.pick(["rust", "Rust", " rust ", "a,b", "a:b", "a b", "", "x".repeat(r.pick([20, 21])), "é", "😀", "RÉSUMÉ", "a\u00a0b", "a\u200bb", "a\tb", "a\nb", "a\rb"]);
 
-const tagList = (r) => r.pick([null, [], ["rust"], ["b", "a"], ["Rust", "rust", " go "], ["a", "b", "c", "d", "e", "f"], [" "], ["a,b"], ["é", "\ue000", "😀"], r.many(4, () => label(r))]);
+const tagList = (r) =>
+  r.pick([null, [], ["rust"], ["b", "a"], ["Rust", "rust", " go "], ["a", "b", "c", "d", "e", "f"], [" "], ["a,b"], ["é", "\ue000", "😀"], ["x".repeat(r.pick([20, 21]))], r.many(4, () => label(r))]);
 const feedInput = (r) => {
   const o = {
-    reach: r.pick(["all", "all", "following", "wot", "me", "galaxy", "unknown"]),
-    layout: r.pick(["columns", "columns", "wide", "list", "grid"]),
-    sort: r.pick(["recent", "recent", "popularity", "random"]),
-    name: r.pick(["Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
-    icon: r.pick(["star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]),
+    reach: r.pick(["all", "all", "following", "followers", "friends", "wot", "me", "galaxy", "unknown"]),
+    layout: r.pick(["columns", "columns", "wide", "list", "visual", "grid"]),
+    sort: r.pick(["recent", "recent", "recent", "popularity", "random"]),
+    name: r.pick(["Feed", "Feed", "Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
+    icon: r.pick(["star", "star", "star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]),
   };
   if (r.chance(0.5)) o.tags = tagList(r);
   if (r.chance(0.3)) o.domain_tags = tagList(r);
@@ -432,8 +433,49 @@ const collectionEnvelope = (r) => {
 const envelopeText = (r, envelope) =>
   r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
 
+/**
+ * A post every rule accepts, then at most one late rule broken: the random draws refuse early
+ * so often that the late rules and the accepted shapes would be reached only by chance.
+ */
+function cleanPost(r) {
+  const kind = r.pick(["note", "article", "collection"]);
+  const own = (root, leaf) => `pubky://${OWNER}/${seg(root)}/social/v1/${leaf}`;
+  const media = () => own(r.pick(["public", "public", "private"]), `files/${hashIdText(r)}.png`);
+  const item = () => ({ uri: own("public", `posts/${timestampIdOf(NOW - 5e9)}`), ...(r.chance(0.5) ? { note: "note" } : {}) });
+  const envelope = kind === "article" ? { title: "Title", body: "Body" } : kind === "collection" ? { name: "List", description: "about", items: [item(), item()] } : null;
+  if (envelope && r.chance(0.5)) envelope.cover_image = media();
+  const p = { content: "hello", kind, parent: null, embed: null };
+  if (r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
+  const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
+  const breaks = {
+    article: [
+      () => (envelope.title = "t".repeat(101)),
+      () => (envelope.body = "b".repeat(r.pick([50000, 50001]))),
+      // Each control character is six code points once escaped, so the content cap is reached
+      // with a body under its own
+      () => (envelope.body = "\u0001".repeat(r.pick([17300, 17400]))),
+    ],
+    collection: [
+      () => (envelope.items = Array.from({ length: r.pick([100, 101]) }, item)),
+      () => (envelope.name = r.pick(["", " ", "n".repeat(r.pick([100, 101]))])),
+      () => (envelope.description = r.pick([" ", "d".repeat(r.pick([500, 501]))])),
+      () => (envelope.items[0].note = r.pick([" ", "n".repeat(r.pick([1000, 1001]))])),
+    ],
+    note: [() => (p.content = "c".repeat(r.pick([2000, 2001])))],
+  }[kind];
+  const any = [
+    () => (attachment().alt = "a".repeat(r.pick([1000, 1001]))),
+    () => (p.attachments = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: media() }))),
+    () => (p.parent = own("private", `posts/${timestampIdOf(NOW - 5e9)}`)),
+  ];
+  if (r.chance(0.6)) r.pick([...breaks, ...any])();
+  if (envelope) p.content = JSON.stringify(envelope);
+  return p;
+}
+
 /** A post as stored: any kind, references of every tier, sometimes what a newer writer adds. */
 function storedPost(r) {
+  if (r.chance(0.35)) return cleanPost(r);
   const kind = r.pick(["note", "note", "note", "article", "article", "collection", "collection", "image", "link", "podcast", "unknown"]);
   const p = {
     content:
@@ -487,15 +529,15 @@ const env = (r) => ({ now: NOW + r.pick([0, 0, 0, -6e9, -7.3e9, -1e10, 1e6]), la
 
 const seg = (root) => (root === "private" ? "priv" : "pub");
 const versionPath = (r, root, id, editId) =>
-  `/${r.pick([seg(root), seg(root), seg(root), "pub", "priv", "x"])}/social/v1/posts/${id}/${editId}${r.pick(["", "", "-a-slug", "-BAD"])}${r.pick([".json", ".json", ".json", "", "/x"])}`;
+  `/${r.pick([seg(root), seg(root), seg(root), seg(root), seg(root), seg(root), seg(root), "pub", "priv", "x"])}/social/v1/posts/${id}/${editId}${r.pick(["", "", "", "", "", "-a-slug", "-BAD"])}${r.pick([".json", ".json", ".json", ".json", ".json", ".json", ".json", "", "/x"])}`;
 const editIds = (r) => r.many(4, () => timestampIdOf(NOW - r.pick([1e9, 2e9, 3e9, 4e9, 4e9])));
 const legacyPosts = (r, id) => r.pick([[], [], [`/pub/pubky.app/posts/${id}`], [`/pub/pubky.app/posts/${id}`, `/pub/pubky.app/posts/${timestampIdOf(NOW)}`], ["/pub/pubky.app/posts/"]]);
 const ownMedia = (r, root) => `pubky://${OWNER}/${seg(root)}/social/v1/files/${r.pick(["0000000000000000000000000G", "ZZZZZZZZZZZZZZZZZZZZZZZZZW"])}.${r.pick(["png", "png", "exe"])}`;
 
 /** A private version about to be published: its media mostly the owner's own private files. */
 function draft(r) {
-  const p = storedPost(r);
-  const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r)]);
+  const p = r.chance(0.5) ? cleanPost(r) : storedPost(r);
+  const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r), `pubky://${OWNER}/priv/social/v1/posts/${postId(r)}`]);
   if (r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   if (p.kind === "article" && r.chance(0.7)) p.content = JSON.stringify({ title: "T", body: "B", cover_image: media(), ...(r.chance(0.2) ? { z: r.pick([1, "x", 9007199254740991]), a: [1] } : {}) });
   if (p.kind === "collection" && r.chance(0.7)) p.content = JSON.stringify({ name: "List", items: r.many(2, () => ({ uri: ref(r) })), ...(r.chance(0.5) ? { cover_image: media() } : {}) });
@@ -510,6 +552,7 @@ function deletion(r) {
   return r.pick([
     () => ({ kind: "post", id, listings: [...legacyPosts(r, id), ...editIds(r).map((e) => versionPath(r, r.pick(["public", "private"]), id, e))] }),
     () => ({ kind: "post", id, listings: [{ path: `/pub/pubky.app/files/${id}`, src: "x" }] }),
+    () => ({ kind: "post", id, listings: [r.pick(["/priv", "/pub", "/priv/", `/privx/social/v1/posts/${id}/${id}.json`])] }),
     () => {
       const hash = r.pick([BLOB, BLOB, hashIdText(r), "x"]);
       const listings = r.many(4, () =>
@@ -531,6 +574,9 @@ function deletion(r) {
         { uri: `pubky://${OTHER}/pub/pubky.app/files/${id}`, v1: `pubky://${OTHER}/pub/social/v1/files/${BLOB}.png`, src: `pubky://${OTHER}/pub/pubky.app/blobs/${BLOB}`, contentType: "image/png" },
         { uri: "nostr:note1", v1: "nostr:note1" },
         { uri: `pubky://${OTHER}`, v1: `pubky://${OTHER}` },
+        { uri: "pubky:/x", v1: "" },
+        { uri: "http://", v1: "" },
+        { uri: `pubky://${OTHER}/pub/pubky.app/files/${id}`, v1: "", src: "x", contentType: "image/png" },
       ]);
       const listing = { path: r.chance(0.85) ? v0TagPath(target.uri, label) : "/pub/pubky.app/tags/x", uri: target.uri, label };
       if (target.src && r.chance(0.8)) listing.src = target.src;
@@ -588,6 +634,8 @@ export const families = {
           b64url(target),
           "~" + hashOfText(target),
           "~" + hashIdText(r),
+          "~" + hashOfText(longRef(r)),
+          "~" + hashOfText(`https://example.com/${"p".repeat(167)}`),
           b64url(target) + "=",
           b64url(target).slice(0, -1) + "B",
           spelled(r, base64url, 8),
@@ -621,9 +669,10 @@ export const families = {
     ])(),
   plan: (r) => {
     const id = postId(r);
+    const owner = () => (r.chance(0.8) ? OWNER : key(r));
     return r.pick([
       () =>
-        request("planPublish", s(key(r)), {
+        request("planPublish", s(owner()), {
           j: JSON.stringify({
             id,
             editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]),
@@ -646,21 +695,23 @@ export const families = {
             return { root, path: versionPath(r, root, id, e) };
           });
         if (r.chance(0.6)) post.versions = r.many(3, () => draft(r));
-        return request("planDelete", s(key(r)), { j: JSON.stringify(post) });
+        return request("planDelete", s(owner()), { j: JSON.stringify(post) });
       },
       () => request("deletionPaths", { j: JSON.stringify(deletion(r)) }),
     ])();
   },
   loose: (r) => {
+    // Past 2^53 too, which only the text can hold
+    const at = () => raw(r.chance(0.15) ? r.pick(["9007199254740993", "-9007199254740993", "9007199254740995", "9223372036854775807", "-9223372036854775808"]) : stamp(r));
     const [kind, object] = r.pick([
       () => ["user", storedUser(r)],
       () => ["post", storedPost(r)],
-      () => [r.pick(["follow", "mute"]), { created_at: raw(stamp(r)) }],
-      () => ["bookmark", { created_at: raw(stamp(r)), ...(r.chance(0.5) ? { target: r.pick([ref(r), longRef(r)]) } : {}) }],
-      () => ["tag", { uri: tagUri(r), label: label(r), created_at: raw(stamp(r)) }],
+      () => [r.pick(["follow", "mute"]), { created_at: at() }],
+      () => ["bookmark", { created_at: at(), ...(r.chance(0.5) ? { target: r.pick([ref(r), longRef(r)]) } : {}) }],
+      () => ["tag", { uri: tagUri(r), label: label(r), created_at: at() }],
       () => ["feed", storedFeed(r)],
     ])();
-    return request("encodeKind", s(kind), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, object)) });
+    return request("encodeKind", s(kind), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, object, kind === "post" ? limits.postMaxBytes : undefined)) });
   },
   feed: (r) =>
     r.pick([

@@ -87,7 +87,8 @@ for (const family of Object.keys(families)) {
         const shape = a.err
           .replace(/^Validation Error: /, "")
           .replace(/[0-9A-Za-z]{13,}/g, "…")
-          .replace(/: .*$/s, "");
+          // The value a message ends with, never a reason that follows a colon or a bound in brackets
+          .replace(/: (?![^ ]*\)$)[^ ]*$/s, "");
         refusals.set(shape, (refusals.get(shape) ?? 0) + 1);
       }
     const batch = differing(asked, reference);
