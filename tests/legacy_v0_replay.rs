@@ -1,9 +1,11 @@
-//! The frozen 0.x reader answers exactly what the 0.8.0 crate answered.
+//! The frozen 0.x reader answers exactly what the 0.8.0 crate answered, and what 0.8.1
+//! answered for the one value it added, the `cards` feed layout.
 //!
 //! `corpus.json` and `uris.json` are authored here; `verdicts.json` and `uri_verdicts.json`
 //! were produced by running them through the 0.8.0 crate itself, so they are evidence rather
-//! than an expectation someone typed. Regenerating them means building 0.8.0 again, which is
-//! the point: nobody edits a verdict to make a change pass.
+//! than an expectation someone typed. The `cards` row is the exception its note names: 0.8.0
+//! rejects it, and its verdict came from the published 0.8.1. Regenerating a verdict means
+//! building that crate again, which is the point: nobody edits one to make a change pass.
 //!
 //! Two entry points, because an indexer uses two: `PubkyAppObject::from_uri` for a stored
 //! object and `ExtendedParsedUri` for a tag target, which may live under another app.
@@ -52,7 +54,7 @@ fn the_corpus_replays_to_the_v0_verdicts() {
     let corpus = fixture("corpus.json");
     let verdicts = fixture("verdicts.json");
     assert_eq!(corpus.len(), verdicts.len(), "corpus and verdicts disagree");
-    assert!(corpus.len() >= 50, "the corpus lost rows");
+    assert!(corpus.len() >= 51, "the corpus lost rows");
 
     let (mut accepted, mut rejected) = (0, 0);
     for (input, verdict) in corpus.iter().zip(&verdicts) {
@@ -86,7 +88,7 @@ fn the_corpus_replays_to_the_v0_verdicts() {
             }
         }
     }
-    assert_eq!((accepted, rejected), (22, 28), "the corpus balance moved");
+    assert_eq!((accepted, rejected), (23, 28), "the corpus balance moved");
 }
 
 /// The second entry point. `ExtendedParsedUri` is what an indexer puts a tag target through,
