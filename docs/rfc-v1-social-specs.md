@@ -532,9 +532,10 @@ parser therefore stays permanently, because the v1 parser classifies `pubky.app`
 maintained: it ships with committed conformance vectors, so the recurring cost is running its
 tests. It changes by one rule only, widening: it may come to accept a value that a released v0
 client stored and it rejected, it never rejects what it accepted, and it never changes what an
-accepted object migrates to. Each widening raises the transform revision, so a migrated tree is walked
-again, and adds a conformance row whose verdict comes from running that released client. And the v0 population drains rather than accumulates, because the
-cleanup pass below removes v0 a few weeks after each user migrates.
+accepted object migrates to. Each widening raises the transform revision, so a migrated tree is
+walked again, and adds a conformance row whose verdict comes from running that released client.
+And the v0 population drains rather than accumulates, because the cleanup pass below removes v0 a
+few weeks after each user migrates.
 
 What remains years out is dormant accounts nobody has opened since. That is precisely the
 population opt-in migration exists to serve, and precisely the one a cutoff date would strand. A
