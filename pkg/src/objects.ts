@@ -9,7 +9,7 @@ import { type Bookmark, bookmark, type Edge, follow, mute, type Tag, tag } from 
 import { checkReferences, checkVersion, post, type Post } from "./models/post.js";
 import { type User, user } from "./models/user.js";
 import { utf8 } from "./text.js";
-import { OBJECT_KINDS, type ObjectKind, type Root } from "./path.js";
+import { isObjectKind, OBJECT_KINDS, type ObjectKind, type Root } from "./path.js";
 import { parse, type Parsed } from "./uri.js";
 
 interface Models {
@@ -56,6 +56,12 @@ function located(uri: string): { kind: ObjectKind; id: string; editId: string | 
 }
 
 type Bytes = Uint8Array<ArrayBuffer>;
+
+/** Refuses a URI that names another kind than `kind`: the URL alone says what is stored there. */
+export function checkNames(uri: string, kind: ObjectKind): void {
+  const named = parse(uri).kind;
+  if (named !== kind) fail("path", `${uri} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
+}
 
 /**
  * The object stored at `at`, its kind and its value; for media the value is the bytes. Without

@@ -86,7 +86,8 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
  *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
- *  surrogate.
+ *  surrogate;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -223,7 +224,8 @@ export declare function feedId(feed: T.Feed): string;
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  *
  * @throws `ValidationError` with `field: "uri"` for a target the reference rules refuse (a post
- *  version included) and `field: "label"` for a label the tag rules refuse.
+ *  version included) and `field: "label"` for a label the tag rules refuse;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -239,7 +241,8 @@ export declare function buildTag(owner: T.Given<"Owner">, uri: T.Reference, labe
  * A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked.
  *
  * @throws `ValidationError` with `field: "target"` for a target the reference rules refuse, a post
- *  version included.
+ *  version included;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -255,7 +258,8 @@ export declare function buildBookmark(owner: T.Given<"Owner">, target: T.Referen
  * A follow of `followee`, a bare public key, stored under the public root.
  *
  * @throws `ValidationError` with `field: "owner"` or `field: "followee"` for a key that is not 52
- *  z-base32 characters.
+ *  z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -271,7 +275,8 @@ export declare function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"
  * A mute, stored under the private root.
  *
  * @throws `ValidationError` with `field: "owner"` or `field: "mutee"` for a key that is not 52
- *  z-base32 characters.
+ *  z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -355,7 +360,8 @@ export declare function hashMedia(source: T.MediaSource): Promise<T.MediaId>;
  *
  * @throws `ValidationError` for an id out of its time bounds (`field: "id"` or `"editId"`), an
  *  editId older than the post (`field: "editId"`), a bad `slug`, a private reference the public
- *  post cannot keep (`code: "reference"`), and any rule of the post.
+ *  post cannot keep (`code: "reference"`), and any rule of the post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -382,7 +388,8 @@ export declare function planPublish(owner: T.Given<"Owner">, version: {
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
  *
  * @throws `ValidationError` with `code: "path"` for a path that is no version of the post, and
- *  `code: "conflict"` when there is nothing to unpublish.
+ *  `code: "conflict"` when there is nothing to unpublish;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -410,7 +417,8 @@ export declare function planUnpublish(post: {
  * only the caller can know.
  *
  * @throws `ValidationError` with `code: "path"` for a copy or a legacy path that is no version of
- *  the post.
+ *  the post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -438,7 +446,8 @@ export declare function planDelete(owner: T.Given<"Owner">, post: {
  *
  * @throws `ValidationError` for an id the kind cannot have (`code: "format"`), a listing that is no
  *  copy of the object (`code: "path"` or `"id"`), and listings given to a kind that takes none
- *  (`code: "conflict"`).
+ *  (`code: "conflict"`);
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -459,7 +468,8 @@ export declare function deletionPaths(target: {
  * `pub` or `priv`. A 0.x path reads as `{ kind: "foreign", namespace: "pubky.app" }`.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is not a canonical pubky URI
- *  under `pub` or `priv`. A path it cannot name is a kind, not an error.
+ *  under `pub` or `priv`. A path it cannot name is a kind, not an error. `ArgumentError`
+ *  for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -478,7 +488,8 @@ export declare function parseUri(uri: string): T.ParsedUri;
  * comes out.
  *
  * @throws `ValidationError` with `field: "owner"` for a malformed key, `field: "id"` for an id the
- *  kind cannot have, and `code: "unknown_name"` for an unknown kind.
+ *  kind cannot have, and `code: "unknown_name"` for an unknown kind;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -496,7 +507,8 @@ export declare function buildUri(owner: T.Given<"Owner">, kind: Exclude<T.Object
  * The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate.
  *
  * @throws `ValidationError` for a malformed key (`field: "owner"`) or a tree other than the three
- *  (`code: "unknown_name"`).
+ *  (`code: "unknown_name"`);
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -513,7 +525,8 @@ export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "lega
  * URL with a path has one, an object of another app or a directory included.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no canonical pubky URL,
- * or the bare owner URL, which has no path.
+ * or the bare owner URL, which has no path;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -529,7 +542,8 @@ export declare function toPath(uri: string): T.OwnerPath;
  * transport that takes URLs where a plan or `deletionPaths` gives paths.
  *
  * @throws `ValidationError` for a malformed key (`field: "owner"`) or, with `code: "path"`, a
- *  string that is no owner-relative path under a known root.
+ *  string that is no owner-relative path under a known root;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -557,7 +571,8 @@ export declare function isOneOf<const N extends string>(names: readonly N[], val
 /**
  * A bare public key as an `Owner`.
  *
- * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters.
+ * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -572,7 +587,8 @@ export declare function parseOwner(value: string): T.Owner;
  * A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -586,7 +602,8 @@ export declare function parsePostId(value: string): T.PostId;
  * A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -598,7 +615,8 @@ export declare function parseEditId(value: string): T.EditId;
 /**
  * A media id as a `MediaId`: the canonical spelling of a content hash.
  *
- * @throws `ValidationError` with `code: "format"` for a string that is not a canonical hash id.
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical hash id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -616,7 +634,8 @@ export declare function parseMediaId(value: string): T.MediaId;
  * takes for a version a LIST gave.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object,
- *  or of another kind than `kind`.
+ *  or of another kind than `kind`;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -644,7 +663,8 @@ export declare function isPubkyUrl(value: unknown): value is T.PubkyUrl;
  * An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no owner-relative path under a
- *  known root.
+ *  known root;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -659,7 +679,8 @@ export declare function parseOwnerPath(value: string): T.OwnerPath;
  * A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no versionless reference to a
- *  post.
+ *  post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -676,7 +697,8 @@ export declare function parsePostRef(value: string): T.PostRef;
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
  *  id, and with `code: "id"` for one whose time is past the safe integer range (from June
- *  2255, or before August 1684), which no minted id holds.
+ *  2255, or before August 1684), which no minted id holds;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts

@@ -2,6 +2,10 @@
 // (vectors/semantic/v0_to_v1.json): a behaviour of the transforms ships with a vector row.
 
 import assert from "assert";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildUri, decodeObject, encodeObject, feedId, limits, ValidationError } from "./dist/index.js";
 import { skipReasons } from "./dist/migration/index.js";
 import { init, transforms } from "./dist/migration/wasm.js";
@@ -23,6 +27,37 @@ function rejects(fn, check) {
 const stored = (object) => new TextEncoder().encode(JSON.stringify(object));
 
 before(() => init());
+
+describe("loading the migrator", () => {
+  it("loads once however often and however concurrently it is asked", async () => {
+    assert.strictEqual(init(), init());
+    await Promise.all([init(), init()]);
+    assert.strictEqual(transforms.reads(buildUri(RIO, "follow", RIO), stored({ created_at: 1 })), true);
+  });
+
+  it("refuses a wasm that does not hash to what its build recorded, and loads once it does", async () => {
+    // A copy of the build with its own wasm, so the one the other suites loaded stays as it is
+    const copy = fs.mkdtempSync(path.join(os.tmpdir(), "specs-wasm-"));
+    try {
+      fs.cpSync("dist", path.join(copy, "dist"), { recursive: true });
+      fs.symlinkSync(path.resolve("node_modules"), path.join(copy, "node_modules"));
+      fs.writeFileSync(path.join(copy, "package.json"), JSON.stringify({ type: "module", imports: { "#glue": "./dist/migration/glue.node.js" } }));
+      const wasm = path.join(copy, "dist/migration/glue.wasm");
+      const good = fs.readFileSync(wasm);
+      const bad = Uint8Array.from(good);
+      bad[bad.length - 1] ^= 1;
+      fs.writeFileSync(wasm, bad);
+      const loaded = await import(pathToFileURL(path.join(copy, "dist/migration/wasm.js")).href);
+      await assert.rejects(loaded.init(), /the embedded wasm hashes to [0-9a-f]{64}, not the [0-9a-f]{64} its build recorded/);
+      // A failed load is not kept: the next call tries again
+      fs.writeFileSync(wasm, good);
+      await loaded.init();
+      assert.strictEqual(loaded.transforms.reads(buildUri(RIO, "follow", RIO), stored({ created_at: 1 })), true);
+    } finally {
+      fs.rmSync(copy, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("migration", () => {
   const owner = corpus.owner;

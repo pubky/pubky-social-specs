@@ -78,8 +78,8 @@ const MUTATIONS = [
   {
     id: "M8",
     what: "only the first LIST page is read",
-    from: "if (!page.next) return urls;",
-    to: "if (page.urls.length >= 0 || !page.next) return urls;",
+    from: "if (page.next === undefined) return urls;",
+    to: "if (page.urls.length >= 0 || page.next === undefined) return urls;",
   },
   {
     id: "M9",
@@ -203,6 +203,11 @@ const chaos = () => {
 
 const results = [];
 const only = args.only?.split(",");
+// A pattern the code moved away from stops the pass before it plants anything
+for (const mutation of MUTATIONS) {
+  const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
+  if (!fs.readFileSync(file, "utf8").includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);
+}
 for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
   const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
   const clean = fs.readFileSync(file, "utf8");

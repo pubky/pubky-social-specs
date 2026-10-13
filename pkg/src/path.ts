@@ -118,6 +118,12 @@ export function socialPath(root: Root, leaf: string): OwnerPath {
   return `/${SEGMENT[root]}/social/v1/${leaf}`;
 }
 
+/** An owner-relative path under `pub` or `priv`, every segment canonical; a root alone is none. */
+export function isOwnerPath(path: string): boolean {
+  const segments = path.slice(1).split("/");
+  return path.startsWith("/") && segments.length >= 2 && segments.every(isCanonicalSegment) && parsePath(path.slice(1)) !== null;
+}
+
 export function isCanonicalSegment(segment: string): boolean {
   return segment !== "" && segment !== "." && segment !== ".." && !/[/%?#]/.test(segment) && !hasControlOrWhitespace(segment);
 }

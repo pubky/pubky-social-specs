@@ -21,14 +21,14 @@ and on a core module that reaches `migration/`.
                |
  json        json/read  json/write  json/schema
                |
- foundation  data  errors  text  radix  base64url  bytes  ids  clock  mime  input  session  dev
+ foundation  data  errors  text  radix  base64url  bytes  ids  clock  mime  input  session  dev  caps
 ```
 
 - **foundation**: the reference's text rules (lengths in code points or UTF-8 bytes, a whitespace
   set frozen at Unicode 15.1), the id spellings, the clock and its mint guard, the byte reads
   through the intrinsic getters, `input.ts`, the one place a caller's value is read, the part
-  of an SDK session the client and the adapter call (`session.ts`), and the development warning
-  (`dev.ts`).
+  of an SDK session the client and the adapter call (`session.ts`), the development warning
+  (`dev.ts`), and the capability strings an app asks a session for (`caps.ts`).
 - **json**: a reader that refuses what serde_json refuses, with its message, at the same point of
   the text; the writer; and the codecs that read a model from text and from a caller.
 - **places**: what a path names (`path.ts`), the URI canonicalizers, and the URI parser and
@@ -40,8 +40,27 @@ and on a core module that reaches `migration/`.
   collects every issue. `client/` is I/O over an SDK session and uses the public entry only (and
   the types of `session.ts`), so the core stays I/O free and tree-shakes the same.
 
+Two entries read a caller's value past `input.ts`, because a copy cannot carry it: `hashMedia`
+calls the `stream()` or `arrayBuffer()` of a `Blob`, and `dateToMicros` calls `getTime()` of a
+`Date`. Each checks what the call gave back before using it.
+
+The entry also holds what the JavaScript API adds over the reference and so has no rule below
+it to call: `editPost` takes the head as a URL and defaults `root` to the head's, `parseUri`
+adds a file's `filename` and a bookmark's `target`, and the `parseX` functions name the
+argument in a refusal. The crate keeps the same shaping in `src/surface.rs`, the entry's twin.
+
 `migration/` may import any core module; nothing in the core imports `migration/`, and only
 `migration/wasm.ts` imports the wasm glue.
+
+### Who decides a 0.x path
+
+Three places read a 0.x path, each for its own question. The wasm (the crate's frozen reader
+and transforms) decides what an object becomes: its writes, its skip reason. `legacy.ts`, in
+the core, gives the engine the key two copies of one object share (`stableKey`,
+`legacyMediaKey`), which the `uri` family of the differential fuzz holds equal to the crate.
+`migration/order.ts` only sorts a listing into passes by the first segment under
+`/pub/pubky.app/`; a path it sorts wrong is migrated in a later pass, never differently. The
+engine spells every write URL itself and stops the run when the wasm's differs.
 
 ## Three spellings of a place
 

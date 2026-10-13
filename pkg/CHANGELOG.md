@@ -34,6 +34,16 @@ again.
 - `hashMedia` reads a `Blob` that has no `stream()`, as jsdom's has none, through
   `arrayBuffer()`.
 - New: the `cards` feed layout, in `feedLayouts`.
+- Breaking, `./client`: `posts.delete` and every `remove` answer `{ legacyRefused }`, the 0.x
+  paths a session without that grant could not reach, where they answered nothing. A copy left
+  there brings the object back on a reindex of 0.x, so the caller is told.
+- `./client`: `posts.edit` mints again when the edit id is already used in either root, as
+  `posts.create` does for a post id; `posts.head` of another author's private root is refused
+  before a server is asked; a LIST answer that is no list of URLs is refused.
+- Breaking: a fraction in an integer member given to `encodeObject` is a `ValidationError` with
+  the crate's words, as the same value in stored bytes is. It was an `ArgumentError`.
+- `Listing`'s tag form is two shapes: with a File object's `src` and `contentType`, or with
+  neither.
 - Breaking: `editPost(owner, headUrl, post, options?)` takes the owner first, as the builders do,
   and refuses a head in another user's tree.
 - Breaking: a string of the right type that the model refuses is a `ValidationError`: a `root`,
@@ -107,6 +117,9 @@ These follow the crate, which changes with them:
 
 - A feed's `layout` may be `cards`, as 0.8.1 clients store it. The migration carries such a
   feed, which it skipped before, and `transform_rev` is 3 so a migrated tree is walked again.
+- The frozen 0.x reader was widened once, by that value: it was copied from 0.8.0, and read a
+  `cards` feed a released 0.8.1 client stored as invalid. Nothing it accepted before reads
+  differently.
 - A name from a closed set this version does not know (a feed's `content`, a collection's
   `layout`) is written back with its spelling, and a feed carrying one has its id checked like
   any other.

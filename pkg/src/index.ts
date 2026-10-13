@@ -34,7 +34,7 @@ import * as graph from "./models/graph.js";
 import * as posts from "./models/post.js";
 import * as users from "./models/user.js";
 import * as objects from "./objects.js";
-import { isCanonicalSegment, isObjectKind, OBJECT_KINDS, parsePath } from "./path.js";
+import { isObjectKind, isOwnerPath, OBJECT_KINDS } from "./path.js";
 import { checkWellFormed, utf8 } from "./text.js";
 import type * as T from "./types.js";
 import * as uris from "./uri.js";
@@ -126,9 +126,7 @@ export function decodeObject(uri: T.UrlArg | { kind: T.ObjectKind; root?: T.Root
   const at = text(uri, "uri");
   if (kind !== undefined) {
     nameOf(kind, "kind", OBJECT_KINDS);
-    // Before the bytes are read: the URL alone says what is stored there
-    const named = uris.parse(at).kind;
-    if (named !== kind) fail("path", `${at} names ${isObjectKind(named) ? `a ${named}` : "no stored object"}, not a ${kind}`, "uri");
+    objects.checkNames(at, kind);
   }
   const read = objects.read(at, bytesOf(bytes, "bytes"));
   if (read.kind === "file") return kind === undefined ? { kind: "file", bytes: read.value as T.Bytes } : (read.value as T.Bytes);
@@ -183,7 +181,8 @@ export function encodeObject(at: string | { kind: T.ObjectKind; root?: T.Root | 
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
  *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
- *  surrogate.
+ *  surrogate;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -360,7 +359,8 @@ export function feedId(feed: T.Feed): string {
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  *
  * @throws `ValidationError` with `field: "uri"` for a target the reference rules refuse (a post
- *  version included) and `field: "label"` for a label the tag rules refuse.
+ *  version included) and `field: "label"` for a label the tag rules refuse;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -379,7 +379,8 @@ export function buildTag(owner: T.Given<"Owner">, uri: T.Reference, label: strin
  * A bookmark of `target`. Its id carries the target, so a LIST alone tells what is bookmarked.
  *
  * @throws `ValidationError` with `field: "target"` for a target the reference rules refuse, a post
- *  version included.
+ *  version included;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -398,7 +399,8 @@ export function buildBookmark(owner: T.Given<"Owner">, target: T.Reference): T.B
  * A follow of `followee`, a bare public key, stored under the public root.
  *
  * @throws `ValidationError` with `field: "owner"` or `field: "followee"` for a key that is not 52
- *  z-base32 characters.
+ *  z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -417,7 +419,8 @@ export function buildFollow(owner: T.Given<"Owner">, followee: T.Given<"Owner">)
  * A mute, stored under the private root.
  *
  * @throws `ValidationError` with `field: "owner"` or `field: "mutee"` for a key that is not 52
- *  z-base32 characters.
+ *  z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -531,7 +534,8 @@ export async function hashMedia(source: T.MediaSource): Promise<T.MediaId> {
  *
  * @throws `ValidationError` for an id out of its time bounds (`field: "id"` or `"editId"`), an
  *  editId older than the post (`field: "editId"`), a bad `slug`, a private reference the public
- *  post cannot keep (`code: "reference"`), and any rule of the post.
+ *  post cannot keep (`code: "reference"`), and any rule of the post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -557,7 +561,8 @@ export function planPublish(owner: T.Given<"Owner">, version: { id: T.Given<"Pos
  * the path of its newest private version when it has one, `legacyPaths` its 0.x copy.
  *
  * @throws `ValidationError` with `code: "path"` for a path that is no version of the post, and
- *  `code: "conflict"` when there is nothing to unpublish.
+ *  `code: "conflict"` when there is nothing to unpublish;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -586,7 +591,8 @@ export function planUnpublish(post: { id: T.Given<"PostId">; publicPaths: T.Path
  * only the caller can know.
  *
  * @throws `ValidationError` with `code: "path"` for a copy or a legacy path that is no version of
- *  the post.
+ *  the post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -618,7 +624,8 @@ export function planDelete(
  *
  * @throws `ValidationError` for an id the kind cannot have (`code: "format"`), a listing that is no
  *  copy of the object (`code: "path"` or `"id"`), and listings given to a kind that takes none
- *  (`code: "conflict"`).
+ *  (`code: "conflict"`);
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -639,7 +646,8 @@ export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings
  * `pub` or `priv`. A 0.x path reads as `{ kind: "foreign", namespace: "pubky.app" }`.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is not a canonical pubky URI
- *  under `pub` or `priv`. A path it cannot name is a kind, not an error.
+ *  under `pub` or `priv`. A path it cannot name is a kind, not an error. `ArgumentError`
+ *  for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -650,15 +658,15 @@ export function deletionPaths(target: { kind: T.ObjectKind; id: string; listings
  * ```
  */
 export function parseUri(uri: string): T.ParsedUri {
-  const parsed = uris.parse(text(uri, "uri")) as T.ParsedUri;
+  const parsed = uris.parse(text(uri, "uri"));
   // What `buildUri` takes back: a file is named by its hash and spelled with its extension
-  if (parsed.kind === "file") return { ...parsed, filename: parsed.path.slice(parsed.path.lastIndexOf("/") + 1) };
-  if (parsed.kind !== "bookmark" || parsed.id.startsWith("~")) return parsed;
+  if (parsed.kind === "file") return { ...parsed, filename: parsed.path.slice(parsed.path.lastIndexOf("/") + 1) } as T.ParsedUri;
+  if (parsed.kind !== "bookmark" || parsed.id.startsWith("~")) return parsed as T.ParsedUri;
   try {
-    return { ...parsed, target: graph.targetOf(parsed.id, { created_at: 0n, target: null, extra: new Map() }) };
+    return { ...parsed, target: graph.targetOf(parsed.id, { created_at: 0n, target: null, extra: new Map() }) } as T.ParsedUri;
   } catch (e) {
     // The form of the id passed; what it carries is no valid target, which a reader skips
-    if (e instanceof ValidationError) return parsed;
+    if (e instanceof ValidationError) return parsed as T.ParsedUri;
     throw e;
   }
 }
@@ -671,7 +679,8 @@ export function parseUri(uri: string): T.ParsedUri {
  * comes out.
  *
  * @throws `ValidationError` with `field: "owner"` for a malformed key, `field: "id"` for an id the
- *  kind cannot have, and `code: "unknown_name"` for an unknown kind.
+ *  kind cannot have, and `code: "unknown_name"` for an unknown kind;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -693,7 +702,8 @@ export function buildUri(owner: string, kind: T.ObjectKind, id?: string): string
  * The LIST prefix of one of an owner's trees. Not a URI: the trailing slash is deliberate.
  *
  * @throws `ValidationError` for a malformed key (`field: "owner"`) or a tree other than the three
- *  (`code: "unknown_name"`).
+ *  (`code: "unknown_name"`);
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -723,7 +733,8 @@ function parsedAt(value: string, field: string): uris.Parsed {
  * URL with a path has one, an object of another app or a directory included.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no canonical pubky URL,
- * or the bare owner URL, which has no path.
+ * or the bare owner URL, which has no path;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -743,7 +754,8 @@ export function toPath(uri: string): T.OwnerPath {
  * transport that takes URLs where a plan or `deletionPaths` gives paths.
  *
  * @throws `ValidationError` for a malformed key (`field: "owner"`) or, with `code: "path"`, a
- *  string that is no owner-relative path under a known root.
+ *  string that is no owner-relative path under a known root;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -780,7 +792,8 @@ export function isOneOf<const N extends string>(names: readonly N[], value: unkn
 /**
  * A bare public key as an `Owner`.
  *
- * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters.
+ * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -798,7 +811,8 @@ export function parseOwner(value: string): T.Owner {
  * A post id as a `PostId`: a canonical TimestampId. The time bound is the stored object's rule.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -816,7 +830,8 @@ export function parsePostId(value: string): T.PostId {
  * A version id as an `EditId`: a canonical TimestampId, as `parsePostId` checks one.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
- *  id.
+ *  id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -832,7 +847,8 @@ export function parseEditId(value: string): T.EditId {
 /**
  * A media id as a `MediaId`: the canonical spelling of a content hash.
  *
- * @throws `ValidationError` with `code: "format"` for a string that is not a canonical hash id.
+ * @throws `ValidationError` with `code: "format"` for a string that is not a canonical hash id;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -854,7 +870,8 @@ export function parseMediaId(value: string): T.MediaId {
  * takes for a version a LIST gave.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object,
- *  or of another kind than `kind`.
+ *  or of another kind than `kind`;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -899,7 +916,8 @@ export function isPubkyUrl(value: unknown): value is T.PubkyUrl {
  * An owner-relative path as an `OwnerPath`: `/pub/` or `/priv/` and canonical segments.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no owner-relative path under a
- *  known root.
+ *  known root;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -911,9 +929,7 @@ export function isPubkyUrl(value: unknown): value is T.PubkyUrl {
  */
 export function parseOwnerPath(value: string): T.OwnerPath {
   const path = text(value, "path");
-  const segments = path.slice(1).split("/");
-  // A root alone is no path beneath it
-  if (!path.startsWith("/") || segments.length < 2 || !segments.every(isCanonicalSegment) || parsePath(path.slice(1)) === null) fail("path", `not an owner-relative path: ${path}`, "path");
+  if (!isOwnerPath(path)) fail("path", `not an owner-relative path: ${path}`, "path");
   return path as T.OwnerPath;
 }
 
@@ -921,7 +937,8 @@ export function parseOwnerPath(value: string): T.OwnerPath {
  * A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no versionless reference to a
- *  post.
+ *  post;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts
@@ -943,7 +960,8 @@ export function parsePostRef(value: string): T.PostRef {
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not a canonical timestamp
  *  id, and with `code: "id"` for one whose time is past the safe integer range (from June
- *  2255, or before August 1684), which no minted id holds.
+ *  2255, or before August 1684), which no minted id holds;
+ *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
  * ```ts

@@ -22,7 +22,9 @@ import {
   listPrefix,
   parseOwner,
   parsePostId,
+  parsePubkyUrl,
   parseUri,
+  toPath,
   ValidationError,
 } from "../index.js";
 import type { SdkPublicStorage, SdkSession } from "../session.js";
@@ -57,6 +59,16 @@ export interface ClientOptions {
   pageSize?: number;
 }
 
+/**
+ * What a delete could not reach. A session granted only the 1.x tree is refused under
+ * `/pub/pubky.app/`, so a 0.x copy of the object may still be there, and an indexer that reads
+ * 0.x would bring the object back from it. Empty when nothing was refused.
+ */
+export interface Removed {
+  /** The 0.x paths the session was refused: each may still hold a copy. */
+  legacyRefused: T.OwnerPath[];
+}
+
 const PAGE = 1000;
 // A post id another copy of the package minted first: build again, which mints the next one
 const MINT_ATTEMPTS = 5;
@@ -77,9 +89,10 @@ const orMissing = async <R, M>(call: Promise<R>, missing: M): Promise<R | M> => 
 };
 
 // Other people's data can be anything, so a refusal of the rules is a value
-const decoded = <O, K extends T.ObjectKind>(url: string, path: string, decode: () => O): Read<O, K> => {
+const decoded = <O, K extends T.ObjectKind>(url: string, kind: K, decode: () => O): Read<O, K> => {
   try {
-    return { ok: true, url: url as T.PubkyUrl<K>, path: path as T.OwnerPath, object: decode() };
+    const object = decode();
+    return { ok: true, url: parsePubkyUrl(url, kind), path: toPath(url), object };
   } catch (error) {
     if (error instanceof ValidationError) return { ok: false, url, error };
     throw error;
@@ -139,11 +152,14 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     const under = `pubky://${author}${prefix}`;
     let cursor: string | null = null;
     for (;;) {
-      const page: string[] | null = await orMissing(read.list(prefix, cursor), null);
-      if (page === null) return;
+      // A page is a server's answer, whatever the session's types say
+      const answer: unknown = await orMissing(read.list(prefix, cursor), null);
+      if (answer === null) return;
+      if (!Array.isArray(answer)) throw new Error(`pubky-social-specs/client: listing ${prefix} of ${author} returned no list`);
       // A homeserver answers for one tree: a URL outside it would pass its bytes off as another user's
-      const stray = page.find((url) => !url.startsWith(under));
-      if (stray !== undefined) throw new Error(`pubky-social-specs/client: listing ${prefix} of ${author} returned ${stray}, outside it`);
+      const stray = answer.findIndex((url) => typeof url !== "string" || !url.startsWith(under));
+      if (stray !== -1) throw new Error(`pubky-social-specs/client: listing ${prefix} of ${author} returned ${String(answer[stray])}, outside it`);
+      const page = answer as string[];
       yield* page;
       // A server or a proxy may cap the page below the size asked, so only an empty page ends the walk
       const last = page.at(-1);
@@ -156,7 +172,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   async function readAt<K extends keyof T.Stored>(author: string, url: string, kind: K): Promise<Read<T.Stored[K], K> | null> {
     const path = pathOf(author, url);
     const bytes = await orMissing(reader(author).get(path), null);
-    return bytes === null ? null : decoded<T.Stored[K], K>(url, path, () => decodeObject(url as T.UrlArg, bytes, kind));
+    return bytes === null ? null : decoded<T.Stored[K], K>(url, kind, () => decodeObject(url as T.UrlArg, bytes, kind));
   }
 
   async function* readAll<K extends keyof T.Stored>(author: string, prefix: string, kind: K): AsyncGenerator<Read<T.Stored[K], K>> {
@@ -173,22 +189,26 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   // A 0.x copy goes first, so a reindex cannot bring the object back from it. A session granted
   // only the 1.x tree, as an app should ask, may not touch it: the 1.x copies still go
   // The probe for a 0.x copy, which such a session may be refused too: no copy it can delete
-  const legacyExists = async (path: string): Promise<boolean> => {
+  const legacyExists = async (path: string, refused: string[]): Promise<boolean> => {
     try {
       return await storage.exists(path);
     } catch (error) {
-      if (isRefused(error)) return false;
-      throw error;
+      if (!isRefused(error)) throw error;
+      refused.push(path);
+      return false;
     }
   };
-  const remove = async (paths: readonly string[]) => {
+  // Answers the 0.x paths the session was refused, in `refused` and whatever a probe added to it
+  const remove = async (paths: readonly string[], refused: string[] = []): Promise<Removed> => {
     for (const path of paths) {
       try {
         await orMissing(storage.delete(path), undefined);
       } catch (error) {
         if (!(path.startsWith(roots.legacy) && isRefused(error))) throw error;
+        refused.push(path);
       }
     }
+    return { legacyRefused: refused as T.OwnerPath[] };
   };
 
   // The one place a post's directory is spelled from what a caller gave: checked first, so no
@@ -197,6 +217,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
   const versionsOf = (author: string, id: string, root: unknown) => {
     if (typeof root !== "string") throw new ArgumentError("root", "pubky-social-specs: root must be a string");
     if (root !== "public" && root !== "private") throw new ValidationError("unknown_name", `unknown variant \`${root}\`, expected \`public\` or \`private\``, "root");
+    // What a server answers for someone else's private tree is its own business: never asked
+    if (root === "private" && author !== owner) throw new TypeError("pubky-social-specs/client: a private root is read by its owner only");
     return listed(author, `${roots[root]}posts/${parsePostId(id)}/`);
   };
 
@@ -221,6 +243,11 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     for await (const _ of ownVersions(id)) return true;
     return false;
   };
+  /** An edit id is taken by a version of the post that carries it, in either root. */
+  const editTaken = async (id: string, editId: string) => {
+    for await (const url of ownVersions(id)) if (versionOf(url)?.editId === editId) return true;
+    return false;
+  };
 
   return {
     /** The session's own key, bare: whose tree the writes go to. */
@@ -240,9 +267,14 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       },
       /** The newest public version of a post, or of a draft with `root: "private"` (the owner's only). */
       head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root: T.Root = "public") => newest(parseOwner(author), id, root),
-      /** A new version of the post read as `head`, PUT where `editPost` puts it. */
+      /** A new version of the post read as `head`, PUT where `editPost` puts it. An edit id already used in either root is minted again. */
       async edit(head: { url: T.UrlArg<"post"> }, post: T.Post, editOptions?: { root?: T.Root | null; slug?: string | null }): Promise<T.BuiltPost> {
-        return stored(editPost(owner, head.url, post, editOptions));
+        for (let attempt = 0; attempt < MINT_ATTEMPTS; attempt++) {
+          const built = editPost(owner, head.url, post, editOptions);
+          if (await editTaken(built.id, built.editId)) continue;
+          return stored(built);
+        }
+        throw new Error(`pubky-social-specs/client: ${MINT_ATTEMPTS} edit ids in a row were taken`);
       },
       /** The newest public version of every post of `author`; one that does not decode is a value with its error. */
       async *list(author: T.Given<"Owner">): AsyncGenerator<Read<T.Post, "post">> {
@@ -259,15 +291,20 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
           if (read !== null) yield read;
         }
       },
-      /** Deletes every version of an own post in both roots, newest last, and its 0.x copy first when there is one. */
-      async delete(id: T.Given<"PostId">): Promise<void> {
+      /**
+       * Deletes every version of an own post in both roots, newest last, and its 0.x copy first
+       * when there is one. A session not granted the 0.x tree cannot reach that copy: the 1.x
+       * versions still go and the path comes back in `legacyRefused`.
+       */
+      async delete(id: T.Given<"PostId">): Promise<Removed> {
         // Only the post's versions are the post: another file in its directory is no copy of it
         const listings: string[] = [];
         for await (const url of ownVersions(id)) if (isVersion(url)) listings.push(pathOf(owner, url));
         // A migrated post keeps its 0.x copy, which a reindex would read back as the post
         const legacy = `${roots.legacy}posts/${parsePostId(id)}`;
-        if (await legacyExists(legacy)) listings.push(legacy);
-        await remove(deletionPaths({ kind: "post", id, listings }));
+        const refused: string[] = [];
+        if (await legacyExists(legacy, refused)) listings.push(legacy);
+        return remove(deletionPaths({ kind: "post", id, listings }), refused);
       },
     },
 
@@ -296,7 +333,8 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
     /**
      * The owner's mutes, private: add, remove, list. `remove` deletes the 0.x copy first; a
-     * session not granted the 0.x tree leaves that copy and still deletes the 1.x one.
+     * session not granted the 0.x tree leaves that copy, still deletes the 1.x one and names
+     * the path in `legacyRefused`.
      */
     mutes: {
       async add(mutee: T.Given<"Owner">): Promise<T.Built<T.Mute, T.Owner, "mute">> {
@@ -317,7 +355,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         // the others wrote into it, and only bytes that are no tag are written over
         const there = await orMissing(storage.getBytes(built.path), null);
         if (there === null) return stored(built);
-        const read = decoded<T.Tag, "tag">(built.url, built.path, () => decodeObject(built.url, there, "tag"));
+        const read = decoded<T.Tag, "tag">(built.url, "tag", () => decodeObject(built.url, there, "tag"));
         return read.ok ? { ...built, object: read.object, body: new Uint8Array(there) } : stored(built);
       },
       remove: (id: string) => remove(deletionPaths({ kind: "tag", id })),
@@ -357,7 +395,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       async get(url: T.UrlArg<"file">): Promise<Read<T.Bytes, "file"> | null> {
         const parsed = parseUri(url);
         const bytes = await orMissing(reader(parsed.owner).get(parsed.path), null);
-        return bytes === null ? null : decoded<T.Bytes, "file">(url, parsed.path, () => decodeObject(url, bytes, "file"));
+        return bytes === null ? null : decoded<T.Bytes, "file">(url, "file", () => decodeObject(url, bytes, "file"));
       },
     },
   };

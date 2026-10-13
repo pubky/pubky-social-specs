@@ -4,7 +4,7 @@
 // thing wrong in document order is the error, in the reference's words. A caller's value is
 // another matter: it comes from typed code, so a wrong shape there is a TypeError.
 
-import { type Each, fieldOf, member, misuse, nameOf, throwing } from "../errors.js";
+import { type Each, fail, fieldOf, member, misuse, nameOf, throwing } from "../errors.js";
 import { checkWellFormed, debugQuote } from "../text.js";
 import { type Json, JsonError, type JsonObject, readJson, type Reader } from "./read.js";
 import { writeFloat, writeJson, writeMembers, writeString } from "./write.js";
@@ -72,7 +72,9 @@ export const i64: Codec<bigint> = {
   // Every stored integer is checked to fit a double before it gets here
   plain: (value) => Number(value),
   parse(js, at) {
-    if (typeof js !== "number" || !Number.isInteger(js)) misuse(at, "an integer (a timestamp is microseconds since the epoch)");
+    if (typeof js !== "number" || !Number.isFinite(js)) misuse(at, "an integer (a timestamp is microseconds since the epoch)");
+    // A fraction is a number as the type asks, so it is refused as the stored text would be
+    if (!Number.isInteger(js)) fail("json", `invalid type: floating point \`${writeFloat(js)}\`, expected i64`, at);
     return BigInt(js);
   },
 };

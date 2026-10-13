@@ -399,6 +399,32 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual([...encodeObject({ kind: "file" }, realm)], [1, 2, 3]);
       assert.strictEqual(buildFile(OTTO, { bytes: realm, type: "image/png" }).id, buildFile(OTTO, { bytes: new Uint8Array([1, 2, 3]), type: "image/png" }).id);
     });
+    it("media is refused past the size cap, and under an id its bytes do not hash to", function () {
+      // Hashing media at the cap takes seconds
+      this.timeout(60_000);
+      const over = new Uint8Array(limits.maxFileSizeBytes + 1);
+      const { url } = buildFile(OTTO, { bytes: new Uint8Array([1, 2]), type: "image/png" });
+      const tooBig = caught(() => buildFile(OTTO, { bytes: over, type: "image/png" }));
+      assert.strictEqual(tooBig.message, "Validation Error: File size exceeds maximum limit of 100MB");
+      assert.deepStrictEqual([tooBig.code, tooBig.limit], ["size", 104857600]);
+      refuses(() => decodeObject(url, over), "Validation Error: File size exceeds maximum limit of 100MB");
+      assert.strictEqual(buildFile(OTTO, { bytes: over.subarray(1), type: "image/png" }).path.endsWith(".png"), true);
+      refuses(() => decodeObject(url, new Uint8Array([1, 3])), "Validation Error: Invalid ID: expected TAPHM2XSZQT4A2YRE58W12WSD0, found PZBQ010FF079VVZPQG1RNFN6DR");
+    });
+
+    it("media in a Node Buffer or a view into a larger buffer is read where the view says", () => {
+      const pool = new Uint8Array(4096).map((_, i) => i * 7);
+      const view = new Uint8Array(pool.buffer, 1000, 300);
+      const buffer = Buffer.from(pool.buffer, 1000, 300);
+      const plain = buildFile(OTTO, { bytes: view.slice(), type: "image/png" });
+      assert.notStrictEqual(view.byteOffset, 0);
+      assert.strictEqual(buildFile(OTTO, { bytes: view, type: "image/png" }).id, plain.id);
+      assert.strictEqual(buildFile(OTTO, { bytes: buffer, type: "image/png" }).id, plain.id);
+      assert.deepStrictEqual([...decodeObject(plain.url, buffer, "file")], [...view]);
+      assert.deepStrictEqual([...decodeObject(plain.url, view, "file")], [...view]);
+      assert.deepStrictEqual([...encodeObject(plain.url, buffer)], [...view]);
+    });
+
     it("hashMedia gives the id buildFile gives, from a Blob or a stream, a chunk at a time", async () => {
       const bytes = new Uint8Array(3 * 65536 + 7).map((_, i) => i * 31);
       const { id } = buildFile(OTTO, { bytes, type: "image/png" });
@@ -599,11 +625,42 @@ describe("pubky-social-specs", () => {
       refuses(() => decodeObject(`pubky://${OTTO}/pub/other.app/v1/x`, utf8("{}")), "Validation Error: a foreign namespace is not a social object");
     });
 
+    it("an argument of the wrong type is an ArgumentError from every entry that reads one", () => {
+      const calls = {
+        buildTag: () => specs.buildTag(OTTO, 7, "label"),
+        buildBookmark: () => specs.buildBookmark(OTTO, 7),
+        buildFollow: () => specs.buildFollow(OTTO, 7),
+        buildMute: () => specs.buildMute(7, RIO),
+        planPublish: () => specs.planPublish(OTTO, 7),
+        planUnpublish: () => specs.planUnpublish(OTTO, 7),
+        planDelete: () => specs.planDelete(7),
+        deletionPaths: () => specs.deletionPaths(7),
+        decodeContent: () => specs.decodeContent({ kind: "article", content: 7 }),
+        parseUri: () => specs.parseUri(7),
+        buildUri: () => specs.buildUri(OTTO, "follow", 7),
+        listPrefix: () => specs.listPrefix(7, "public"),
+        toPath: () => specs.toPath(7),
+        toUrl: () => specs.toUrl(OTTO, 7),
+        idMicros: () => specs.idMicros(7),
+        parseOwner: () => specs.parseOwner(7),
+        parseEditId: () => specs.parseEditId(7),
+        parsePostId: () => specs.parsePostId(7),
+        parseMediaId: () => specs.parseMediaId(7),
+        parsePubkyUrl: () => specs.parsePubkyUrl(7),
+        parseOwnerPath: () => specs.parseOwnerPath(7),
+        parsePostRef: () => specs.parsePostRef(7),
+      };
+      for (const [name, call] of Object.entries(calls)) assert.ok(caught(call) instanceof specs.ArgumentError, `${name}: ${caught(call)}`);
+    });
+
     it("an integer is a number, and one a double cannot hold is refused before it is one", () => {
       const url = buildUri(OTTO, "follow", RIO);
       assert.strictEqual(decodeObject(url, utf8('{"created_at":9007199254740991}')).object.created_at, Number.MAX_SAFE_INTEGER);
       refuses(() => decodeObject(url, utf8('{"created_at":9007199254740992}')), "Validation Error: integer 9007199254740992 outside the JSON-safe range");
-      misuse(() => encodeObject(url, { created_at: 1.5 }), /follow\.created_at must be an integer/);
+      // A fraction is a number, as the type asks: the refusal the stored text gets, not a misuse
+      refuses(() => encodeObject(url, { created_at: 1.5 }), "Validation Error: invalid type: floating point `1.5`, expected i64");
+      refuses(() => decodeObject(url, utf8('{"created_at":1.5}')), "Validation Error: invalid type: floating point `1.5`, expected i64");
+      misuse(() => encodeObject(url, { created_at: Number.NaN }), /follow\.created_at must be an integer/);
       misuse(() => encodeObject(url, { created_at: 1n }), /follow\.created_at must be an integer/);
     });
 

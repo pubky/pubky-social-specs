@@ -3,7 +3,7 @@
 //   cd pkg && npm run deps
 
 const layer = {
-  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input|session|dev)\\.ts$",
+  foundation: "^src/(data|errors|text|radix|base64url|bytes|ids|clock|mime|input|session|dev|caps)\\.ts$",
   json: "^src/json/",
   places: "^src/(path|canonicalize|uri)\\.ts$",
   models: "^src/models/",

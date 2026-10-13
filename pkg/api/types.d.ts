@@ -413,10 +413,21 @@ export type Listing = PathArg | {
     uri: string;
     /** The tag's stored `label`. */
     label: string;
-    /** For a tag on a 0.x File object: that object's `src`. */
-    src?: string | null;
-    /** For a tag on a 0.x File object: that object's `content_type`. */
-    contentType?: string | null;
+    /** Absent: the tag is on no 0.x File object. */
+    src?: null;
+    /** Absent, with `src`. */
+    contentType?: null;
+} | {
+    /** The path of a 0.x tag on a 0.x File object. */
+    path: PathArg;
+    /** The tag's stored `uri`. */
+    uri: string;
+    /** The tag's stored `label`. */
+    label: string;
+    /** That File object's `src`. */
+    src: string;
+    /** That File object's `content_type`. */
+    contentType: string;
 };
 /** What `parseUri` reads in a URI: whose tree, which root, the path, and what the path names. */
 export type ParsedUri = {

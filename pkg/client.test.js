@@ -3,7 +3,7 @@
 
 import assert from "assert";
 import { createSocialClient } from "./dist/client/index.js";
-import { ArgumentError, buildPost } from "./dist/index.js";
+import { ArgumentError, buildPost, editPost } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
 import { OTTO, RIO, T0, text } from "./core.fixture.js";
 import { answered, fakeHomeserver } from "./sdk.fixture.js";
@@ -113,6 +113,45 @@ describe("pubky-social-specs/client", () => {
     assert.deepStrictEqual(await all(createSocialClient(hs.session(RIO)).posts.list(RIO)), []);
   });
 
+  it("mints an edit again when another copy of the package took the edit id, in either root", async () => {
+    const { hs, social } = ottoClient();
+    const post = await social.posts.create({ content: "x" });
+    setClock(() => T0 + 1);
+    const theirs = editPost(OTTO, post.url, { ...post.object, content: "theirs" }, { root: "private" });
+    hs.store.set(theirs.url, theirs.body);
+    setClock(() => T0 + 1);
+    const edit = await social.posts.edit({ url: post.url }, { ...post.object, content: "mine" });
+    assert.ok(edit.editId > theirs.editId);
+    assert.strictEqual(text(hs.store.get(theirs.url)), text(theirs.body), "their version is untouched");
+  });
+
+  it("deletes a post oldest version first, one DELETE after the other, and stops where one fails", async () => {
+    const hs = fakeHomeserver();
+    const session = hs.session(OTTO);
+    const social = createSocialClient(session);
+    const post = await social.posts.create({ content: "x" });
+    setClock(() => T0 + 1);
+    const draft = await social.posts.edit({ url: post.url }, { ...post.object, content: "y" }, { root: "private" });
+    setClock(() => T0 + 2);
+    const last = await social.posts.edit({ url: post.url }, { ...post.object, content: "z" });
+    const storage = session.storage;
+    const deletes = () => storage.calls.filter(([op]) => op === "delete").map(([, path]) => path);
+    // The second DELETE fails: the first is done, the third is never sent
+    const remove = storage.delete;
+    storage.delete = async (path) => {
+      if (path === draft.path) throw (storage.calls.push(["delete", path]), answered(500));
+      return remove(path);
+    };
+    await assert.rejects(social.posts.delete(post.id), (e) => e.data.statusCode === 500);
+    assert.deepStrictEqual(deletes(), [post.path, draft.path]);
+    assert.ok(hs.store.has(last.url) && !hs.store.has(post.url));
+    // Run again, it goes on from what is left
+    storage.delete = remove;
+    storage.calls.length = 0;
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [] });
+    assert.deepStrictEqual(deletes(), [draft.path, last.path]);
+  });
+
   it("deletes every version of a post in both roots", async () => {
     const { hs, social } = ottoClient();
     const post = await social.posts.create({ content: "x" });
@@ -197,7 +236,7 @@ describe("the client over memoryHomeserver", () => {
       if (path.startsWith("/pub/pubky.app/")) throw Object.assign(new Error("403"), { data: { statusCode: 403 } });
       return remove(path);
     };
-    await social.mutes.remove(friend);
+    assert.deepStrictEqual(await social.mutes.remove(friend), { legacyRefused: [`/pub/pubky.app/mutes/${friend}`] });
     assert.strictEqual(await session.storage.exists(mute.path), false);
     void owner;
   });
@@ -215,7 +254,8 @@ describe("the client over memoryHomeserver", () => {
       };
     session.storage.exists = refuse(session.storage.exists);
     session.storage.delete = refuse(session.storage.delete);
-    await social.posts.delete(post.id);
+    // The copy it could not look for is named: it may still be there
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [`/pub/pubky.app/posts/${post.id}`] });
     assert.strictEqual(await session.storage.exists(post.path), false);
   });
 
@@ -246,7 +286,7 @@ describe("the client over memoryHomeserver", () => {
     const social = createSocialClient(session);
     const post = await social.posts.create({ content: "migrated" });
     await session.storage.putBytes(`/pub/pubky.app/posts/${post.id}`, new Uint8Array([1]));
-    await social.posts.delete(post.id);
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [] });
     assert.strictEqual(await session.storage.exists(`/pub/pubky.app/posts/${post.id}`), false);
     assert.strictEqual(await session.storage.exists(post.path), false);
   });
@@ -312,6 +352,34 @@ describe("the client over memoryHomeserver", () => {
     assert.notStrictEqual(sent[0], bytes);
     assert.deepStrictEqual([...sent[0]], [1, 2, 3]);
     assert.strictEqual(file.url.startsWith(`pubky://${owner}/pub/social/v1/files/`), true);
+  });
+
+  it("refuses a LIST answer that is no list of URLs", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { owner, session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const post = await social.posts.create({ content: "mine" });
+    for (const [answer, message] of [
+      [[7], /returned 7, outside it/],
+      [[undefined], /returned undefined, outside it/],
+      ["pubky://", /returned no list/],
+    ]) {
+      const list = session.storage.list;
+      session.storage.list = async () => answer;
+      await assert.rejects(social.posts.head(owner, post.id), message);
+      session.storage.list = list;
+    }
+  });
+
+  it("never asks a server for someone else's private tree", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { friend, publicStorage, session } = memoryHomeserver();
+    const asked = [];
+    const list = publicStorage.list;
+    publicStorage.list = (address, ...rest) => (asked.push(address), list(address, ...rest));
+    const social = createSocialClient(session, { publicStorage });
+    await assert.rejects(social.posts.head(friend, "0034A0X7NJ52C", "private"), /read by its owner only/);
+    assert.deepStrictEqual(asked, []);
   });
 
   it("checks a post id and a root before a LIST names a directory with them", async () => {
