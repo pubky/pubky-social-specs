@@ -155,6 +155,7 @@ const calls = {
   editPost: [OWNER, post.url, post.object, { slug: "edited" }],
   buildFeed: [OWNER, { name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent", tags: ["rust"] }],
   feedId: [feed.object],
+  feedPaths: [feed.id],
   buildTag: [OWNER, api.buildUri(OTHER, "user"), "friend"],
   buildBookmark: [OWNER, api.buildUri(OTHER, "user")],
   buildFollow: [OWNER, OTHER],

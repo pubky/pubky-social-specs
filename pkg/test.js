@@ -26,6 +26,7 @@ const {
   editPost,
   buildFeed,
   feedId,
+  feedPaths,
   buildTag,
   buildBookmark,
   buildFollow,
@@ -82,6 +83,7 @@ describe("pubky-social-specs", () => {
           "encodeObject",
           "feedId",
           "feedLayouts",
+          "feedPaths",
           "feedReaches",
           "feedSorts",
           "hashMedia",
@@ -348,6 +350,9 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(built.object.icon, "star");
       assert.strictEqual(built.path, `/priv/social/v1/feeds/${built.id}.json`);
       assert.strictEqual(feedId(built.object), built.id);
+      assert.deepStrictEqual(feedPaths(built.id), { private: built.path, public: `/pub/social/v1/feeds/${built.id}.json` });
+      refuses(() => feedPaths("_x"), /^Validation Error: Invalid ID/);
+      misuse(() => feedPaths(1), /id must be a string/);
       assert.notStrictEqual(feedId({ ...built.object, feed: { ...built.object.feed, sort: "popularity" } }), built.id);
       refuses(() => buildFeed(OTTO, { name: "x", icon: "star", reach: "galaxy", layout: "columns", sort: "recent" }), "Validation Error: Invalid feed reach: galaxy");
       misuse(() => feedId({ ...built.object, feed: { ...built.object.feed, tags: [1] } }), /feed\.feed\.tags\[0\] must be a string/);

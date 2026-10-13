@@ -264,6 +264,17 @@ describe("pubky-social-specs/client", () => {
     await social.follows.remove(RIO);
   });
 
+  it("publishes a feed as the same bytes at its public address, and unpublishes it", async () => {
+    const { hs, social } = ottoClient();
+    const feed = await social.feeds.add({ name: "Rust", icon: "crab", reach: "all", layout: "columns", sort: "recent" });
+    const shared = `pubky://${OTTO}/pub/social/v1/feeds/${feed.id}.json`;
+    hs.store.set(shared, encoder.encode("stale"));
+    assert.strictEqual(await social.feeds.publish(feed.id), `/pub/social/v1/feeds/${feed.id}.json`);
+    assert.deepStrictEqual(hs.store.get(shared), feed.body);
+    assert.deepStrictEqual(await social.feeds.unpublish(feed.id), { legacyRefused: [] });
+    assert.ok(!hs.store.has(shared) && hs.store.has(feed.url));
+  });
+
   it("uploads media where its hash names it, and checks the bytes it reads", async () => {
     const { hs, social } = ottoClient();
     const bytes = encoder.encode("png bytes");

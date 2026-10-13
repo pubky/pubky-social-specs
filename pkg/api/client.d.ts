@@ -119,10 +119,14 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         remove: (id: string) => Promise<Removed>;
         list: () => AsyncGenerator<Read<T.Bookmark, "bookmark">, any, any>;
     };
-    /** The owner's saved feeds, private: add, remove, list. */
+    /** The owner's saved feeds, private: add, remove, list, and publish or unpublish one. */
     feeds: {
         add(input: T.NewFeed): Promise<T.Built<T.Feed>>;
         remove: (id: string) => Promise<Removed>;
+        /** Copies the feed to its public address, over whatever is there, and answers that address. */
+        publish(id: string): Promise<T.OwnerPath>;
+        /** Deletes the public copy; the feed stays where its owner reads it. */
+        unpublish: (id: string) => Promise<Removed>;
         list: () => AsyncGenerator<Read<T.Feed, "feed">, any, any>;
     };
     /** Media: upload bytes and read them back by URL. */

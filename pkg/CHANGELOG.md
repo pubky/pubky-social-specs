@@ -104,6 +104,8 @@ again.
   it, so another writer's copy the crate refuses is never deleted as ours.
 - The CLI asks the passphrase on the terminal with echo off, refuses a recovery file others can
   read, and signs out on an uncaught error too.
+- New: `feedPaths(id)`, the private and the public address of a feed, and the client's
+  `feeds.publish` and `feeds.unpublish`.
 - The client's `tags.remove` deletes the tag's 0.x copies too, found by reading the owner's 0.x
   tags, each once per client; `posts.edit` mints above the version that took its edit id, so a
   clock that is not past the head no longer picks the taken id again.

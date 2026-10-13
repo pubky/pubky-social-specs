@@ -713,6 +713,10 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
             created(&owner, &id, &PubkySocialFeed::create_path(&id), &feed)?
         }
         "feedId" => a.parsed::<PubkySocialFeed>()?.derive_id()?.into(),
+        "feedPaths" => {
+            let (private, public) = crate::plan_feed_publish(a.s()?)?.copy;
+            json!({ "private": private, "public": public })
+        }
 
         "createTag" => {
             let owner = PubkyId::try_from(a.s()?)?;

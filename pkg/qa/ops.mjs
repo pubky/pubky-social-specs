@@ -93,6 +93,7 @@ const ops = {
   },
   createFeed: (a, input) => built(api.buildFeed(a.s, JSON.parse(input.j))),
   feedId: (a) => api.feedId(held(feed.codec, a)),
+  feedPaths: (a) => api.feedPaths(a.s),
   createTag: (a, b, c) => built(api.buildTag(a.s, b.s, c.s)),
   createBookmark: (a, b) => built(api.buildBookmark(a.s, b.s)),
   bookmarkTarget(a, content) {

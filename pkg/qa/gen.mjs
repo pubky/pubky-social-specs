@@ -716,6 +716,7 @@ export const families = {
   feed: (r) =>
     r.pick([
       () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),
+      () => request("feedPaths", s(r.pick([hashIdText(r), hashIdText(r), "~" + hashIdText(r), "_x", ""]))),
       () => {
         const f = storedFeed(r);
         const id = r.chance(0.85) && f.feed && typeof f.feed === "object" ? feedIdText(f) : hashIdText(r);

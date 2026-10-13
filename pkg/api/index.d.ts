@@ -220,6 +220,26 @@ export declare function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.
  */
 export declare function feedId(feed: T.Feed): string;
 /**
+ * Both addresses of the feed `id`. A feed lives at `private`. To publish it, PUT the same bytes
+ * at `public`, whatever is there: the name and the icon are outside the id, so that path may
+ * hold stale ones. To unpublish, DELETE `public`.
+ *
+ * @throws `ValidationError` with `field: "id"` for an id that is no hash id; `ArgumentError` for
+ *  one that is no string.
+ *
+ * @example
+ * ```ts
+ * import { buildFeed, feedPaths } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const feed = buildFeed(owner, { name: "Rust", icon: "crab", reach: "all", layout: "columns", sort: "recent" });
+ * console.log(feedPaths(feed.id).private === feed.path, feedPaths(feed.id).public);
+ * ```
+ */
+export declare function feedPaths(id: string): {
+    private: T.OwnerPath;
+    public: T.OwnerPath;
+};
+/**
  * A tag on `uri`, a reference: for a post, `buildUri(author, "post", id)`. The builder trims
  * the label and lowercases its ASCII letters; a label holds no whitespace, comma or colon.
  *

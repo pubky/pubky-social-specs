@@ -19,6 +19,7 @@ import {
   deletionPaths,
   editPost,
   encodeObject,
+  feedPaths,
   listPrefix,
   parseOwner,
   parsePostId,
@@ -457,12 +458,20 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       list: () => readAll(owner, `${roots.private}bookmarks/`, "bookmark"),
     },
 
-    /** The owner's saved feeds, private: add, remove, list. */
+    /** The owner's saved feeds, private: add, remove, list, and publish or unpublish one. */
     feeds: {
       async add(input: T.NewFeed): Promise<T.Built<T.Feed>> {
         return stored(buildFeed(owner, input));
       },
       remove: (id: string) => remove(deletionPaths({ kind: "feed", id })),
+      /** Copies the feed to its public address, over whatever is there, and answers that address. */
+      async publish(id: string): Promise<T.OwnerPath> {
+        const at = feedPaths(id);
+        await storage.putBytes(at.public, await storage.getBytes(at.private));
+        return at.public;
+      },
+      /** Deletes the public copy; the feed stays where its owner reads it. */
+      unpublish: (id: string) => remove([feedPaths(id).public]),
       list: () => readAll(owner, `${roots.private}feeds/`, "feed"),
     },
 
