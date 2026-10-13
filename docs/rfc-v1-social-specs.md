@@ -493,10 +493,10 @@ v0 `pub/pubky.app/feeds/{HashId(serde-json config)}` (public) -> v1
   fragile and not JS-reproducible). Six fixed segments: reach, layout, sort, content filter,
   tags, and domain tags. Two users publishing the same config share an id, so future
   cross-homeserver popularity ranking is additive indexer work.
-- **The id is a write-side guarantee.** A reader recomputes it only when it understands every
-  value in the config. On a value it does not know it accepts the id as written and applies the
-  usual rule (an unknown filter degrades, an unknown reach rejects), so adding a feed value never
-  makes older readers drop the feed.
+- **The id is checked on every read.** A reader keeps the spelling of a config value it does not
+  know, so it recomputes the id from the config as stored and a conforming writer of a newer
+  value passes the check. The usual rule then applies (an unknown filter degrades, an unknown
+  reach rejects), so adding a filter value never makes older readers drop the feed.
 - Tracks current v0 (#143): the `wot` and `me` reach values and the optional `domain_tags`
   filter (same folding and cap rules as tags) are part of the v1 model, and `domain_tags`
   participates in the id (two feeds differing only in domain filter are different feeds).
@@ -529,8 +529,11 @@ migrate years later in one pass, and the indexer reads every epoch for as long a
 parser therefore stays permanently, because the v1 parser classifies `pubky.app` as foreign.
 
 **"Permanently" is cheaper than it sounds, on two counts.** The v0 parser is frozen rather than
-maintained: it ships with committed conformance vectors and never changes again, so the recurring
-cost is running its tests. And the v0 population drains rather than accumulates, because the
+maintained: it ships with committed conformance vectors, so the recurring cost is running its
+tests. It changes by one rule only, widening: it may come to accept a value that a released v0
+client stored and it rejected, it never rejects what it accepted, and it never changes what an
+accepted object migrates to. Each widening raises the transform revision, so a migrated tree is walked
+again, and adds a conformance row whose verdict comes from running that released client. And the v0 population drains rather than accumulates, because the
 cleanup pass below removes v0 a few weeks after each user migrates.
 
 What remains years out is dormant accounts nobody has opened since. That is precisely the
@@ -686,7 +689,10 @@ the indexer contract. Those bind nexus, not clients.
     exists at both its legacy path and its `social/v1` path. Leave either behind and a
     from-scratch reindex resurrects it. This is a permanent client rule rather than a
     migration-only one, and it applies for as long as two epochs coexist.
-15. **Private-tier deletes touch only the `/priv/` file.**
+15. **Private-tier deletes touch only the `/priv/` file,** with one exception. A mute delete
+    removes `/pub/pubky.app/mutes/{id}` first: a v0 mute was public and its path is the muted
+    key, so the legacy copy is named without a listing, and leaving it would keep the mute
+    world-readable.
 16. **Deleting a post does not delete its media.** Media is content-addressed and shared, so
     another of your posts may reference the same file, and nothing on the homeserver tracks that:
     `LIST` returns names only, and references live inside post bodies. Deciding whether a file is
@@ -898,7 +904,10 @@ Three gates, dispatched on the value's prefix.
 1. Trim with the frozen whitespace set.
 2. Reject any remaining ASCII control character or frozen-whitespace code point. This is stricter
    than WHATWG, which silently strips embedded tabs and newlines; here they are a rejection.
-3. Require `http://` or `https://` followed by at least one non-`/` character.
+3. Require `http://` or `https://` followed by an authority with a non-empty host. The authority
+   runs to the first `/`, `?` or `#`; the host is what follows any userinfo (up to the last `@`)
+   and precedes any port. `https://user@` and `https://:443/path` are rejections. The host is
+   otherwise kept as written, case included.
 4. Apply the field's length cap.
 
 **Opaque gate** (everything else: `nostr:`, `geo:`, `ipfs:`, `magnet:`, `did:`, any scheme-shaped
