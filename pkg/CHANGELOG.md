@@ -25,6 +25,15 @@ again.
 
 ### API
 
+- A URL or path argument takes a plain `string`, as the README said and the types did not: an
+  entry of a LIST compiles where only a `pubky://` literal or a branded value did.
+- New: `decodeObject({ kind, root? }, bytes)` and the same form of `tryDecodeObject`, for bytes
+  kept outside the data model's paths; `parsePubkyUrl(url, kind)`; `toUrl(owner, path)`;
+  `isOneOf(names, value)`; `ENGINE_CAPS` and `MIGRATION_CAPS` in the main entry.
+- `decodeContent` takes the `kind` and `content` of a post alone.
+- `hashMedia` reads a `Blob` that has no `stream()`, as jsdom's has none, through
+  `arrayBuffer()`.
+- New: the `cards` feed layout, in `feedLayouts`.
 - Breaking: `editPost(owner, headUrl, post, options?)` takes the owner first, as the builders do,
   and refuses a head in another user's tree.
 - Breaking: a string of the right type that the model refuses is a `ValidationError`: a `root`,
@@ -96,6 +105,8 @@ again.
 
 These follow the crate, which changes with them:
 
+- A feed's `layout` may be `cards`, as 0.8.1 clients store it. The migration carries such a
+  feed, which it skipped before, and `transform_rev` is 3 so a migrated tree is walked again.
 - A name from a closed set this version does not know (a feed's `content`, a collection's
   `layout`) is written back with its spelling, and a feed carrying one has its id checked like
   any other.

@@ -8,7 +8,7 @@ npm install pubky-social-specs
 
 ## Concepts
 
-Every Pubky user has an **owner** key: 52 characters of z-base32, such as `8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto`. Written with a scheme, `pubky://<owner>`, it names the user. The user's data lives on a **homeserver**, as files in a tree that belongs to that key.
+Every Pubky user has an **owner** key: 52 characters of z-base32, such as `8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto`. The user's data lives on a **homeserver**, as files in a tree that belongs to that key.
 
 The tree has two **roots**. Files under `/pub/` are world-readable. Files under `/priv/` are read and written only by the owner and by the apps the owner granted access, which is where drafts, bookmarks, mutes and feeds go.
 
@@ -44,7 +44,7 @@ console.log(post.content); // Hello
 
 ## Four ways to name a place
 
-Most first errors are one of these passed where another goes. Each has a branded type, so TypeScript refuses one passed for another before the code runs. A plain string is taken too; to check and brand one where it enters, from a form or a LIST, call `parseOwner`, `parsePubkyUrl`, `parseOwnerPath` or `parsePostRef`, or test it with `isPubkyUrl`.
+Most first errors are one of these passed where another goes. Each has a branded type, so TypeScript refuses one passed for another before the code runs. A plain string is taken too, so an entry of a LIST goes straight in; to check and brand one where it enters, from a form or a LIST, call `parseOwner`, `parsePubkyUrl`, `parseOwnerPath` or `parsePostRef`, or test it with `isPubkyUrl`. `parsePubkyUrl(url, "post")` also checks the kind and types the result for it. `toPath(url)` and `toUrl(owner, path)` turn one spelling into the other, and `isOneOf(postKinds, kind)` narrows a string to the names of a table.
 
 | name | looks like | comes from | goes to |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Most first errors are one of these passed where another goes. Each has a branded
 | path (`OwnerPath`) | `/pub/social/v1/posts/<id>/<editId>.json` | `path` of a builder result, `toPath(url)` | the SDK's storage calls, every plan, `deletionPaths` |
 | reference (`PostRef`) | `pubky://<owner>/pub/social/v1/posts/<id>` | `buildUri(author, "post", id)` | `parent`, `embed`, a tag, a bookmark, a collection item |
 
-A URL names one stored file. A reference names a thing: for a post it leaves out the version, and the bare `pubky://<owner>` is the user. A LIST prefix, `listPrefix(owner, "public")`, ends with `/` and names a directory, so it has a type of its own.
+A URL names one stored file. A reference names a thing: for a post it leaves out the version, and for a user it is the URL of the profile, `buildUri(owner, "user")`. A LIST prefix, `listPrefix(owner, "public")`, ends with `/` and names a directory, so it has a type of its own.
 
 ## Create
 
@@ -112,7 +112,7 @@ const id = await hashMedia(file);
 console.log(buildFile(owner, { id, type: file.type }).url === media.url); // true
 ```
 
-Hashing is plain JavaScript, far slower than a native hash, so give `hashMedia` anything over a few megabytes; `createMediaHasher()` is the same hash fed by hand, for a worker. With an `id` the package never sees the bytes, so check `file.size` against `limits.maxFileSizeBytes` yourself. A media id is 128 bits of BLAKE3, as in the crate.
+Hashing is plain JavaScript, far slower than a native hash, so give `hashMedia` anything over a few megabytes; `createMediaHasher()` is the same hash fed by hand, for a worker. A `Blob` that cannot stream, as jsdom's cannot, is read whole. With an `id` the package never sees the bytes, so check `file.size` against `limits.maxFileSizeBytes` yourself. A media id is 128 bits of BLAKE3, as in the crate.
 
 ### Validating a form
 
@@ -299,7 +299,7 @@ console.log(removal.mediaGcCandidates); // media the post referenced: delete it 
 - An owner written as `pubky://<key>` is refused as a key of the wrong length, with `field: "owner"`. `parseOwner` reads the key out of such a URL.
 - A path passed where a URL goes is refused as `Not a canonical pubky URI`, with `code: "path"`: pass the `url` a builder returned, or the one a LIST gave.
 - The `url` a builder returned names one version of a post. As a reference it is refused (`must be versionless`): use `buildUri(author, "post", id)`.
-- The bare `pubky://<owner>` is the user, not the profile file. `decodeObject` refuses it; the profile is at `buildUri(owner, "user")`.
+- A user is referenced by the URL of the profile, `buildUri(owner, "user")`: that is what a tag or a bookmark of a user points at, and what the migration respells a 0.x one to. The bare `pubky://<owner>` is another target, so a tag on it is not counted with the others, and `decodeObject` refuses it.
 - `created_at` set from `Date.now()` is milliseconds. Outside a production build `encodeObject` warns; `dateToMicros(Date.now())` gives microseconds.
 - An object copied field by field loses `$unknown`. Outside a production build `encodeObject` and `editPost` warn when an object read with unknown members is written without them.
 
@@ -389,7 +389,7 @@ It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`
 
 - ESM only, with types. Node `^20.19.0 || >=22.12.0`, where `require()` of an ES module works too; Deno 2; Bun 1; browsers with ES2022. One dependency, [`@noble/hashes`](https://www.npmjs.com/package/@noble/hashes).
 - TypeScript 5.7 or later. An older compiler fails on the import with `has no exported member`, where it would otherwise read every byte type as `any`. A CommonJS file compiled with TypeScript `module: node16` cannot import an ES module; 5.8 or later with `nodenext` can.
-- jest runs it in ESM mode (`NODE_OPTIONS=--experimental-vm-modules` and `transform: {}`) or on Node 24.9 or later; vitest needs nothing.
+- jest runs it in ESM mode (`NODE_OPTIONS=--experimental-vm-modules` and `transform: {}`) or on Node 24.9 or later; vitest needs nothing. Under jsdom the bytes a builder returns are Node's `Uint8Array`, not the window's, so `expect.any(Uint8Array)` misses them: compare with `toEqual(new Uint8Array(...))` or check `ArrayBuffer.isView`.
 - The main entry uses no host-specific global, so it runs in a worker, in Cloudflare Workers and during server rendering. The migration subpath picks a build of its wasm per runtime: inlined by default, read from its file under Node, and compiled at deploy time under the `workerd` condition Wrangler sets. Vercel Edge is untested for the migration.
 - `decodeObject` pulls in every model, about 20 kB gzipped; `buildUri` alone is about 3 kB and the whole entry about 28 kB (`npm run size`: esbuild, minified, gzipped).
 - The id guard and the clock belong to one copy of the package. A library that wraps this one should declare it a peer dependency, so a page holds one copy.

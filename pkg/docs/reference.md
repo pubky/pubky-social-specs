@@ -223,7 +223,7 @@ The filter of a feed, which is its identity.
 | member | type | null | meaning |
 |---|---|---|---|
 | `reach` | `"following" \| "followers" \| "friends" \| "all" \| "wot" \| "me"` |  | Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. |
-| `layout` | `"list" \| "visual" \| "columns" \| "wide"` |  | How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first) or `list`. |
+| `layout` | `"list" \| "visual" \| "columns" \| "wide" \| "cards"` |  | How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. |
 | `sort` | `"recent" \| "popularity"` |  | The order of the posts, one of `feedSorts`: `recent` or `popularity`. |
 | `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; null for every kind. |
 | `tags` | `string[]` | yes | The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. |

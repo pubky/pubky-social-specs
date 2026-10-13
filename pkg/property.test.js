@@ -80,7 +80,7 @@ const newFeed = fc.record(
     name: word,
     icon: fc.stringMatching(/^[a-z0-9-]{1,50}$/),
     reach: fc.constantFrom("following", "followers", "friends", "all", "wot", "me"),
-    layout: fc.constantFrom("columns", "wide", "visual", "list"),
+    layout: fc.constantFrom("columns", "wide", "visual", "list", "cards"),
     sort: fc.constantFrom("recent", "popularity"),
     content: fc.option(fc.constantFrom("note", "article", "image")),
     tags: fc.option(fc.array(label, { minLength: 1, maxLength: 5 })),

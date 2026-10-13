@@ -41,6 +41,12 @@ const {
   listPrefix,
   toPath,
   hashMedia,
+  toUrl,
+  isOneOf,
+  parsePubkyUrl,
+  tryDecodeObject,
+  ENGINE_CAPS,
+  MIGRATION_CAPS,
 } = specs;
 
 describe("pubky-social-specs", () => {
@@ -53,6 +59,8 @@ describe("pubky-social-specs", () => {
         Object.keys(specs).sort(),
         [
           "ArgumentError",
+          "ENGINE_CAPS",
+          "MIGRATION_CAPS",
           "ValidationError",
           "buildBookmark",
           "buildFeed",
@@ -95,6 +103,8 @@ describe("pubky-social-specs", () => {
           "planUnpublish",
           "postKinds",
           "toPath",
+          "toUrl",
+          "isOneOf",
           "tryDecodeObject",
           "validMimeTypes",
           "feedSchema",
@@ -122,7 +132,7 @@ describe("pubky-social-specs", () => {
       assert.ok(validMimeTypes.includes("image/png"));
       assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection"]);
       assert.ok(Object.isFrozen(limits) && Object.isFrozen(limits.tagInvalidChars) && Object.isFrozen(postKinds) && Object.isFrozen(validMimeTypes));
-      assert.deepStrictEqual([feedReaches.length, feedLayouts.length, feedSorts.length, collectionLayouts.length], [6, 4, 2, 3]);
+      assert.deepStrictEqual([feedReaches.length, feedLayouts.length, feedSorts.length, collectionLayouts.length], [6, 5, 2, 3]);
     });
   });
 
@@ -358,7 +368,7 @@ describe("pubky-social-specs", () => {
         [feedReaches, feedLayouts, feedSorts],
         [
           ["following", "followers", "friends", "all", "wot", "me"],
-          ["columns", "wide", "visual", "list"],
+          ["columns", "wide", "visual", "list", "cards"],
           ["recent", "popularity"],
         ],
       );
@@ -398,9 +408,59 @@ describe("pubky-social-specs", () => {
       await assert.rejects(hashMedia("bytes"), (e) => e instanceof TypeError && /source must be a Blob or a ReadableStream/.test(e.message));
       await assert.rejects(hashMedia(new Response("text").body.pipeThrough(new TextDecoderStream())), /a chunk of source must be a Uint8Array/);
     });
+
+    it("hashMedia reads a Blob that cannot stream, as jsdom's cannot, whole", async () => {
+      const bytes = utf8("a picture");
+      const blob = { arrayBuffer: async () => bytes.slice().buffer };
+      assert.strictEqual(await hashMedia(blob), buildFile(OTTO, { bytes, type: "image/png" }).id);
+      await assert.rejects(hashMedia({ arrayBuffer: async () => "bytes" }), (e) => e instanceof TypeError && /source must be a Uint8Array or an ArrayBuffer/.test(e.message));
+    });
+
+    it("toUrl is toPath backwards, and isOneOf narrows to a table's names", () => {
+      const post = buildPost(OTTO, { content: "x" });
+      assert.strictEqual(toUrl(OTTO, post.path), post.url);
+      assert.strictEqual(toPath(toUrl(OTTO, "/pub/pubky.app/tags/X")), "/pub/pubky.app/tags/X");
+      assert.strictEqual(caught(() => toUrl(OTTO, post.url)).code, "path");
+      assert.strictEqual(caught(() => toUrl("otto", post.path)).field, "owner");
+      assert.deepStrictEqual([isOneOf(postKinds, "article"), isOneOf(postKinds, "podcast"), isOneOf(feedLayouts, "cards"), isOneOf(postKinds, 1)], [true, false, true, false]);
+    });
+
+    it("parsePubkyUrl with a kind refuses the URL of another one", () => {
+      const post = buildPost(OTTO, { content: "x" });
+      assert.strictEqual(parsePubkyUrl(post.url, "post"), post.url);
+      const other = caught(() => parsePubkyUrl(post.url, "feed"));
+      assert.deepStrictEqual([other.code, other.message], ["path", `Validation Error: ${post.url} names a post, not a feed`]);
+      assert.strictEqual(caught(() => parsePubkyUrl(post.url, "nope")).code, "unknown_name");
+    });
+
+    it("the session grants are in the main entry", () => {
+      assert.strictEqual(ENGINE_CAPS, "/pub/social/v1/:rw,/priv/social/v1/:rw");
+      assert.strictEqual(MIGRATION_CAPS, `${ENGINE_CAPS},/priv/app.pubky/v1/:rw,/pub/pubky.app/:rw`);
+    });
   });
 
   describe("reading and writing stored objects", () => {
+    it("without a URL, bytes are read under the root given and by no rule that needs a path", () => {
+      const post = buildPost(OTTO, { content: "x", root: "private", attachments: [{ uri: `pubky://${OTTO}/priv/social/v1/files/0000000000000000000000000G.png` }] });
+      // A path names the author, and under another one the private media is someone else's
+      assert.strictEqual(caught(() => decodeObject(toUrl(RIO, post.path), post.body)).code, "reference");
+      assert.deepStrictEqual(decodeObject({ kind: "post", root: "private" }, post.body), post.object);
+      assert.match(caught(() => decodeObject({ kind: "post" }, post.body)).message, /private/);
+      const feed = buildFeed(OTTO, { name: "Rust", icon: "crab", reach: "all", layout: "cards", sort: "recent" });
+      assert.deepStrictEqual(decodeObject({ kind: "feed" }, feed.body), feed.object);
+      assert.deepStrictEqual(encodeObject({ kind: "feed" }, decodeObject({ kind: "feed" }, feed.body)), feed.body);
+      assert.deepStrictEqual(decodeObject({ kind: "file" }, utf8("raw")), utf8("raw"));
+      assert.deepStrictEqual(tryDecodeObject({ kind: "user" }, utf8("{}")).ok, false);
+      assert.strictEqual(caught(() => decodeObject({ kind: "nope" }, post.body)).code, "unknown_name");
+      misuse(() => decodeObject({ kind: "post", path: "x" }, post.body), /path/);
+    });
+
+    it("an envelope reads from a kind and a content alone", () => {
+      const article = buildPost(OTTO, { kind: "article", title: "On pubky", body: "..." });
+      assert.deepStrictEqual(decodeContent({ kind: "article", content: article.object.content }), decodeContent(article.object));
+      assert.strictEqual(decodeContent({ kind: "note", content: "x" }), null);
+    });
+
     it("every kind a builder writes reads back as the object it returned", () => {
       const all = [
         ["user", buildUser(OTTO, { name: "Alice" })],

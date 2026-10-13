@@ -1,5 +1,6 @@
 import { ValidationError } from "./errors.js";
 import type * as T from "./types.js";
+export { ENGINE_CAPS, MIGRATION_CAPS } from "./caps.js";
 export { limits, validMimeTypes } from "./data.js";
 export { ArgumentError, ValidationError } from "./errors.js";
 export type { ErrorCode } from "./errors.js";
@@ -12,6 +13,9 @@ export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
  * Reads what is stored at `uri`, a full `pubky://` URL, by the rules of the kind the URL names:
  * the id where the id is derived from the content (a tag, a feed, a bookmark, media), the root,
  * and for a post the author. Media comes back as its bytes, a view of the ones given.
+ *
+ * `{ kind, root? }` instead of a URL reads bytes kept somewhere the data model does not name,
+ * by the rules that need no path, as `encodeObject` writes them.
  *
  * Other people's data can be anything, so decode it inside a try, or with `tryDecodeObject`. A
  * post of a kind this version does not know is refused too: it has rules this version cannot
@@ -34,6 +38,14 @@ export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
  */
 export declare function decodeObject<K extends keyof T.Stored>(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: K): T.Stored[K];
 export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): T.Bytes;
+export declare function decodeObject<K extends keyof T.Stored>(at: {
+    kind: K;
+    root?: T.Root | null;
+}, bytes: Uint8Array | ArrayBuffer): T.Stored[K];
+export declare function decodeObject(at: {
+    kind: "file";
+    root?: T.Root | null;
+}, bytes: Uint8Array | ArrayBuffer): T.Bytes;
 export declare function decodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer): T.Decoded;
 /**
  * The bytes to PUT for an object read and then changed, its unknown members kept. `object` is
@@ -69,7 +81,8 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
 }, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
  * The envelope inside the `content` of an article or a collection; null for any other kind.
- * `post` is a stored post, the `.object` of a result.
+ * `post` is a stored post, the `.object` of a result, or the `kind` and `content` of one, which
+ * is all an indexer may have handed over.
  *
  * @throws `ValidationError` with `code: "json"` when the content of an
  *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
@@ -84,7 +97,7 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
  * if (envelope?.kind === "article") console.log(envelope.content.title);
  * ```
  */
-export declare function decodeContent(post: T.Post): {
+export declare function decodeContent(post: Pick<T.Post, "kind" | "content">): {
     kind: "article";
     content: T.ArticleContent;
 } | {
@@ -320,6 +333,8 @@ export declare function createMediaHasher(): {
  * the thread is free between chunks, so a large file does not freeze a page. The same id as
  * `buildFile` gives for the same bytes; pass it there as `id`.
  *
+ * A `Blob` with no `stream()`, as jsdom's has none, is read whole through `arrayBuffer()`.
+ *
  * @throws `ArgumentError` when `source` is neither a `Blob` nor a stream of bytes; a rejection of
  *  the stream itself passes through.
  *
@@ -510,6 +525,36 @@ export declare function listPrefix(owner: T.Given<"Owner">, tree: T.Root | "lega
  */
 export declare function toPath(uri: string): T.OwnerPath;
 /**
+ * The `pubky://` URL of an owner-relative path under `owner`: `toPath` backwards, for a
+ * transport that takes URLs where a plan or `deletionPaths` gives paths.
+ *
+ * @throws `ValidationError` for a malformed key (`field: "owner"`) or, with `code: "path"`, a
+ *  string that is no owner-relative path under a known root.
+ *
+ * @example
+ * ```ts
+ * import { deletionPaths, toUrl } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const friend = "dzswkfy7ek3bqnoc89jxuqqfbzhjrj6mi8qthgbxxcqkdugm3rio";
+ * console.log(deletionPaths({ kind: "follow", id: friend }).map((path) => toUrl(owner, path)));
+ * ```
+ */
+export declare function toUrl(owner: T.Given<"Owner">, path: T.PathArg): `pubky://${string}`;
+/**
+ * Whether `value` is one of `names`, a table such as `postKinds` or `feedLayouts`: the guard
+ * that narrows a string an indexer or a form handed over to the names this version knows.
+ *
+ * @throws Nothing: a value that is no string is `false`.
+ *
+ * @example
+ * ```ts
+ * import { isOneOf, postKinds } from "pubky-social-specs";
+ * const kind: string = "article";
+ * if (isOneOf(postKinds, kind)) console.log(kind satisfies (typeof postKinds)[number]);
+ * ```
+ */
+export declare function isOneOf<const N extends string>(names: readonly N[], value: unknown): value is N;
+/**
  * A bare public key as an `Owner`.
  *
  * @throws `ValidationError` with `code: "format"` for a string that is not 52 z-base32 characters.
@@ -567,7 +612,11 @@ export declare function parseMediaId(value: string): T.MediaId;
  * name one version. A path under another namespace, an unknown leaf or a post reference is
  * refused.
  *
- * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object.
+ * With `kind` the URL must name that kind, and the result is typed for it: what `editPost`
+ * takes for a version a LIST gave.
+ *
+ * @throws `ValidationError` with `code: "path"` for a string that is no URL of a stored object,
+ *  or of another kind than `kind`.
  *
  * @example
  * ```ts
@@ -575,6 +624,7 @@ export declare function parseMediaId(value: string): T.MediaId;
  * console.log(parsePubkyUrl("pubky8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto/pub/social/v1/profile.json"));
  * ```
  */
+export declare function parsePubkyUrl<K extends T.ObjectKind>(value: string, kind: K): T.PubkyUrl<K>;
 export declare function parsePubkyUrl(value: string): T.PubkyUrl;
 /**
  * Whether `value` is the canonical URL of a stored object, as `parsePubkyUrl` gives it: the
@@ -688,6 +738,26 @@ export declare function tryDecodeObject<K extends keyof T.Stored>(uri: T.UrlArg,
     error: ValidationError;
 };
 export declare function tryDecodeObject(uri: T.UrlArg, bytes: Uint8Array | ArrayBuffer, kind: "file"): {
+    ok: true;
+    value: T.Bytes;
+} | {
+    ok: false;
+    error: ValidationError;
+};
+export declare function tryDecodeObject<K extends keyof T.Stored>(at: {
+    kind: K;
+    root?: T.Root | null;
+}, bytes: Uint8Array | ArrayBuffer): {
+    ok: true;
+    value: T.Stored[K];
+} | {
+    ok: false;
+    error: ValidationError;
+};
+export declare function tryDecodeObject(at: {
+    kind: "file";
+    root?: T.Root | null;
+}, bytes: Uint8Array | ArrayBuffer): {
     ok: true;
     value: T.Bytes;
 } | {

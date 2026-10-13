@@ -382,7 +382,7 @@ const tagList = (r) =>
 const feedInput = (r) => {
   const o = {
     reach: r.pick(["all", "all", "following", "followers", "friends", "wot", "me", "galaxy", "unknown"]),
-    layout: r.pick(["columns", "columns", "wide", "list", "visual", "grid"]),
+    layout: r.pick(["columns", "columns", "wide", "list", "visual", "cards", "grid"]),
     sort: r.pick(["recent", "recent", "recent", "popularity", "random"]),
     name: r.pick(["Feed", "Feed", "Feed", " Feed ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
     icon: r.pick(["star", "star", "star", " Star ", "a-b-1", "", "i".repeat(r.pick([50, 51])), "st@r", "é", "A"]),

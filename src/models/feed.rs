@@ -49,6 +49,7 @@ pub enum PubkySocialFeedLayout {
     Wide,
     Visual,
     List,
+    Cards,
     Unknown(String),
 }
 
@@ -57,6 +58,7 @@ wire_names!(PubkySocialFeedLayout {
     Wide => "wide",
     Visual => "visual",
     List => "list",
+    Cards => "cards",
 });
 
 /// Enum representing the sort order of the feed.
@@ -470,6 +472,7 @@ impl FromStr for PubkySocialFeedLayout {
             "wide" => Ok(PubkySocialFeedLayout::Wide),
             "visual" => Ok(PubkySocialFeedLayout::Visual),
             "list" => Ok(PubkySocialFeedLayout::List),
+            "cards" => Ok(PubkySocialFeedLayout::Cards),
             _ => Err(format!("Validation Error: Invalid feed layout: {}", s)),
         }
     }

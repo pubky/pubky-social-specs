@@ -300,7 +300,7 @@ fn pinned_variants() -> Vec<(String, &'static str)> {
         (json(&R::Friends), r#""friends""#), (json(&R::All), r#""all""#), (json(&R::Wot), r#""wot""#),
         (json(&R::Me), r#""me""#),
         (json(&L::Columns), r#""columns""#), (json(&L::Wide), r#""wide""#), (json(&L::Visual), r#""visual""#),
-        (json(&L::List), r#""list""#),
+        (json(&L::List), r#""list""#), (json(&L::Cards), r#""cards""#),
         (json(&S::Recent), r#""recent""#), (json(&S::Popularity), r#""popularity""#),
         (json(&C::Grid), r#""grid""#), (json(&C::List), r#""list""#), (json(&C::Visual), r#""visual""#),
         (json(&C::Unknown("carousel".into())), r#""carousel""#),

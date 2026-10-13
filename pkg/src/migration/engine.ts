@@ -1,5 +1,6 @@
 import { limits, skipReasons, transformRev } from "../data.js";
 import { viewBytes } from "../bytes.js";
+import { ENGINE_CAPS, MIGRATION_CAPS } from "../caps.js";
 import { ValidationError } from "../errors.js";
 import { mediaStem, ownedPath } from "../path.js";
 import { legacyMediaKey, stableKey } from "../legacy.js";
@@ -11,34 +12,6 @@ import type { MigrationPort, PortErrorKind } from "./port.js";
 import { ordered } from "./order.js";
 import type { Bucket } from "./order.js";
 import type { AbortSignalLike, Counts, MigrationError, MigrationReport, Outcome, Phase, RunOptions } from "./types.js";
-
-/**
- * The scopes the engine writes, and all it checks a session for: both 1.x roots. Reading and
- * listing the 0.x tree is anonymous.
- *
- * @example
- * ```ts
- * import { ENGINE_CAPS, runMigration, MemoryPort } from "pubky-social-specs/migration";
- * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
- * const report = await runMigration({ owner, port: new MemoryPort(), caps: ENGINE_CAPS });
- * console.log(report.status);
- * ```
- */
-const ENGINE_CAPS = "/pub/social/v1/:rw,/priv/social/v1/:rw";
-
-/**
- * The full session grant of a migrating pubky-app: `ENGINE_CAPS`, the app's own private
- * namespace, and the 0.x tree, which deleting a migrated object later still reaches. The
- * engine does not check it; it is what the app asks for when it upgrades a session.
- *
- * @example
- * ```ts
- * import { MIGRATION_CAPS } from "pubky-social-specs/migration";
- * // The capabilities a migrating app asks for when it upgrades a session
- * console.log(MIGRATION_CAPS.split(","));
- * ```
- */
-const MIGRATION_CAPS = `${ENGINE_CAPS},/priv/app.pubky/v1/:rw,/pub/pubky.app/:rw`;
 
 const FLAG = "_migrated.json";
 // The epoch this engine walks to; a later one needs its own discovery and sourcing

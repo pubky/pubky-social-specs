@@ -118,7 +118,7 @@ export const skipReasons = /* @__PURE__ */ Object.freeze(["malformed", "shape", 
  * console.log(transformRev);
  * ```
  */
-export const transformRev: number = 2;
+export const transformRev: number = 3;
 
 /**
  * The code points the reference spells as \u{..} when an error quotes text, as inclusive

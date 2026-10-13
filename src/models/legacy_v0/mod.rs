@@ -26,6 +26,9 @@
 //! but `y` or `o` passed, and on native was rewritten to the standard spelling. [`PubkyId`]
 //! rejects that key as a URI host, a follow or mute id and a collection item host.
 //! Accepting it would give one user several keys, one per spelling.
+//!
+//! One value was added after the copy: the `cards` feed layout, the only change 0.8.1 made to
+//! the data model. 0.8.1 clients store it, and no indexer reads feeds, so no verdict moves.
 
 mod common;
 mod constants;

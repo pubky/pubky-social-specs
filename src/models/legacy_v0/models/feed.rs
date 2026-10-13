@@ -33,6 +33,7 @@ pub enum PubkyAppFeedLayout {
     Wide,
     Visual,
     List,
+    Cards,
 }
 
 /// Enum representing the sort order of the feed.
@@ -240,6 +241,7 @@ impl FromStr for PubkyAppFeedLayout {
             "wide" => Ok(PubkyAppFeedLayout::Wide),
             "visual" => Ok(PubkyAppFeedLayout::Visual),
             "list" => Ok(PubkyAppFeedLayout::List),
+            "cards" => Ok(PubkyAppFeedLayout::Cards),
             _ => Err(format!("Invalid feed layout: {}", s)),
         }
     }

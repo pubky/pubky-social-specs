@@ -26,7 +26,7 @@ export const postKinds = Object.freeze(["note", "article", "image", "video", "li
  */
 export const feedReaches = Object.freeze(["following", "followers", "friends", "all", "wot", "me"] as const);
 /**
- * How a client lays a feed out: `columns`, `wide`, `visual` (media first) and `list`.
+ * How a client lays a feed out: `columns`, `wide`, `visual` (media first), `list` and `cards`.
  *
  * @example
  * ```ts
@@ -34,7 +34,7 @@ export const feedReaches = Object.freeze(["following", "followers", "friends", "
  * console.log(feedLayouts.join(", "));
  * ```
  */
-export const feedLayouts = Object.freeze(["columns", "wide", "visual", "list"] as const);
+export const feedLayouts = Object.freeze(["columns", "wide", "visual", "list", "cards"] as const);
 /**
  * The orders of a feed: `recent` and `popularity`.
  *

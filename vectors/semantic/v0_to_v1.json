@@ -824,6 +824,44 @@
       }
     },
     {
+      "name": "feed: the cards layout 0.8.1 added is carried",
+      "kind": "feed",
+      "input": {
+        "path": "pub/pubky.app/feeds/D3XS9CD6X5HAB58CEY49C89P1G",
+        "body": {
+          "feed": {
+            "tags": null,
+            "reach": "all",
+            "layout": "cards",
+            "sort": "recent",
+            "content": null
+          },
+          "name": "Cards",
+          "icon": "layout-dashboard",
+          "created_at": 1727740800000000
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "priv/social/v1/feeds/MTE8BVWGX3ZXTR1EYS7VP0FRGM.json",
+            "body": {
+              "feed": {
+                "tags": null,
+                "reach": "all",
+                "layout": "cards",
+                "sort": "recent",
+                "content": null
+              },
+              "name": "Cards",
+              "icon": "layout-dashboard",
+              "created_at": 1727740800000000
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "feed with unknown content: no derivable id",
       "kind": "feed",
       "input": {

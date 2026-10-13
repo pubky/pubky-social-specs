@@ -140,7 +140,7 @@ fn round_trips<T: DeserializeOwned + serde::Serialize>(wire: &[&str]) {
 #[test]
 fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
     round_trips::<PubkySocialFeedReach>(&["following", "followers", "friends", "all", "wot", "me"]);
-    round_trips::<PubkySocialFeedLayout>(&["columns", "wide", "visual", "list"]);
+    round_trips::<PubkySocialFeedLayout>(&["columns", "wide", "visual", "list", "cards"]);
     round_trips::<PubkySocialFeedSort>(&["recent", "popularity"]);
     round_trips::<PubkySocialPostKind>(&[
         "note",

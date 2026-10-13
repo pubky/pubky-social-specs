@@ -57,18 +57,21 @@ function located(uri: string): { kind: ObjectKind; id: string; editId: string | 
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-/** The object stored at `uri`, its kind and its value; for media the value is the bytes. */
-export function read(uri: string, bytes: Uint8Array): { kind: ObjectKind; value: unknown } {
-  const { kind, id, editId, root, owner } = located(uri);
+/**
+ * The object stored at `at`, its kind and its value; for media the value is the bytes. Without
+ * a URI the bytes are read by the rules that need no id and no author.
+ */
+export function read(at: string | { kind: ObjectKind; root: Root }, bytes: Uint8Array): { kind: ObjectKind; value: unknown } {
+  const { kind, id, editId, root, owner } = typeof at === "string" ? located(at) : { kind: at.kind, id: null, editId: null, root: at.root, owner: null };
   if (kind === "file") {
     checkFile(bytes, id);
     return { kind, value: bytes };
   }
   const publicRoot = root === "public";
   const value = readStored(modelOf(kind), bytes, id, publicRoot);
-  if (editId !== null) checkVersion(id, editId);
+  if (id !== null && editId !== null) checkVersion(id, editId);
   // The URI names the author, so the ownership rule can run here
-  if (kind === "post") checkReferences(value as Post, publicRoot, owner);
+  if (owner !== null && kind === "post") checkReferences(value as Post, publicRoot, owner);
   return { kind, value };
 }
 

@@ -57,11 +57,11 @@ export type PostRef = Brand<`pubky://${string}`, "PostRef">;
 /** Where a reference may point: anything but one version of a post. */
 export type Reference = Given<"PostRef" | `PubkyUrl.${Exclude<ObjectKind, "post">}`>;
 
-/** A URL argument naming a stored object. */
-export type UrlArg<K extends ObjectKind = ObjectKind> = Given<`PubkyUrl.${K}`, `pubky://${string}`>;
+/** A URL argument naming a stored object: a plain string, such as an entry of a LIST, or a `PubkyUrl`. */
+export type UrlArg<K extends ObjectKind = ObjectKind> = Given<`PubkyUrl.${K}`>;
 
-/** An owner-relative path argument. */
-export type PathArg = Given<"OwnerPath", PathText>;
+/** An owner-relative path argument: a plain string or an `OwnerPath`. */
+export type PathArg = Given<"OwnerPath">;
 
 /**
  * A media type the data model names, one of `validMimeTypes`. It picks the extension of a media
@@ -133,7 +133,7 @@ export interface Mute extends Open, Plain<graph.Edge> {}
 export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort"> {
   /** Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. */
   reach: KnownFeedReach;
-  /** How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first) or `list`. */
+  /** How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. */
   layout: KnownFeedLayout;
   /** The order of the posts, one of `feedSorts`: `recent` or `popularity`. */
   sort: KnownFeedSort;
@@ -392,11 +392,16 @@ export interface ByteStream {
   getReader(): { read(): Promise<{ done: boolean; value?: Uint8Array | undefined }>; releaseLock(): void };
 }
 
-/** A `Blob` or a `File`, as far as `hashMedia` reads one. */
-export interface BlobLike {
-  /** The bytes as a stream, as `Blob.prototype.stream` gives them. */
-  stream(): ByteStream;
-}
+/** A `Blob` or a `File`, as far as `hashMedia` reads one: a chunk at a time where it streams, whole where it does not. */
+export type BlobLike =
+  | {
+      /** The bytes as a stream, as `Blob.prototype.stream` gives them. */
+      stream(): ByteStream;
+    }
+  | {
+      /** The bytes at once, as `Blob.prototype.arrayBuffer` gives them. */
+      arrayBuffer(): Promise<ArrayBuffer>;
+    };
 
 /** What `hashMedia` reads: a `Blob`, a `File` or a `ReadableStream` of bytes. */
 export type MediaSource = BlobLike | ByteStream;
@@ -458,7 +463,7 @@ export type ParsedUri = {
   owner: Owner;
   /** The root the path is under; `"public"` for the bare owner URL. */
   root: Root;
-  /** The owner-relative path; empty for the bare owner URL `pubky://<owner>`, a reference to the user. */
+  /** The owner-relative path; empty for the bare owner URL `pubky://<owner>`. */
   path: OwnerPath | "";
 } & (
   | {

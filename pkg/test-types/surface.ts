@@ -1,6 +1,10 @@
 // Type tests: this file only has to compile. `@ts-expect-error` marks what must not.
 
 import {
+  ENGINE_CAPS,
+  isOneOf,
+  postKinds,
+  toUrl,
   buildBookmark,
   buildFile,
   buildFollow,
@@ -119,6 +123,26 @@ decodeObject(path, bytes);
 planUnpublish({ id: built.id, publicPaths: [at] });
 declare const listed: string[];
 deletionPaths({ kind: "post", id: built.id, listings: listed.map(toPath) }) satisfies OwnerPath[];
+// A plain string, as a LIST gives one, is a URL or a path wherever one is taken
+decodeObject(listed[0]!, bytes);
+editPost(owner, listed[0]!, expected);
+encodeObject(listed[0]!, expected);
+planUnpublish({ id: built.id, publicPaths: listed });
+// and one checked for its kind is typed for it
+parsePubkyUrl(listed[0]!, "post") satisfies PubkyUrl<"post">;
+// @ts-expect-error the URL of a feed is no post version
+editPost(owner, parsePubkyUrl(listed[0]!, "feed"), expected);
+// Bytes kept outside the data model's paths read by kind
+decodeObject({ kind: "post", root: "private" }, bytes) satisfies Post;
+decodeObject({ kind: "file" }, bytes) satisfies Bytes;
+const loose = tryDecodeObject({ kind: "feed" }, bytes);
+if (loose.ok) loose.value satisfies Feed;
+// An indexer's kind and content are enough to read an envelope
+decodeContent({ kind: "article", content: "{}" });
+toUrl(owner, built.path) satisfies `pubky://${string}`;
+ENGINE_CAPS satisfies string;
+declare const listedKind: string;
+if (isOneOf(postKinds, listedKind)) listedKind satisfies KnownPostKind;
 const media: BuiltFile = buildFile(owner, { bytes: new ArrayBuffer(1), type: "image/png" });
 void [media, setClock];
 

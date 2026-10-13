@@ -267,7 +267,7 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         // A migrated post keeps its 0.x copy, which a reindex would read back as the post
         const legacy = `${roots.legacy}posts/${parsePostId(id)}`;
         if (await legacyExists(legacy)) listings.push(legacy);
-        await remove(deletionPaths({ kind: "post", id, listings: listings as T.PathArg[] }));
+        await remove(deletionPaths({ kind: "post", id, listings }));
       },
     },
 
