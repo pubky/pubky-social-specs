@@ -172,6 +172,16 @@ describe("pubky-social-specs/client", () => {
     assert.deepStrictEqual([...hs.store.keys()].sort(), [file, legacy("junk"), other].sort());
   });
 
+  it("removes a tag past a 0.x tag on another user's file it cannot read, and names that tag", async () => {
+    const { hs, social } = ottoClient();
+    const tag = await social.tags.add("https://example.com/a", "rust");
+    const foreign = `pubky://${OTTO}/pub/pubky.app/tags/FOREIGN`;
+    hs.store.set(foreign, encoder.encode(JSON.stringify({ uri: `pubky://${RIO}/pub/pubky.app/files/0034A0X7NJ52C`, label: "rust" })));
+    // No publicStorage: the file that says which v1 tag this one copies is out of reach
+    assert.deepStrictEqual(await social.tags.remove(tag.id), { legacyRefused: ["/pub/pubky.app/tags/FOREIGN"] });
+    assert.ok(!hs.store.has(tag.url) && hs.store.has(foreign));
+  });
+
   it("deletes a post oldest version first, one DELETE after the other, and stops where one fails", async () => {
     const hs = fakeHomeserver();
     const session = hs.session(OTTO);

@@ -61,11 +61,12 @@ export interface ClientOptions {
 
 /**
  * What a delete could not reach. A session granted only the 1.x tree is refused under
- * `/pub/pubky.app/`, so a 0.x copy of the object may still be there, and an indexer that reads
- * 0.x would bring the object back from it. Empty when nothing was refused.
+ * `/pub/pubky.app/`, and a 0.x tag on another user's file cannot be told from its copy when
+ * that file cannot be read. A 0.x copy of the object may still be there, and an indexer that
+ * reads 0.x would bring the object back from it. Empty when nothing was left.
  */
 export interface Removed {
-  /** The 0.x paths the session was refused: each may still hold a copy. */
+  /** The 0.x paths left: each may still hold a copy. */
   legacyRefused: T.OwnerPath[];
 }
 
@@ -267,17 +268,26 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     }
   };
   // Read loosely: deletionPaths checks the path against what was read before anything is deleted
-  const legacyTag = async (path: string): Promise<T.Listing | null> => {
+  // Answers undefined, to ask again later, for a tag on a file of another user that cannot be read now
+  const legacyTag = async (path: string): Promise<T.Listing | null | undefined> => {
     const tag = await jsonAt(storage.getBytes(path));
     if (tag === null || typeof tag.uri !== "string" || typeof tag.label !== "string") return null;
     const { uri, label } = tag;
     if (!(uri.startsWith("pubky") && uri.includes(`${roots.legacy}files/`))) return { path, uri, label };
     // A tag on a 0.x File object is respelled for v1 from what that object says of its bytes
     const mine = `pubky://${owner}`;
-    const file = await jsonAt(uri.startsWith(`${mine}/`) ? storage.getBytes(uri.slice(mine.length)) : others().getBytes(uri));
+    let file: Record<string, unknown> | null;
+    if (uri.startsWith(`${mine}/`)) file = await jsonAt(storage.getBytes(uri.slice(mine.length)));
+    else {
+      try {
+        file = await jsonAt(others().getBytes(uri));
+      } catch {
+        return undefined;
+      }
+    }
     return typeof file?.src === "string" && typeof file.content_type === "string" ? { path, uri, label, src: file.src, contentType: file.content_type } : { path, uri, label };
   };
-  /** The 0.x tags that are copies of tag `id`. A session refused the 0.x tree finds none and says so in `refused`. */
+  /** The 0.x tags that are copies of tag `id`. What could not be read, a tag or the whole tree, goes in `refused`. */
   const legacyCopies = async (id: string, refused: string[]): Promise<T.Listing[]> => {
     const prefix = `${roots.legacy}tags/`;
     const copies: T.Listing[] = [];
@@ -285,7 +295,15 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       for await (const url of listed(owner, prefix)) {
         const path = pathOf(owner, url);
         let listing = legacyTags.get(path);
-        if (listing === undefined) legacyTags.set(path, (listing = await legacyTag(path)));
+        if (listing === undefined) {
+          listing = await legacyTag(path);
+          if (listing === undefined) {
+            // Which v1 tag it copies is unknown without that file, so it may be this one
+            refused.push(path);
+            continue;
+          }
+          legacyTags.set(path, listing);
+        }
         if (listing === null) continue;
         try {
           deletionPaths({ kind: "tag", id, listings: [listing] });
@@ -408,8 +426,9 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
      * deletes the tag's 0.x copies first. Their names do not follow from the id, so it lists
      * the 0.x tags and reads each one once per client: the first removal costs a GET per 0.x
      * tag the owner has, and one per tagged 0.x file, which for another user's file needs
-     * `options.publicStorage`. A session not granted the 0.x tree still deletes the 1.x tag
-     * and names the directory in `legacyRefused`.
+     * `options.publicStorage`. A 0.x tag whose file cannot be read is left and named in
+     * `legacyRefused`, as is the directory for a session not granted the 0.x tree: the 1.x
+     * tag is deleted either way.
      */
     tags: {
       async add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>> {
