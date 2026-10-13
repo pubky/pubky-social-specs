@@ -16,6 +16,10 @@ dist/canonicalize.d.ts
 dist/canonicalize.d.ts.map
 dist/canonicalize.js
 dist/canonicalize.js.map
+dist/caps.d.ts
+dist/caps.d.ts.map
+dist/caps.js
+dist/caps.js.map
 dist/client/index.d.ts
 dist/client/index.d.ts.map
 dist/client/index.js
@@ -188,6 +192,7 @@ package.json
 src/base64url.ts
 src/bytes.ts
 src/canonicalize.ts
+src/caps.ts
 src/client/index.ts
 src/clock.ts
 src/data.ts

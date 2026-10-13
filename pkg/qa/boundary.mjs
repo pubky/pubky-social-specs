@@ -169,6 +169,8 @@ const calls = {
   buildUri: [OWNER, "post", post.id],
   listPrefix: [OWNER, "public"],
   toPath: [post.url],
+  toUrl: [OWNER, post.path],
+  isOneOf: [api.postKinds, "note"],
   hashMedia: [new Blob([file])],
   parseOwner: [OWNER],
   parsePostId: [post.id],
