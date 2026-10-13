@@ -36,7 +36,7 @@ const PROBES = [
   ["index.js", "* as all", 30_000, ["WebAssembly"]],
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
   ["testing.js", "* as all", 22_000, ["WebAssembly"]],
-  ["client/index.js", "{ createSocialClient }", 28_000, ["WebAssembly"]],
+  ["client/index.js", "{ createSocialClient }", 29_000, ["WebAssembly"]],
   ["migration/index.js", "* as all", 340_000, []],
   ["migration/adapters/pubky-sdk.js", "* as all", 3_000, ["WebAssembly"]],
 ];

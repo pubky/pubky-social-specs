@@ -82,7 +82,7 @@ const migrateUser = async (user, recoveryDir) => {
     if (previous.seedEpoch === epoch && FINAL.has(previous.report?.status) && dumped) return;
   }
   const recovery = path.join(recoveryDir, `${user.pk}.pkarr`);
-  writeFileSync(recovery, keypairOf(user.secret).createRecoveryFile(PASSPHRASE));
+  writeFileSync(recovery, keypairOf(user.secret).createRecoveryFile(PASSPHRASE), { mode: 0o600 });
   const failures = [];
   let run;
   let report = null;

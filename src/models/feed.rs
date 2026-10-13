@@ -422,7 +422,8 @@ impl Validatable for PubkySocialFeed {
         ctx: &ValidationCtx,
     ) -> Result<(), ValidationError> {
         // Config first, so an unrecognized value is reported as such and not as an id mismatch
-        self.feed.validate(None, ctx)?;
+        // The filter has no cap of its own: the object's holds it, as stored on a read
+        self.feed.validate_fields(None, ctx)?;
         check_extra(&self.extra, &["feed", "name", "icon", "created_at"])?;
 
         if frozen_trim(&self.name).is_empty() {
@@ -1088,6 +1089,20 @@ mod tests {
         let mut shadow = f.clone();
         shadow.feed.extra.insert("reach".into(), "x".into());
         assert!(validate(&shadow).unwrap_err().contains("shadow"));
+    }
+
+    #[test]
+    fn the_filter_of_a_stored_feed_is_capped_with_its_object_as_stored() {
+        // 50 KB as stored; a writer spells each number in three more bytes, past the cap
+        let pad = vec!["1e-5"; 10_000].join(",");
+        let blob = format!(
+            r#"{{"feed":{{"tags":null,"reach":"all","layout":"list","sort":"popularity","content":null,"pad":[{pad}]}},"name":"All","created_at":1700000000}}"#
+        );
+        let id = feed(stored(None, None, R::All, L::List, S::Popularity, None)).create_id();
+        let f =
+            <PubkySocialFeed as Validatable>::try_from(blob.as_bytes(), &id, &PRIV_CTX).unwrap();
+        assert!(serde_json::to_vec(&f.feed).unwrap().len() > VALIDATION_LIMITS.object_max_bytes);
+        assert!(f.validate(None, &PRIV_CTX).unwrap_err().contains("exceeds"));
     }
 
     #[test]

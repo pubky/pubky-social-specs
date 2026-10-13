@@ -111,6 +111,10 @@ describe("validators", function () {
       assert.strictEqual(schema["~standard"].vendor, "pubky-social-specs");
     }
     assert.deepStrictEqual(userSchema["~standard"].validate({ name: "Alice" }), { value: { name: "Alice" } });
+    assert.deepStrictEqual(postSchema["~standard"].validate({ content: "Hello", kind: "note" }), { value: { content: "Hello", kind: "note" } });
+    assert.deepStrictEqual(postSchema["~standard"].validate({ content: "", kind: "note" }), {
+      issues: [{ path: ["content"], code: "blank", message: "Post must have content, an embed, or attachments" }],
+    });
     const failed = feedSchema["~standard"].validate({ name: "F", icon: "star", reach: "nope", layout: "list", sort: "recent" });
     assert.deepStrictEqual(
       failed.issues.map((i) => i.path),

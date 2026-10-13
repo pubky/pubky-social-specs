@@ -71,7 +71,9 @@ counterpart when the change is meant. What to do with a mismatch against a vecto
 
 ## Stryker's surviving mutants
 
-The last run scored 97.46%: 828 mutants killed, 16 timed out, 22 alive. The ones alive are ones
+The last full run scored 97.46%: 828 mutants killed, 16 timed out, 22 alive. That run predates
+the correction of the engine line ranges in `pkg/stryker.config.mjs`, so read it as the score of
+the old ranges until the nightly reports the new one. The ones alive are ones
 no input can tell apart from the code, each checked by hand: `colon <= 0` against `< 0` in `canonicalExternal` (the scheme check refuses an empty
 scheme anyway); the `?? ""` and the final unknown-kind refusal in `deletion.ts` (unreachable past
 the guard before them); the optional chains in `lifecycle.ts`'s media check (every caller
@@ -189,7 +191,7 @@ piece again.
 | hostile arguments | `cd pkg && node --expose-gc qa/boundary.mjs` | 13,248 calls: a result, a `ValidationError` or a `TypeError` every time, the slowest 1.6 s, the heap 1 MB above where it started |
 | chaos port, 1000 seeds a profile | `cd pkg && node qa/chaos.mjs --variant <profile> --seeds 1000` | `main`, `quota-rate`, `lost-response`, `phantom-404`: no violation. `any-kind`, a port that lies in any way: 147, the same seeds and the same invariants as the build before the move (compared on seeds 0 to 149) |
 | mutation pass | `cd pkg && node qa/mutate.mjs` | 12 of 14 planted engine bugs caught. M12 and M14 pass as they did before the move: M12 is close to an equivalent mutant (the next object folding to the key PUTs, gets `exists` and counts as present), and with M14 the wasm still refuses an oversize blob, only after hashing it |
-| the replay | `cd tools/replay && node replay.mjs --data <dir> --to verify` | 849 of 849 users done; the oracle finds no mismatched user and no object migrated though refused; counts equal to the wasm run (107,138 written, 157 invalid, 11 shape, 7 malformed, 1,669 not migrated) |
+| the replay | `cd tools/replay && node replay.mjs --data <dir> --to verify` | 849 of 849 users done; the oracle finds no mismatched user and no object migrated though refused; counts equal to the wasm run but for the one `cards` feed, written now where it was a `shape` skip (107,139 written, 157 invalid, 10 shape, 7 malformed, 1,669 not migrated) |
 | the replay against the wasm run | every object of every tree compared with the dump kept from 2026-10-01, by size and hash | 222,201 objects, none differs; the 849 flags differ in `migrated_at` and in `transform_rev`, 1 then and 2 now |
 | the replay in a browser | `node replay.mjs --data <dir> --from browser --to browser --sample 2` | four sample users migrated in Chromium by the page harness, the 9,111-object one among them, and two in Firefox, each verified by the oracle with no mismatch |
 | the 100 MB blob in a browser | `node --experimental-websocket qa/cdp-run.mjs --only <pk> ...` (raw CDP: Playwright's pipe cannot carry a 100 MB request body) | done in 8.6 s and verified; the renderer peaked at 834 MB, with 5.6 MB in the package's wasm. On the wasm package the same user ended at 1.5 GB with 302 MB there |

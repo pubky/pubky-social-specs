@@ -86,7 +86,7 @@ export function read(at: string | { kind: ObjectKind; root: Root }, bytes: Uint8
  * object is checked by the rules that need no id and no author.
  */
 export function write(at: string | { kind: ObjectKind; root: Root }, js: unknown): Bytes {
-  const { kind, id, root, owner } = typeof at === "string" ? located(at) : { kind: at.kind, id: null, root: at.root, owner: null };
+  const { kind, id, editId, root, owner } = typeof at === "string" ? located(at) : { kind: at.kind, id: null, editId: null, root: at.root, owner: null };
   const publicRoot = root === "public";
   if (kind === "file") {
     if (!(js instanceof Uint8Array)) return misuse("object", "the bytes of the media");
@@ -98,6 +98,7 @@ export function write(at: string | { kind: ObjectKind; root: Root }, js: unknown
   const model = modelOf(kind);
   const value = model.codec.parse(js, kind);
   const body = validate(model, value, id, publicRoot);
+  if (id !== null && editId !== null) checkVersion(id, editId);
   if (owner !== null && kind === "post") checkReferences(value as Post, publicRoot, owner);
   return utf8(body);
 }

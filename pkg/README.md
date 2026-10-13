@@ -194,7 +194,7 @@ const profile = decodeObject(url, await session.storage.getBytes(toPath(url)), "
 await session.storage.putBytes(toPath(url), encodeObject(url, { ...profile, status: "On holiday" }));
 ```
 
-Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays on it. It also takes `{ kind, root? }` in place of a URL, for bytes that go somewhere the data model does not name. An edited feed filter moves the feed, since its id is the filter: write it at `buildUri(owner, "feed", feedId(feed))` and delete the old path.
+Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays on it. It also takes `{ kind, root? }` in place of a URL, for bytes that go somewhere the data model does not name. An edited feed filter moves the feed, since its id is the filter: write it at `buildUri(owner, "feed", feedId(feed))` and delete the old path. A feed is stored private; one shared with others is the same bytes PUT at `/pub/social/v1/feeds/<id>.json`, which the package has no builder for yet, and `deletionPaths` removes both copies.
 
 ### Articles and collections
 
@@ -383,7 +383,7 @@ if (newest?.ok) await social.posts.edit(newest, { ...newest.object, content: "He
 for await (const read of social.posts.list(friend)) if (read.ok) console.log(read.object.content);
 ```
 
-It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`), and `files` (`upload`, `get`). Reading another user's tree needs `publicStorage`, the SDK's `pubky.publicStorage`.
+It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`), and `files` (`upload`, `get`). Reading another user's tree needs `publicStorage`, the SDK's `pubky.publicStorage`. `tags.remove` also deletes the tag's 0.x copies, which it finds by reading the owner's 0.x tags, each once per client, so the first removal of a long-time user is slow.
 
 ## Runtimes and tooling
 

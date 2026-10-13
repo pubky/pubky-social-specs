@@ -3,7 +3,7 @@
 
 import assert from "assert";
 import { createSocialClient } from "./dist/client/index.js";
-import { ArgumentError, buildPost, editPost } from "./dist/index.js";
+import { ArgumentError, buildFile, buildPost, editPost } from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
 import { OTTO, RIO, T0, text } from "./core.fixture.js";
 import { answered, fakeHomeserver } from "./sdk.fixture.js";
@@ -125,6 +125,53 @@ describe("pubky-social-specs/client", () => {
     assert.strictEqual(text(hs.store.get(theirs.url)), text(theirs.body), "their version is untouched");
   });
 
+  it("mints an edit above the version that took its id when the clock is not past the head", async () => {
+    const { hs, social } = ottoClient();
+    const post = await social.posts.create({ content: "x" });
+    // The clock stands still, so the bytes pick the id and a second try from the same head picks it again
+    const theirs = editPost(OTTO, post.url, { ...post.object, content: "same" }, { root: "private" });
+    hs.store.set(theirs.url, theirs.body);
+    const edit = await social.posts.edit({ url: post.url }, { ...post.object, content: "same" });
+    assert.ok(edit.editId > theirs.editId);
+    assert.ok(edit.path.startsWith("/pub/"), "the root is the given head's, not the taken version's");
+    assert.deepStrictEqual(hs.store.get(edit.url), edit.body);
+  });
+
+  it("removes a tag with its 0.x copies, found by reading the 0.x tags once", async () => {
+    const hs = fakeHomeserver();
+    const session = hs.session(OTTO);
+    const social = createSocialClient(session);
+    const legacy = (id) => `pubky://${OTTO}/pub/pubky.app/tags/${id}`;
+    const json = (value) => encoder.encode(JSON.stringify(value));
+    // A 0.x tag id is the hash of its uri and label, the hash media goes by
+    const idOf = (uri, label) => buildFile(OTTO, { bytes: encoder.encode(`${uri}:${label}`), type: "" }).id;
+
+    const tag = await social.tags.add("https://example.com/a", "rust");
+    // A 0.x tag of the same target and label: its 0.x id spells the same input
+    const copy = legacy(idOf(tag.object.uri, "rust"));
+    hs.store.set(copy, json({ uri: tag.object.uri, label: "rust", created_at: 1 }));
+    // A tag on a 0.x File object is the v1 tag on the media that object names
+    const hash = buildFile(OTTO, { bytes: encoder.encode("png"), type: "image/png" }).id;
+    const file = `pubky://${OTTO}/pub/pubky.app/files/0034A0X7NJ52C`;
+    hs.store.set(file, json({ src: `pubky://${OTTO}/pub/pubky.app/blobs/${hash}`, content_type: "image/png" }));
+    const onMedia = await social.tags.add(`pubky://${OTTO}/pub/social/v1/files/${hash}.png`, "rust");
+    const onFile = legacy(idOf(file, "rust"));
+    hs.store.set(onFile, json({ uri: file, label: "rust", created_at: 1 }));
+    // Another tag, and bytes that are no tag, stay
+    const other = legacy(idOf("https://example.com/b", "rust"));
+    hs.store.set(other, json({ uri: "https://example.com/b", label: "rust", created_at: 1 }));
+    hs.store.set(legacy("junk"), encoder.encode("{"));
+
+    assert.deepStrictEqual(await social.tags.remove(tag.id), { legacyRefused: [] });
+    assert.ok(!hs.store.has(copy) && !hs.store.has(tag.url));
+    const gets = () => session.storage.calls.filter(([op]) => op === "getBytes").length;
+    const reads = gets();
+    assert.deepStrictEqual(await social.tags.remove(onMedia.id), { legacyRefused: [] });
+    assert.ok(!hs.store.has(onFile) && !hs.store.has(onMedia.url));
+    assert.strictEqual(gets(), reads, "a 0.x tag is read once");
+    assert.deepStrictEqual([...hs.store.keys()].sort(), [file, legacy("junk"), other].sort());
+  });
+
   it("deletes a post oldest version first, one DELETE after the other, and stops where one fails", async () => {
     const hs = fakeHomeserver();
     const session = hs.session(OTTO);
@@ -239,6 +286,20 @@ describe("the client over memoryHomeserver", () => {
     assert.deepStrictEqual(await social.mutes.remove(friend), { legacyRefused: [`/pub/pubky.app/mutes/${friend}`] });
     assert.strictEqual(await session.storage.exists(mute.path), false);
     void owner;
+  });
+
+  it("removes a tag with a session refused the 0.x tree: the 1.x tag goes and the directory is named", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const tag = await social.tags.add("https://example.com/a", "rust");
+    const list = session.storage.list;
+    session.storage.list = async (path, ...rest) => {
+      if (path.startsWith("/pub/pubky.app/")) throw Object.assign(new Error("403"), { data: { statusCode: 403 } });
+      return list(path, ...rest);
+    };
+    assert.deepStrictEqual(await social.tags.remove(tag.id), { legacyRefused: ["/pub/pubky.app/tags/"] });
+    assert.strictEqual(await session.storage.exists(tag.path), false);
   });
 
   it("deletes a post with a session refused the 0.x tree, probe included: the 1.x versions still go", async () => {

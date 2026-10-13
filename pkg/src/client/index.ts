@@ -126,10 +126,14 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     legacy: pathOf(owner, listPrefix(owner, "legacy")),
   };
   const own = { list: (path: string, cursor: string | null) => storage.list(path, cursor, false, pageSize, false), get: (path: string) => storage.getBytes(path) };
-  const reader = (author: string) => {
-    if (author === owner) return own;
+  const others = (): SdkPublicStorage => {
     const pub = options.publicStorage;
     if (pub === undefined) throw new TypeError("pubky-social-specs/client: reading another user's tree needs options.publicStorage, the SDK's pubky.publicStorage");
+    return pub;
+  };
+  const reader = (author: string) => {
+    if (author === owner) return own;
+    const pub = others();
     return { list: (path: string, cursor: string | null) => pub.list(`pubky://${author}${path}`, cursor, false, pageSize, false), get: (path: string) => pub.getBytes(`pubky://${author}${path}`) };
   };
 
@@ -243,10 +247,58 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
     for await (const _ of ownVersions(id)) return true;
     return false;
   };
-  /** An edit id is taken by a version of the post that carries it, in either root. */
-  const editTaken = async (id: string, editId: string) => {
-    for await (const url of ownVersions(id)) if (versionOf(url)?.editId === editId) return true;
-    return false;
+  /** The version of the post that already carries an edit id, in either root, or null. */
+  const editTaken = async (id: string, editId: string): Promise<string | null> => {
+    for await (const url of ownVersions(id)) if (versionOf(url)?.editId === editId) return url;
+    return null;
+  };
+
+  // A 0.x tag is named by a hash of what it holds, which a v1 id does not give back, so the
+  // copies of a tag are found by reading the 0.x tags. A path names its bytes: each is read once
+  const legacyTags = new Map<string, T.Listing | null>();
+  const jsonAt = async (bytes: Promise<Uint8Array>): Promise<Record<string, unknown> | null> => {
+    const stored = await orMissing(bytes, null);
+    if (stored === null) return null;
+    try {
+      const value: unknown = JSON.parse(new TextDecoder().decode(stored));
+      return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  };
+  // Read loosely: deletionPaths checks the path against what was read before anything is deleted
+  const legacyTag = async (path: string): Promise<T.Listing | null> => {
+    const tag = await jsonAt(storage.getBytes(path));
+    if (tag === null || typeof tag.uri !== "string" || typeof tag.label !== "string") return null;
+    const { uri, label } = tag;
+    if (!(uri.startsWith("pubky") && uri.includes(`${roots.legacy}files/`))) return { path, uri, label };
+    // A tag on a 0.x File object is respelled for v1 from what that object says of its bytes
+    const mine = `pubky://${owner}`;
+    const file = await jsonAt(uri.startsWith(`${mine}/`) ? storage.getBytes(uri.slice(mine.length)) : others().getBytes(uri));
+    return typeof file?.src === "string" && typeof file.content_type === "string" ? { path, uri, label, src: file.src, contentType: file.content_type } : { path, uri, label };
+  };
+  /** The 0.x tags that are copies of tag `id`. A session refused the 0.x tree finds none and says so in `refused`. */
+  const legacyCopies = async (id: string, refused: string[]): Promise<T.Listing[]> => {
+    const prefix = `${roots.legacy}tags/`;
+    const copies: T.Listing[] = [];
+    try {
+      for await (const url of listed(owner, prefix)) {
+        const path = pathOf(owner, url);
+        let listing = legacyTags.get(path);
+        if (listing === undefined) legacyTags.set(path, (listing = await legacyTag(path)));
+        if (listing === null) continue;
+        try {
+          deletionPaths({ kind: "tag", id, listings: [listing] });
+          copies.push(listing);
+        } catch (error) {
+          if (!(error instanceof ValidationError)) throw error;
+        }
+      }
+    } catch (error) {
+      if (!isRefused(error)) throw error;
+      refused.push(prefix);
+    }
+    return copies;
   };
 
   return {
@@ -267,12 +319,18 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       },
       /** The newest public version of a post, or of a draft with `root: "private"` (the owner's only). */
       head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root: T.Root = "public") => newest(parseOwner(author), id, root),
-      /** A new version of the post read as `head`, PUT where `editPost` puts it. An edit id already used in either root is minted again. */
+      /** A new version of the post read as `head`, PUT where `editPost` puts it. An edit id already used in either root is minted again, above the version that holds it. */
       async edit(head: { url: T.UrlArg<"post"> }, post: T.Post, editOptions?: { root?: T.Root | null; slug?: string | null }): Promise<T.BuiltPost> {
+        let from: string = head.url;
+        let options = editOptions;
         for (let attempt = 0; attempt < MINT_ATTEMPTS; attempt++) {
-          const built = editPost(owner, head.url, post, editOptions);
-          if (await editTaken(built.id, built.editId)) continue;
-          return stored(built);
+          const built = editPost(owner, from, post, options);
+          const clash = await editTaken(built.id, built.editId);
+          if (clash === null) return stored(built);
+          // The version found is newer than the head given, so the next id is minted above it,
+          // into the root the first try chose
+          from = clash;
+          options = { ...editOptions, root: parseUri(built.url).root };
         }
         throw new Error(`pubky-social-specs/client: ${MINT_ATTEMPTS} edit ids in a row were taken`);
       },
@@ -346,7 +404,12 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
 
     /**
      * The owner's tags: add, remove, list. `add` reads the tag's address first: a tag already
-     * there, which another app may have added to, is kept as it is and returned.
+     * there, which another app may have added to, is kept as it is and returned. `remove`
+     * deletes the tag's 0.x copies first. Their names do not follow from the id, so it lists
+     * the 0.x tags and reads each one once per client: the first removal costs a GET per 0.x
+     * tag the owner has, and one per tagged 0.x file, which for another user's file needs
+     * `options.publicStorage`. A session not granted the 0.x tree still deletes the 1.x tag
+     * and names the directory in `legacyRefused`.
      */
     tags: {
       async add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>> {
@@ -358,7 +421,11 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
         const read = decoded<T.Tag, "tag">(built.url, "tag", () => decodeObject(built.url, there, "tag"));
         return read.ok ? { ...built, object: read.object, body: new Uint8Array(there) } : stored(built);
       },
-      remove: (id: string) => remove(deletionPaths({ kind: "tag", id })),
+      remove: async (id: string): Promise<Removed> => {
+        const refused: string[] = [];
+        const listings = await legacyCopies(id, refused);
+        return remove(deletionPaths({ kind: "tag", id, listings }), refused);
+      },
       list: (author: T.Given<"Owner"> = owner) => readAll(parseOwner(author), `${roots.public}tags/`, "tag"),
     },
 

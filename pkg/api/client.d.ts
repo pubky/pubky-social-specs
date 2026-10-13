@@ -57,7 +57,7 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         create<const I extends T.NewPost>(input: I & T.CheckedPost<I>): Promise<T.BuiltPost>;
         /** The newest public version of a post, or of a draft with `root: "private"` (the owner's only). */
         head: (author: T.Given<"Owner">, id: T.Given<"PostId">, root?: T.Root) => Promise<Read<T.Post, "post"> | null>;
-        /** A new version of the post read as `head`, PUT where `editPost` puts it. An edit id already used in either root is minted again. */
+        /** A new version of the post read as `head`, PUT where `editPost` puts it. An edit id already used in either root is minted again, above the version that holds it. */
         edit(head: {
             url: T.UrlArg<"post">;
         }, post: T.Post, editOptions?: {
@@ -99,7 +99,12 @@ export declare function createSocialClient(session: SdkSession, options?: Client
     };
     /**
      * The owner's tags: add, remove, list. `add` reads the tag's address first: a tag already
-     * there, which another app may have added to, is kept as it is and returned.
+     * there, which another app may have added to, is kept as it is and returned. `remove`
+     * deletes the tag's 0.x copies first. Their names do not follow from the id, so it lists
+     * the 0.x tags and reads each one once per client: the first removal costs a GET per 0.x
+     * tag the owner has, and one per tagged 0.x file, which for another user's file needs
+     * `options.publicStorage`. A session not granted the 0.x tree still deletes the 1.x tag
+     * and names the directory in `legacyRefused`.
      */
     tags: {
         add(uri: T.Reference, label: string): Promise<T.Built<T.Tag>>;

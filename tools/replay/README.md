@@ -184,7 +184,7 @@ pass takes `not_migrated`), and checks the dump and the report against it:
   `null` one), media equal by hash; of two objects folding onto one key, either may have landed
 - every 1.x object on the testnet reads through the 1.x reader (`PubkySocialObject::from_uri`)
 - no 1.x object the oracle does not expect, and nothing outside the v0 tree and the 1.x roots
-- `_migrated.json` present, `transform_rev` 1, its `skipped` equal to the oracle's
+- `_migrated.json` present, the current `transform_rev`, its `skipped` equal to the oracle's
 - the report: every count, skipped path and dropped value equal, `done` equal to `total`. With
   `--resumed`, for a run that found an earlier run's copies (the kill, quota and rescan cases),
   only `written` plus `already_present` is fixed

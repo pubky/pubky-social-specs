@@ -181,4 +181,8 @@ CI runs it in the `e2e` job of the JS binding workflow.
 
 From `pubky-social-specs/migration`: `runMigration`, `MemoryPort`, `MigrationPortError`, `refusal`, `bucketOf`, `ENGINE_CAPS`, `MIGRATION_CAPS`, `skipReasons`, `transformRev`, and the types `MigrationPort`, `GetOptions`, `PutOptions`, `PortErrorKind`, `MemoryPortOptions`, `PortOp`, `RunOptions`, `MigrationLock`, `AbortSignalLike`, `MigrationReport`, `MigrationError`, `ErrorCode`, `ProgressEvent`, `Phase`, `Bucket`, `Counts`, `Outcome`, `SkipReason`, `Dropped`.
 
+The wasm entry that lived on the `v1` branch (`init()`, `createPost`, `parseUri` and the rest)
+was never merged to `main` nor published, so it has no old-to-new table here: start from the
+[README](README.md).
+
 From `pubky-social-specs/migration/pubky-sdk`: `sdkPort`, and the types `SdkPortOptions`, `SdkSession`, `SdkResponse`.

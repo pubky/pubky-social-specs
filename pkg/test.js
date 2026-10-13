@@ -585,6 +585,14 @@ describe("pubky-social-specs", () => {
       refuses(() => encodeObject(url, short.object), "Validation Error: object exceeds 65536 bytes");
     });
 
+    it("caps a feed's filter with its object, as stored on a read", () => {
+      const feed = buildFeed(OTTO, { name: "All", icon: "star", reach: "all", layout: "list", sort: "recent" });
+      // 50 KB as stored; the written form spells each number in three more bytes, past the cap
+      const stored = utf8(text(feed.body).replace('"reach"', `"pad":[${Array(10_000).fill("1e-5").join(",")}],"reach"`));
+      const read = decodeObject(feed.url, stored, "feed");
+      refuses(() => encodeObject(feed.url, read), "Validation Error: object exceeds 65536 bytes");
+    });
+
     it("keeps members a newer writer added to a link, and checks them", () => {
       const url = buildUri(OTTO, "user");
       const stored = '{"name":"Alice","bio":null,"image":null,"links":[{"title":"t","url":"https://a.b/","rel":"me"}],"status":null}';
@@ -789,6 +797,26 @@ describe("pubky-social-specs", () => {
   });
 
   describe("versions and the lifecycle", () => {
+    it("an edit refuses a head so far ahead that no newer id fits under the future bound", () => {
+      setClock(() => T0 + 7_200_000 - 30_000);
+      const ahead = buildPost(OTTO, { content: "x" });
+      setClock(() => T0);
+      const e = caught(() => editPost(OTTO, ahead.url, { ...ahead.object, content: "y" }));
+      assert.ok(e instanceof ValidationError);
+      assert.deepStrictEqual([e.message, e.code, e.field], ["Validation Error: the current version leaves no room for a newer id", "id", "head"]);
+    });
+
+    it("encodeObject checks the version its destination names, as decodeObject does", () => {
+      const post = buildPost(OTTO, { content: "x" });
+      const at = (id, editId) => `pubky://${OTTO}/pub/social/v1/posts/${id}/${editId}.json`;
+      refuses(() => encodeObject(at("0034A0X7NJ52C", "0032FNCGXE3R0"), post.object), "Validation Error: version 0032FNCGXE3R0 is older than the post id 0034A0X7NJ52C");
+      setClock(() => T0 + 3 * 3_600_000);
+      const late = buildPost(OTTO, { content: "x" });
+      setClock(() => T0);
+      refuses(() => encodeObject(at(post.id, late.editId), post.object), "Validation Error: Invalid ID, timestamp is too far in the future");
+      for (const uri of [at("0034A0X7NJ52C", "0032FNCGXE3R0"), at(post.id, late.editId)]) refuses(() => decodeObject(uri, post.body, "post"), /older than the post id|too far in the future/);
+    });
+
     it("drafts privately, edits, publishes, unpublishes and deletes", () => {
       const media = buildFile(OTTO, { bytes: utf8("png"), type: "image/png", root: "private" });
       const draft = buildPost(OTTO, { content: "draft", attachments: [{ uri: media.url }], root: "private", slug: "first" });

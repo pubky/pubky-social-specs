@@ -104,6 +104,11 @@ again.
   it, so another writer's copy the crate refuses is never deleted as ours.
 - The CLI asks the passphrase on the terminal with echo off, refuses a recovery file others can
   read, and signs out on an uncaught error too.
+- The client's `tags.remove` deletes the tag's 0.x copies too, found by reading the owner's 0.x
+  tags, each once per client; `posts.edit` mints above the version that took its edit id, so a
+  clock that is not past the head no longer picks the taken id again.
+- `encodeObject` at a post version's URL checks the version as `decodeObject` does: a
+  TimestampId inside the time bounds, no older than the post.
 - The default clock draws the microsecond inside the millisecond at random, so two copies of the
   package rarely mint one id.
 - Earlier in this release, breaking: `setClock` moved to `pubky-social-specs/testing`;
@@ -125,7 +130,8 @@ These follow the crate, which changes with them:
   any other.
 - Reads: a bare owner URL, `pubky://<pk>`, is no stored object; a post version's id is a valid
   TimestampId no older than the post; a stored object's byte cap holds its bytes as stored, not
-  the form a reader fills defaults into; a double is read correctly rounded.
+  the form a reader fills defaults into, a feed's filter included; a double is read correctly
+  rounded.
 - Rules: a list is refused by its count before any of its items is read, so a long list of bad
   items reports its count; a web reference needs a non-empty host; a 0.x key is read from the
   public 0.x tree only.
