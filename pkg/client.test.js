@@ -205,7 +205,7 @@ describe("pubky-social-specs/client", () => {
     // Run again, it goes on from what is left
     storage.delete = remove;
     storage.calls.length = 0;
-    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [] });
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [], mediaGcCandidates: [] });
     assert.deepStrictEqual(deletes(), [draft.path, last.path]);
   });
 
@@ -337,7 +337,7 @@ describe("the client over memoryHomeserver", () => {
     session.storage.exists = refuse(session.storage.exists);
     session.storage.delete = refuse(session.storage.delete);
     // The copy it could not look for is named: it may still be there
-    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [`/pub/pubky.app/posts/${post.id}`] });
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [`/pub/pubky.app/posts/${post.id}`], mediaGcCandidates: [] });
     assert.strictEqual(await session.storage.exists(post.path), false);
   });
 
@@ -368,7 +368,7 @@ describe("the client over memoryHomeserver", () => {
     const social = createSocialClient(session);
     const post = await social.posts.create({ content: "migrated" });
     await session.storage.putBytes(`/pub/pubky.app/posts/${post.id}`, new Uint8Array([1]));
-    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [] });
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [], mediaGcCandidates: [] });
     assert.strictEqual(await session.storage.exists(`/pub/pubky.app/posts/${post.id}`), false);
     assert.strictEqual(await session.storage.exists(post.path), false);
   });
@@ -382,6 +382,21 @@ describe("the client over memoryHomeserver", () => {
     publicStorage.list = async (address, ...rest) => (await list(address, ...rest)).map((url) => url.replace(friend, owner));
     const social = createSocialClient(session, { publicStorage });
     await assert.rejects(social.posts.head(friend, post.id), /outside it/);
+  });
+
+  it("deletes a post and names the own media its versions reference, left in place", async () => {
+    const { memoryHomeserver } = await import("./dist/testing.js");
+    const { session } = memoryHomeserver();
+    const social = createSocialClient(session);
+    const media = await social.files.upload(new Uint8Array([1, 2]), "image/png");
+    const post = await social.posts.create({ content: "with media", attachments: [{ uri: media.url }] });
+    // An unreadable version names nothing and still goes
+    const broken = (await social.posts.edit(post, { ...post.object, content: "edited" })).path;
+    await session.storage.putBytes(broken, new Uint8Array([1]));
+    assert.deepStrictEqual(await social.posts.delete(post.id), { legacyRefused: [], mediaGcCandidates: [media.path] });
+    assert.strictEqual(await session.storage.exists(post.path), false);
+    assert.strictEqual(await session.storage.exists(broken), false);
+    assert.strictEqual(await session.storage.exists(media.path), true);
   });
 
   it("deletes a post's versions with another file in its directory", async () => {

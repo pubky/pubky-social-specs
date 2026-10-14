@@ -106,6 +106,7 @@ describe("pubky-social-specs", () => {
           "postKinds",
           "toPath",
           "toUrl",
+          "tryDecodeContent",
           "isOneOf",
           "tryDecodeObject",
           "validMimeTypes",

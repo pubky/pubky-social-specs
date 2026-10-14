@@ -185,6 +185,7 @@ const calls = {
   validateFeed: [{ name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent" }],
   validateTag: [{ uri: "https://example.com", label: "friend" }],
   isPubkyUrl: [post.url],
+  tryDecodeContent: [article.object],
   tryDecodeObject: [user.url, user.body],
   idMicros: [post.id],
   microsToDate: [1_790_000_000_000_000],

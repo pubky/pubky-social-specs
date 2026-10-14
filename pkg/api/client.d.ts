@@ -70,9 +70,13 @@ export declare function createSocialClient(session: SdkSession, options?: Client
         /**
          * Deletes every version of an own post in both roots, newest last, and its 0.x copy first
          * when there is one. A session not granted the 0.x tree cannot reach that copy: the 1.x
-         * versions still go and the path comes back in `legacyRefused`.
+         * versions still go and the path comes back in `legacyRefused`. The own media its versions
+         * reference come back in `mediaGcCandidates`, left in place: delete one only once nothing
+         * else references it.
          */
-        delete(id: T.Given<"PostId">): Promise<Removed>;
+        delete(id: T.Given<"PostId">): Promise<Removed & {
+            mediaGcCandidates: T.OwnerPath[];
+        }>;
     };
     /** The owner's profile: get anyone's, set or update the owner's. */
     profile: {

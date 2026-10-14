@@ -25,6 +25,7 @@ import {
   parsePostId,
   parsePubkyUrl,
   parseUri,
+  planDelete,
   toPath,
   ValidationError,
 } from "../index.js";
@@ -371,17 +372,27 @@ export function createSocialClient(session: SdkSession, options: ClientOptions =
       /**
        * Deletes every version of an own post in both roots, newest last, and its 0.x copy first
        * when there is one. A session not granted the 0.x tree cannot reach that copy: the 1.x
-       * versions still go and the path comes back in `legacyRefused`.
+       * versions still go and the path comes back in `legacyRefused`. The own media its versions
+       * reference come back in `mediaGcCandidates`, left in place: delete one only once nothing
+       * else references it.
        */
-      async delete(id: T.Given<"PostId">): Promise<Removed> {
+      async delete(id: T.Given<"PostId">): Promise<Removed & { mediaGcCandidates: T.OwnerPath[] }> {
         // Only the post's versions are the post: another file in its directory is no copy of it
-        const listings: string[] = [];
-        for await (const url of ownVersions(id)) if (isVersion(url)) listings.push(pathOf(owner, url));
+        const copies: T.StoredCopy[] = [];
+        const versions: T.Post[] = [];
+        for await (const url of ownVersions(id)) {
+          if (!isVersion(url)) continue;
+          copies.push({ root: parseUri(url).root, path: pathOf(owner, url) });
+          // A version that cannot be read names no media, and is deleted all the same
+          const read = await readAt(owner, url, "post");
+          if (read?.ok) versions.push(read.object);
+        }
         // A migrated post keeps its 0.x copy, which a reindex would read back as the post
         const legacy = `${roots.legacy}posts/${parsePostId(id)}`;
         const refused: string[] = [];
-        if (await legacyExists(legacy, refused)) listings.push(legacy);
-        return remove(deletionPaths({ kind: "post", id, listings }), refused);
+        const legacyPaths = (await legacyExists(legacy, refused)) ? [legacy] : [];
+        const plan = planDelete(owner, { id, legacyPaths, copies, versions });
+        return { ...(await remove(plan.deletes, refused)), mediaGcCandidates: plan.mediaGcCandidates };
       },
     },
 

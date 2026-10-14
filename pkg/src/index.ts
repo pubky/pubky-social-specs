@@ -210,6 +210,29 @@ export function decodeContent(post: Pick<T.Post, "kind" | "content">): { kind: "
 }
 
 /**
+ * `decodeContent` with the refusal returned instead of thrown, for posts an indexer handed over,
+ * whose content can be anything. An argument of the wrong type still throws.
+ *
+ * @throws `ArgumentError` for an argument of the wrong type; a `ValidationError` of the content is
+ *  returned, not thrown.
+ *
+ * @example
+ * ```ts
+ * import { tryDecodeContent } from "pubky-social-specs";
+ * const result = tryDecodeContent({ kind: "article", content: "{" });
+ * if (!result.ok) console.log(result.error.code); // json
+ * ```
+ */
+export function tryDecodeContent(post: Pick<T.Post, "kind" | "content">): { ok: true; value: ReturnType<typeof decodeContent> } | { ok: false; error: ValidationError } {
+  try {
+    return { ok: true, value: decodeContent(post) };
+  } catch (e) {
+    if (e instanceof ValidationError) return { ok: false, error: e };
+    throw e;
+  }
+}
+
+/**
  * The `content` string of an article (an envelope with a `title`) or a collection (one with a
  * `name`), for a post about to be edited. It only spells the envelope: the rules run when the
  * post is passed to `editPost` or `encodeObject`.

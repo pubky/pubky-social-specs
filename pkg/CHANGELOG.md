@@ -31,6 +31,10 @@ again.
   kept outside the data model's paths; `parsePubkyUrl(url, kind)`; `toUrl(owner, path)`;
   `isOneOf(names, value)`; `ENGINE_CAPS` and `MIGRATION_CAPS` in the main entry.
 - `decodeContent` takes the `kind` and `content` of a post alone.
+- New: `tryDecodeContent`, `decodeContent` with the refusal returned, for content an indexer
+  handed over.
+- `./client`: `posts.delete` also answers `mediaGcCandidates`, the own media its versions
+  referenced, from `planDelete`. They are left in place.
 - `hashMedia` reads a `Blob` that has no `stream()`, as jsdom's has none, through
   `arrayBuffer()`.
 - New: the `cards` feed layout, in `feedLayouts`.

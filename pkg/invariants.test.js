@@ -235,6 +235,13 @@ describe("helpers", () => {
     );
   });
 
+  it("tryDecodeContent returns the refusal of bad content and still throws on a bad argument", () => {
+    const bad = specs.tryDecodeContent({ kind: "article", content: "{" });
+    assert.deepStrictEqual([bad.ok, bad.error.code], [false, "json"]);
+    assert.deepStrictEqual(specs.tryDecodeContent({ kind: "note", content: "hi" }), { ok: true, value: null });
+    assert.throws(() => specs.tryDecodeContent({ kind: "article", content: 1 }), TypeError);
+  });
+
   it("tryDecodeObject returns the refusal of bad bytes and still throws on a bad argument", () => {
     const url = `pubky://${OTTO}/pub/social/v1/profile.json`;
     const bad = specs.tryDecodeObject(url, utf8("{"), "user");

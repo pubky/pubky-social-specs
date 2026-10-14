@@ -213,7 +213,7 @@ const edited = editPost(owner, article.url, { ...article.object, content });
 console.log(edited.editId > article.editId); // true
 ```
 
-`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`.
+`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
 
 ## Delete
 
@@ -301,6 +301,7 @@ console.log(removal.mediaGcCandidates); // media the post referenced: delete it 
 - The `url` a builder returned names one version of a post. As a reference it is refused (`must be versionless`): use `buildUri(author, "post", id)`.
 - A user is referenced by the URL of the profile, `buildUri(owner, "user")`: that is what a tag or a bookmark of a user points at, and what the migration respells a 0.x one to. The bare `pubky://<owner>` is another target, so a tag on it is not counted with the others, and `decodeObject` refuses it.
 - `created_at` set from `Date.now()` is milliseconds. Outside a production build `encodeObject` warns; `dateToMicros(Date.now())` gives microseconds.
+- A private object, a bookmark, a mute, a feed or anything under `root: "private"`, is invisible to an indexer: a feature built on an indexer's view, such as a notification, never sees it.
 - An object copied field by field loses `$unknown`. Outside a production build `encodeObject` and `editPost` warn when an object read with unknown members is written without them.
 
 ## Errors
@@ -383,7 +384,7 @@ if (newest?.ok) await social.posts.edit(newest, { ...newest.object, content: "He
 for await (const read of social.posts.list(friend)) if (read.ok) console.log(read.object.content);
 ```
 
-It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`; feeds also `publish` and `unpublish`), and `files` (`upload`, `get`). Reading another user's tree needs `publicStorage`, the SDK's `pubky.publicStorage`. `tags.remove` also deletes the tag's 0.x copies, which it finds by reading the owner's 0.x tags, each once per client, so the first removal of a long-time user is slow.
+It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`; feeds also `publish` and `unpublish`), and `files` (`upload`, `get`). Reading another user's tree needs `publicStorage`, the SDK's `pubky.publicStorage`. `tags.remove` also deletes the tag's 0.x copies, which it finds by reading the owner's 0.x tags, each once per client, so the first removal of a long-time user is slow. `posts.delete` answers the own media the post's versions referenced as `mediaGcCandidates` and leaves them: only the app knows whether something else still uses one.
 
 ## Runtimes and tooling
 
