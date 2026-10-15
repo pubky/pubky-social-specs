@@ -79,7 +79,8 @@ pub fn stable_id(owner_relative_path: &str) -> Option<StableId> {
     if namespace == SOCIAL_NAMESPACE {
         return social_key(path).map(StableId::Key);
     }
-    if namespace != LEGACY_EPOCH {
+    // The v0 tree was public only, so a private path is never one of its objects
+    if namespace != LEGACY_EPOCH || root != PUBLIC_ROOT {
         return None;
     }
 
@@ -440,15 +441,16 @@ mod tests {
         let cases: &[(&str, &str)] = &[
             ("pub/pubky.app/tags/ABC/x", "tags/ABC"),
             ("pub/pubky.app/tags/ABC/", "tags/ABC"),
-            ("priv/pubky.app/bookmarks/ABC/x/y", "bookmarks/ABC"),
+            ("pub/pubky.app/bookmarks/ABC/x/y", "bookmarks/ABC"),
             ("pub/pubky.app/follows/PK/x", "follows/PK"),
             ("pub/pubky.app/blobs/ABC/x", "files/ABC"),
         ];
         for (path, expected) in cases {
             assert_eq!(key(path).as_deref(), Some(*expected), "{path}");
         }
-        // An empty first segment is still no object.
+        // An empty first segment is still no object, and the v0 tree had no private root.
         for path in [
+            "priv/pubky.app/bookmarks/ABC",
             "pub/pubky.app/tags//x",
             "pub/pubky.app/files//extra",
             "pub/pubky.app/posts//x",

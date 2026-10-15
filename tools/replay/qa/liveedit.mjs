@@ -7,12 +7,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { init, createTag, editVersion, readObject, validate } from "../../../pkg/index.js";
+import { buildTag, decodeObject, editPost } from "../../../pkg/dist/index.js";
 import { keypairOf, listAll, pubky, replicaUsers } from "../testnet.mjs";
 import { dump, eventsOf, json, lastEventId, record, runCli, writeAudit } from "./lib.mjs";
 
 const { values: args } = parseArgs({ options: { data: { type: "string", default: "data" }, only: { type: "string" }, out: { type: "string" } } });
-await init();
 const user = replicaUsers(args.data, [args.only])[0];
 const owner = user.pk;
 const session = await pubky().signer(keypairOf(user.secret)).signin("qa-live-edit");
@@ -24,18 +23,14 @@ try {
   const versions = paths.filter((p) => p.startsWith(`pub/social/v1/posts/${postId}/`)).map((p) => p.split("/")[5].replace(/\.json$/, "")).sort();
   const head = versions.at(-1);
   const url = `pubky://${owner}/pub/social/v1/posts/${postId}/${head}.json`;
-  const { object: post } = readObject(url, await session.storage.getBytes(`/pub/social/v1/posts/${postId}/${head}.json`));
+  const { object: post } = decodeObject(url, await session.storage.getBytes(`/pub/social/v1/posts/${postId}/${head}.json`));
   post.content = `${post.content ?? ""} (edited after migration)`.trim();
-  const next = editVersion(owner, post, { id: postId, head });
-  validate(next.url, post);
-  const postBytes = JSON.stringify(post);
-  await session.storage.putBytes(`/${next.path}`, new TextEncoder().encode(postBytes));
-  written.push({ path: next.path, bytes: postBytes });
-  const tag = createTag(owner, `pubky://${owner}/pub/social/v1/posts/${postId}`, "qa-live");
-  validate(tag.meta.url, tag.object);
-  const tagBytes = JSON.stringify(tag.object);
-  await session.storage.putBytes(`/${tag.meta.path}`, new TextEncoder().encode(tagBytes));
-  written.push({ path: tag.meta.path, bytes: tagBytes });
+  const next = editPost(url, post);
+  await session.storage.putBytes(next.path, next.body);
+  written.push({ path: next.path, bytes: new TextDecoder().decode(next.body) });
+  const tag = buildTag(owner, `pubky://${owner}/pub/social/v1/posts/${postId}`, "qa-live");
+  await session.storage.putBytes(tag.path, tag.body);
+  written.push({ path: tag.path, bytes: new TextDecoder().decode(tag.body) });
 } finally {
   await session.signout().catch(() => {});
 }

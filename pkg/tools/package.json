@@ -1,0 +1,13 @@
+{
+  "name": "pubky-social-specs-tools",
+  "private": true,
+  "description": "The checks that read the sources through the TypeScript compiler API, which the TypeScript 7 of the build does not ship: lint, layering, the API reference. Installed with `npm run tools` from pkg/, and needs Node 22 or later.",
+  "type": "module",
+  "devDependencies": {
+    "dependency-cruiser": "18.5.0",
+    "eslint": "10.12.0",
+    "typedoc": "0.28.20",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1"
+  }
+}

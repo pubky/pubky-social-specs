@@ -519,7 +519,7 @@ fn gen_feed(rng: &mut Rng, fx: &Fixture) -> (String, Vec<u8>) {
     let mut config = json!({
         "tags": tags(rng),
         "reach": rng.pick(&["following", "followers", "friends", "all", "wot", "me"]),
-        "layout": rng.pick(&["columns", "wide", "visual", "list"]),
+        "layout": rng.pick(&["columns", "wide", "visual", "list", "cards"]),
         "sort": rng.pick(&["recent", "popularity"]),
         "content": maybe(rng, 50, |rng| *rng.pick(&["short", "long", "image", "video", "link", "file", "collection", "weird"])),
     });

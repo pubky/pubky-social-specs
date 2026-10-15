@@ -1,4 +1,4 @@
-use crate::common::{code_point_len, frozen_trim};
+use crate::common::{code_point_len, frozen_trim, json_error};
 use crate::limits::VALIDATION_LIMITS;
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,10 @@ pub(crate) fn validate_article_post(
         ));
     }
     let envelope: PubkySocialArticleContent = serde_json::from_str(&post.content).map_err(|e| {
-        format!("Validation Error: Article content must be a valid JSON envelope: {e}")
+        format!(
+            "Validation Error: Article content must be a valid JSON envelope: {}",
+            json_error(&e)
+        )
     })?;
     check_extra(&envelope.extra, &["title", "body", "cover_image"])?;
     // Other controls escape to six characters and would break the two-to-one envelope bound

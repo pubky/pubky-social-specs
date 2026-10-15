@@ -1,4 +1,4 @@
-// Throughput of the transforms through the wasm, of the blob door and hasher, and of a whole
+// Throughput of the transforms through the wasm, of the blob door and its hash, and of a whole
 // runMigration over a synthetic account, with the time split between wasm, port and engine.
 //
 //   node --max-old-space-size=1536 qa/bench.mjs [--out file.json] [--dump inputs.json]
@@ -6,25 +6,20 @@
 // `--dump` writes the per-kind inputs, so tests/qa_transform_bench.rs times the same objects
 // natively and the wasm overhead reads as the difference.
 
-import fs from "node:fs";
-import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { corpus } from "../migration.fixture.js";
+import { MigrationPortError, runMigration } from "../dist/migration/index.js";
+import { init, transforms } from "../dist/migration/wasm.js";
+import { flags, timestampIdOf as tsid, writeOut } from "./lib.mjs";
 
-const require = createRequire(import.meta.url);
-const args = process.argv.slice(2);
-const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+const args = flags({ out: { type: "string" }, dump: { type: "string" } });
 
-// The CommonJS engine reads the entry's exports when it loads, so timing wrappers installed on
-// the entry before that load see every wasm call the engine makes
-const entry = require("pubky-social-specs");
-await entry.init();
-const WASM_CALLS = ["createMigration", "migrate", "migrateBlob", "hasherNew", "hasherUpdate", "hasherFinish", "stableId", "resolveDeref", "listPrefix", "legacyListPrefix"];
+// The engine calls the wasm through `transforms`, so timing wrappers on it see every call
+await init();
 const wasmTime = { ms: 0, calls: 0, by: {} };
-const real = {};
-for (const name of WASM_CALLS) {
-  real[name] = entry[name];
-  entry[name] = (...a) => {
+const real = { ...transforms };
+for (const name of Object.keys(real)) {
+  transforms[name] = (...a) => {
     const t0 = performance.now();
     try {
       return real[name](...a);
@@ -38,21 +33,11 @@ for (const name of WASM_CALLS) {
     }
   };
 }
-for (const key of Object.keys(require.cache)) if (/[\\/]migration[\\/]/.test(key)) delete require.cache[key];
-const { runMigration } = require("../migration/index.cjs");
-for (const name of WASM_CALLS) entry[name] = real[name];
-const { createMigration, migrate, migrateBlob, hasherNew, hasherUpdate, hasherFinish, createFile } = entry;
+const { createMigration, migrate, migrateBlob, mediaId } = real;
 
 const owner = corpus.owner;
 const url = (path) => `pubky://${owner}/${path}`;
 const encoder = new TextEncoder();
-const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const tsid = (micros) => {
-  const bits = BigInt(micros).toString(2).padStart(64, "0") + "0";
-  let out = "";
-  for (let i = 0; i < 65; i += 5) out += CROCKFORD[parseInt(bits.slice(i, i + 5), 2)];
-  return out;
-};
 const ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769";
 /** A pubky id: 52 z-base32 characters, the last carrying one bit. */
 const pubky = (i) => {
@@ -64,8 +49,8 @@ const pubky = (i) => {
   }
   return s + (i % 2 ? "o" : "y");
 };
-/** The crate's hash id: half a blake3, Crockford, as createFile names media. */
-const hashId = (text) => createFile(owner, encoder.encode(text), "application/octet-stream").meta.id;
+/** The crate's hash id: half a blake3, Crockford, as a media path spells it. */
+const hashId = (text) => mediaId(encoder.encode(text));
 const json = (body) => encoder.encode(JSON.stringify(body));
 const BASE = 1_760_000_000_000_000;
 
@@ -85,9 +70,18 @@ const fileFor = (i, hash, size) => [
 const postRef = (i) => url(`pub/pubky.app/posts/${tsid(BASE + i)}`);
 const KINDS = {
   profile: () => ["pub/pubky.app/profile.json", json({ name: "Bench User", bio: "Benchmarks the migration", image: null, links: [{ title: "site", url: "https://example.com/me" }], status: "busy" })],
-  post: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Post number ${i}, with a little text in it.`, kind: "short", parent: i % 3 ? null : postRef(i + 1), embed: null, attachments: null })],
-  post_long: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Title ${i}\n${"Lorem ipsum dolor sit amet. ".repeat(70)}`, kind: "long", parent: null, embed: null, attachments: null })],
-  post_media: (i) => [`pub/pubky.app/posts/${tsid(BASE + i)}`, json({ content: `Look ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${tsid(BASE + 500_000_000)}`)] })],
+  post: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Post number ${i}, with a little text in it.`, kind: "short", parent: i % 3 ? null : postRef(i + 1), embed: null, attachments: null }),
+  ],
+  post_long: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Title ${i}\n${"Lorem ipsum dolor sit amet. ".repeat(70)}`, kind: "long", parent: null, embed: null, attachments: null }),
+  ],
+  post_media: (i) => [
+    `pub/pubky.app/posts/${tsid(BASE + i)}`,
+    json({ content: `Look ${i}`, kind: "image", parent: null, embed: null, attachments: [url(`pub/pubky.app/files/${tsid(BASE + 500_000_000)}`)] }),
+  ],
   tag: (i) => {
     const uri = postRef(i % 5000);
     const label = `tag${Math.floor(i / 5000)}x${i % 7}`;
@@ -103,7 +97,7 @@ const KINDS = {
   file: (i) => fileFor(i, hashId(`blob ${i}`), 1024),
   blob_1k: (i) => {
     const bytes = blobOf(1024, i);
-    return [`pub/pubky.app/blobs/${createFile(owner, bytes, "image/png").meta.id}`, bytes];
+    return [`pub/pubky.app/blobs/${mediaId(bytes)}`, bytes];
   },
 };
 
@@ -131,26 +125,20 @@ for (const [kind, make] of Object.entries(KINDS)) {
   const bytes = inputs.reduce((s, [, b]) => s + b.length, 0);
   out.kinds[kind] = { n: N, ms: +ms.toFixed(2), perSec: Math.round(N / (ms / 1000)), usPer: +((ms * 1000) / N).toFixed(1), avgBytes: Math.round(bytes / N), skipped };
 }
-if (flag("--dump")) fs.writeFileSync(flag("--dump"), JSON.stringify({ owner, file: fileFor(0, hashId("blob 0"), 1024).map((x, i) => (i ? Buffer.from(x).toString("base64") : x)), kinds: dump }));
+writeOut(args.dump, { owner, file: fileFor(0, hashId("blob 0"), 1024).map((x, i) => (i ? Buffer.from(x).toString("base64") : x)), kinds: dump });
 
 // ---- 2. the blob door ----
 
-const HASH_CHUNK = 4 * 1024 * 1024;
-const hashOf = (bytes) => {
-  const h = hasherNew();
-  for (let at = 0; at < bytes.length; at += HASH_CHUNK) hasherUpdate(h, bytes.subarray(at, at + HASH_CHUNK));
-  return hasherFinish(h);
-};
 for (const size of [1024, 1 << 20, 16 << 20, 50 << 20]) {
   const bytes = new Uint8Array(randomBytes(size));
   const reps = size <= 1 << 20 ? 50 : 3;
   const run = createMigration(owner);
-  const hash = hashOf(bytes);
+  const hash = mediaId(bytes);
   const path = `pub/pubky.app/blobs/${hash}`;
   migrate(run, ...fileFor(0, hash, size));
   let t0 = performance.now();
   for (let r = 0; r < reps; r++) {
-    const id = hashOf(bytes);
+    const id = mediaId(bytes);
     const res = migrateBlob(run, path, bytes.length, id);
     if ("skip" in res) throw new Error(`blob door skipped ${res.skip}`);
   }
@@ -185,9 +173,6 @@ class BenchPort {
       this.calls++;
     }
   }
-  #err(kind, status) {
-    return Object.assign(new Error(kind), { name: "MigrationPortError", kind, status });
-  }
   list(prefix, cursor) {
     return this.#time(() => {
       this.#sorted ??= [...this.store.keys()].sort();
@@ -214,7 +199,7 @@ class BenchPort {
     return this.#time(() => this.store.has(u));
   }
   #put(u, bytes, options) {
-    if (options?.ifAbsent && this.store.has(u)) throw this.#err("exists", 412);
+    if (options?.ifAbsent && this.store.has(u)) throw new MigrationPortError("exists", "Precondition Failed", 412);
     if (!this.store.has(u)) this.#sorted = null;
     this.store.set(u, bytes);
   }
@@ -226,34 +211,25 @@ class BenchPort {
   }
   delete(u) {
     return this.#time(() => {
-      if (!this.store.delete(u)) throw this.#err("not_found", 404);
+      if (!this.store.delete(u)) throw new MigrationPortError("not_found", "Not Found", 404);
       this.#sorted = null;
     });
   }
 }
 
 const account = new BenchPort();
+const store = ([path, body]) => account.store.set(url(path), body);
 const counts = { posts: 5000, tags: 15000, follows: 500, blobs: 50 };
 for (let i = 0; i < counts.blobs; i++) {
   const bytes = blobOf(1 << 20, i + 7);
-  const hash = createFile(owner, bytes, "image/png").meta.id;
-  account.store.set(url(`pub/pubky.app/blobs/${hash}`), bytes);
-  const [path, body] = fileFor(i, hash, bytes.length);
-  account.store.set(url(path), body);
+  const hash = mediaId(bytes);
+  store([`pub/pubky.app/blobs/${hash}`, bytes]);
+  store(fileFor(i, hash, bytes.length));
 }
-for (let i = 0; i < counts.posts; i++) {
-  const [path, body] = i % 10 === 0 ? KINDS.post_media(i) : i % 25 === 1 ? KINDS.post_long(i) : KINDS.post(i);
-  account.store.set(url(path), body);
-}
-for (let i = 0; i < counts.tags; i++) {
-  const [path, body] = KINDS.tag(i);
-  account.store.set(url(path), body);
-}
-for (let i = 0; i < counts.follows; i++) {
-  const [path, body] = KINDS.follow(i);
-  account.store.set(url(path), body);
-}
-account.store.set(...((([p, b]) => [url(p), b])(KINDS.profile())));
+for (let i = 0; i < counts.posts; i++) store(i % 10 === 0 ? KINDS.post_media(i) : i % 25 === 1 ? KINDS.post_long(i) : KINDS.post(i));
+for (let i = 0; i < counts.tags; i++) store(KINDS.tag(i));
+for (let i = 0; i < counts.follows; i++) store(KINDS.follow(i));
+store(KINDS.profile());
 const objects = [...account.store.keys()].length;
 const storedBytes = [...account.store.values()].reduce((s, b) => s + b.length, 0);
 
@@ -296,5 +272,5 @@ out.engine = {
 };
 if (report.status !== "done") throw new Error(`the synthetic run ended ${report.status}`);
 
-if (flag("--out")) fs.writeFileSync(flag("--out"), JSON.stringify(out, null, 1));
+writeOut(args.out, out);
 console.log(JSON.stringify(out, null, 1));

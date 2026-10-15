@@ -184,7 +184,7 @@ pass takes `not_migrated`), and checks the dump and the report against it:
   `null` one), media equal by hash; of two objects folding onto one key, either may have landed
 - every 1.x object on the testnet reads through the 1.x reader (`PubkySocialObject::from_uri`)
 - no 1.x object the oracle does not expect, and nothing outside the v0 tree and the 1.x roots
-- `_migrated.json` present, `transform_rev` 1, its `skipped` equal to the oracle's
+- `_migrated.json` present, the current `transform_rev`, its `skipped` equal to the oracle's
 - the report: every count, skipped path and dropped value equal, `done` equal to `total`. With
   `--resumed`, for a run that found an earlier run's copies (the kill, quota and rescan cases),
   only `written` plus `already_present` is fixed
@@ -275,7 +275,7 @@ package's ESM build and its wasm loaded by a page, the SDK's browser build over 
 `fetch` and CORS, Web Locks for the lock, and a tab's memory for the largest blobs. The browser
 path runs exactly that, in Chromium and in Firefox through Playwright.
 
-`browser/harness.html` loads `pkg/index.js`, the migration subpath and its SDK adapter from the
+`browser/harness.html` loads the package's `dist/index.js`, the migration subpath and its SDK adapter from the
 built package, and `@synonymdev/pubky`'s browser build from `node_modules`, through an import
 map; `browser/serve.mjs` serves them on `127.0.0.1`, a secure context without TLS, so
 `navigator.locks` is there. `window.replay.run({secretHex, testnetHost, mode, rescan})` signs in

@@ -248,5 +248,10 @@
     "blob": "",
     "note": "mute, an empty body",
     "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/mutes/pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy"
+  },
+  {
+    "blob": "{\"feed\":{\"tags\":null,\"reach\":\"all\",\"layout\":\"cards\",\"sort\":\"recent\",\"content\":null},\"name\":\"Cards\",\"icon\":\"layout-dashboard\",\"created_at\":1727740800000000}",
+    "note": "feed, the cards layout: verdict from 0.8.1, which 0.8.0 rejected",
+    "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/feeds/D3XS9CD6X5HAB58CEY49C89P1G"
   }
 ]

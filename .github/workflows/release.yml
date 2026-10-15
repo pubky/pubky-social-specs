@@ -28,8 +28,9 @@ jobs:
     uses: ./.github/workflows/native.yml
   wasm:
     uses: ./.github/workflows/wasm.yml
-  js-binding:
-    uses: ./.github/workflows/js-binding.yml
+  # The native package's gates, the e2e migration included
+  js-native:
+    uses: ./.github/workflows/js-native.yml
 
   verify:
     runs-on: ubuntu-latest
@@ -39,16 +40,18 @@ jobs:
       prerelease: ${{ steps.version.outputs.prerelease }}
       publish: ${{ steps.version.outputs.publish }}
       tarball: ${{ steps.pack.outputs.tarball }}
-      wasm_bytes: ${{ steps.pack.outputs.wasm_bytes }}
+      tarball_bytes: ${{ steps.pack.outputs.tarball_bytes }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # The toolchain js-native.yml pins: the wasm and src/data.ts follow its Unicode tables
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
+          toolchain: "1.97.0"
           targets: wasm32-unknown-unknown
 
       - name: Versions agree, and a tag names them and sits on v1 or main
@@ -86,8 +89,11 @@ jobs:
             echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
 
+      # The version js-native.yml pins, so the published glue is the one its checks ran
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: wasm-pack@0.13.1
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -100,15 +106,16 @@ jobs:
         shell: bash
         run: |
           cd pkg
+          npm ci
           npm run build
           tarball=$(npm pack --json | jq -r '.[0].filename')
-          wasm_bytes=$(stat -c %s pubky_social_specs_bg.wasm)
+          tarball_bytes=$(stat -c %s "$tarball")
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
-          echo "wasm_bytes=$wasm_bytes" >> "$GITHUB_OUTPUT"
+          echo "tarball_bytes=$tarball_bytes" >> "$GITHUB_OUTPUT"
           {
             echo "### pubky-social-specs ${{ steps.version.outputs.version }}"
             echo
-            echo "- wasm: $wasm_bytes bytes"
+            echo "- npm tarball: $tarball_bytes bytes"
             echo "- npm dist-tag: ${{ steps.version.outputs.dist_tag }}"
             echo "- publish: ${{ steps.version.outputs.publish }}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -119,14 +126,8 @@ jobs:
           path: pkg/${{ steps.pack.outputs.tarball }}
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wasm
-          path: pkg/pubky_social_specs_bg.wasm
-          if-no-files-found: error
-
   crates:
-    needs: [verify, rust-checks, native, wasm, js-binding]
+    needs: [verify, rust-checks, native, wasm, js-native]
     if: needs.verify.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: release
@@ -138,7 +139,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: "1.97.0"
 
       - uses: rust-lang/crates-io-auth-action@v1
         id: auth
@@ -149,7 +152,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
   npm:
-    needs: [verify, rust-checks, native, wasm, js-binding]
+    needs: [verify, rust-checks, native, wasm, js-native]
     if: needs.verify.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: release
@@ -179,7 +182,7 @@ jobs:
           name: npm-package
 
       - name: Publish to npm
-        run: npm publish "./$TARBALL" --access public --tag "$DIST_TAG"
+        run: npm publish "./$TARBALL" --access public --tag "$DIST_TAG" --provenance
         env:
           TARBALL: ${{ needs.verify.outputs.tarball }}
           DIST_TAG: ${{ needs.verify.outputs.dist_tag }}
@@ -202,7 +205,7 @@ jobs:
             --verify-tag \
             --generate-notes \
             --prerelease="$PRERELEASE" \
-            --notes "wasm: $WASM_BYTES bytes
+            --notes "npm tarball: $TARBALL_BYTES bytes
 
           - crates.io: https://crates.io/crates/pubky-social-specs/$VERSION
           - npm: https://www.npmjs.com/package/pubky-social-specs/v/$VERSION"
@@ -211,4 +214,4 @@ jobs:
           TARBALL: ${{ needs.verify.outputs.tarball }}
           VERSION: ${{ needs.verify.outputs.version }}
           PRERELEASE: ${{ needs.verify.outputs.prerelease }}
-          WASM_BYTES: ${{ needs.verify.outputs.wasm_bytes }}
+          TARBALL_BYTES: ${{ needs.verify.outputs.tarball_bytes }}

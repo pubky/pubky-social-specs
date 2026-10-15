@@ -1,4 +1,5 @@
-//! The 0.x reader, frozen at the 0.8.0 pin so a v0 ingest verdict never moves.
+//! The 0.x reader, frozen at the 0.8.0 pin plus the one value 0.8.1 added, so a v0 ingest
+//! verdict never moves.
 //!
 //! Every file under this module is the 0.8.0 source, copied unchanged except for import
 //! paths and the stripped JS bindings. Its `url::Url` parsing, its `mime` gate, its
@@ -26,6 +27,15 @@
 //! but `y` or `o` passed, and on native was rewritten to the standard spelling. [`PubkyId`]
 //! rejects that key as a URI host, a follow or mute id and a collection item host.
 //! Accepting it would give one user several keys, one per spelling.
+//!
+//! One value was added after the copy: the `cards` feed layout, the only change 0.8.1 made to
+//! the data model. 0.8.1 clients store it, and no indexer reads feeds, so no verdict moves.
+//!
+//! That is the one way this module changes. It may be widened to accept a value a released
+//! 0.x client stored. It is never narrowed, and what it stores for an input it already
+//! accepted never changes. A widening bumps `TRANSFORM_REV`, adds a row to the reader's
+//! corpus with a verdict produced by the client version that introduced the value, and adds
+//! a semantic vector for what the value migrates to.
 
 mod common;
 mod constants;

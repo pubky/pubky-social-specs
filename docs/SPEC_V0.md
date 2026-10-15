@@ -297,7 +297,7 @@ For `kind = collection`, `parent`, `embed`, and `post.attachments` must be unset
 | `tags`      | Array    | Tags for filtering.                | Optional. Max 5 tags. Each tag follows tag label rules.     |
 | `domain_tags` | Array  | Domain tags for filtering.         | Optional. Max 5 tags. Each tag follows tag label rules.   |
 | `reach`     | String   | Feed visibility scope.             | Required. One of: `following`, `followers`, `friends`, `all`, `wot`, `me`. |
-| `layout`    | String   | Feed layout style.                 | Required. One of: `columns`, `wide`, `visual`, `list`.    |
+| `layout`    | String   | Feed layout style.                 | Required. One of: `columns`, `wide`, `visual`, `list`, and since 0.8.1 `cards`. |
 | `sort`      | String   | Sort order.                        | Required. One of: `recent`, `popularity`.                   |
 | `content`   | String   | Post kind to filter by.            | Optional. A valid `PubkyAppPostKind` value.               |
 

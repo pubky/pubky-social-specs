@@ -7,8 +7,8 @@
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { AuthFlowKind } from "@synonymdev/pubky";
-import { ENGINE_CAPS, runMigration } from "../../../pkg/migration/index.js";
-import { sdkPort } from "../../../pkg/migration/adapters/pubky-sdk.js";
+import { ENGINE_CAPS, runMigration } from "../../../pkg/dist/migration/index.js";
+import { sdkPort } from "../../../pkg/dist/migration/adapters/pubky-sdk.js";
 import { HOST, keypairOf, pubky, replicaUsers } from "../testnet.mjs";
 import { dump, json, record, verify } from "./lib.mjs";
 

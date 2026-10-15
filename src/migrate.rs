@@ -65,7 +65,8 @@ use std::fmt;
 /// up the objects an earlier revision skipped. A walk never rewrites a destination that exists.
 /// Revision 2: the transforms read through the frozen 0.x reader, which writes a `[DELETED]`
 /// profile as `anonymous` and a few objects revision 1 skipped or spelled otherwise.
-pub const TRANSFORM_REV: u32 = 2;
+/// Revision 3: a feed with the `cards` layout is carried, where revision 2 skipped it.
+pub const TRANSFORM_REV: u32 = 3;
 
 /// Why an object did not migrate. Categories, not messages, so a run can count them.
 #[non_exhaustive]
@@ -484,7 +485,8 @@ fn v1_kind(kind: &legacy_v0::V0PostKind) -> PubkySocialPostKind {
         V0::Link => PubkySocialPostKind::Link,
         V0::File => PubkySocialPostKind::File,
         V0::Collection => PubkySocialPostKind::Collection,
-        V0::Unknown => PubkySocialPostKind::Unknown,
+        // The v0 reader kept no spelling for a kind it did not know
+        V0::Unknown => PubkySocialPostKind::Unknown("unknown".to_string()),
     }
 }
 
@@ -745,7 +747,7 @@ fn transform_feed(feed: legacy_v0::V0Feed, ctx: &MigrationCtx) -> Result<Migrate
     let filter = |labels: Option<Vec<String>>| labels.filter(|labels| !labels.is_empty());
     let config = feed.feed;
     let content = match config.content.as_ref().map(v1_kind) {
-        Some(PubkySocialPostKind::Unknown) => return Err(Skip::UnknownFeedContent.into()),
+        Some(PubkySocialPostKind::Unknown(_)) => return Err(Skip::UnknownFeedContent.into()),
         content => content,
     };
     let config = PubkySocialFeedConfig::new(

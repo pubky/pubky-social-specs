@@ -106,7 +106,10 @@ impl Validatable for PubkySocialUser {
         if !(VALIDATION_LIMITS.user_name_min_length..=VALIDATION_LIMITS.user_name_max_length)
             .contains(&name_length)
         {
-            return Err("Validation Error: Invalid name length".into());
+            return Err(format!(
+                "Validation Error: name must be {} to {} code points",
+                VALIDATION_LIMITS.user_name_min_length, VALIDATION_LIMITS.user_name_max_length
+            ));
         }
 
         // Validate bio length
@@ -115,7 +118,10 @@ impl Validatable for PubkySocialUser {
                 return Err("Validation Error: bio must not be blank".into());
             }
             if code_point_len(bio) > VALIDATION_LIMITS.user_bio_max_length {
-                return Err("Validation Error: Bio exceeds maximum length".into());
+                return Err(format!(
+                    "Validation Error: bio must be at most {} code points",
+                    VALIDATION_LIMITS.user_bio_max_length
+                ));
             }
         }
 
@@ -134,7 +140,10 @@ impl Validatable for PubkySocialUser {
         // Validate links
         if let Some(links) = &self.links {
             if links.len() > VALIDATION_LIMITS.user_links_max_count {
-                return Err("Validation Error: Too many links".into());
+                return Err(format!(
+                    "Validation Error: Too many links (max: {})",
+                    VALIDATION_LIMITS.user_links_max_count
+                ));
             }
 
             for (index, link) in links.iter().enumerate() {
@@ -148,7 +157,10 @@ impl Validatable for PubkySocialUser {
                 return Err("Validation Error: status must not be blank".into());
             }
             if code_point_len(status) > VALIDATION_LIMITS.user_status_max_length {
-                return Err("Validation Error: Status exceeds maximum length".into());
+                return Err(format!(
+                    "Validation Error: status must be at most {} code points",
+                    VALIDATION_LIMITS.user_status_max_length
+                ));
             }
         }
 
@@ -390,7 +402,7 @@ mod tests {
         assert!(user
             .validate(None, &PUB_CTX)
             .unwrap_err()
-            .contains("Invalid name length"));
+            .contains("name must be 3 to 50 code points"));
         user.name = "  Alice  ".to_string();
         assert!(user.validate(None, &PUB_CTX).is_ok());
     }
@@ -457,7 +469,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Validation Error: Invalid name length"
+            "Validation Error: name must be 3 to 50 code points"
         );
 
         // Test name too long - the builder must NOT truncate
@@ -470,7 +482,9 @@ mod tests {
         // Validation should catch the violation
         let result = user.validate(None, &PUB_CTX);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid name length"));
+        assert!(result
+            .unwrap_err()
+            .contains("name must be 3 to 50 code points"));
     }
 
     #[test]
@@ -633,7 +647,7 @@ mod tests {
                 "Should reject {} that exceeds maximum length",
                 field_name
             );
-            assert!(result.unwrap_err().contains("exceeds maximum length"));
+            assert!(result.unwrap_err().contains("must be at most"));
         }
     }
 
