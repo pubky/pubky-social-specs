@@ -84,7 +84,7 @@ console.log(writes.map((w) => w.path));
 
 A builder trims display text (a name, a title, a post's content, a label) and lowercases the ASCII letters of a tag label. A reference is stored as written, so it must be canonical already: a pubky reference comes from `buildUri`, and a web URL starts with lowercase `http://` or `https://` and holds no whitespace. Absent and `null` mean the same in an input.
 
-`buildPost` takes a note, an article or a collection, told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). Besides `article` and `collection` the kinds are `note` (the default), `image`, `video`, `link` and `file`, which all take `content`. It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`.
+`buildPost` takes a note, an article, a collection, or one of the 1.1 kinds (an event, an rsvp, an availability, a rating, a route), told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). Besides the kinds with an envelope the kinds are `note` (the default), `image`, `video`, `link` and `file`, which all take `content`. It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`.
 
 A slug gives a version a readable leaf, `{editId}-{slug}.json`: 1 to 64 of a-z, 0-9 and `-`. It carries no identity, so a renamed slug is the next edit, and it is allowed under both roots.
 
@@ -196,9 +196,36 @@ await session.storage.putBytes(toPath(url), encodeObject(url, { ...profile, stat
 
 Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays on it. It also takes `{ kind, root? }` in place of a URL, for bytes that go somewhere the data model does not name. An edited feed filter moves the feed, since its id is the filter: write it at `buildUri(owner, "feed", feedId(feed))` and delete the old path. A feed is stored private. `feedPaths(id)` gives both of its addresses: to publish it, PUT the same bytes at `public`, and to unpublish, DELETE `public`; `deletionPaths` removes both copies.
 
-### Articles and collections
+### Events and maps
 
-The `content` of an article or a collection is itself JSON. Read and write it through the package, which spells it as the crate does.
+The 1.1 kinds are posts whose `content` is an envelope with JSCalendar member names (an event's `start` is a local date-time in its `timeZone`, its `duration` an ISO 8601 duration), an rsvp and a rating are replies to the `parent` they answer or rate, and a route carries waypoints and an encoded polyline. A place is a canonical OpenStreetMap object URL or a `geo:` pin as `geoUri` spells it; `isGeoUri`, `osmUrl` and `parseOsmUrl` read and write the two conventions.
+
+```js
+import { buildPost, buildUri, decodeContent, geoUri } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, owner, session } = memoryHomeserver();
+
+const meetup = buildPost(owner, {
+  kind: "event",
+  title: "Lugano Bitcoin Evening",
+  start: "2026-10-14T18:30:00",
+  timeZone: "Europe/Zurich",
+  duration: "PT2H30M",
+  locations: [{ name: "Plan ₿ Hub", uri: "https://www.openstreetmap.org/way/481516234" }],
+  recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
+});
+const going = buildPost(owner, { kind: "rsvp", parent: buildUri(friend, "post", "0035QZPT4QG00"), status: "accepted", guests: 1 });
+const stars = buildPost(owner, { kind: "rating", parent: geoUri(46.00547, 8.95186), rating: 9, text: "Great coffee" });
+for (const { path, body } of [meetup, going, stars]) await session.storage.putBytes(path, body);
+const envelope = decodeContent(meetup.object);
+if (envelope?.kind === "event") console.log(envelope.content.status, envelope.content.attendance.policy); // confirmed open
+```
+
+A calendar is a collection whose items are event URIs; there is no calendar kind. The rules of each kind, with every cap, are in the crate's [`docs/SPEC_V1.1.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V1.1.md).
+
+### Articles, collections and the other envelopes
+
+The `content` of an article, a collection or a 1.1 kind is itself JSON. Read and write it through the package, which spells it as the crate does.
 
 ```js
 import { buildPost, decodeContent, editPost, encodeContent } from "pubky-social-specs";
@@ -213,7 +240,7 @@ const edited = editPost(owner, article.url, { ...article.object, content });
 console.log(edited.editId > article.editId); // true
 ```
 
-`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
+`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. It tells the envelopes apart by their members (an event has a `start`, an article a `title`, a route a `polyline`, a collection a `name`, an rsvp a `status`, a rating a `rating`, an availability a `horizonDays`), or takes the kind as a second argument. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
 
 ## Delete
 
@@ -338,7 +365,8 @@ A `ValidationError` has `message`, the reference text starting with `Validation 
 | `format` | text not spelled the one way the model accepts: a key, an id, a tag, a slug | |
 | `id` | an id that does not match its object, or whose time is out of bounds | |
 | `reference` | a URI in a reference position the model refuses | |
-| `unknown_name` | a kind, reach, layout, sort or root this version does not know | |
+| `unknown_name` | a kind, reach, layout, sort, root, status, policy, frequency or weekday this version does not know | |
+| `range` | a number outside its bounds: a capacity, a rating, a distance, a rule's interval | `limit` the bound it broke, in the member's unit |
 | `unsafe_integer` | an integer a JavaScript number cannot hold exactly | |
 | `path` | a URL or path that names no object of the kind asked for | |
 | `conflict` | members or arguments that cannot go together | |
