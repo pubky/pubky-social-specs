@@ -823,7 +823,8 @@ const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
  * Fixed requests, recorded as they are and never fuzzed: the edges a seeded draw would reach
  * only by a list too long to record 400 times. Each is a 1.1 envelope whose list is past its
  * cap and ends in a private reference, so the answer says which ran first, the cap or the
- * reference gate, at the planner and at the reader.
+ * reference gate, at the planner and at the reader; then 1.0 posts past a cap with a private
+ * reference, whose answer is the one 1.0 gave, the reference.
  */
 export const fixed = {
   bounds: () => {
@@ -859,6 +860,9 @@ export const fixed = {
       decode("priv", post("event", event(11, cap))),
       decode("pub", post("event", event(11, cap))),
       decode("priv", post("route", route(101))),
+      // 1.0 kinds keep 1.0's planner order: the private reference, not the cap
+      publish({ content: JSON.stringify({ name: "c", items: Array.from({ length: 101 }, () => ({ uri: privatePost })) }), kind: "collection", parent: null, embed: null, attachments: [] }),
+      publish({ content: "n", kind: "note", parent: privatePost, embed: null, attachments: Array.from({ length: 11 }, () => ({ uri: "https://example.com/a.png" })) }),
     ];
   },
 };

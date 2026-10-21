@@ -153,6 +153,9 @@ const CONTENT_CAPS = {
 } as const;
 
 /** The refusal of a 1.1 kind's content over its raw cap, checked on the string before it is parsed; null within it. */
+/** Whether `kind` is a 1.1 kind, whose caps run before its references at the planner too; a 1.0 kind keeps the order 1.0 shipped. */
+export const hasEarlyBounds = (kind: string): boolean => Object.hasOwn(CONTENT_CAPS, kind);
+
 function contentCapRefusal(value: Post): ValidationError | null {
   const { kind, content } = value;
   if (!Object.hasOwn(CONTENT_CAPS, kind)) return null;
@@ -363,7 +366,7 @@ function checkListCaps(value: Post, each: Each): void {
 }
 
 /**
- * The bounds a planner checks before it reads a reference: the byte cap on the written form,
+ * The bounds a planner checks before it reads a reference of a 1.1 kind: the byte cap on the written form,
  * the attachment count, a 1.1 kind's raw content cap and the list caps. Validation runs the same
  * checks in its own order; a planner reads references before it validates, so it runs these
  * first, and an oversized version is refused before any list inside it is walked.

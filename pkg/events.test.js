@@ -430,6 +430,16 @@ describe("bounds before references", () => {
     refuses(() => publish(draft("event", 2, limits.eventContentMaxLength)), `Validation Error: Event content must be at most ${limits.eventContentMaxLength} code points`);
   });
 
+  it("publish keeps the 1.0 order for the 1.0 kinds: their references first", () => {
+    const items = Array.from({ length: 101 }, () => ({ uri: privatePost }));
+    const collection = { content: JSON.stringify({ name: "c", items }), kind: "collection", parent: null, embed: null, attachments: [], lock: null };
+    refuses(() => publish(collection), `Validation Error: cannot publish: a public post cannot reference a private object: ${privatePost}`);
+    const attachments = Array.from({ length: 11 }, () => ({ uri: "https://example.com/a.png", alt: null, name: null }));
+    const note = { content: "n", kind: "note", parent: privatePost, embed: null, attachments, lock: null };
+    refuses(() => publish(note), /cannot reference a private object/);
+    refuses(() => publish({ ...note, attachments: [], content: "n".repeat(limits.postMaxBytes) }), /cannot reference a private object/);
+  });
+
   it("a list of 150,000 is refused by the byte cap, never walked into an argument list", () => {
     for (const kind of ["event", "route"]) {
       const huge = draft(kind, 150_000);

@@ -6,7 +6,7 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { validate } from "./models/common.js";
-import { checkBounds, checkReferences, checkSlug, checkTimestampId, envelopeRefs, otherRefs, post, type Post, versionPath, withCover } from "./models/post.js";
+import { checkBounds, checkReferences, hasEarlyBounds, checkSlug, checkTimestampId, envelopeRefs, otherRefs, post, type Post, versionPath, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
 import { LEGACY_ROOT } from "./legacy.js";
 import { isPrivatePath, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
@@ -34,8 +34,9 @@ function mediaRefs(value: Post): string[] {
 
 /** The owner's private media a version references, each once, in order of appearance. */
 function privateMediaRefs(value: Post, owner: string): string[] {
-  // The caps before any reference is read, so an oversized version is refused unwalked
-  checkBounds(value);
+  // A 1.1 kind's caps before any reference is read, so an oversized version is refused
+  // unwalked. The 1.0 kinds keep the order 1.0 shipped: their references first
+  if (hasEarlyBounds(value.kind)) checkBounds(value);
   const ownPrivate = mediaPrefix(owner, "private");
   const media: string[] = [];
   for (const uri of mediaRefs(value)) {

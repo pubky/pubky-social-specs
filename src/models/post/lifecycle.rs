@@ -134,8 +134,11 @@ fn other_refs(post: &PubkySocialPost) -> Vec<String> {
 /// reference anywhere else (parent, embed, lock, collection item) is the root rule stated as a
 /// publish error; covers are media and part of the closure.
 pub fn private_media_refs(post: &PubkySocialPost, owner: &PubkyId) -> Result<Vec<String>, String> {
-    // The caps before any reference is read, so an oversized version is refused unwalked
-    post.check_bounds()?;
+    // A 1.1 kind's caps before any reference is read, so an oversized version is refused
+    // unwalked. The 1.0 kinds keep the order 1.0 shipped: their references first
+    if post.kind.content_cap().is_some() {
+        post.check_bounds()?;
+    }
     let own_private = media_prefix(owner, Root::Priv);
     let priv_ctx = ValidationCtx { root: Root::Priv };
     let max = VALIDATION_LIMITS.reference_uri_max_length;
@@ -949,6 +952,33 @@ mod tests {
                 format!("Validation Error: object exceeds {cap} bytes")
             );
         }
+    }
+
+    #[test]
+    fn publish_keeps_the_1_0_order_for_the_1_0_kinds() {
+        let private = format!("pubky://{PK}/priv/social/v1/posts/{TS}");
+        // a collection past its item cap: the private item, as 1.0 answered
+        let items = (0..101)
+            .map(|_| crate::PubkySocialCollectionItem::new(private.clone(), None))
+            .collect();
+        let collection = PubkySocialPost::new_collection("c".into(), None, items, None, None);
+        assert_eq!(
+            publish_err(&collection),
+            format!("Validation Error: cannot publish: a public post cannot reference a private object: {private}")
+        );
+        // a note past its attachment cap with a private parent: the parent, as 1.0 answered
+        let mut note = PubkySocialPost::new(
+            "n".into(),
+            PubkySocialPostKind::Note,
+            Some(private.clone()),
+            None,
+            (0..11).map(|_| att("https://example.com/a.png")).collect(),
+        );
+        assert!(publish_err(&note).contains("cannot reference a private object"));
+        // and past the byte cap too
+        note.content = "n".repeat(VALIDATION_LIMITS.post_max_bytes);
+        note.attachments.clear();
+        assert!(publish_err(&note).contains("cannot reference a private object"));
     }
 
     #[test]

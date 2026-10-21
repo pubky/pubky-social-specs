@@ -487,7 +487,8 @@ impl PubkySocialPost {
 
 impl PubkySocialPostKind {
     /// The raw content cap of a 1.1 kind and how its refusal names the kind, checked on the
-    /// string before it is parsed. The 1.0 kinds keep the order 1.0 shipped.
+    /// string before it is parsed; `None` for a 1.0 kind, which keeps the order 1.0 shipped,
+    /// in validation and in the publish planner.
     fn content_cap(&self) -> Option<(&'static str, usize)> {
         let l = &VALIDATION_LIMITS;
         match self {
@@ -659,11 +660,11 @@ impl PostKind for PubkySocialPostKind {
 }
 
 impl<K: PostKind> PostEnvelope<K> {
-    /// The bounds a planner checks before it reads a reference: the byte cap on the written
-    /// form, the attachment count, and the kind's raw content cap and list caps. Validation runs
-    /// the same checks in its own order; a planner reads references before it validates, so it
-    /// runs these first, and an oversized version is refused before any list inside it is
-    /// walked.
+    /// The bounds a planner checks before it reads a reference of a 1.1 kind: the byte cap on
+    /// the written form, the attachment count, and the kind's raw content cap and list caps.
+    /// Validation runs the same checks in its own order; a planner reads references before it
+    /// validates, so it runs these first, and an oversized version is refused before any list
+    /// inside it is walked.
     pub(crate) fn check_bounds(&self) -> Result<(), String> {
         self.validate_size()?;
         if self.attachments.len() > VALIDATION_LIMITS.post_attachments_max_count {
