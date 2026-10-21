@@ -819,6 +819,50 @@ function deletion(r) {
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
 
+/**
+ * Fixed requests, recorded as they are and never fuzzed: the edges a seeded draw would reach
+ * only by a list too long to record 400 times. Each is a 1.1 envelope whose list is past its
+ * cap and ends in a private reference, so the answer says which ran first, the cap or the
+ * reference gate, at the planner and at the reader.
+ */
+export const fixed = {
+  bounds: () => {
+    const id = timestampIdOf(NOW - 5e9);
+    const privatePost = `pubky://${OWNER}/priv/social/v1/posts/${id}`;
+    const list = (n) => [...Array.from({ length: n - 1 }, () => ({ uri: "geo:0,0" })), { uri: privatePost }];
+    const event = (n, pad = 0) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: list(n), ...(pad > 0 ? { description: "d".repeat(pad) } : {}) });
+    const route = (n) => ({
+      name: "n",
+      activity: "running",
+      waypoints: list(n),
+      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
+      distance_m: 1,
+      duration_s: 1,
+    });
+    const post = (kind, envelope) => ({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [] });
+    const publish = (p) => request("planPublish", s(OWNER), { j: JSON.stringify({ id, editId: id, post: p }) });
+    const decode = (root, p) => request("decode", s(`pubky://${OWNER}/${root}/social/v1/posts/${id}/${id}.json`), { j: JSON.stringify(p) });
+    const cap = limits.eventContentMaxLength;
+    return [
+      // within the caps: the reference gate refuses the private item
+      publish(post("event", event(10))),
+      publish(post("route", route(100))),
+      // past a list cap: the cap, no item read
+      publish(post("event", event(11))),
+      publish(post("route", route(101))),
+      // past the raw content cap: the cap, nothing parsed
+      publish(post("event", event(11, cap))),
+      // past the byte cap of the written form: that cap, first
+      publish(post("event", event(25_000))),
+      publish(post("route", route(25_000))),
+      // the reader: the raw cap before the list cap, under either root
+      decode("priv", post("event", event(11, cap))),
+      decode("pub", post("event", event(11, cap))),
+      decode("priv", post("route", route(101))),
+    ];
+  },
+};
+
 export const families = {
   text: (r) =>
     request(

@@ -403,3 +403,54 @@ describe("the event kinds", () => {
     assert.strictEqual(encodeContent({ title: "t", body: "b", cover_image: null }), '{"title":"t","body":"b"}');
   });
 });
+
+describe("bounds before references", () => {
+  beforeEach(() => setClock(() => T0));
+  after(() => setClock());
+
+  const id = "0035QZPT4QG00";
+  const privatePost = `pubky://${OTTO}/priv/social/v1/posts/${id}`;
+  // A version of `kind` whose list of `n` items ends in the owner's private post
+  const draft = (kind, n, pad = 0) => {
+    const items = Array.from({ length: n - 1 }, () => ({ uri: "geo:0,0" }));
+    items.push({ uri: privatePost });
+    const envelope =
+      kind === "event"
+        ? { title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: items, ...(pad > 0 ? { description: "d".repeat(pad) } : {}) }
+        : { name: "n", activity: "running", waypoints: items, polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 }, distance_m: 1, duration_s: 1 };
+    return { content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [], lock: null };
+  };
+  const publish = (post) => planPublish(OTTO, { id, editId: id, post });
+
+  it("publish refuses an oversized list by its cap, before it reads a reference in it", () => {
+    refuses(() => publish(draft("event", 10)), /cannot reference a private object/);
+    refuses(() => publish(draft("route", 100)), /cannot reference a private object/);
+    refuses(() => publish(draft("event", 11)), "Validation Error: Event cannot have more than 10 locations");
+    refuses(() => publish(draft("route", 101)), "Validation Error: Route must have 2 to 100 waypoints");
+    refuses(() => publish(draft("event", 2, limits.eventContentMaxLength)), `Validation Error: Event content must be at most ${limits.eventContentMaxLength} code points`);
+  });
+
+  it("a list of 150,000 is refused by the byte cap, never walked into an argument list", () => {
+    for (const kind of ["event", "route"]) {
+      const huge = draft(kind, 150_000);
+      refuses(() => publish(huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
+      refuses(() => encodeObject({ kind: "post", root: "private" }, huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
+      refuses(() => decodeObject({ kind: "post", root: "private" }, utf8(JSON.stringify(huge))), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
+    }
+  });
+
+  it("validation checks a raw content cap before it parses", () => {
+    const max = limits.eventContentMaxLength;
+    refuses(() => encodeObject({ kind: "post", root: "private" }, draft("event", 11, max)), `Validation Error: Event content must be at most ${max} code points`);
+    for (const [kind, name, cap] of [
+      ["rsvp", "Rsvp", limits.rsvpContentMaxLength],
+      ["rating", "Rating", limits.ratingContentMaxLength],
+      ["availability", "Availability", limits.availabilityContentMaxLength],
+      ["route", "Route", limits.routeContentMaxLength],
+    ]) {
+      const post = { content: "[".repeat(cap + 1), kind, parent: `pubky://${OTTO}/pub/social/v1/posts/${id}`, embed: null, attachments: [], lock: null };
+      refuses(() => encodeObject({ kind: "post", root: "private" }, post), `Validation Error: ${name} content must be at most ${cap} code points`);
+      assert.strictEqual(validatePost({ kind: "rating", parent: theirEvent, rating: 3, text: "t".repeat(2000) }).success, true);
+    }
+  });
+});

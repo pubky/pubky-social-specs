@@ -166,6 +166,11 @@ These follow the crate, which changes with them:
   tags and collection items keep the 1.0 gate alone.
 - `planPublish` refuses a private reference in any envelope position of the new kinds as it
   refused one in a collection item, before the final validation would.
+- A 1.1 kind's raw content cap is checked before its envelope is parsed, and `planPublish`
+  checks the byte cap, the attachment count and the list caps before it reads a reference: an
+  event or a route with a list far past its cap is refused by the cap, where the package threw
+  `RangeError: Maximum call stack size exceeded` at about 150,000 items. The answers of the
+  1.0 kinds are unchanged.
 
 - A feed's `layout` may be `cards`, as 0.8.1 clients store it. The migration carries such a
   feed, which it skipped before, and `transform_rev` is 3 so a migrated tree is walked again.

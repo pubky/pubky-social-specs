@@ -10,7 +10,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ask } from "./oracle.mjs";
 import { answer } from "./ops.mjs";
-import { families, rng } from "./gen.mjs";
+import { families, fixed, rng } from "./gen.mjs";
 import { canonical, flags } from "./lib.mjs";
 
 const args = flags({
@@ -48,11 +48,13 @@ function differing(asked, reference) {
 }
 
 let clean = true;
-for (const family of Object.keys(families)) {
+for (const family of [...Object.keys(families), ...Object.keys(fixed)]) {
   if (only && only !== family) continue;
   const file = `${vectorsDir}${family}.jsonl`;
+  // A fixed family is its recorded requests alone: nothing to draw
+  const isFixed = Object.hasOwn(fixed, family);
   if (record) {
-    const asked = requests(family, RECORDED.seed, RECORDED.cases);
+    const asked = isFixed ? fixed[family]() : requests(family, RECORDED.seed, RECORDED.cases);
     const reference = await ask(asked);
     fs.mkdirSync(vectorsDir, { recursive: true });
     fs.writeFileSync(file, asked.map((q, i) => JSON.stringify({ q, a: reference[i] })).join("\n") + "\n");
@@ -76,7 +78,7 @@ for (const family of Object.keys(families)) {
   const fuzz = { missing: 0, wrong: 0, kept: [] };
   const stats = {};
   const refusals = new Map();
-  for (let done = 0; done < cases; done += BATCH) {
+  for (let done = 0; done < (isFixed ? 0 : cases); done += BATCH) {
     const asked = requests(family, seed + done / BATCH, Math.min(BATCH, cases - done));
     const reference = await ask(asked);
     // How often each operation is accepted: a family that only ever refuses proves little. A
@@ -108,6 +110,6 @@ for (const family of Object.keys(families)) {
     fs.mkdirSync(failuresDir, { recursive: true });
     fs.writeFileSync(`${failuresDir}${family}.json`, JSON.stringify(wrong.slice(0, 50), null, 1));
   } else fs.rmSync(`${failuresDir}${family}.json`, { force: true });
-  console.log(`${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}  fuzz ${fuzz.wrong} wrong of ${cases}  unimplemented ${missing}`);
+  console.log(`${family.padEnd(10)} vectors ${rows.length - vectors.wrong.length - vectors.missing}/${rows.length}  fuzz ${fuzz.wrong} wrong of ${isFixed ? 0 : cases}  unimplemented ${missing}`);
 }
 process.exit(clean ? 0 : 1);

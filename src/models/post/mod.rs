@@ -485,6 +485,24 @@ impl PubkySocialPost {
     }
 }
 
+impl PubkySocialPostKind {
+    /// The raw content cap of a 1.1 kind and how its refusal names the kind, checked on the
+    /// string before it is parsed. The 1.0 kinds keep the order 1.0 shipped.
+    fn content_cap(&self) -> Option<(&'static str, usize)> {
+        let l = &VALIDATION_LIMITS;
+        match self {
+            PubkySocialPostKind::Event => Some(("Event", l.event_content_max_length)),
+            PubkySocialPostKind::Rsvp => Some(("Rsvp", l.rsvp_content_max_length)),
+            PubkySocialPostKind::Availability => {
+                Some(("Availability", l.availability_content_max_length))
+            }
+            PubkySocialPostKind::Rating => Some(("Rating", l.rating_content_max_length)),
+            PubkySocialPostKind::Route => Some(("Route", l.route_content_max_length)),
+            _ => None,
+        }
+    }
+}
+
 impl PostKind for PubkySocialPostKind {
     fn is_known(&self) -> bool {
         PubkySocialPostKind::is_known(self)
@@ -523,9 +541,18 @@ impl PostKind for PubkySocialPostKind {
         }
     }
 
-    /// The lists whose items the gate reads: the collection items, an event's locations and
-    /// links, a route's waypoints; an unparsable envelope is that validator's error.
+    /// The bounds that run before any envelope is parsed or any reference inside it is read:
+    /// the raw content cap of a 1.1 kind, then the lists whose items the gate reads (the
+    /// collection items, an event's locations and links, a route's waypoints). An unparsable
+    /// envelope is that validator's error.
     fn check_counts(&self, post: &PubkySocialPost) -> Result<(), String> {
+        if let Some((name, max)) = self.content_cap() {
+            if code_point_len(&post.content) > max {
+                return Err(format!(
+                    "Validation Error: {name} content must be at most {max} code points"
+                ));
+            }
+        }
         match self {
             PubkySocialPostKind::Collection => {
                 let max = VALIDATION_LIMITS.collection_items_max_count;
@@ -628,6 +655,24 @@ impl PostKind for PubkySocialPostKind {
             PubkySocialPostKind::Event => content::events::event::check_event_owner(post, owner),
             _ => Ok(()),
         }
+    }
+}
+
+impl<K: PostKind> PostEnvelope<K> {
+    /// The bounds a planner checks before it reads a reference: the byte cap on the written
+    /// form, the attachment count, and the kind's raw content cap and list caps. Validation runs
+    /// the same checks in its own order; a planner reads references before it validates, so it
+    /// runs these first, and an oversized version is refused before any list inside it is
+    /// walked.
+    pub(crate) fn check_bounds(&self) -> Result<(), String> {
+        self.validate_size()?;
+        if self.attachments.len() > VALIDATION_LIMITS.post_attachments_max_count {
+            return Err(format!(
+                "Validation Error: Too many attachments (max: {})",
+                VALIDATION_LIMITS.post_attachments_max_count
+            ));
+        }
+        self.kind.check_counts(self)
     }
 }
 

@@ -9,9 +9,9 @@ import { type Each, fail, member, throwing, ValidationError } from "../errors.js
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
 import { type Codec, defaulted, type Extra, inputOf, inputReads, list, object, omitted, option, rootOf, string } from "../json/schema.js";
-import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
+import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8, utf8Len } from "../text.js";
 import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
-import { checkExtra, type Model, parse, validate } from "./common.js";
+import { checkExtra, checkSize, type Model, parse, validate } from "./common.js";
 import * as events from "./events.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 import * as maps from "./maps.js";
@@ -143,6 +143,28 @@ export const envelopeCodec = <K extends EnvelopeKind>(kind: K): Codec<Envelopes[
 export const envelopePrefix = (kind: EnvelopeKind): string => ENVELOPES[kind].prefix;
 export { isEnvelopeKind };
 
+/** The raw content cap of each 1.1 kind and how its refusal names the kind. The 1.0 kinds keep the order 1.0 shipped. */
+const CONTENT_CAPS = {
+  event: ["Event", limits.eventContentMaxLength],
+  rsvp: ["Rsvp", limits.rsvpContentMaxLength],
+  availability: ["Availability", limits.availabilityContentMaxLength],
+  rating: ["Rating", limits.ratingContentMaxLength],
+  route: ["Route", limits.routeContentMaxLength],
+} as const;
+
+/** The refusal of a 1.1 kind's content over its raw cap, checked on the string before it is parsed; null within it. */
+function contentCapRefusal(value: Post): ValidationError | null {
+  const { kind, content } = value;
+  if (!Object.hasOwn(CONTENT_CAPS, kind)) return null;
+  const [name, cap] = CONTENT_CAPS[kind as keyof typeof CONTENT_CAPS];
+  return codePointLen(content) > cap ? new ValidationError("length", `${name} content must be at most ${cap} code points`, "content", cap) : null;
+}
+
+function checkContentCap(value: Post): void {
+  const refusal = contentCapRefusal(value);
+  if (refusal !== null) throw refusal;
+}
+
 /** What the envelope of a typed kind reads as: its cover, and the envelope or why it does not parse. */
 interface Envelope {
   kind: string;
@@ -170,9 +192,10 @@ function envelopeOf(value: Post): Envelope | null {
       if (!(e instanceof JsonError)) throw e;
     }
   }
-  let parsed: Envelope["parsed"];
+  // Content over its kind's raw cap is never parsed: the cap is its refusal
+  let parsed: Envelope["parsed"] | null = contentCapRefusal(value);
   try {
-    parsed = parse(ENVELOPES[kind].codec as Codec<Envelopes[EnvelopeKind]>, content, ENVELOPES[kind].prefix, "content");
+    parsed ??= parse(ENVELOPES[kind].codec as Codec<Envelopes[EnvelopeKind]>, content, ENVELOPES[kind].prefix, "content");
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
     parsed = e;
@@ -222,9 +245,10 @@ export function contentRefs(value: Post): events.ContentRef[] {
   if (cover !== null) refs.push({ field: "cover_image", uri: cover, schemes: "pubky or web", max: limits.imageUrlMaxLength });
   items.forEach((uri, index) => refs.push({ field: `items[${index}].uri`, uri, schemes: "", max: limits.referenceUriMaxLength }));
   if (typed === null) return refs;
-  if (typed.kind === "event") refs.push(...events.eventRefs(typed.parsed));
-  if (typed.kind === "availability") refs.push(...events.availabilityRefs(typed.parsed));
-  if (typed.kind === "route") refs.push(...maps.routeRefs(typed.parsed));
+  // One at a time, never spread into an argument list: a list is as long as the caller made it
+  const inner =
+    typed.kind === "event" ? events.eventRefs(typed.parsed) : typed.kind === "availability" ? events.availabilityRefs(typed.parsed) : typed.kind === "route" ? maps.routeRefs(typed.parsed) : [];
+  for (const ref of inner) refs.push(ref);
   return refs;
 }
 
@@ -321,17 +345,39 @@ function checkCollection(post: Post, each: Each): void {
   });
 }
 
+function checkAttachmentCount(value: Post): void {
+  if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
+}
+
+// The raw content cap of a 1.1 kind, then the lists the gate reads: before any reference is
+// read, and the cap before the envelope is parsed
+function checkListCaps(value: Post, each: Each): void {
+  each(() => checkContentCap(value));
+  each(() => {
+    if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount)
+      fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
+  });
+  const typed = typedEnvelope(value);
+  if (typed?.kind === "event") events.checkEventCounts(typed.parsed, each);
+  if (typed?.kind === "route") maps.checkRouteCounts(typed.parsed, each);
+}
+
+/**
+ * The bounds a planner checks before it reads a reference: the byte cap on the written form,
+ * the attachment count, a 1.1 kind's raw content cap and the list caps. Validation runs the same
+ * checks in its own order; a planner reads references before it validates, so it runs these
+ * first, and an oversized version is refused before any list inside it is walked.
+ */
+export function checkBounds(value: Post): void {
+  checkSize(utf8Len(post.codec.write(value)), limits.postMaxBytes);
+  checkAttachmentCount(value);
+  checkListCaps(value, throwing);
+}
+
 // The envelope rules of the 1.1 kinds: what the envelope may combine with, its cap, then its
 // members once it parsed, in the reference's order
 function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "rating" | "route", each: Each): void {
-  const caps = {
-    event: ["Event", limits.eventContentMaxLength],
-    rsvp: ["Rsvp", limits.rsvpContentMaxLength],
-    availability: ["Availability", limits.availabilityContentMaxLength],
-    rating: ["Rating", limits.ratingContentMaxLength],
-    route: ["Route", limits.routeContentMaxLength],
-  } as const;
-  const [name, cap] = caps[kind];
+  const [name, cap] = CONTENT_CAPS[kind];
   each(() => {
     switch (kind) {
       case "event":
@@ -397,17 +443,9 @@ export const post: Model<Post> = {
     each(() => {
       if (!isKnown(postKinds, value.kind)) fail("unknown_name", "post kind is unknown", "kind");
     });
-    // A list is bounded before any of its items is read
-    each(() => {
-      if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
-    });
-    each(() => {
-      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount)
-        fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
-    });
-    const typed = typedEnvelope(value);
-    if (typed?.kind === "event") events.checkEventCounts(typed.parsed, each);
-    if (typed?.kind === "route") maps.checkRouteCounts(typed.parsed, each);
+    // A list is bounded before any of its items is read, and a 1.1 envelope before it is parsed
+    each(() => checkAttachmentCount(value));
+    checkListCaps(value, each);
     checkReferences(value, publicRoot, null, each);
     value.attachments.forEach((a, index) => {
       each(() => checkExtra(a.extra, `attachments[${index}].`));

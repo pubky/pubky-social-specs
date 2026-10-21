@@ -282,6 +282,12 @@ polyline and never trusts a client-sent box.
   skips. Nothing it stored reads differently.
 - A 1.1 reader checks the envelope of each new kind as Parts A and B say, unknown members
   preserved, and writes a post back byte for byte.
+- **Bounds before content.** A 1.1 kind's raw content cap is checked on the string before the
+  envelope is parsed, and its list caps (an event's `locations` and `links`, a route's
+  `waypoints`) before any reference in the list is read. The publish planner checks the post's
+  byte cap, its attachment count and these caps before it reads a single reference, so an
+  oversized version is refused by its cap and never walked. The 1.0 kinds keep the order 1.0
+  shipped.
 - Every integer in an envelope is an `i64` on the wire, within the JSON-safe range; a value
   outside its own range is that member's refusal, worded the same in both implementations.
 - The closed sets (`status`, `attendance.policy`, an rsvp's `status`, a rule's `frequency` and

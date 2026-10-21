@@ -134,6 +134,8 @@ fn other_refs(post: &PubkySocialPost) -> Vec<String> {
 /// reference anywhere else (parent, embed, lock, collection item) is the root rule stated as a
 /// publish error; covers are media and part of the closure.
 pub fn private_media_refs(post: &PubkySocialPost, owner: &PubkyId) -> Result<Vec<String>, String> {
+    // The caps before any reference is read, so an oversized version is refused unwalked
+    post.check_bounds()?;
     let own_private = media_prefix(owner, Root::Priv);
     let priv_ctx = ValidationCtx { root: Root::Priv };
     let max = VALIDATION_LIMITS.reference_uri_max_length;
@@ -863,5 +865,140 @@ mod tests {
                 "/pub/social/v1/files/PZBQ010FF079VVZPQG1RNFN6DR.png".to_string(),
             ]
         );
+    }
+
+    // ---- bounds before references ----
+
+    /// An event draft of `n` locations, the last one the owner's private post, padded with a
+    /// description of `pad` code points.
+    fn event_draft(n: usize, pad: usize) -> PubkySocialPost {
+        let mut locations: Vec<serde_json::Value> = (0..n.saturating_sub(1))
+            .map(|_| serde_json::json!({ "uri": "geo:0,0" }))
+            .collect();
+        locations
+            .push(serde_json::json!({ "uri": format!("pubky://{PK}/priv/social/v1/posts/{TS}") }));
+        let mut envelope = serde_json::json!({
+            "title": "t", "start": "2026-10-14T18:30:00", "timeZone": "UTC", "duration": "PT1H",
+            "locations": locations,
+        });
+        if pad > 0 {
+            envelope["description"] = "d".repeat(pad).into();
+        }
+        PubkySocialPost::new(
+            envelope.to_string(),
+            PubkySocialPostKind::Event,
+            None,
+            None,
+            vec![],
+        )
+    }
+
+    /// A route draft of `n` waypoints, the last one the owner's private post.
+    fn route_draft(n: usize) -> PubkySocialPost {
+        let mut waypoints: Vec<serde_json::Value> = (0..n.saturating_sub(1))
+            .map(|_| serde_json::json!({ "uri": "geo:0,0" }))
+            .collect();
+        waypoints
+            .push(serde_json::json!({ "uri": format!("pubky://{PK}/priv/social/v1/posts/{TS}") }));
+        let envelope = serde_json::json!({
+            "name": "n", "activity": "running", "waypoints": waypoints,
+            "polyline": { "encoded": "_p~iF", "engine": "valhalla", "profile": "pedestrian", "precision": 6 },
+            "distance_m": 1, "duration_s": 1,
+        });
+        PubkySocialPost::new(
+            envelope.to_string(),
+            PubkySocialPostKind::Route,
+            None,
+            None,
+            vec![],
+        )
+    }
+
+    fn publish_err(draft: &PubkySocialPost) -> String {
+        plan_publish(TS, TS, draft, None, &owner()).unwrap_err()
+    }
+
+    #[test]
+    fn publish_refuses_an_oversized_list_before_it_reads_a_reference() {
+        // within the caps the private location is what publish refuses
+        assert!(publish_err(&event_draft(10, 0)).contains("cannot reference a private object"));
+        assert!(publish_err(&route_draft(100)).contains("cannot reference a private object"));
+        // past them the cap is, and no reference in the list is read
+        assert_eq!(
+            publish_err(&event_draft(11, 0)),
+            "Validation Error: Event cannot have more than 10 locations"
+        );
+        assert_eq!(
+            publish_err(&route_draft(101)),
+            "Validation Error: Route must have 2 to 100 waypoints"
+        );
+        let max = VALIDATION_LIMITS.event_content_max_length;
+        assert_eq!(
+            publish_err(&event_draft(2, max)),
+            format!("Validation Error: Event content must be at most {max} code points")
+        );
+        // a list far past every cap: the byte cap of the written form, first
+        let cap = VALIDATION_LIMITS.post_max_bytes;
+        for draft in [event_draft(150_000, 0), route_draft(150_000)] {
+            assert_eq!(
+                publish_err(&draft),
+                format!("Validation Error: object exceeds {cap} bytes")
+            );
+            assert_eq!(
+                private_media_refs(&draft, &owner()).unwrap_err(),
+                format!("Validation Error: object exceeds {cap} bytes")
+            );
+        }
+    }
+
+    #[test]
+    fn validation_checks_a_raw_content_cap_before_it_parses() {
+        // over the raw cap and over the list cap: the raw cap, since nothing is parsed past it
+        let max = VALIDATION_LIMITS.event_content_max_length;
+        let draft = event_draft(11, max);
+        let e = draft
+            .validate(Some(TS), &ValidationCtx { root: Root::Priv })
+            .unwrap_err();
+        assert_eq!(
+            e,
+            format!("Validation Error: Event content must be at most {max} code points")
+        );
+        // a raw cap breached by content that is no JSON at all is still the cap
+        for (kind, name, max) in [
+            (
+                PubkySocialPostKind::Rsvp,
+                "Rsvp",
+                VALIDATION_LIMITS.rsvp_content_max_length,
+            ),
+            (
+                PubkySocialPostKind::Rating,
+                "Rating",
+                VALIDATION_LIMITS.rating_content_max_length,
+            ),
+            (
+                PubkySocialPostKind::Availability,
+                "Availability",
+                VALIDATION_LIMITS.availability_content_max_length,
+            ),
+            (
+                PubkySocialPostKind::Route,
+                "Route",
+                VALIDATION_LIMITS.route_content_max_length,
+            ),
+        ] {
+            let post = PubkySocialPost::new(
+                "[".repeat(max + 1),
+                kind,
+                Some(format!("pubky://{PK}/pub/social/v1/posts/{TS}")),
+                None,
+                vec![],
+            );
+            assert_eq!(
+                post.validate(Some(TS), &ValidationCtx { root: Root::Priv })
+                    .unwrap_err(),
+                format!("Validation Error: {name} content must be at most {max} code points"),
+                "{name}"
+            );
+        }
     }
 }
