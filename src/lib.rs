@@ -62,9 +62,18 @@ pub use models::post::lifecycle::{
 };
 pub use models::post::{
     ContentReference, MintedVersion, PostEnvelope, PostKind, PubkySocialArticleContent,
-    PubkySocialAttachment, PubkySocialCollectionContent, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialPost, PubkySocialPostKind,
+    PubkySocialAttachment, PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock,
+    PubkySocialAvailabilityContent, PubkySocialCollectionContent, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialEventAttendance, PubkySocialEventContent,
+    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRatingContent, PubkySocialRecurrenceFrequency,
+    PubkySocialRecurrenceRule, PubkySocialRouteContent, PubkySocialRoutePolyline,
+    PubkySocialRouteStep, PubkySocialRouteWaypoint, PubkySocialRsvpContent, PubkySocialRsvpStatus,
+    PubkySocialWeekday,
 };
+// The JSCalendar value rules and the Maps conventions, under their own names
+pub use models::post::content::events::time as jscalendar;
+pub use models::post::content::maps::geo;
 pub use models::tag::{sanitize_tag_label, validate_tag_label, PubkySocialTag};
 pub use models::user::{PubkySocialUser, PubkySocialUserLink};
 pub use models::{ObjectKind, PubkySocialObject};

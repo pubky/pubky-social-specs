@@ -20,11 +20,12 @@ use crate::models::legacy_v0::{APP_PATH, PUBLIC_PATH};
 use crate::traits::{hash_id_from, HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx};
 use crate::{
     list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
-    PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout,
-    PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute,
-    PubkySocialObject, PubkySocialPost, PubkySocialPostKind, PubkySocialTag, PubkySocialUser,
-    PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
+    PubkyId, PubkySocialAttachment, PubkySocialAvailabilityContent, PubkySocialBookmark,
+    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventContent,
+    PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
+    PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute, PubkySocialObject,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRouteContent, PubkySocialRsvpStatus,
+    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -263,6 +264,92 @@ struct CollectionInput {
     slug: Option<String>,
 }
 
+/// The members of a new event, the envelope's in the envelope's own spelling plus the post's;
+/// read as the envelope type reads them, so a member of the wrong shape is refused in serde's
+/// words, then rebuilt as the builder would be given it.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct EventInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    #[serde(flatten)]
+    event: PubkySocialEventContent,
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentInput>>,
+    #[serde(default)]
+    lock: Option<String>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct RsvpInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    parent: String,
+    status: String,
+    #[serde(default)]
+    recurrence_id: Option<String>,
+    #[serde(default)]
+    guests: Option<i64>,
+    #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AvailabilityInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    #[serde(flatten)]
+    schedule: PubkySocialAvailabilityContent,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RatingInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    parent: String,
+    rating: i64,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentInput>>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RouteInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    #[serde(flatten)]
+    route: PubkySocialRouteContent,
+    #[serde(default)]
+    embed: Option<String>,
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentInput>>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EditAt {
@@ -461,6 +548,54 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
             );
             (post, i.root, i.slug)
         }
+        Some("event") => {
+            let i: EventInput = parse(input)?;
+            // A flattened envelope keeps a stray member in its `extra`; an input takes only the
+            // members the kind has
+            no_extra(&i.event.extra)?;
+            let post = PubkySocialPost::new_event(i.event, attachments_of(i.attachments), i.lock);
+            (post, i.root, i.slug)
+        }
+        Some("rsvp") => {
+            let i: RsvpInput = parse(input)?;
+            let status = PubkySocialRsvpStatus::from(i.status);
+            if !status.is_known() {
+                return Err(format!(
+                    "Validation Error: Invalid rsvp status: {}",
+                    status.wire_name()
+                ));
+            }
+            let post = PubkySocialPost::new_rsvp(
+                i.parent,
+                status,
+                i.recurrence_id,
+                i.guests.unwrap_or(0),
+                i.note,
+            );
+            (post, i.root, i.slug)
+        }
+        Some("availability") => {
+            let i: AvailabilityInput = parse(input)?;
+            no_extra(&i.schedule.extra)?;
+            let post = PubkySocialPost::new_availability(i.schedule);
+            (post, i.root, i.slug)
+        }
+        Some("rating") => {
+            let i: RatingInput = parse(input)?;
+            let post = PubkySocialPost::new_rating(
+                i.parent,
+                i.rating,
+                i.text,
+                attachments_of(i.attachments),
+            );
+            (post, i.root, i.slug)
+        }
+        Some("route") => {
+            let i: RouteInput = parse(input)?;
+            no_extra(&i.route.extra)?;
+            let post = PubkySocialPost::new_route(i.route, i.embed, attachments_of(i.attachments));
+            (post, i.root, i.slug)
+        }
         Some("collection") => {
             let i: CollectionInput = parse(input)?;
             let layout = i
@@ -501,6 +636,15 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
     };
     let minted = post.create_version(root.unwrap_or(Root::Pub), owner, slug.as_deref())?;
     Ok(version(owner, minted, body(&post)?))
+}
+
+/// A flattened input envelope's `extra` holds what `deny_unknown_fields` could not refuse: an
+/// input member the kind does not have. Worded as serde words the others.
+fn no_extra(extra: &serde_json::Map<String, Value>) -> Result<(), String> {
+    match extra.keys().next() {
+        Some(key) => Err(format!("Validation Error: unknown field `{key}`")),
+        None => Ok(()),
+    }
 }
 
 fn read(uri: &str, bytes: Vec<u8>) -> Result<Value, String> {

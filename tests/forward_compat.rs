@@ -3,11 +3,13 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use pubky_social_specs::{
-    traits::Validatable, PubkySocialArticleContent, PubkySocialAttachment, PubkySocialBookmark,
-    PubkySocialCollectionContent, PubkySocialCollectionItem, PubkySocialCollectionLayout,
+    traits::Validatable, PubkySocialArticleContent, PubkySocialAttachment,
+    PubkySocialAttendancePolicy, PubkySocialBookmark, PubkySocialCollectionContent,
+    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventStatus,
     PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
     PubkySocialFeedSort, PubkySocialFollow, PubkySocialMute, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, PUB_CTX,
+    PubkySocialRecurrenceFrequency, PubkySocialRsvpStatus, PubkySocialTag, PubkySocialUser,
+    PubkySocialUserLink, PubkySocialWeekday, PUB_CTX,
 };
 use serde::de::DeserializeOwned;
 
@@ -150,8 +152,22 @@ fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
         "link",
         "file",
         "collection",
+        "event",
+        "rsvp",
+        "availability",
+        "rating",
+        "route",
     ]);
     round_trips::<PubkySocialCollectionLayout>(&["grid", "list", "visual"]);
+    round_trips::<PubkySocialEventStatus>(&["confirmed", "tentative", "cancelled"]);
+    round_trips::<PubkySocialAttendancePolicy>(&["open", "approval", "invite", "ticket"]);
+    round_trips::<PubkySocialRsvpStatus>(&["requested", "accepted", "declined", "tentative"]);
+    round_trips::<PubkySocialRecurrenceFrequency>(&["yearly", "monthly", "weekly", "daily"]);
+    round_trips::<PubkySocialWeekday>(&["mo", "tu", "we", "th", "fr", "sa", "su"]);
+    assert_eq!(
+        serde_json::to_string(&PubkySocialEventStatus::Unknown("maybe".into())).unwrap(),
+        "\"maybe\""
+    );
     assert_eq!(
         serde_json::to_string(&PubkySocialFeedReach::Unknown("galaxy".into())).unwrap(),
         "\"galaxy\""
