@@ -480,7 +480,7 @@ const eventEnvelope = (r) => {
   const e = { title: r.pick(["Evening", " Evening ", " ", "t".repeat(r.pick([100, 101])), "a\u0000b", text(r)]), start: LOCAL(r), timeZone: ZONE(r) };
   if (r.chance(0.85)) e.duration = DURATION(r);
   if (r.chance(0.3)) e.showWithoutTime = r.chance(0.8);
-  if (r.chance(0.4)) e.description = r.pick(["Monthly meetup.", " ", "", "d".repeat(r.pick([50000, 50001])), text(r, 12)]);
+  if (r.chance(0.4)) e.description = r.pick(["Monthly meetup.", " ", "", rarely(r, () => "d".repeat(r.pick([50000, 50001])), "d".repeat(300)), text(r, 12)]);
   if (r.chance(0.3)) e.status = r.pick(["confirmed", "tentative", "cancelled", "maybe"]);
   if (r.chance(0.5)) e.locations = r.many(r.pick([2, 2, 11]), () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Hub", " Hub ", " ", "n".repeat(r.pick([100, 101])), null]) }));
   if (r.chance(0.4)) {
@@ -495,7 +495,11 @@ const eventEnvelope = (r) => {
       url: r.pick(["https://planb.network/", "http://example.com", `https://e.com/${"a".repeat(r.pick([286, 287]))}`, ref(r)]),
     }));
   if (r.chance(0.4)) e.recurrenceRules = r.many(r.pick([1, 1, 1, 2]), () => rule(r));
-  if (r.chance(0.3)) e.excludedDates = r.many(r.pick([2, 2, 101]), () => LOCAL(r));
+  if (r.chance(0.3))
+    e.excludedDates = r.many(
+      rarely(r, () => 101, 2),
+      () => LOCAL(r),
+    );
   if (r.chance(0.15)) {
     e.recurrenceOf = r.pick([
       `pubky://${OWNER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`,
@@ -520,14 +524,26 @@ const blockOf = (r, titled) => {
   if (titled && r.chance(0.5)) b.title = r.pick(["Office hours", " ", "t".repeat(r.pick([100, 101])), null]);
   if (!titled && r.chance(0.1)) b.title = "Dentist";
   if (r.chance(0.3)) b.recurrenceRules = r.many(r.pick([1, 1, 2]), () => rule(r));
-  if (r.chance(0.2)) b.excludedDates = r.many(r.pick([2, 101]), () => LOCAL(r));
+  if (r.chance(0.2))
+    b.excludedDates = r.many(
+      rarely(r, () => 101, 2),
+      () => LOCAL(r),
+    );
   return b;
 };
 const availabilityEnvelope = (r) => {
   const e = { timeZone: ZONE(r), horizonDays: r.pick([60, 1, 366, 367, 0, -1]) };
   if (r.chance(0.4)) e.for = r.pick([ref(r), `pubky://${OWNER}/pub/shop/v1/listings/${timestampIdOf(NOW - 5e9)}`, null]);
-  if (r.chance(0.7)) e.available = r.many(r.pick([3, 3, 101]), () => blockOf(r, true));
-  if (r.chance(0.6)) e.busy = r.many(r.pick([3, 3, 101]), () => blockOf(r, false));
+  if (r.chance(0.7))
+    e.available = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, true),
+    );
+  if (r.chance(0.6))
+    e.busy = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, false),
+    );
   return e;
 };
 const ratingEnvelope = (r) => {
@@ -539,9 +555,12 @@ const routeEnvelope = (r) => {
   const e = {
     name: r.pick(["Lakeside loop", " Loop ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
     activity: r.pick(["running", "Hiking", "e-bike", "trail run", "a,b", "", "x".repeat(r.pick([20, 21]))]),
-    waypoints: r.many(r.pick([4, 4, 4, 1, 101]), () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Start", " ", "n".repeat(r.pick([100, 101])), null]) })),
+    waypoints: r.many(
+      rarely(r, () => 101, r.pick([4, 4, 4, 1])),
+      () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Start", " ", "n".repeat(r.pick([100, 101])), null]) }),
+    ),
     polyline: {
-      encoded: r.pick(["_p~iF~ps|U_ulLnnqC_mqNvxq`@", "?~", "", "über", "a b", "x".repeat(r.pick([100000, 100001]))]),
+      encoded: r.pick(["_p~iF~ps|U_ulLnnqC_mqNvxq`@", "?~", "", "über", "a b", rarely(r, () => "x".repeat(r.pick([100000, 100001])), "x".repeat(300))]),
       engine: r.pick(["valhalla", " Valhalla ", " ", "e".repeat(r.pick([50, 51]))]),
       profile: r.pick(["pedestrian", "bicycle", "auto", " "]),
       precision: r.pick([6, 5, 4, 7, 0]),
@@ -553,11 +572,14 @@ const routeEnvelope = (r) => {
   if (r.chance(0.3)) e.elevation_gain_m = r.pick([12, 0, 100000, 100001, -1, null]);
   if (r.chance(0.3)) e.elevation_loss_m = r.pick([12, 100001, null]);
   if (r.chance(0.4))
-    e.steps = r.many(r.pick([2, 2, 501]), () => ({
-      instruction: r.pick(["Head south", " ", "i".repeat(r.pick([200, 201]))]),
-      ...(r.chance(0.5) ? { distance_m: r.pick([400, -1, null]) } : {}),
-      ...(r.chance(0.3) ? { duration_s: r.pick([150, 315360001]) } : {}),
-    }));
+    e.steps = r.many(
+      rarely(r, () => 501, 2),
+      () => ({
+        instruction: r.pick(["Head south", " ", "i".repeat(r.pick([200, 201]))]),
+        ...(r.chance(0.5) ? { distance_m: r.pick([400, -1, null]) } : {}),
+        ...(r.chance(0.3) ? { duration_s: r.pick([150, 315360001]) } : {}),
+      }),
+    );
   return e;
 };
 const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, availability: availabilityEnvelope, rating: ratingEnvelope, route: routeEnvelope };
@@ -656,7 +678,21 @@ function postInput(r) {
   return o;
 }
 
-// The 1.1 kinds, drawn by the `-1.1` families alone, so the 1.0 families draw as 1.0 recorded them
+// The 1.1 kinds, drawn by the `-1.1` families alone, so the 1.0 families draw as 1.0 recorded them.
+// A full-size cap edge (a 50,000-character description, a 100,000-character polyline) is drawn
+// rarely, so the recorded files stay small: every 1.1 edge is recorded once, at the cap and one
+// over, in the fixed `edges-1.1` family, and the fuzz reaches the rest
+const rarely = (r, big, small) => (r.chance(0.04) ? big() : small);
+// A stored 1.1 post: spoiled as `stored` spoils one, never padded to the byte cap, a 1.0 limit
+// the 1.0 files and `bounds` record
+function stored11(r, object) {
+  const out = spoil(r, object);
+  if (!out.endsWith("}") || out.length <= 2) return out;
+  return r.chance(0.3) ? `${out.slice(0, -1)},${r.pick(EXTRA)}}` : out;
+}
+// A 1.1 envelope as stored, or content that is no envelope; the 40,001-character content of
+// `envelopeText` is the collection's raw cap, a 1.0 edge
+const envelopeText11 = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored11(r, envelope), () => r.pick(["", "{", "[]", "null", "not json"])])();
 const V11_KINDS = ["event", "rsvp", "availability", "rating", "route"];
 const isReply = (kind) => kind === "rsvp" || kind === "rating";
 
@@ -701,27 +737,27 @@ function cleanPost11(r) {
   const breaks = {
     event: [
       () => (envelope.title = "t".repeat(r.pick([100, 101]))),
-      () => (envelope.description = "d".repeat(r.pick([50000, 50001]))),
+      () => (envelope.description = rarely(r, () => "d".repeat(r.pick([50000, 50001])), "d".repeat(300))),
       () => (envelope.locations = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: place() }))),
       () => (envelope.recurrenceRules[0].count = r.pick([1000, 1001])),
       () => (envelope.recurrenceRules[0].until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01"])),
       () => (envelope.attendance = { policy: "ticket", capacity: r.pick([1000000, 1000001]), waitlist: true }),
       () => (envelope.links = [{ name: "Site", url: r.pick(["https://x.y", "http://x.y"]) }]),
       () => (envelope.status = r.pick(["cancelled", "maybe"])),
-      () => (envelope.excludedDates = Array.from({ length: r.pick([100, 101]) }, () => "2026-11-10T18:30:00")),
+      () => (envelope.excludedDates = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => "2026-11-10T18:30:00")),
     ],
     rsvp: [() => (envelope.guests = r.pick([100, 101])), () => (envelope.note = "n".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
     availability: [
       () => (envelope.horizonDays = r.pick([366, 367])),
-      () => (envelope.available = Array.from({ length: r.pick([100, 101]) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
+      () => (envelope.available = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
       () => (envelope.busy[0].title = "Dentist"),
     ],
     rating: [() => (envelope.rating = r.pick([10, 11])), () => (envelope.text = "t".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
     route: [
-      () => (envelope.waypoints = Array.from({ length: r.pick([100, 101]) }, () => ({ uri: place() }))),
-      () => (envelope.polyline.encoded = "?".repeat(r.pick([100000, 100001]))),
+      () => (envelope.waypoints = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ uri: place() }))),
+      () => (envelope.polyline.encoded = rarely(r, () => "?".repeat(r.pick([100000, 100001])), "?".repeat(300))),
       () => (envelope.distance_m = r.pick([100000000, 100000001])),
-      () => (envelope.steps = Array.from({ length: r.pick([500, 501]) }, () => ({ instruction: "go" }))),
+      () => (envelope.steps = Array.from({ length: rarely(r, () => r.pick([500, 501]), 3) }, () => ({ instruction: "go" }))),
       () => (envelope.activity = "x".repeat(r.pick([20, 21]))),
     ],
   }[kind];
@@ -739,7 +775,7 @@ function cleanPost11(r) {
 function storedPost11(r) {
   if (r.chance(0.35)) return cleanPost11(r);
   const kind = r.pick(["event", "event", "rsvp", "availability", "rating", "route", "route"]);
-  const p = { content: envelopeText(r, TYPED[kind](r)), kind, parent: null, embed: null };
+  const p = { content: envelopeText11(r, TYPED[kind](r)), kind, parent: null, embed: null };
   // the reply kinds mostly have the parent they need
   if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);
@@ -850,6 +886,151 @@ const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
  * reference, whose answer is the one 1.0 gave, the reference.
  */
 export const fixed = {
+  /**
+   * Every 1.1 limit at its edge and one past it, read by `encodeKind`: a minimum at the minimum
+   * and one under. A row whose value is large breaks a rule that runs after the cap too, so its
+   * answer is that later rule's short refusal, which shows the cap admitted the value, and the
+   * file stays small.
+   */
+  "edges-1.1": () => {
+    const L = limits;
+    const encode = (kind, envelope, post = {}) =>
+      request("encodeKind", s("post"), { j: JSON.stringify("public") }, { j: JSON.stringify({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [], ...post }) });
+    const reply = { parent: "https://example.com/thing" };
+    const event = (more) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", ...more });
+    const rsvp = (more) => ({ status: "accepted", ...more });
+    const availability = (more) => ({ timeZone: "UTC", horizonDays: 30, ...more });
+    const rating = (more) => ({ rating: 7, ...more });
+    const route = (more) => ({
+      name: "n",
+      activity: "running",
+      waypoints: [{ uri: "geo:0,0" }, { uri: "geo:1,1" }],
+      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
+      distance_m: 1,
+      duration_s: 1,
+      ...more,
+    });
+    // An envelope padded by an unknown member to exactly `size` code points of content
+    const padded = (envelope, size) => {
+      const bare = JSON.stringify({ ...envelope, pad: "" }).length;
+      return { ...envelope, pad: "x".repeat(size - bare) };
+    };
+    const n = (count, make) => Array.from({ length: count }, make);
+    const block = () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" });
+    // [at the edge, past it], each a request
+    const pairs = [
+      // event
+      [encode("event", event({ title: "t".repeat(L.eventTitleMaxLength) })), encode("event", event({ title: "t".repeat(L.eventTitleMaxLength + 1) }))],
+      [encode("event", event({ description: "d".repeat(L.eventDescriptionMaxLength), start: "soon" })), encode("event", event({ description: "d".repeat(L.eventDescriptionMaxLength + 1) }))],
+      [encode("event", padded(event({ start: "soon" }), L.eventContentMaxLength)), encode("event", padded(event({}), L.eventContentMaxLength + 1))],
+      [encode("event", event({ timeZone: "a".repeat(L.eventTimeZoneMaxLength) })), encode("event", event({ timeZone: "a".repeat(L.eventTimeZoneMaxLength + 1) }))],
+      [encode("event", event({ duration: "P366D" })), encode("event", event({ duration: "P366DT1S" }))],
+      [
+        encode("event", event({ locations: n(L.eventLocationsMaxCount, () => ({ uri: "geo:0,0" })) })),
+        encode("event", event({ locations: n(L.eventLocationsMaxCount + 1, () => ({ uri: "geo:0,0" })) })),
+      ],
+      [
+        encode("event", event({ locations: [{ uri: "geo:0,0", name: "n".repeat(L.eventLocationNameMaxLength) }] })),
+        encode("event", event({ locations: [{ uri: "geo:0,0", name: "n".repeat(L.eventLocationNameMaxLength + 1) }] })),
+      ],
+      [
+        encode("event", event({ links: n(L.eventLinksMaxCount, () => ({ name: "n", url: "https://x.y" })) })),
+        encode("event", event({ links: n(L.eventLinksMaxCount + 1, () => ({ name: "n", url: "https://x.y" })) })),
+      ],
+      [
+        encode("event", event({ links: [{ name: "n".repeat(L.eventLinkNameMaxLength), url: "https://x.y" }] })),
+        encode("event", event({ links: [{ name: "n".repeat(L.eventLinkNameMaxLength + 1), url: "https://x.y" }] })),
+      ],
+      [
+        encode("event", event({ links: [{ name: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 14)}` }] })),
+        encode("event", event({ links: [{ name: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 13)}` }] })),
+      ],
+      [
+        encode("event", event({ attendance: { policy: "ticket", capacity: L.eventCapacityMaxPeople, waitlist: false } })),
+        encode("event", event({ attendance: { policy: "ticket", capacity: L.eventCapacityMaxPeople + 1, waitlist: false } })),
+      ],
+      [encode("event", event({ recurrenceRules: [{ frequency: "daily" }] })), encode("event", event({ recurrenceRules: [{ frequency: "daily" }, { frequency: "weekly" }] }))],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", count: L.eventRecurrenceMaxOccurrences }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", count: L.eventRecurrenceMaxOccurrences + 1 }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", until: "2029-10-14T18:30:00" }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", until: "2029-10-14T18:30:01" }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", interval: L.eventRecurrenceIntervalMaxPeriods }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", interval: L.eventRecurrenceIntervalMaxPeriods + 1 }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "monthly", byMonthDay: n(L.eventRecurrenceByMaxCount, (_, i) => i + 1) }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "monthly", byMonthDay: n(L.eventRecurrenceByMaxCount + 1, (_, i) => (i % 31) + 1) }] })),
+      ],
+      [
+        encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount, () => "2026-11-10T18:30:00") })),
+        encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount + 1, () => "2026-11-10T18:30:00") })),
+      ],
+      // rsvp
+      [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), reply), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), reply)],
+      [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), reply), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), reply)],
+      [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), reply), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), reply)],
+      // availability
+      [encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays })), encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays + 1 }))],
+      [encode("availability", availability({ available: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ available: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength) }] })),
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength + 1) }] })),
+      ],
+      [encode("availability", padded(availability({ timeZone: "no zone" }), L.availabilityContentMaxLength)), encode("availability", padded(availability({}), L.availabilityContentMaxLength + 1))],
+      // rating
+      [encode("rating", rating({ rating: L.ratingMinHalfStars }), reply), encode("rating", rating({ rating: L.ratingMinHalfStars - 1 }), reply)],
+      [encode("rating", rating({ rating: L.ratingMaxHalfStars }), reply), encode("rating", rating({ rating: L.ratingMaxHalfStars + 1 }), reply)],
+      [encode("rating", rating({ text: "t".repeat(L.ratingTextMaxLength) }), reply), encode("rating", rating({ text: "t".repeat(L.ratingTextMaxLength + 1) }), reply)],
+      [encode("rating", padded(rating({}), L.ratingContentMaxLength), reply), encode("rating", padded(rating({}), L.ratingContentMaxLength + 1), reply)],
+      // the geo convention, in a place position
+      [
+        encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits)},0` }] })),
+        encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits + 1)},0` }] })),
+      ],
+      // route
+      [encode("route", route({ name: "n".repeat(L.routeNameMaxLength) })), encode("route", route({ name: "n".repeat(L.routeNameMaxLength + 1) }))],
+      [encode("route", route({ description: "d".repeat(L.routeDescriptionMaxLength) })), encode("route", route({ description: "d".repeat(L.routeDescriptionMaxLength + 1) }))],
+      [
+        encode("route", route({ waypoints: n(L.routeWaypointsMinCount, () => ({ uri: "geo:0,0" })) })),
+        encode("route", route({ waypoints: n(L.routeWaypointsMinCount - 1, () => ({ uri: "geo:0,0" })) })),
+      ],
+      [
+        encode("route", route({ waypoints: n(L.routeWaypointsMaxCount, () => ({ uri: "geo:0,0" })) })),
+        encode("route", route({ waypoints: n(L.routeWaypointsMaxCount + 1, () => ({ uri: "geo:0,0" })) })),
+      ],
+      [
+        encode("route", route({ waypoints: [{ uri: "geo:0,0", name: "n".repeat(L.routeWaypointNameMaxLength) }, { uri: "geo:1,1" }] })),
+        encode("route", route({ waypoints: [{ uri: "geo:0,0", name: "n".repeat(L.routeWaypointNameMaxLength + 1) }, { uri: "geo:1,1" }] })),
+      ],
+      [
+        encode("route", route({ polyline: { encoded: "?".repeat(L.routePolylineMaxLength), engine: "v", profile: "p", precision: 6 }, distance_m: -1 })),
+        encode("route", route({ polyline: { encoded: "?".repeat(L.routePolylineMaxLength + 1), engine: "v", profile: "p", precision: 6 } })),
+      ],
+      [
+        encode("route", route({ polyline: { encoded: "_p~iF", engine: "e".repeat(L.routeLabelMaxLength), profile: "p".repeat(L.routeLabelMaxLength), precision: 6 } })),
+        encode("route", route({ polyline: { encoded: "_p~iF", engine: "e".repeat(L.routeLabelMaxLength + 1), profile: "p", precision: 6 } })),
+      ],
+      [encode("route", route({ distance_m: L.routeDistanceMaxMetres })), encode("route", route({ distance_m: L.routeDistanceMaxMetres + 1 }))],
+      [encode("route", route({ duration_s: L.routeDurationMaxSeconds })), encode("route", route({ duration_s: L.routeDurationMaxSeconds + 1 }))],
+      [
+        encode("route", route({ elevation_gain_m: L.routeElevationMaxMetres, elevation_loss_m: L.routeElevationMaxMetres })),
+        encode("route", route({ elevation_gain_m: L.routeElevationMaxMetres + 1 })),
+      ],
+      [encode("route", route({ steps: n(L.routeStepsMaxCount, () => ({ instruction: "go" })) })), encode("route", route({ steps: n(L.routeStepsMaxCount + 1, () => ({ instruction: "go" })) }))],
+      [
+        encode("route", route({ steps: [{ instruction: "i".repeat(L.routeStepInstructionMaxLength) }] })),
+        encode("route", route({ steps: [{ instruction: "i".repeat(L.routeStepInstructionMaxLength + 1) }] })),
+      ],
+      [encode("route", padded(route({ name: " " }), L.routeContentMaxLength)), encode("route", padded(route({}), L.routeContentMaxLength + 1))],
+    ];
+    return pairs.flat();
+  },
   bounds: () => {
     const id = timestampIdOf(NOW - 5e9);
     const privatePost = `pubky://${OWNER}/priv/social/v1/posts/${id}`;
@@ -1051,12 +1232,12 @@ export const families = {
         const at = { id, head };
         if (r.chance(0.4)) at.root = r.pick(["public", "private"]);
         if (r.chance(0.3)) at.slug = r.pick(["edited", "Bad Slug"]);
-        return { ...request("editPost", s(key(r)), { j: stored(r, storedPost11(r)) }, { j: JSON.stringify(at) }), ...env(r) };
+        return { ...request("editPost", s(key(r)), { j: stored11(r, storedPost11(r)) }, { j: JSON.stringify(at) }), ...env(r) };
       },
       () => {
         const id = postId(r);
         const leaf = r.pick([`${id}/${id}.json`, `${id}/${timestampIdOf(NOW - 4e9)}-a-slug.json`, id, `${id}/${timestampIdOf(NOW + r.pick([7.1e9, 7.3e9]))}.json`]);
-        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost11(r), limits.postMaxBytes) });
+        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored11(r, storedPost11(r)) });
       },
     ])(),
   "plan-1.1": (r) => {
@@ -1084,7 +1265,7 @@ export const families = {
       },
     ])();
   },
-  "loose-1.1": (r) => request("encodeKind", s("post"), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, storedPost11(r), limits.postMaxBytes)) }),
+  "loose-1.1": (r) => request("encodeKind", s("post"), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: stored11(r, storedPost11(r)) }),
   feed: (r) =>
     r.pick([
       () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),

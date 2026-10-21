@@ -44,8 +44,10 @@ request alone and a recorded request replays to the same answer.
   only the 1.0 kinds, so a re-recording reproduces them byte for byte, and their passing is the
   1.0 compatibility proof. The 1.1 kinds are recorded beside them: `post-1.1`, `plan-1.1` and
   `loose-1.1` draw only `event`, `rsvp`, `availability`, `rating` and `route`, `maps` the `geo:`
-  and OpenStreetMap conventions, and `bounds` is a fixed list of oversized and 1.0-order cases
-  (`fixed` in `pkg/qa/gen.mjs`), recorded as it stands and never fuzzed. `tests/surface_vectors.rs` fails when the crate no longer gives
+  and OpenStreetMap conventions. Two fixed lists (`fixed` in `pkg/qa/gen.mjs`) are recorded as they
+  stand and never fuzzed: `edges-1.1` holds every 1.1 limit at its edge and one past it, and
+  `bounds` the oversized and 1.0-order cases. The `-1.1` generators draw a full-size cap edge
+  rarely, since `edges-1.1` records each one; the fuzz still reaches them. `tests/surface_vectors.rs` fails when the crate no longer gives
   them, and the scoreboard fails when the package does not. Regenerate with
   `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour.
 - **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh
