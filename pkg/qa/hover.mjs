@@ -10,7 +10,8 @@ import path from "node:path";
 import { ENTRIES, PKG, declarations, flags } from "./lib.mjs";
 
 const dist = path.join(PKG, "dist");
-const UNIT = /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP)\b/i;
+const UNIT =
+  /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP|people|days|years|metres|degrees|digits|half stars|stars|occurrences|periods|places|links|blocks|rules?|waypoints|dates|id)\b/i;
 
 const { ts, program, checker } = declarations(Object.values(ENTRIES).map((module) => path.join(dist, `${module}.d.ts`)));
 const ours = (symbol) => (symbol.declarations ?? []).some((d) => d.getSourceFile().fileName.startsWith(dist));

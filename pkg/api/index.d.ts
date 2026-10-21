@@ -1,11 +1,13 @@
 import { ValidationError } from "./errors.js";
+import * as geo from "./models/geo.js";
 import type * as T from "./types.js";
 export { ENGINE_CAPS, MIGRATION_CAPS } from "./caps.js";
 export { limits, validMimeTypes } from "./data.js";
 export { ArgumentError, ValidationError } from "./errors.js";
 export type { ErrorCode } from "./errors.js";
-export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
-export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
+export { attendancePolicies, collectionLayouts, eventStatuses, feedLayouts, feedReaches, feedSorts, postKinds, recurrenceFrequencies, rsvpStatuses, weekdays } from "./models/kinds.js";
+export type { AttendancePolicy, CollectionLayout, EventStatus, FeedLayout, FeedReach, FeedSort, KnownAttendancePolicy, KnownCollectionLayout, KnownEventStatus, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, KnownRecurrenceFrequency, KnownRsvpStatus, KnownWeekday, PostKind, RecurrenceFrequency, RsvpStatus, Weekday, } from "./models/kinds.js";
+export type { OsmObject } from "./models/geo.js";
 export type * from "./types.js";
 export { feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser } from "./validate.js";
 export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
@@ -80,13 +82,13 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
     root?: T.Root | null;
 }, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
- * The envelope inside the `content` of an article or a collection; null for any other kind.
- * `post` is a stored post, the `.object` of a result, or the `kind` and `content` of one, which
- * is all an indexer may have handed over.
+ * The envelope inside the `content` of an article, a collection, an event, an rsvp, an
+ * availability, a rating or a route; null for any other kind. `post` is a stored post, the
+ * `.object` of a result, or the `kind` and `content` of one, which is all an indexer may have
+ * handed over.
  *
- * @throws `ValidationError` with `code: "json"` when the content of an
- *  article or a collection is not its envelope, and `code: "format"` for content holding a lone
- *  surrogate;
+ * @throws `ValidationError` with `code: "json"` when the content of a typed kind is not its
+ *  envelope, and `code: "format"` for content holding a lone surrogate;
  *  `ArgumentError` for an argument of the wrong type.
  *
  * @example
@@ -98,13 +100,7 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
  * if (envelope?.kind === "article") console.log(envelope.content.title);
  * ```
  */
-export declare function decodeContent(post: Pick<T.Post, "kind" | "content">): {
-    kind: "article";
-    content: T.ArticleContent;
-} | {
-    kind: "collection";
-    content: T.CollectionContent;
-} | null;
+export declare function decodeContent(post: Pick<T.Post, "kind" | "content">): T.DecodedContent | null;
 /**
  * `decodeContent` with the refusal returned instead of thrown, for posts an indexer handed over,
  * whose content can be anything. An argument of the wrong type still throws.
@@ -127,12 +123,14 @@ export declare function tryDecodeContent(post: Pick<T.Post, "kind" | "content">)
     error: ValidationError;
 };
 /**
- * The `content` string of an article (an envelope with a `title`) or a collection (one with a
- * `name`), for a post about to be edited. It only spells the envelope: the rules run when the
- * post is passed to `editPost` or `encodeObject`.
+ * The `content` string of a typed kind's envelope, for a post about to be edited. Without
+ * `kind` the envelope is told apart by its members: an event has a `start`, an article a
+ * `title`, a route a `polyline`, a collection a `name`, an rsvp a `status`, a rating a `rating`
+ * and an availability a `horizonDays`. It only spells the envelope: the rules run when the post
+ * is passed to `editPost` or `encodeObject`.
  *
- * @throws `ArgumentError` for an envelope that has neither `title` nor `name`, or a member of the
- *  wrong type.
+ * @throws `ArgumentError` for an envelope no kind has, or a member of the wrong type;
+ *  `ValidationError` with `code: "unknown_name"` for a `kind` with no envelope.
  *
  * @example
  * ```ts
@@ -141,7 +139,7 @@ export declare function tryDecodeContent(post: Pick<T.Post, "kind" | "content">)
  * console.log(content);
  * ```
  */
-export declare function encodeContent(content: T.ArticleContent | T.CollectionContent): string;
+export declare function encodeContent(content: T.Envelope, kind?: T.EnvelopeKind): string;
 /**
  * A fresh profile for `owner`, a bare public key. Name, bio, status and link titles are
  * trimmed; `image` and each link `url` are stored as written and must be canonical already.
@@ -163,9 +161,11 @@ export declare function encodeContent(content: T.ArticleContent | T.CollectionCo
 export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.Built<T.User>;
 /**
  * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
- * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`,
- * and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`.
- * `parent`, `embed`, `lock`, attachment and item URIs are references: stored as written.
+ * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`, an
+ * event its JSCalendar members, an rsvp and a rating their `parent` and answer, an availability
+ * its blocks, a route its waypoints and polyline, and any other kind (`note` when absent,
+ * `image`, `video`, `link`, `file`) takes `content`. `parent`, `embed`, `lock`, attachment, item,
+ * location and waypoint URIs are references: stored as written.
  *
  * @throws `ValidationError` for a rule of the post (`field` the member: `content`,
  *  `attachments[0].uri`, `slug`, `title`) or a malformed `owner`; `ArgumentError` for a member of
@@ -595,6 +595,70 @@ export declare function toPath(uri: string): T.OwnerPath;
  * ```
  */
 export declare function toUrl(owner: T.Given<"Owner">, path: T.PathArg): `pubky://${string}`;
+/**
+ * The `geo:` URI of a point as the Maps convention spells it, `geo:<lat>,<lon>` in decimal
+ * degrees rounded to `digits` fraction digits (at most 5, about a metre; 3 is about 100 m, 2
+ * about 1 km) with no trailing zeros, so one point has one spelling. The place a located post,
+ * an event location or a route waypoint names when it is a pin and not an OpenStreetMap object.
+ *
+ * @throws `ValidationError` with `code: "range"` for more than 5 digits or a point off the globe,
+ *  `code: "format"` for a coordinate that is not finite; `ArgumentError` for an argument that is
+ *  not a number.
+ *
+ * @example
+ * ```ts
+ * import { geoUri } from "pubky-social-specs";
+ * console.log(geoUri(46.00547, 8.95186, 5)); // geo:46.00547,8.95186
+ * console.log(geoUri(46.00547, 8.95186, 2)); // geo:46.01,8.95, about a kilometre
+ * ```
+ */
+export declare function geoUri(lat: number, lon: number, digits?: number): string;
+/**
+ * Whether `value` is a `geo:` URI as the Maps convention spells it, as `geoUri` writes one: the
+ * guard for a reference a form or an indexer handed over.
+ *
+ * @throws Nothing: a value that is no such URI is `false`.
+ *
+ * @example
+ * ```ts
+ * import { isGeoUri } from "pubky-social-specs";
+ * console.log(isGeoUri("geo:46.00547,8.95186"), isGeoUri("geo:46.0,8")); // true false
+ * ```
+ */
+export declare function isGeoUri(value: unknown): boolean;
+/**
+ * The canonical URL of an OpenStreetMap object, `https://www.openstreetmap.org/{node|way|relation}/{id}`:
+ * the one spelling of a place every writer lands on, what an event location, a route waypoint,
+ * a tag target, a `parent` or an `embed` carries for a place.
+ *
+ * @throws `ValidationError` with `code: "unknown_name"` for an object type outside the three and
+ *  `code: "range"` for an id that is not a positive safe integer; `ArgumentError` for arguments
+ *  of the wrong type.
+ *
+ * @example
+ * ```ts
+ * import { osmUrl } from "pubky-social-specs";
+ * console.log(osmUrl("way", 481516234)); // https://www.openstreetmap.org/way/481516234
+ * ```
+ */
+export declare function osmUrl(object: geo.OsmObject, id: number): string;
+/**
+ * The object type and id of a canonical OpenStreetMap URL, or null for any other string: a map
+ * link with a view but no object, a trailing slash, a query, another host.
+ *
+ * @throws `ArgumentError` for an argument that is not a string.
+ *
+ * @example
+ * ```ts
+ * import { parseOsmUrl } from "pubky-social-specs";
+ * console.log(parseOsmUrl("https://www.openstreetmap.org/way/481516234")); // { object: "way", id: 481516234 }
+ * console.log(parseOsmUrl("https://www.openstreetmap.org/#map=19/46.0/8.9")); // null
+ * ```
+ */
+export declare function parseOsmUrl(url: string): {
+    object: geo.OsmObject;
+    id: number;
+} | null;
 /**
  * Whether `value` is one of `names`, a table such as `postKinds` or `feedLayouts`: the guard
  * that narrows a string an indexer or a form handed over to the names this version knows.

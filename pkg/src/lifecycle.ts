@@ -6,7 +6,7 @@ import { limits } from "./data.js";
 import { fail } from "./errors.js";
 import { checkPublicKey, timestampIdMicros } from "./ids.js";
 import { validate } from "./models/common.js";
-import { checkReferences, checkSlug, checkTimestampId, envelopeRefs, post, type Post, versionPath, withCover } from "./models/post.js";
+import { checkReferences, checkSlug, checkTimestampId, envelopeRefs, otherRefs, post, type Post, versionPath, withCover } from "./models/post.js";
 import { compareBytes } from "./text.js";
 import { LEGACY_ROOT } from "./legacy.js";
 import { isPrivatePath, parsePath, type Root, SEGMENT, socialPath, splitPubky, versionOf } from "./path.js";
@@ -46,7 +46,7 @@ function privateMediaRefs(value: Post, owner: string): string[] {
       if (!media.includes(uri)) media.push(uri);
     } else if (isPrivRooted(uri)) fail("reference", `cannot publish: a private reference in a media position is not media: ${uri}`);
   }
-  const others = [value.parent, value.embed, value.lock].filter((uri): uri is string => uri !== null).concat(envelopeRefs(value).items);
+  const others = otherRefs(value);
   const hidden = others.find(isPrivRooted);
   if (hidden !== undefined) fail("reference", `cannot publish: a public post cannot reference a private object: ${hidden}`);
   return media;

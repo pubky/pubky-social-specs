@@ -4,7 +4,7 @@
 //! operations for the caller to execute, across both roots. Paths are owner-relative
 //! (`/pub/social/v1/...`), the form a homeserver LIST returns.
 
-use super::{PubkySocialPost, PubkySocialPostKind};
+use super::{PostKind, PubkySocialPost, PubkySocialPostKind};
 use crate::canonicalize::{validate_reference, AllowedSchemes};
 use crate::constants::{social_path, PROTOCOL};
 use crate::limits::VALIDATION_LIMITS;
@@ -106,16 +106,24 @@ fn media_refs(post: &PubkySocialPost) -> Vec<String> {
     refs
 }
 
-/// Non-media reference positions: parent, embed, lock, collection items. An item is a
-/// reference to a thing, never a media position, so a private file curated as an item is a
-/// private reference and publish refuses it: publish the file, or the post carrying it, first.
+/// Non-media reference positions: parent, embed, lock, and every envelope position but the
+/// cover (collection items, an event's locations, links and master, an availability's `for`, a
+/// route's waypoints). An item is a reference to a thing, never a media position, so a private
+/// file curated as an item is a private reference and publish refuses it: publish the file, or
+/// the post carrying it, first.
 fn other_refs(post: &PubkySocialPost) -> Vec<String> {
     let mut refs: Vec<String> = [&post.parent, &post.embed, &post.lock]
         .into_iter()
         .flatten()
         .cloned()
         .collect();
-    refs.extend(post.collection_item_uris());
+    refs.extend(
+        post.kind
+            .content_references(post)
+            .into_iter()
+            .filter(|r| r.field != "cover_image")
+            .map(|r| r.uri),
+    );
     refs
 }
 

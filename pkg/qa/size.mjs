@@ -26,17 +26,18 @@ const bundled = async (file, names, define = {}) => {
 };
 
 const PROBES = [
-  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
-  ["index.js", "{ buildUri }", 3_200, ["Too many attachments", "WebAssembly"]],
+  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]. The
+  // 1.1 kinds (events and maps) added about 3 to 7 KB to the entries that carry the post rules
+  ["index.js", "{ buildUri }", 3_600, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],
-  ["index.js", "{ buildPost }", 20_000, ["WebAssembly"]],
-  ["index.js", "{ decodeObject }", 22_000, ["WebAssembly"]],
-  ["index.js", "{ validatePost }", 17_000, ["WebAssembly"]],
-  ["index.js", "* as all", 30_000, ["WebAssembly"]],
+  ["index.js", "{ buildPost }", 24_000, ["WebAssembly"]],
+  ["index.js", "{ decodeObject }", 27_000, ["WebAssembly"]],
+  ["index.js", "{ validatePost }", 24_500, ["WebAssembly"]],
+  ["index.js", "* as all", 39_000, ["WebAssembly"]],
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
-  ["testing.js", "* as all", 22_000, ["WebAssembly"]],
-  ["client/index.js", "{ createSocialClient }", 29_000, ["WebAssembly"]],
+  ["testing.js", "* as all", 30_500, ["WebAssembly"]],
+  ["client/index.js", "{ createSocialClient }", 37_500, ["WebAssembly"]],
   ["migration/index.js", "* as all", 340_000, []],
   ["migration/adapters/pubky-sdk.js", "* as all", 3_000, ["WebAssembly"]],
 ];

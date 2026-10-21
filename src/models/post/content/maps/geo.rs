@@ -76,9 +76,12 @@ pub fn parse_osm_url(uri: &str) -> Option<(OsmObject, u64)> {
         "relation" => OsmObject::Relation,
         _ => return None,
     };
-    // 64-bit ids, as OpenStreetMap allocates them, from 1
-    let id = plain_integer(id, 18)?;
-    (id > 0).then_some((kind, id))
+    // From 1, and within the JSON-safe range every integer this crate stores obeys, so a JS
+    // reader holds the id exactly
+    let id = plain_integer(id, 16)?;
+    (1..=crate::MAX_SAFE_JSON_INT as u64)
+        .contains(&id)
+        .then_some((kind, id))
 }
 
 /// The canonical URL of an OpenStreetMap object.
@@ -213,6 +216,10 @@ mod tests {
             osm_url(OsmObject::Way, 481516234),
             "https://www.openstreetmap.org/way/481516234"
         );
+        assert_eq!(
+            parse_osm_url("https://www.openstreetmap.org/node/9007199254740991"),
+            Some((OsmObject::Node, 9007199254740991))
+        );
         for bad in [
             "https://www.openstreetmap.org/way/481516234/",
             "https://www.openstreetmap.org/way/481516234?x=1",
@@ -231,6 +238,7 @@ mod tests {
             "http://www.openstreetmap.org/way/481516234",
             "https://osm.org/way/481516234",
             "https://www.openstreetmap.org/way/1234567890123456789",
+            "https://www.openstreetmap.org/way/9007199254740992",
             "",
         ] {
             assert_eq!(parse_osm_url(bad), None, "{bad}");

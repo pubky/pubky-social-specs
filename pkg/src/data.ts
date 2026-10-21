@@ -23,6 +23,14 @@ export const limits = /* @__PURE__ */ Object.freeze({
   attachmentAltMaxLength: 1000,
   /** The longest `name` of an attachment, in code points: 255. */
   attachmentNameMaxLength: 255,
+  /** The longest `title` of an available block, in code points: 100. */
+  availabilityBlockTitleMaxLength: 100,
+  /** The most blocks in each of an availability's `available` and `busy`, in items: 100. */
+  availabilityBlocksMaxCount: 100,
+  /** The longest `content` of an availability post, the whole envelope as text, in code points: 100000. */
+  availabilityContentMaxLength: 100000,
+  /** The furthest ahead an availability's `horizonDays` reaches, one leap year, in days: 366. */
+  availabilityHorizonMaxDays: 366,
   /** The longest target a primary bookmark spells in its filename; a longer one takes the overflow form, `~{hash}`, in bytes: 187. */
   bookmarkTargetUriMaxBytes: 187,
   /** The longest `content` of a collection post, the whole envelope as text, in code points: 40000. */
@@ -37,12 +45,48 @@ export const limits = /* @__PURE__ */ Object.freeze({
   collectionNameMaxLength: 100,
   /** The shortest collection name, in code points: 1. */
   collectionNameMinLength: 1,
+  /** The largest `attendance.capacity` of an event, in people: 1000000. */
+  eventCapacityMaxPeople: 1000000,
+  /** The longest `content` of an event post, the whole envelope as text, in code points: 150000. */
+  eventContentMaxLength: 150000,
+  /** The longest event description, in code points: 50000. */
+  eventDescriptionMaxLength: 50000,
+  /** The longest `duration` of an event or an availability block, one leap year, in seconds: 31622400. */
+  eventDurationMaxSeconds: 31622400,
+  /** The most `excludedDates` on an event or an availability block, in items: 100. */
+  eventExcludedDatesMaxCount: 100,
+  /** The longest `name` of an event link, in code points: 100. */
+  eventLinkNameMaxLength: 100,
+  /** The longest `url` of an event link, in code points: 300. */
+  eventLinkUrlMaxLength: 300,
+  /** The most `links` on an event, in items: 10. */
+  eventLinksMaxCount: 10,
+  /** The longest `name` of an event location, in code points: 100. */
+  eventLocationNameMaxLength: 100,
+  /** The most `locations` on an event, in items: 10. */
+  eventLocationsMaxCount: 10,
+  /** The most entries in each `by*` list of a recurrence rule, in items: 31. */
+  eventRecurrenceByMaxCount: 31,
+  /** The largest `interval` of a recurrence rule, in periods: 1000. */
+  eventRecurrenceIntervalMaxPeriods: 1000,
+  /** The largest `count` of a recurrence rule, where the occurrence generator stops too, in occurrences: 1000. */
+  eventRecurrenceMaxOccurrences: 1000,
+  /** The furthest a recurrence rule's `until` may lie after the start, where the occurrence generator stops too, in years: 3. */
+  eventRecurrenceMaxSpanYears: 3,
+  /** The most `recurrenceRules` on an event or an availability block, in items: 1. */
+  eventRecurrenceRulesMaxCount: 1,
+  /** The longest IANA time zone name, an event's or an availability's `timeZone`, in code points: 64. */
+  eventTimeZoneMaxLength: 64,
+  /** The longest event title, in code points: 100. */
+  eventTitleMaxLength: 100,
   /** The longest feed icon name, in code points: 50. */
   feedIconMaxLength: 50,
   /** The longest feed name, in code points: 100. */
   feedNameMaxLength: 100,
   /** The most labels in a feed's `tags`, and in its `domain_tags`, in items: 5. */
   feedTagsMaxCount: 5,
+  /** The most fraction digits of a `geo:` coordinate, about a metre, in digits: 5. */
+  geoFractionMaxDigits: 5,
   /** The longest profile `image` and article or collection `cover_image`, in code points: 300. */
   imageUrlMaxLength: 300,
   /** The largest media file, 100 MiB, in bytes: 104857600. */
@@ -59,8 +103,48 @@ export const limits = /* @__PURE__ */ Object.freeze({
   postNoteContentMaxLength: 2000,
   /** The longest slug of a post version, in code points: 64. */
   postSlugMaxLength: 64,
+  /** The longest `content` of a rating post, the whole envelope as text, in code points: 5000. */
+  ratingContentMaxLength: 5000,
+  /** The highest `rating`, five stars, in half stars: 10. */
+  ratingMaxHalfStars: 10,
+  /** The lowest `rating`, one half star, in half stars: 1. */
+  ratingMinHalfStars: 1,
+  /** The longest `text` of a rating, in code points: 2000. */
+  ratingTextMaxLength: 2000,
   /** The longest reference: a `parent`, an `embed`, a `lock`, an attachment or a collection item, in code points: 1024. */
   referenceUriMaxLength: 1024,
+  /** The longest `content` of a route post, the whole envelope as text, in code points: 400000. */
+  routeContentMaxLength: 400000,
+  /** The longest route description, in code points: 2000. */
+  routeDescriptionMaxLength: 2000,
+  /** The longest `distance_m` of a route or a step, in metres: 100000000. */
+  routeDistanceMaxMetres: 100000000,
+  /** The longest `duration_s` of a route or a step, ten years, in seconds: 315360000. */
+  routeDurationMaxSeconds: 315360000,
+  /** The largest `elevation_gain_m` and `elevation_loss_m` of a route, in metres: 100000. */
+  routeElevationMaxMetres: 100000,
+  /** The longest `polyline.engine` and `polyline.profile` of a route, in code points: 50. */
+  routeLabelMaxLength: 50,
+  /** The longest route name, in code points: 100. */
+  routeNameMaxLength: 100,
+  /** The longest `polyline.encoded` of a route, in code points: 100000. */
+  routePolylineMaxLength: 100000,
+  /** The longest `instruction` of a route step, in code points: 200. */
+  routeStepInstructionMaxLength: 200,
+  /** The most `steps` on a route, in items: 500. */
+  routeStepsMaxCount: 500,
+  /** The longest `name` of a route waypoint, in code points: 100. */
+  routeWaypointNameMaxLength: 100,
+  /** The most `waypoints` on a route, in items: 100. */
+  routeWaypointsMaxCount: 100,
+  /** The fewest `waypoints` on a route, a start and an end, in items: 2. */
+  routeWaypointsMinCount: 2,
+  /** The longest `content` of an rsvp post, the whole envelope as text, in code points: 5000. */
+  rsvpContentMaxLength: 5000,
+  /** The most `guests` on an rsvp, in people: 100. */
+  rsvpGuestsMaxPeople: 100,
+  /** The longest `note` of an rsvp, in code points: 2000. */
+  rsvpNoteMaxLength: 2000,
   /** The characters a tag label may not hold. */
   tagInvalidChars: /* @__PURE__ */ Object.freeze([",", ":", " ", "\t", "\n", "\r"] as const),
   /** The longest tag label, in code points: 20. */

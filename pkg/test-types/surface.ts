@@ -75,6 +75,37 @@ buildPost(owner, { kind: "collection", name: "n", items: [{ uri: "u" }], layout:
 buildPost(owner, { kind: "image", content: "c", attachments: [{ uri: "u", alt: "a" }] });
 // @ts-expect-error a collection takes no parent
 buildPost(owner, { kind: "collection", name: "n", parent: "x" });
+// The 1.1 kinds
+buildPost(owner, {
+  kind: "event",
+  title: "t",
+  start: "2026-10-14T18:30:00",
+  timeZone: "Europe/Zurich",
+  duration: "PT2H",
+  locations: [{ uri: "geo:46,8", name: "here" }],
+  attendance: { policy: "ticket", capacity: 50 },
+});
+buildPost(owner, { kind: "event", title: "t", start: "2026-10-14T00:00:00", timeZone: "UTC", showWithoutTime: true, recurrenceRules: [{ frequency: "weekly", byDay: [{ day: "mo" }], count: 10 }] });
+buildPost(owner, { kind: "rsvp", parent: "x", status: "accepted", guests: 1 });
+buildPost(owner, { kind: "availability", timeZone: "UTC", horizonDays: 30, available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office" }] });
+buildPost(owner, { kind: "rating", parent: "x", rating: 9, text: "great" });
+buildPost(owner, {
+  kind: "route",
+  name: "n",
+  activity: "hiking",
+  waypoints: [{ uri: "geo:46,8" }, { uri: "geo:47,8" }],
+  polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
+  distance_m: 1,
+  duration_s: 1,
+});
+// @ts-expect-error an event replies to nothing
+buildPost(owner, { kind: "event", title: "t", start: "s", timeZone: "UTC", duration: "PT1H", parent: "x" });
+// @ts-expect-error an rsvp's stars are a rating's member
+buildPost(owner, { kind: "rsvp", parent: "x", status: "accepted", rating: 9 });
+// @ts-expect-error a status outside the set
+buildPost(owner, { kind: "rsvp", parent: "x", status: "going" });
+// @ts-expect-error a route carries no lock
+buildPost(owner, { kind: "route", name: "n", activity: "a", waypoints: [], polyline: { encoded: "x", engine: "e", profile: "p", precision: 6 }, distance_m: 1, duration_s: 1, lock: "x" });
 // @ts-expect-error an article has a title, not content
 buildPost(owner, { kind: "article", content: "x" });
 // @ts-expect-error "unknown" is what a reader meets, never what a builder takes
@@ -94,6 +125,13 @@ if (decoded.kind === "post") {
   const again: BuiltPost = editPost(owner, built.url, post, { slug: "edited" });
   const envelope = decodeContent(post);
   if (envelope?.kind === "article") envelope.content.title.toUpperCase();
+  if (envelope?.kind === "event") {
+    envelope.content.status satisfies "confirmed" | "tentative" | "cancelled";
+    envelope.content.attendance.capacity satisfies number | null;
+    envelope.content.recurrenceRules[0]?.byMonthDay satisfies number[] | undefined;
+  }
+  if (envelope?.kind === "route") envelope.content.polyline.precision satisfies number;
+  if (envelope?.kind === "rating") envelope.content.rating satisfies number;
   encodeObject(again.url, post) satisfies Bytes;
   planPublish(owner, { id: again.id, editId: again.editId, post }).put.body satisfies Bytes;
 } else if (decoded.kind === "file") {

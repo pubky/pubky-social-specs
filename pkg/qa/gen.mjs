@@ -430,6 +430,138 @@ const collectionEnvelope = (r) => {
   if (r.chance(0.3)) e.layout = r.pick(["grid", "list", "visual", "mosaic", null]);
   return e;
 };
+const PLACE = (r) =>
+  r.pick([
+    "geo:46.00547,8.95186",
+    "geo:46,8",
+    "geo:46.0,8",
+    "geo:-0,8",
+    "geo:91,8",
+    "geo:46,8;u=35",
+    "https://www.openstreetmap.org/way/481516234",
+    "https://www.openstreetmap.org/node/1",
+    "https://www.openstreetmap.org/way/481516234/",
+    "https://openstreetmap.org/way/1",
+    "https://osm.org/node/1",
+    "https://www.openstreetmap.org/?mlat=46&mlon=8",
+    "https://meet.jit.si/room",
+    ref(r),
+  ]);
+const LOCAL = (r) =>
+  r.pick([
+    "2026-10-14T18:30:00",
+    "2026-10-14T18:30:00",
+    "2026-02-29T00:00:00",
+    "2024-02-29T23:59:59",
+    "2026-10-14T24:00:00",
+    "2026-10-14T18:30:00Z",
+    "2026-10-14",
+    "soon",
+    "2026-13-01T00:00:00",
+    text(r, 2),
+  ]);
+const DURATION = (r) => r.pick(["PT2H30M", "PT2H30M", "P1D", "P2W", "PT0S", "P1DT1H1M1S", "PT90M", "P366D", "P367D", "P1W1D", "PT", "PT1.5S", "2h", "P1Y", "-PT1H", "PT1000000000S"]);
+const ZONE = (r) =>
+  r.pick(["Europe/Zurich", "Europe/Zurich", "UTC", "Etc/GMT+2", "America/Argentina/Buenos_Aires", "+02:00", "Europe/", "Europe/Zürich", "Zurich time", "", "a".repeat(r.pick([64, 65]))]);
+const rule = (r) => {
+  const o = { frequency: r.pick(["weekly", "monthly", "daily", "yearly", "hourly", "Weekly"]) };
+  if (r.chance(0.3)) o.interval = r.pick([1, 2, 1000, 1001, 0, -1]);
+  if (r.chance(0.2)) o.firstDayOfWeek = r.pick(["mo", "su", "monday"]);
+  if (r.chance(0.4))
+    o.byDay = r.many(r.pick([2, 2, 32]), () => (r.chance(0.6) ? { day: r.pick(["mo", "tu", "we", "th", "fr", "sa", "su", "Mo", "x"]) } : { day: "tu", nthOfPeriod: r.pick([2, -1, 53, 54, 0, -53]) }));
+  if (r.chance(0.2)) o.byMonthDay = r.many(3, () => r.pick([14, -1, 31, 32, 0]));
+  if (r.chance(0.2)) o.byMonth = r.many(3, () => r.pick(["10", "1", "12", "13", "01", "0", "1L"]));
+  if (r.chance(0.15)) o.bySetPosition = r.many(3, () => r.pick([1, -1, 366, 367, 0]));
+  if (r.chance(0.3)) o.count = r.pick([1, 52, 1000, 1001, 0]);
+  if (r.chance(0.3)) o.until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01", "2026-10-14T18:30:00", "2026-01-01T00:00:00", "tomorrow"]);
+  return o;
+};
+const eventEnvelope = (r) => {
+  const e = { title: r.pick(["Evening", " Evening ", " ", "t".repeat(r.pick([100, 101])), "a\u0000b", text(r)]), start: LOCAL(r), timeZone: ZONE(r) };
+  if (r.chance(0.85)) e.duration = DURATION(r);
+  if (r.chance(0.3)) e.showWithoutTime = r.chance(0.8);
+  if (r.chance(0.4)) e.description = r.pick(["Monthly meetup.", " ", "", "d".repeat(r.pick([50000, 50001])), text(r, 12)]);
+  if (r.chance(0.3)) e.status = r.pick(["confirmed", "tentative", "cancelled", "maybe"]);
+  if (r.chance(0.5)) e.locations = r.many(r.pick([2, 2, 11]), () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Hub", " Hub ", " ", "n".repeat(r.pick([100, 101])), null]) }));
+  if (r.chance(0.4)) {
+    const a = { policy: r.pick(["open", "approval", "invite", "ticket", "rsvp"]) };
+    if (r.chance(0.6)) a.capacity = r.pick([50, 1, 1000000, 1000001, 0, -1, null]);
+    if (r.chance(0.5)) a.waitlist = r.chance(0.5);
+    e.attendance = a;
+  }
+  if (r.chance(0.4))
+    e.links = r.many(r.pick([2, 2, 11]), () => ({
+      name: r.pick(["Website", " Site ", " ", "n".repeat(r.pick([100, 101]))]),
+      url: r.pick(["https://planb.network/", "http://example.com", `https://e.com/${"a".repeat(r.pick([286, 287]))}`, ref(r)]),
+    }));
+  if (r.chance(0.4)) e.recurrenceRules = r.many(r.pick([1, 1, 1, 2]), () => rule(r));
+  if (r.chance(0.3)) e.excludedDates = r.many(r.pick([2, 2, 101]), () => LOCAL(r));
+  if (r.chance(0.15)) {
+    e.recurrenceOf = r.pick([
+      `pubky://${OWNER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`,
+      `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`,
+      `pubky://${OWNER}/pub/social/v1/profile.json`,
+      ref(r),
+    ]);
+    if (r.chance(0.85)) e.recurrenceId = LOCAL(r);
+    if (r.chance(0.6)) e.recurrenceRules = [];
+  }
+  return e;
+};
+const rsvpEnvelope = (r) => {
+  const e = { status: r.pick(["accepted", "requested", "declined", "tentative", "going"]) };
+  if (r.chance(0.4)) e.recurrenceId = LOCAL(r);
+  if (r.chance(0.5)) e.guests = r.pick([0, 1, 100, 101, -1]);
+  if (r.chance(0.5)) e.note = r.pick(["bringing cake", " padded ", " ", "", "n".repeat(r.pick([2000, 2001])), null]);
+  return e;
+};
+const blockOf = (r, titled) => {
+  const b = { start: LOCAL(r), duration: DURATION(r) };
+  if (titled && r.chance(0.5)) b.title = r.pick(["Office hours", " ", "t".repeat(r.pick([100, 101])), null]);
+  if (!titled && r.chance(0.1)) b.title = "Dentist";
+  if (r.chance(0.3)) b.recurrenceRules = r.many(r.pick([1, 1, 2]), () => rule(r));
+  if (r.chance(0.2)) b.excludedDates = r.many(r.pick([2, 101]), () => LOCAL(r));
+  return b;
+};
+const availabilityEnvelope = (r) => {
+  const e = { timeZone: ZONE(r), horizonDays: r.pick([60, 1, 366, 367, 0, -1]) };
+  if (r.chance(0.4)) e.for = r.pick([ref(r), `pubky://${OWNER}/pub/shop/v1/listings/${timestampIdOf(NOW - 5e9)}`, null]);
+  if (r.chance(0.7)) e.available = r.many(r.pick([3, 3, 101]), () => blockOf(r, true));
+  if (r.chance(0.6)) e.busy = r.many(r.pick([3, 3, 101]), () => blockOf(r, false));
+  return e;
+};
+const ratingEnvelope = (r) => {
+  const e = { rating: r.pick([7, 1, 10, 0, 11, -1]) };
+  if (r.chance(0.6)) e.text = r.pick(["great coffee", " padded ", " ", "", "t".repeat(r.pick([2000, 2001])), null]);
+  return e;
+};
+const routeEnvelope = (r) => {
+  const e = {
+    name: r.pick(["Lakeside loop", " Loop ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
+    activity: r.pick(["running", "Hiking", "e-bike", "trail run", "a,b", "", "x".repeat(r.pick([20, 21]))]),
+    waypoints: r.many(r.pick([4, 4, 4, 1, 101]), () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Start", " ", "n".repeat(r.pick([100, 101])), null]) })),
+    polyline: {
+      encoded: r.pick(["_p~iF~ps|U_ulLnnqC_mqNvxq`@", "?~", "", "über", "a b", "x".repeat(r.pick([100000, 100001]))]),
+      engine: r.pick(["valhalla", " Valhalla ", " ", "e".repeat(r.pick([50, 51]))]),
+      profile: r.pick(["pedestrian", "bicycle", "auto", " "]),
+      precision: r.pick([6, 5, 4, 7, 0]),
+    },
+    distance_m: r.pick([5200, 0, 100000000, 100000001, -1]),
+    duration_s: r.pick([1800, 0, 315360000, 315360001, -1]),
+  };
+  if (r.chance(0.4)) e.description = r.pick(["Flat, along the shore.", " ", "", "d".repeat(r.pick([2000, 2001])), null]);
+  if (r.chance(0.3)) e.elevation_gain_m = r.pick([12, 0, 100000, 100001, -1, null]);
+  if (r.chance(0.3)) e.elevation_loss_m = r.pick([12, 100001, null]);
+  if (r.chance(0.4))
+    e.steps = r.many(r.pick([2, 2, 501]), () => ({
+      instruction: r.pick(["Head south", " ", "i".repeat(r.pick([200, 201]))]),
+      ...(r.chance(0.5) ? { distance_m: r.pick([400, -1, null]) } : {}),
+      ...(r.chance(0.3) ? { duration_s: r.pick([150, 315360001]) } : {}),
+    }));
+  return e;
+};
+const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, availability: availabilityEnvelope, rating: ratingEnvelope, route: routeEnvelope };
+
 const envelopeText = (r, envelope) =>
   r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
 
@@ -438,13 +570,42 @@ const envelopeText = (r, envelope) =>
  * so often that the late rules and the accepted shapes would be reached only by chance.
  */
 function cleanPost(r) {
-  const kind = r.pick(["note", "article", "collection"]);
+  const kind = r.pick(["note", "article", "collection", "event", "rsvp", "availability", "rating", "route"]);
   const own = (root, leaf) => `pubky://${OWNER}/${seg(root)}/social/v1/${leaf}`;
   const media = () => own(r.pick(["public", "public", "private"]), `files/${hashIdText(r)}.png`);
   const item = () => ({ uri: own("public", `posts/${timestampIdOf(NOW - 5e9)}`), ...(r.chance(0.5) ? { note: "note" } : {}) });
-  const envelope = kind === "article" ? { title: "Title", body: "Body" } : kind === "collection" ? { name: "List", description: "about", items: [item(), item()] } : null;
-  if (envelope && r.chance(0.5)) envelope.cover_image = media();
-  const p = { content: "hello", kind, parent: null, embed: null };
+  const place = () => r.pick(["geo:46.00547,8.95186", "https://www.openstreetmap.org/way/481516234"]);
+  const clean = {
+    article: () => ({ title: "Title", body: "Body" }),
+    collection: () => ({ name: "List", description: "about", items: [item(), item()] }),
+    event: () => ({
+      title: "Evening",
+      start: "2026-10-14T18:30:00",
+      timeZone: "Europe/Zurich",
+      duration: "PT2H30M",
+      locations: [{ uri: place(), name: "Hub" }],
+      recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
+    }),
+    rsvp: () => ({ status: "accepted", guests: 1 }),
+    availability: () => ({
+      timeZone: "UTC",
+      horizonDays: 30,
+      available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office" }],
+      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
+    }),
+    rating: () => ({ rating: 7, text: "great" }),
+    route: () => ({
+      name: "Loop",
+      activity: "running",
+      waypoints: [{ uri: place() }, { uri: place() }],
+      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
+      distance_m: 5200,
+      duration_s: 1800,
+    }),
+  };
+  const envelope = kind === "note" ? null : clean[kind]();
+  if ((kind === "article" || kind === "collection") && r.chance(0.5)) envelope.cover_image = media();
+  const p = { content: "hello", kind, parent: kind === "rsvp" || kind === "rating" ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
   if (r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
   const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
   const breaks = {
@@ -462,13 +623,41 @@ function cleanPost(r) {
       () => (envelope.items[0].note = r.pick([" ", "n".repeat(r.pick([1000, 1001]))])),
     ],
     note: [() => (p.content = "c".repeat(r.pick([2000, 2001])))],
+    event: [
+      () => (envelope.title = "t".repeat(r.pick([100, 101]))),
+      () => (envelope.description = "d".repeat(r.pick([50000, 50001]))),
+      () => (envelope.locations = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: place() }))),
+      () => (envelope.recurrenceRules[0].count = r.pick([1000, 1001])),
+      () => (envelope.recurrenceRules[0].until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01"])),
+      () => (envelope.attendance = { policy: "ticket", capacity: r.pick([1000000, 1000001]), waitlist: true }),
+      () => (envelope.links = [{ name: "Site", url: r.pick(["https://x.y", "http://x.y"]) }]),
+      () => (envelope.status = r.pick(["cancelled", "maybe"])),
+      () => (envelope.excludedDates = Array.from({ length: r.pick([100, 101]) }, () => "2026-11-10T18:30:00")),
+    ],
+    rsvp: [() => (envelope.guests = r.pick([100, 101])), () => (envelope.note = "n".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
+    availability: [
+      () => (envelope.horizonDays = r.pick([366, 367])),
+      () => (envelope.available = Array.from({ length: r.pick([100, 101]) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
+      () => (envelope.busy[0].title = "Dentist"),
+    ],
+    rating: [() => (envelope.rating = r.pick([10, 11])), () => (envelope.text = "t".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
+    route: [
+      () => (envelope.waypoints = Array.from({ length: r.pick([100, 101]) }, () => ({ uri: place() }))),
+      () => (envelope.polyline.encoded = "?".repeat(r.pick([100000, 100001]))),
+      () => (envelope.distance_m = r.pick([100000000, 100000001])),
+      () => (envelope.steps = Array.from({ length: r.pick([500, 501]) }, () => ({ instruction: "go" }))),
+      () => (envelope.activity = "x".repeat(r.pick([20, 21]))),
+    ],
   }[kind];
   const any = [
     () => (attachment().alt = "a".repeat(r.pick([1000, 1001]))),
     () => (p.attachments = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: media() }))),
     () => (p.parent = own("private", `posts/${timestampIdOf(NOW - 5e9)}`)),
   ];
-  if (r.chance(0.6)) r.pick([...breaks, ...any])();
+  // an rsvp and an availability carry no media, so a media break is no clean post of theirs
+  const media_free = kind === "rsvp" || kind === "availability";
+  if (media_free) delete p.attachments;
+  if (r.chance(0.6)) r.pick([...breaks, ...(media_free ? [] : any)])();
   if (envelope) p.content = JSON.stringify(envelope);
   return p;
 }
@@ -476,19 +665,41 @@ function cleanPost(r) {
 /** A post as stored: any kind, references of every tier, sometimes what a newer writer adds. */
 function storedPost(r) {
   if (r.chance(0.35)) return cleanPost(r);
-  const kind = r.pick(["note", "note", "note", "article", "article", "collection", "collection", "image", "link", "podcast", "unknown"]);
+  const kind = r.pick([
+    "note",
+    "note",
+    "note",
+    "article",
+    "article",
+    "collection",
+    "collection",
+    "image",
+    "link",
+    "podcast",
+    "unknown",
+    "event",
+    "event",
+    "rsvp",
+    "availability",
+    "rating",
+    "route",
+    "route",
+  ]);
   const p = {
     content:
       kind === "article"
         ? envelopeText(r, articleEnvelope(r))
         : kind === "collection"
           ? envelopeText(r, collectionEnvelope(r))
-          : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]),
+          : kind in TYPED
+            ? envelopeText(r, TYPED[kind](r))
+            : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]),
     kind,
     parent: null,
     embed: null,
   };
-  if (r.chance(0.3)) p.parent = ref(r);
+  // the reply kinds mostly have the parent they need
+  if (r.chance(kind === "rsvp" || kind === "rating" ? 0.85 : 0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);
   if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
   if (r.chance(0.2)) p.lock = r.pick([ref(r), `pubky://${OTHER}/pub/social/v1/profile.json`, null]);
@@ -496,8 +707,21 @@ function storedPost(r) {
 }
 
 function postInput(r) {
-  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown"]);
+  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown", "event", "event", "rsvp", "availability", "rating", "route", "route"]);
   let o;
+  if (kind in TYPED) {
+    // The members a builder takes, the envelope's own and the post's; a reply kind's parent
+    o = { kind, ...TYPED[kind](r) };
+    for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
+    // A reply kind's parent is a required member: absent, the shape is refused before any rule
+    if (kind === "rsvp" || kind === "rating") o.parent = ref(r);
+    if (kind === "route" && r.chance(0.3)) o.embed = ref(r);
+    if ((kind === "event" || kind === "rating" || kind === "route") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
+    if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
+    if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
+    if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
+    return o;
+  }
   if (kind === "article") {
     const e = articleEnvelope(r);
     o = { kind, title: e.title, body: e.body };
@@ -667,6 +891,38 @@ export const families = {
         return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r), limits.postMaxBytes) });
       },
     ])(),
+  maps: (r) => {
+    const coordinate = (bound) =>
+      r.pick([
+        () => r.below(2 * bound * 1000) / 1000 - bound,
+        () => bound,
+        () => -bound,
+        () => bound + 0.000005,
+        () => bound + 0.000004,
+        () => 0,
+        () => 0.125,
+        () => -0.125,
+        () => 1e-7,
+        () => 46.00547,
+        () => 1e300,
+        () => -1e-320,
+      ]);
+    return r.pick([
+      () => request("isGeoUri", s(r.pick([PLACE(r), `geo:${coordinate(90)()},${coordinate(180)()}`, `geo:${str(r, 6)},${str(r, 6)}`, str(r, 12)]))),
+      () =>
+        request(
+          "parseOsmUrl",
+          s(
+            r.pick([
+              PLACE(r),
+              `https://www.openstreetmap.org/${r.pick(["node", "way", "relation", "Way", "user", ""])}/${r.pick([String(r.below(1e6)), "0", "007", "1".repeat(r.pick([18, 19])), "-1", ""])}${r.pick(["", "", "/", "?x", "#y"])}`,
+              str(r, 20),
+            ]),
+          ),
+        ),
+      () => request("geoUri", { j: JSON.stringify([coordinate(90)(), coordinate(180)(), r.pick([5, 5, 5, 3, 2, 0, 6])]) }),
+    ])();
+  },
   plan: (r) => {
     const id = postId(r);
     const owner = () => (r.chance(0.8) ? OWNER : key(r));

@@ -39,7 +39,8 @@ binary `surface_oracle` over it. It answers each operation of the package (`deco
 answer out. A request carries its own clock and its own mint guard, so an answer depends on the
 request alone and a recorded request replays to the same answer.
 
-- **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family with the oracle's
+- **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family (thirteen families
+  since 1.1, `maps` the newest: the `geo:` and OpenStreetMap conventions) with the oracle's
   answers, read by both sides. `tests/surface_vectors.rs` fails when the crate no longer gives
   them, and the scoreboard fails when the package does not. Regenerate with
   `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour.

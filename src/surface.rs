@@ -264,16 +264,123 @@ struct CollectionInput {
     slug: Option<String>,
 }
 
-/// The members of a new event, the envelope's in the envelope's own spelling plus the post's;
-/// read as the envelope type reads them, so a member of the wrong shape is refused in serde's
-/// words, then rebuilt as the builder would be given it.
+/// A caller's member for a member of an envelope: the same spelling, read with no unknown
+/// member and no `extra`, then rebuilt as the builder would be given it. One struct per nested
+/// object, so a stray member inside a location or a rule is a refusal and never stored.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct NthDayInput {
+    day: String,
+    #[serde(default)]
+    nth_of_period: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct RuleInput {
+    frequency: String,
+    #[serde(default)]
+    interval: Option<i64>,
+    #[serde(default)]
+    first_day_of_week: Option<String>,
+    #[serde(default)]
+    by_day: Option<Vec<NthDayInput>>,
+    #[serde(default)]
+    by_month_day: Option<Vec<i64>>,
+    #[serde(default)]
+    by_month: Option<Vec<String>>,
+    #[serde(default)]
+    by_set_position: Option<Vec<i64>>,
+    #[serde(default)]
+    count: Option<i64>,
+    #[serde(default)]
+    until: Option<String>,
+}
+
+fn rules_of(input: Option<Vec<RuleInput>>) -> Vec<crate::PubkySocialRecurrenceRule> {
+    input
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| crate::PubkySocialRecurrenceRule {
+            frequency: r.frequency.into(),
+            interval: r.interval,
+            first_day_of_week: r.first_day_of_week.map(Into::into),
+            by_day: r
+                .by_day
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| crate::PubkySocialNthDay {
+                    day: d.day.into(),
+                    nth_of_period: d.nth_of_period,
+                    extra: Default::default(),
+                })
+                .collect(),
+            by_month_day: r.by_month_day.unwrap_or_default(),
+            by_month: r.by_month.unwrap_or_default(),
+            by_set_position: r.by_set_position.unwrap_or_default(),
+            count: r.count,
+            until: r.until,
+            extra: Default::default(),
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LocationInput {
+    uri: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttendanceInput {
+    #[serde(default)]
+    policy: Option<String>,
+    #[serde(default)]
+    capacity: Option<i64>,
+    #[serde(default)]
+    waitlist: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventLinkInput {
+    name: String,
+    url: String,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct EventInput {
     #[serde(rename = "kind")]
     _kind: String,
-    #[serde(flatten)]
-    event: PubkySocialEventContent,
+    title: String,
+    #[serde(default)]
+    description: Option<String>,
+    start: String,
+    time_zone: String,
+    #[serde(default)]
+    duration: Option<String>,
+    #[serde(default)]
+    show_without_time: Option<bool>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    locations: Option<Vec<LocationInput>>,
+    #[serde(default)]
+    attendance: Option<AttendanceInput>,
+    #[serde(default)]
+    links: Option<Vec<EventLinkInput>>,
+    #[serde(default)]
+    recurrence_rules: Option<Vec<RuleInput>>,
+    #[serde(default)]
+    excluded_dates: Option<Vec<String>>,
+    #[serde(default)]
+    recurrence_of: Option<String>,
+    #[serde(default)]
+    recurrence_id: Option<String>,
     #[serde(default)]
     attachments: Option<Vec<AttachmentInput>>,
     #[serde(default)]
@@ -304,12 +411,46 @@ struct RsvpInput {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BlockInput {
+    #[serde(default)]
+    title: Option<String>,
+    start: String,
+    duration: String,
+    #[serde(default)]
+    recurrence_rules: Option<Vec<RuleInput>>,
+    #[serde(default)]
+    excluded_dates: Option<Vec<String>>,
+}
+
+fn blocks_of(input: Option<Vec<BlockInput>>) -> Vec<crate::PubkySocialAvailabilityBlock> {
+    input
+        .unwrap_or_default()
+        .into_iter()
+        .map(|b| crate::PubkySocialAvailabilityBlock {
+            title: b.title,
+            start: b.start,
+            duration: b.duration,
+            recurrence_rules: rules_of(b.recurrence_rules),
+            excluded_dates: b.excluded_dates.unwrap_or_default(),
+            extra: Default::default(),
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct AvailabilityInput {
     #[serde(rename = "kind")]
     _kind: String,
-    #[serde(flatten)]
-    schedule: PubkySocialAvailabilityContent,
+    time_zone: String,
+    horizon_days: i64,
+    #[serde(default)]
+    r#for: Option<String>,
+    #[serde(default)]
+    available: Option<Vec<BlockInput>>,
+    #[serde(default)]
+    busy: Option<Vec<BlockInput>>,
     #[serde(default)]
     root: Option<Root>,
     #[serde(default)]
@@ -335,11 +476,51 @@ struct RatingInput {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct WaypointInput {
+    uri: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolylineInput {
+    encoded: String,
+    engine: String,
+    profile: String,
+    precision: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StepInput {
+    instruction: String,
+    #[serde(default)]
+    distance_m: Option<i64>,
+    #[serde(default)]
+    duration_s: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RouteInput {
     #[serde(rename = "kind")]
     _kind: String,
-    #[serde(flatten)]
-    route: PubkySocialRouteContent,
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    activity: String,
+    #[serde(default)]
+    waypoints: Option<Vec<WaypointInput>>,
+    polyline: PolylineInput,
+    distance_m: i64,
+    duration_s: i64,
+    #[serde(default)]
+    elevation_gain_m: Option<i64>,
+    #[serde(default)]
+    elevation_loss_m: Option<i64>,
+    #[serde(default)]
+    steps: Option<Vec<StepInput>>,
     #[serde(default)]
     embed: Option<String>,
     #[serde(default)]
@@ -550,24 +731,59 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
         }
         Some("event") => {
             let i: EventInput = parse(input)?;
-            // A flattened envelope keeps a stray member in its `extra`; an input takes only the
-            // members the kind has
-            no_extra(&i.event.extra)?;
-            let post = PubkySocialPost::new_event(i.event, attachments_of(i.attachments), i.lock);
+            let attendance = i.attendance.unwrap_or(AttendanceInput {
+                policy: None,
+                capacity: None,
+                waitlist: None,
+            });
+            let event = PubkySocialEventContent {
+                title: i.title,
+                description: i.description,
+                start: i.start,
+                time_zone: i.time_zone,
+                duration: i.duration,
+                show_without_time: i.show_without_time.unwrap_or(false),
+                status: i.status.map(Into::into).unwrap_or_default(),
+                locations: i
+                    .locations
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| crate::PubkySocialEventLocation {
+                        name: l.name,
+                        uri: l.uri,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                attendance: crate::PubkySocialEventAttendance {
+                    policy: attendance.policy.map(Into::into).unwrap_or_default(),
+                    capacity: attendance.capacity,
+                    waitlist: attendance.waitlist.unwrap_or(false),
+                    extra: Default::default(),
+                },
+                links: i
+                    .links
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| crate::PubkySocialEventLink {
+                        name: l.name,
+                        url: l.url,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                recurrence_rules: rules_of(i.recurrence_rules),
+                excluded_dates: i.excluded_dates.unwrap_or_default(),
+                recurrence_of: i.recurrence_of,
+                recurrence_id: i.recurrence_id,
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_event(event, attachments_of(i.attachments), i.lock);
             (post, i.root, i.slug)
         }
         Some("rsvp") => {
             let i: RsvpInput = parse(input)?;
-            let status = PubkySocialRsvpStatus::from(i.status);
-            if !status.is_known() {
-                return Err(format!(
-                    "Validation Error: Invalid rsvp status: {}",
-                    status.wire_name()
-                ));
-            }
             let post = PubkySocialPost::new_rsvp(
                 i.parent,
-                status,
+                PubkySocialRsvpStatus::from(i.status),
                 i.recurrence_id,
                 i.guests.unwrap_or(0),
                 i.note,
@@ -576,8 +792,15 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
         }
         Some("availability") => {
             let i: AvailabilityInput = parse(input)?;
-            no_extra(&i.schedule.extra)?;
-            let post = PubkySocialPost::new_availability(i.schedule);
+            let schedule = PubkySocialAvailabilityContent {
+                time_zone: i.time_zone,
+                horizon_days: i.horizon_days,
+                r#for: i.r#for,
+                available: blocks_of(i.available),
+                busy: blocks_of(i.busy),
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_availability(schedule);
             (post, i.root, i.slug)
         }
         Some("rating") => {
@@ -592,8 +815,45 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
         }
         Some("route") => {
             let i: RouteInput = parse(input)?;
-            no_extra(&i.route.extra)?;
-            let post = PubkySocialPost::new_route(i.route, i.embed, attachments_of(i.attachments));
+            let route = PubkySocialRouteContent {
+                name: i.name,
+                description: i.description,
+                activity: i.activity,
+                waypoints: i
+                    .waypoints
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|w| crate::PubkySocialRouteWaypoint {
+                        uri: w.uri,
+                        name: w.name,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                polyline: crate::PubkySocialRoutePolyline {
+                    encoded: i.polyline.encoded,
+                    engine: i.polyline.engine,
+                    profile: i.polyline.profile,
+                    precision: i.polyline.precision,
+                    extra: Default::default(),
+                },
+                distance_m: i.distance_m,
+                duration_s: i.duration_s,
+                elevation_gain_m: i.elevation_gain_m,
+                elevation_loss_m: i.elevation_loss_m,
+                steps: i
+                    .steps
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|st| crate::PubkySocialRouteStep {
+                        instruction: st.instruction,
+                        distance_m: st.distance_m,
+                        duration_s: st.duration_s,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_route(route, i.embed, attachments_of(i.attachments));
             (post, i.root, i.slug)
         }
         Some("collection") => {
@@ -636,15 +896,6 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
     };
     let minted = post.create_version(root.unwrap_or(Root::Pub), owner, slug.as_deref())?;
     Ok(version(owner, minted, body(&post)?))
-}
-
-/// A flattened input envelope's `extra` holds what `deny_unknown_fields` could not refuse: an
-/// input member the kind does not have. Worded as serde words the others.
-fn no_extra(extra: &serde_json::Map<String, Value>) -> Result<(), String> {
-    match extra.keys().next() {
-        Some(key) => Err(format!("Validation Error: unknown field `{key}`")),
-        None => Ok(()),
-    }
 }
 
 fn read(uri: &str, bytes: Vec<u8>) -> Result<Value, String> {
@@ -698,6 +949,16 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "canonicalWeb" => value(&canonicalize_web_uri(a.s()?).ok())?,
         "canonicalExternal" => value(&canonicalize_external_uri(a.s()?).ok())?,
         "canonicalUniversal" => value(&canonicalize_universal(a.s()?).ok())?,
+        // The Maps conventions: the one spelling of a point and of an OpenStreetMap object
+        "geoUri" => {
+            let (lat, lon, digits): (f64, f64, usize) = a.parsed()?;
+            crate::geo::geo_uri(lat, lon, digits)?.into()
+        }
+        "isGeoUri" => crate::geo::is_geo_uri(a.s()?).into(),
+        "parseOsmUrl" => match crate::geo::parse_osm_url(a.s()?) {
+            Some((object, id)) => json!({ "object": object.segment(), "id": id }),
+            None => Value::Null,
+        },
         // Any JSON value read and written back, as an unknown member of an object is
         "json" => STANDARD
             .encode(serde_json::to_vec(&a.parsed::<Value>()?).map_err(|e| e.to_string())?)

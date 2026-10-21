@@ -8,6 +8,7 @@ export declare const PREFIX = "Validation Error: ";
  * - `size`: an object or a file is over its byte cap, `limit` in bytes;
  * - `length`: text is outside its bounds, `limit` the bound it broke, in code points;
  * - `count`: a list has more items than `limit`;
+ * - `range`: a number is outside its bounds, `limit` the bound it broke, in the member's unit;
  * - `blank`: text, a list or a file is empty or whitespace only;
  * - `format`: text is not spelled the one way the model accepts (a key, an id, a tag, a slug);
  * - `id`: an id does not match its object, or its time is out of bounds;
@@ -18,7 +19,7 @@ export declare const PREFIX = "Validation Error: ";
  * - `conflict`: members or arguments that cannot go together;
  * - `migration`: refused by the migrator, see the message.
  */
-export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format" | "id" | "reference" | "unknown_name" | "unsafe_integer" | "path" | "conflict" | "migration";
+export type ErrorCode = "json" | "size" | "length" | "count" | "range" | "blank" | "format" | "id" | "reference" | "unknown_name" | "unsafe_integer" | "path" | "conflict" | "migration";
 /**
  * A value the data model refuses. The message is the reference text, "Validation Error: "
  * included, where the reference has a rule for the value; a value only JavaScript can hold (a
@@ -26,7 +27,7 @@ export type ErrorCode = "json" | "size" | "length" | "count" | "blank" | "format
  * package's own words after the same prefix. `reason` is the text without the prefix; `code` says which kind of rule, for a
  * program to act on. `field` names the member or argument refused (`content`,
  * `attachments[0].uri`, `owner`), absent when the refusal is about the object as a whole.
- * `limit` is the bound a `size`, `length` or `count` refusal broke. `instanceof` holds across
+ * `limit` is the bound a `size`, `length`, `count` or `range` refusal broke. `instanceof` holds across
  * two copies of the package in one program.
  *
  * @example
@@ -49,7 +50,7 @@ export declare class ValidationError extends Error {
     readonly reason: string;
     /** The member or argument refused, as the input spells it: `content`, `attachments[0].uri`, `owner`. Absent when the whole object is refused. */
     readonly field?: string;
-    /** The bound a `size` (bytes), `length` (code points) or `count` (items) refusal broke: the value in `limits`. */
+    /** The bound a `size` (bytes), `length` (code points), `count` (items) or `range` (the member's unit) refusal broke: the value in `limits`. */
     readonly limit?: number;
     readonly [BRAND] = true;
     constructor(code: ErrorCode, reason: string, field?: string, limit?: number, options?: {
