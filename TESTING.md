@@ -39,9 +39,13 @@ binary `surface_oracle` over it. It answers each operation of the package (`deco
 answer out. A request carries its own clock and its own mint guard, so an answer depends on the
 request alone and a recorded request replays to the same answer.
 
-- **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family (thirteen families
-  since 1.1, `maps` the newest: the `geo:` and OpenStreetMap conventions) with the oracle's
-  answers, read by both sides. `tests/surface_vectors.rs` fails when the crate no longer gives
+- **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family with the oracle's
+  answers, read by both sides. The twelve 1.0 files are as 1.0 recorded them: their families draw
+  only the 1.0 kinds, so a re-recording reproduces them byte for byte, and their passing is the
+  1.0 compatibility proof. The 1.1 kinds are recorded beside them: `post-1.1`, `plan-1.1` and
+  `loose-1.1` draw only `event`, `rsvp`, `availability`, `rating` and `route`, `maps` the `geo:`
+  and OpenStreetMap conventions, and `bounds` is a fixed list of oversized and 1.0-order cases
+  (`fixed` in `pkg/qa/gen.mjs`), recorded as it stands and never fuzzed. `tests/surface_vectors.rs` fails when the crate no longer gives
   them, and the scoreboard fails when the package does not. Regenerate with
   `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour.
 - **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh

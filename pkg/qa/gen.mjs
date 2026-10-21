@@ -570,14 +570,103 @@ const envelopeText = (r, envelope) =>
  * so often that the late rules and the accepted shapes would be reached only by chance.
  */
 function cleanPost(r) {
-  const kind = r.pick(["note", "article", "collection", "event", "rsvp", "availability", "rating", "route"]);
+  const kind = r.pick(["note", "article", "collection"]);
   const own = (root, leaf) => `pubky://${OWNER}/${seg(root)}/social/v1/${leaf}`;
   const media = () => own(r.pick(["public", "public", "private"]), `files/${hashIdText(r)}.png`);
   const item = () => ({ uri: own("public", `posts/${timestampIdOf(NOW - 5e9)}`), ...(r.chance(0.5) ? { note: "note" } : {}) });
+  const envelope = kind === "article" ? { title: "Title", body: "Body" } : kind === "collection" ? { name: "List", description: "about", items: [item(), item()] } : null;
+  if (envelope && r.chance(0.5)) envelope.cover_image = media();
+  const p = { content: "hello", kind, parent: null, embed: null };
+  if (r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
+  const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
+  const breaks = {
+    article: [
+      () => (envelope.title = "t".repeat(101)),
+      () => (envelope.body = "b".repeat(r.pick([50000, 50001]))),
+      // Each control character is six code points once escaped, so the content cap is reached
+      // with a body under its own
+      () => (envelope.body = "\u0001".repeat(r.pick([17300, 17400]))),
+    ],
+    collection: [
+      () => (envelope.items = Array.from({ length: r.pick([100, 101]) }, item)),
+      () => (envelope.name = r.pick(["", " ", "n".repeat(r.pick([100, 101]))])),
+      () => (envelope.description = r.pick([" ", "d".repeat(r.pick([500, 501]))])),
+      () => (envelope.items[0].note = r.pick([" ", "n".repeat(r.pick([1000, 1001]))])),
+    ],
+    note: [() => (p.content = "c".repeat(r.pick([2000, 2001])))],
+  }[kind];
+  const any = [
+    () => (attachment().alt = "a".repeat(r.pick([1000, 1001]))),
+    () => (p.attachments = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: media() }))),
+    () => (p.parent = own("private", `posts/${timestampIdOf(NOW - 5e9)}`)),
+  ];
+  if (r.chance(0.6)) r.pick([...breaks, ...any])();
+  if (envelope) p.content = JSON.stringify(envelope);
+  return p;
+}
+
+/** A post as stored: any kind, references of every tier, sometimes what a newer writer adds. */
+function storedPost(r) {
+  if (r.chance(0.35)) return cleanPost(r);
+  const kind = r.pick(["note", "note", "note", "article", "article", "collection", "collection", "image", "link", "podcast", "unknown"]);
+  const p = {
+    content:
+      kind === "article"
+        ? envelopeText(r, articleEnvelope(r))
+        : kind === "collection"
+          ? envelopeText(r, collectionEnvelope(r))
+          : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]),
+    kind,
+    parent: null,
+    embed: null,
+  };
+  if (r.chance(0.3)) p.parent = ref(r);
+  if (r.chance(0.3)) p.embed = ref(r);
+  if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
+  if (r.chance(0.2)) p.lock = r.pick([ref(r), `pubky://${OTHER}/pub/social/v1/profile.json`, null]);
+  return p;
+}
+
+function postInput(r) {
+  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown"]);
+  let o;
+  if (kind === "article") {
+    const e = articleEnvelope(r);
+    o = { kind, title: e.title, body: e.body };
+    if ("cover_image" in e) o.cover_image = e.cover_image;
+  } else if (kind === "collection") {
+    const e = collectionEnvelope(r);
+    o = { kind, name: e.name };
+    if ("description" in e) o.description = e.description;
+    if ("items" in e) o.items = e.items;
+    if ("cover_image" in e) o.cover_image = e.cover_image;
+    if ("layout" in e) o.layout = e.layout;
+  } else {
+    o = { content: r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]) };
+    if (kind !== undefined) o.kind = kind;
+  }
+  if (kind !== "collection") {
+    if (r.chance(0.25)) o.parent = ref(r);
+    if (r.chance(0.25)) o.embed = ref(r);
+    if (r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
+    if (r.chance(0.15)) o.lock = ref(r);
+  }
+  if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
+  if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
+  return o;
+}
+
+// The 1.1 kinds, drawn by the `-1.1` families alone, so the 1.0 families draw as 1.0 recorded them
+const V11_KINDS = ["event", "rsvp", "availability", "rating", "route"];
+const isReply = (kind) => kind === "rsvp" || kind === "rating";
+
+/** A 1.1 post every rule accepts, then at most one late rule broken. */
+function cleanPost11(r) {
+  const kind = r.pick(V11_KINDS);
+  const own = (root, leaf) => `pubky://${OWNER}/${seg(root)}/social/v1/${leaf}`;
+  const media = () => own(r.pick(["public", "public", "private"]), `files/${hashIdText(r)}.png`);
   const place = () => r.pick(["geo:46.00547,8.95186", "https://www.openstreetmap.org/way/481516234"]);
   const clean = {
-    article: () => ({ title: "Title", body: "Body" }),
-    collection: () => ({ name: "List", description: "about", items: [item(), item()] }),
     event: () => ({
       title: "Evening",
       start: "2026-10-14T18:30:00",
@@ -603,26 +692,13 @@ function cleanPost(r) {
       duration_s: 1800,
     }),
   };
-  const envelope = kind === "note" ? null : clean[kind]();
-  if ((kind === "article" || kind === "collection") && r.chance(0.5)) envelope.cover_image = media();
-  const p = { content: "hello", kind, parent: kind === "rsvp" || kind === "rating" ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
-  if (r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
+  const envelope = clean[kind]();
+  const p = { content: "hello", kind, parent: isReply(kind) ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
+  // an rsvp and an availability carry no media
+  const mediaFree = kind === "rsvp" || kind === "availability";
+  if (!mediaFree && r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
   const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
   const breaks = {
-    article: [
-      () => (envelope.title = "t".repeat(101)),
-      () => (envelope.body = "b".repeat(r.pick([50000, 50001]))),
-      // Each control character is six code points once escaped, so the content cap is reached
-      // with a body under its own
-      () => (envelope.body = "\u0001".repeat(r.pick([17300, 17400]))),
-    ],
-    collection: [
-      () => (envelope.items = Array.from({ length: r.pick([100, 101]) }, item)),
-      () => (envelope.name = r.pick(["", " ", "n".repeat(r.pick([100, 101]))])),
-      () => (envelope.description = r.pick([" ", "d".repeat(r.pick([500, 501]))])),
-      () => (envelope.items[0].note = r.pick([" ", "n".repeat(r.pick([1000, 1001]))])),
-    ],
-    note: [() => (p.content = "c".repeat(r.pick([2000, 2001])))],
     event: [
       () => (envelope.title = "t".repeat(r.pick([100, 101]))),
       () => (envelope.description = "d".repeat(r.pick([50000, 50001]))),
@@ -654,95 +730,34 @@ function cleanPost(r) {
     () => (p.attachments = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: media() }))),
     () => (p.parent = own("private", `posts/${timestampIdOf(NOW - 5e9)}`)),
   ];
-  // an rsvp and an availability carry no media, so a media break is no clean post of theirs
-  const media_free = kind === "rsvp" || kind === "availability";
-  if (media_free) delete p.attachments;
-  if (r.chance(0.6)) r.pick([...breaks, ...(media_free ? [] : any)])();
-  if (envelope) p.content = JSON.stringify(envelope);
+  if (r.chance(0.6)) r.pick([...breaks, ...(mediaFree ? [] : any)])();
+  p.content = JSON.stringify(envelope);
   return p;
 }
 
-/** A post as stored: any kind, references of every tier, sometimes what a newer writer adds. */
-function storedPost(r) {
-  if (r.chance(0.35)) return cleanPost(r);
-  const kind = r.pick([
-    "note",
-    "note",
-    "note",
-    "article",
-    "article",
-    "collection",
-    "collection",
-    "image",
-    "link",
-    "podcast",
-    "unknown",
-    "event",
-    "event",
-    "rsvp",
-    "availability",
-    "rating",
-    "route",
-    "route",
-  ]);
-  const p = {
-    content:
-      kind === "article"
-        ? envelopeText(r, articleEnvelope(r))
-        : kind === "collection"
-          ? envelopeText(r, collectionEnvelope(r))
-          : kind in TYPED
-            ? envelopeText(r, TYPED[kind](r))
-            : r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]),
-    kind,
-    parent: null,
-    embed: null,
-  };
+/** A 1.1 post as stored: references of every tier, sometimes what a newer writer adds. */
+function storedPost11(r) {
+  if (r.chance(0.35)) return cleanPost11(r);
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating", "route", "route"]);
+  const p = { content: envelopeText(r, TYPED[kind](r)), kind, parent: null, embed: null };
   // the reply kinds mostly have the parent they need
-  if (r.chance(kind === "rsvp" || kind === "rating" ? 0.85 : 0.3)) p.parent = ref(r);
+  if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);
   if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
   if (r.chance(0.2)) p.lock = r.pick([ref(r), `pubky://${OTHER}/pub/social/v1/profile.json`, null]);
   return p;
 }
 
-function postInput(r) {
-  const kind = r.pick(["note", "note", undefined, "article", "collection", "image", "podcast", "unknown", "event", "event", "rsvp", "availability", "rating", "route", "route"]);
-  let o;
-  if (kind in TYPED) {
-    // The members a builder takes, the envelope's own and the post's; a reply kind's parent
-    o = { kind, ...TYPED[kind](r) };
-    for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
-    // A reply kind's parent is a required member: absent, the shape is refused before any rule
-    if (kind === "rsvp" || kind === "rating") o.parent = ref(r);
-    if (kind === "route" && r.chance(0.3)) o.embed = ref(r);
-    if ((kind === "event" || kind === "rating" || kind === "route") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
-    if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
-    if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
-    if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
-    return o;
-  }
-  if (kind === "article") {
-    const e = articleEnvelope(r);
-    o = { kind, title: e.title, body: e.body };
-    if ("cover_image" in e) o.cover_image = e.cover_image;
-  } else if (kind === "collection") {
-    const e = collectionEnvelope(r);
-    o = { kind, name: e.name };
-    if ("description" in e) o.description = e.description;
-    if ("items" in e) o.items = e.items;
-    if ("cover_image" in e) o.cover_image = e.cover_image;
-    if ("layout" in e) o.layout = e.layout;
-  } else {
-    o = { content: r.pick(["hello", " padded ", "", "c".repeat(r.pick([2000, 2001])), text(r)]) };
-    if (kind !== undefined) o.kind = kind;
-  }
-  if (kind !== "collection") {
-    if (r.chance(0.25)) o.parent = ref(r);
-    if (r.chance(0.25)) o.embed = ref(r);
-    if (r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
-    if (r.chance(0.15)) o.lock = ref(r);
-  }
+/** A builder input of a 1.1 kind: its envelope's members and the post's. */
+function postInput11(r) {
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating", "route", "route"]);
+  const o = { kind, ...TYPED[kind](r) };
+  for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
+  // A reply kind's parent is a required member: absent, the shape is refused before any rule
+  if (isReply(kind)) o.parent = ref(r);
+  if (kind === "route" && r.chance(0.3)) o.embed = ref(r);
+  if ((kind === "event" || kind === "rating" || kind === "route") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
+  if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
   if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
   if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
   return o;
@@ -765,6 +780,14 @@ function draft(r) {
   if (r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   if (p.kind === "article" && r.chance(0.7)) p.content = JSON.stringify({ title: "T", body: "B", cover_image: media(), ...(r.chance(0.2) ? { z: r.pick([1, "x", 9007199254740991]), a: [1] } : {}) });
   if (p.kind === "collection" && r.chance(0.7)) p.content = JSON.stringify({ name: "List", items: r.many(2, () => ({ uri: ref(r) })), ...(r.chance(0.5) ? { cover_image: media() } : {}) });
+  return p;
+}
+
+/** A private 1.1 version about to be published: its media and its references mostly the owner's own private ones. */
+function draft11(r) {
+  const p = r.chance(0.5) ? cleanPost11(r) : storedPost11(r);
+  const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r), `pubky://${OWNER}/priv/social/v1/posts/${postId(r)}`]);
+  if (p.kind !== "rsvp" && p.kind !== "availability" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   return p;
 }
 
@@ -1017,6 +1040,51 @@ export const families = {
     ])();
     return request("encodeKind", s(kind), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, object, kind === "post" ? limits.postMaxBytes : undefined)) });
   },
+  // The 1.1 kinds, recorded apart so the 1.0 files stay as 1.0 recorded them
+  "post-1.1": (r) =>
+    r.pick([
+      () => ({ ...request("createPost", s(key(r)), { j: JSON.stringify(postInput11(r)) }), ...env(r) }),
+      () => ({ ...request("createPost", s(OWNER), { j: JSON.stringify(postInput11(r)) }), ...env(r) }),
+      () => {
+        const id = postId(r);
+        const head = r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW + 1e9), timestampIdOf(NOW + 7.1e9), timestampIdOf(NOW - 9e9), "x"]);
+        const at = { id, head };
+        if (r.chance(0.4)) at.root = r.pick(["public", "private"]);
+        if (r.chance(0.3)) at.slug = r.pick(["edited", "Bad Slug"]);
+        return { ...request("editPost", s(key(r)), { j: stored(r, storedPost11(r)) }, { j: JSON.stringify(at) }), ...env(r) };
+      },
+      () => {
+        const id = postId(r);
+        const leaf = r.pick([`${id}/${id}.json`, `${id}/${timestampIdOf(NOW - 4e9)}-a-slug.json`, id, `${id}/${timestampIdOf(NOW + r.pick([7.1e9, 7.3e9]))}.json`]);
+        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost11(r), limits.postMaxBytes) });
+      },
+    ])(),
+  "plan-1.1": (r) => {
+    const id = postId(r);
+    const owner = () => (r.chance(0.8) ? OWNER : key(r));
+    return r.pick([
+      () =>
+        request("planPublish", s(owner()), {
+          j: JSON.stringify({
+            id,
+            editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]),
+            post: draft11(r),
+            ...(r.chance(0.3) ? { slug: r.pick(["my-post", "a", "Bad", "x".repeat(65)]) } : {}),
+          }),
+        }),
+      () => {
+        const post = { id: r.pick([id, id, id, "x"]) };
+        if (r.chance(0.8))
+          post.copies = editIds(r).map((e) => {
+            const root = r.pick(["public", "private"]);
+            return { root, path: versionPath(r, root, id, e) };
+          });
+        post.versions = r.many(3, () => draft11(r));
+        return request("planDelete", s(owner()), { j: JSON.stringify(post) });
+      },
+    ])();
+  },
+  "loose-1.1": (r) => request("encodeKind", s("post"), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, storedPost11(r), limits.postMaxBytes)) }),
   feed: (r) =>
     r.pick([
       () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),
