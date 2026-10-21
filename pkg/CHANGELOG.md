@@ -52,7 +52,8 @@ model, which it reads and writes as before.
   the rule that an event override's `recurrenceOf` is the same author's post.
 - The size budgets of the entries that carry the post rules grew by 3 to 7 KB gzipped, the cost
   of the five kinds; `import { buildUri }` by about 250 bytes, the cost of the longer limits
-  table every bundle that reads a limit carries.
+  table every bundle that reads a limit carries; the migration's wasm by about 34 KB, since the
+  crate it is compiled from reads every migrated post through the 1.1 reader.
 
 - A URL or path argument takes a plain `string`, as the README said and the types did not: an
   entry of a LIST compiles where only a `pubky://` literal or a branded value did.
