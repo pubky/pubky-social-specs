@@ -14,7 +14,13 @@ exclude = [
     ".github",
     "pkg",
     "src/bin",
+    "subspecs",
 ]
+
+# The public sub-specs build against this crate in the same workspace. Cargo run at the root acts
+# on this crate alone; `--workspace` takes the sub-specs too.
+[workspace]
+members = [".", "subspecs/maps", "subspecs/events"]
 
 [package.metadata.docs.rs]
 all-features = true

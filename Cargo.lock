@@ -1787,6 +1787,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pubky-events-specs"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "pubky-social-specs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pubky-maps-specs"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "pubky-social-specs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pubky-social-specs"
 version = "1.1.0-alpha.1"
 dependencies = [

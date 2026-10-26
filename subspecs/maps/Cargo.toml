@@ -1,0 +1,15 @@
+[package]
+name = "pubky-maps-specs"
+version = "0.1.0-alpha.1"
+edition = "2021"
+rust-version = "1.89"
+description = "The maps sub-spec of Pubky social: the route kind on the shared post envelope"
+readme = "README.md"
+repository = "https://github.com/pubky/pubky-social-specs"
+license = "MIT"
+keywords = ["pubky", "pubky-social", "maps", "route", "openstreetmap"]
+
+[dependencies]
+pubky-social-specs = { path = "../..", version = "1.1.0-alpha.1" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
