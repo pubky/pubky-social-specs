@@ -57,7 +57,7 @@ wire_names!(PubkySocialAttendancePolicy {
 });
 
 /// Where the event is: a reference to a place, through the universal gate, and a name to show.
-/// A place is a canonical OpenStreetMap object URL or a `geo:` point (the Maps conventions), a
+/// A place is a canonical OpenStreetMap object URL or a `geo:` point (the place conventions), a
 /// meeting link an https URL.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

@@ -789,7 +789,7 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "canonicalWeb" => value(&canonicalize_web_uri(a.s()?).ok())?,
         "canonicalExternal" => value(&canonicalize_external_uri(a.s()?).ok())?,
         "canonicalUniversal" => value(&canonicalize_universal(a.s()?).ok())?,
-        // The Maps conventions: the one spelling of a point and of an OpenStreetMap object
+        // The place conventions: the one spelling of a point and of an OpenStreetMap object
         "geoUri" => {
             let (lat, lon, digits): (f64, f64, usize) = a.parsed()?;
             crate::places::geo_uri(lat, lon, digits)?.into()
