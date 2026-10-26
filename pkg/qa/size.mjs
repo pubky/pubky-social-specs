@@ -38,8 +38,10 @@ const PROBES = [
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
   ["testing.js", "* as all", 28_500, ["WebAssembly"]],
   ["client/index.js", "{ createSocialClient }", 35_500, ["WebAssembly"]],
-  // pubky-social-migrator, with the public entry of the core it calls bundled in
-  ["migrator/index.js", "* as all", 360_000, []],
+  // pubky-social-migrator: its engine, the wasm of the crate built with the migrator feature (the
+  // 0.x transforms and the 1.x reader every migrated object goes through, the 1.1 kinds included)
+  // and the public entry of the core it calls, bundled in
+  ["migrator/index.js", "* as all", 385_000, []],
   ["migrator/adapters/pubky-sdk.js", "* as all", 5_000, ["WebAssembly"]],
 ];
 
