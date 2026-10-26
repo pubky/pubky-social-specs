@@ -15,13 +15,12 @@ pub mod content;
 pub mod lifecycle;
 
 pub use content::{
-    PubkySocialArticleContent, PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock,
-    PubkySocialAvailabilityContent, PubkySocialCollectionContent, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialEventAttendance, PubkySocialEventContent,
-    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
-    PubkySocialRatingContent, PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule,
-    PubkySocialRouteContent, PubkySocialRoutePolyline, PubkySocialRouteStep,
-    PubkySocialRouteWaypoint, PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
+    PubkySocialArticleContent, PubkySocialAttendancePolicy, PubkySocialCollectionContent,
+    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventAttendance,
+    PubkySocialEventContent, PubkySocialEventLink, PubkySocialEventLocation,
+    PubkySocialEventStatus, PubkySocialNthDay, PubkySocialRatingContent,
+    PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule, PubkySocialRsvpContent,
+    PubkySocialRsvpStatus, PubkySocialWeekday,
 };
 
 #[cfg(feature = "openapi")]
@@ -33,8 +32,9 @@ const POSTS_SEGMENT: &str = "posts/";
 /// Represents the type of pubky-app posted data
 /// Used primarily to best display the content in UI
 ///
-/// The 1.1 kinds: `event` and `rsvp`, with the optional `availability` and `rating`, are the
-/// event kinds; `route` is the Maps kind. Each carries a JSON envelope in `content`.
+/// The 1.1 kinds, `event`, `rsvp` and `rating`, are the ones other apps must read: an event and
+/// its answers, and stars on any thing. Each carries a JSON envelope in `content`. An app's own
+/// kinds live in its sub-spec, on this envelope under its own namespace.
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
 #[non_exhaustive]
@@ -49,9 +49,7 @@ pub enum PubkySocialPostKind {
     Collection,
     Event,
     Rsvp,
-    Availability,
     Rating,
-    Route,
     Unknown(String),
 }
 
@@ -75,9 +73,7 @@ impl FromStr for PubkySocialPostKind {
             "collection" => Ok(PubkySocialPostKind::Collection),
             "event" => Ok(PubkySocialPostKind::Event),
             "rsvp" => Ok(PubkySocialPostKind::Rsvp),
-            "availability" => Ok(PubkySocialPostKind::Availability),
             "rating" => Ok(PubkySocialPostKind::Rating),
-            "route" => Ok(PubkySocialPostKind::Route),
             _ => Err(format!("Validation Error: Invalid content kind: {}", s)),
         }
     }
@@ -93,9 +89,7 @@ wire_names!(PubkySocialPostKind {
     Collection => "collection",
     Event => "event",
     Rsvp => "rsvp",
-    Availability => "availability",
     Rating => "rating",
-    Route => "route",
 });
 
 /// One attached media reference. An object rather than a string so per-item metadata can
@@ -494,11 +488,7 @@ impl PubkySocialPostKind {
         match self {
             PubkySocialPostKind::Event => Some(("Event", l.event_content_max_length)),
             PubkySocialPostKind::Rsvp => Some(("Rsvp", l.rsvp_content_max_length)),
-            PubkySocialPostKind::Availability => {
-                Some(("Availability", l.availability_content_max_length))
-            }
             PubkySocialPostKind::Rating => Some(("Rating", l.rating_content_max_length)),
-            PubkySocialPostKind::Route => Some(("Route", l.route_content_max_length)),
             _ => None,
         }
     }
@@ -515,11 +505,7 @@ impl PostKind for PubkySocialPostKind {
             PubkySocialPostKind::Article => content::article::validate_article_post(post, ctx),
             PubkySocialPostKind::Event => content::events::event::validate_event_post(post),
             PubkySocialPostKind::Rsvp => content::events::rsvp::validate_rsvp_post(post),
-            PubkySocialPostKind::Availability => {
-                content::events::availability::validate_availability_post(post)
-            }
             PubkySocialPostKind::Rating => content::events::rating::validate_rating_post(post),
-            PubkySocialPostKind::Route => content::maps::route::validate_route_post(post),
             // Note, Image, Video, Link, File: untyped content. The envelope refused Unknown
             // before dispatching, so the wildcard never sees it.
             _ => {
@@ -544,7 +530,7 @@ impl PostKind for PubkySocialPostKind {
 
     /// The bounds that run before any envelope is parsed or any reference inside it is read:
     /// the raw content cap of a 1.1 kind, then the lists whose items the gate reads (the
-    /// collection items, an event's locations and links, a route's waypoints). An unparsable
+    /// collection items, an event's locations and links). An unparsable
     /// envelope is that validator's error.
     fn check_counts(&self, post: &PubkySocialPost) -> Result<(), String> {
         if let Some((name, max)) = self.content_cap() {
@@ -565,7 +551,6 @@ impl PostKind for PubkySocialPostKind {
                 Ok(())
             }
             PubkySocialPostKind::Event => content::events::event::check_event_counts(post),
-            PubkySocialPostKind::Route => content::maps::route::check_route_counts(post),
             _ => Ok(()),
         }
     }
@@ -622,25 +607,6 @@ impl PostKind for PubkySocialPostKind {
                             "recurrenceOf".to_string(),
                             master,
                             PubkyOnly,
-                            max,
-                        ));
-                    }
-                }
-            }
-            PubkySocialPostKind::Availability => {
-                if let Some(schedule) = content::events::availability::parse_availability(post) {
-                    if let Some(resource) = schedule.r#for {
-                        refs.push(reference("for".to_string(), resource, Universal, max));
-                    }
-                }
-            }
-            PubkySocialPostKind::Route => {
-                if let Some(route) = content::maps::route::parse_route(post) {
-                    for (index, waypoint) in route.waypoints.into_iter().enumerate() {
-                        refs.push(reference(
-                            format!("waypoints[{index}].uri"),
-                            waypoint.uri,
-                            Universal,
                             max,
                         ));
                     }
@@ -835,21 +801,6 @@ impl PubkySocialPost {
         )
     }
 
-    /// Builds the availability envelope into `content` and wraps it in a `kind = Availability`
-    /// post. Trims each block's title, a blank one becoming absent. Infallible; callers validate
-    /// before writing.
-    pub fn new_availability(schedule: PubkySocialAvailabilityContent) -> Self {
-        let content = serde_json::to_string(&schedule.trimmed())
-            .expect("an envelope of strings and integers always serializes");
-        Self::new(
-            content,
-            PubkySocialPostKind::Availability,
-            None,
-            None,
-            vec![],
-        )
-    }
-
     /// Builds the rating envelope into `content` and wraps it in a `kind = Rating` reply to
     /// `target`, any universal reference. Trims the text, a blank one becoming absent.
     /// Infallible; callers validate before writing.
@@ -871,27 +822,6 @@ impl PubkySocialPost {
             PubkySocialPostKind::Rating,
             Some(target),
             None,
-            attachments,
-        )
-    }
-
-    /// Builds the route envelope into `content` and wraps it in a `kind = Route` post. Trims the
-    /// name, the description (a blank one becoming absent), the activity (folded as a tag label
-    /// is), each waypoint's name, the polyline's labels and each step's instruction; references
-    /// and the encoded polyline pass through verbatim. `embed` may name the trail the route
-    /// follows. Infallible; callers validate before writing.
-    pub fn new_route(
-        route: PubkySocialRouteContent,
-        embed: Option<String>,
-        attachments: Vec<PubkySocialAttachment>,
-    ) -> Self {
-        let content = serde_json::to_string(&route.trimmed())
-            .expect("an envelope of strings and integers always serializes");
-        Self::new(
-            content,
-            PubkySocialPostKind::Route,
-            None,
-            embed,
             attachments,
         )
     }

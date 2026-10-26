@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use super::super::super::PubkySocialPost;
-use super::super::maps::geo::check_place_reference;
+use super::super::places::check_place_reference;
 use super::time::{
     validate_duration, validate_local_date_time, validate_recurrence_rule, validate_time_zone,
     PubkySocialRecurrenceRule,
@@ -111,12 +111,12 @@ impl Default for PubkySocialEventAttendance {
     }
 }
 
-/// A link shown with the event, https only.
+/// A link shown with the event, `{ title, url }` as a profile's links are; https only.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PubkySocialEventLink {
-    /// Trimmed by the builder; `1..=event_link_name_max_length`, not blank.
-    pub name: String,
+    /// Trimmed by the builder; `1..=event_link_title_max_length`, not blank.
+    pub title: String,
     /// An https URL of at most `event_link_url_max_length` code points, stored as written.
     pub url: String,
     /// Unknown members, preserved on rewrite; see the module contract in `models/mod.rs`.
@@ -125,10 +125,10 @@ pub struct PubkySocialEventLink {
 }
 
 impl PubkySocialEventLink {
-    /// Trims the name; the url is a reference and passes through verbatim.
-    pub fn new(name: String, url: String) -> Self {
+    /// Trims the title; the url is a reference and passes through verbatim.
+    pub fn new(title: String, url: String) -> Self {
         Self {
-            name: frozen_trim(&name).to_string(),
+            title: frozen_trim(&title).to_string(),
             url,
             extra: Default::default(),
         }
@@ -213,7 +213,7 @@ impl PubkySocialEventContent {
     }
 
     /// The builder trim: the title, the description (a blank one absent), each location's name
-    /// and each link's name. References and times pass through verbatim; `extra` is kept.
+    /// and each link's title. References and times pass through verbatim; `extra` is kept.
     pub(crate) fn trimmed(self) -> Self {
         Self {
             title: frozen_trim(&self.title).to_string(),
@@ -230,7 +230,7 @@ impl PubkySocialEventContent {
                 .links
                 .into_iter()
                 .map(|l| PubkySocialEventLink {
-                    name: frozen_trim(&l.name).to_string(),
+                    title: frozen_trim(&l.title).to_string(),
                     ..l
                 })
                 .collect(),
@@ -386,11 +386,11 @@ pub(crate) fn validate_event_envelope(envelope: &PubkySocialEventContent) -> Res
         }
     }
     for (index, link) in envelope.links.iter().enumerate() {
-        check_extra(&link.extra, &["name", "url"])?;
-        let max = VALIDATION_LIMITS.event_link_name_max_length;
-        if frozen_trim(&link.name).is_empty() || code_point_len(&link.name) > max {
+        check_extra(&link.extra, &["title", "url"])?;
+        let max = VALIDATION_LIMITS.event_link_title_max_length;
+        if frozen_trim(&link.title).is_empty() || code_point_len(&link.title) > max {
             return Err(format!(
-                "Validation Error: links[{index}].name must be 1 to {max} code points and not blank"
+                "Validation Error: links[{index}].title must be 1 to {max} code points and not blank"
             ));
         }
         // The gate admitted a web URL; the event's links are https only
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(envelope, lugano());
         assert_eq!(
             post.content,
-            r#"{"title":"Lugano Bitcoin Evening","description":"Monthly meetup. Talks start at 19:00.","start":"2026-10-14T18:30:00","timeZone":"Europe/Zurich","duration":"PT2H30M","showWithoutTime":false,"status":"confirmed","locations":[{"name":"Plan ₿ Hub","uri":"https://www.openstreetmap.org/way/481516234"}],"attendance":{"policy":"open","capacity":null,"waitlist":false},"links":[{"name":"Website","url":"https://planb.network/"}],"recurrenceRules":[{"frequency":"monthly","byDay":[{"day":"tu","nthOfPeriod":2}]}],"excludedDates":[]}"#
+            r#"{"title":"Lugano Bitcoin Evening","description":"Monthly meetup. Talks start at 19:00.","start":"2026-10-14T18:30:00","timeZone":"Europe/Zurich","duration":"PT2H30M","showWithoutTime":false,"status":"confirmed","locations":[{"name":"Plan ₿ Hub","uri":"https://www.openstreetmap.org/way/481516234"}],"attendance":{"policy":"open","capacity":null,"waitlist":false},"links":[{"title":"Website","url":"https://planb.network/"}],"recurrenceRules":[{"frequency":"monthly","byDay":[{"day":"tu","nthOfPeriod":2}]}],"excludedDates":[]}"#
         );
     }
 
@@ -564,7 +564,7 @@ mod tests {
         event.title = "\u{3000} Evening \u{3000}".into();
         event.description = Some(" \t ".into());
         event.locations[0].name = Some("  Hub  ".into());
-        event.links[0].name = "  Site  ".into();
+        event.links[0].title = "  Site  ".into();
         event.start = " 2026-10-14T18:30:00".into();
         event.locations[0].uri = " https://www.openstreetmap.org/way/481516234".into();
         let post = event_post(event);
@@ -572,7 +572,7 @@ mod tests {
         assert_eq!(e.title, "Evening");
         assert_eq!(e.description, None);
         assert_eq!(e.locations[0].name.as_deref(), Some("Hub"));
-        assert_eq!(e.links[0].name, "Site");
+        assert_eq!(e.links[0].title, "Site");
         assert_eq!(e.start, " 2026-10-14T18:30:00");
         assert_eq!(
             e.locations[0].uri,
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn unknown_members_survive_everywhere_and_never_shadow() {
-        let json = r#"{"title":"t","start":"2026-10-14T18:30:00","timeZone":"UTC","duration":"PT1H","locations":[{"uri":"geo:46,8","floor":2}],"attendance":{"policy":"open","capacity":null,"waitlist":false,"minAge":18},"links":[{"name":"n","url":"https://x.y","rel":"me"}],"recurrenceRules":[{"frequency":"weekly","rscale":"gregorian"}],"color":"red"}"#;
+        let json = r#"{"title":"t","start":"2026-10-14T18:30:00","timeZone":"UTC","duration":"PT1H","locations":[{"uri":"geo:46,8","floor":2}],"attendance":{"policy":"open","capacity":null,"waitlist":false,"minAge":18},"links":[{"title":"n","url":"https://x.y","rel":"me"}],"recurrenceRules":[{"frequency":"weekly","rscale":"gregorian"}],"color":"red"}"#;
         let post = raw(json);
         assert_eq!(validate(&post), Ok(()));
         let e: PubkySocialEventContent = serde_json::from_str(json).unwrap();
@@ -889,7 +889,7 @@ mod tests {
         let link = |url: &str| {
             let url = url.to_string();
             with(&base, move |v| {
-                v["links"] = serde_json::json!([{ "name": "Site", "url": url }])
+                v["links"] = serde_json::json!([{ "title": "Site", "url": url }])
             })
         };
         assert_eq!(validate(&link("https://example.com/a?b=c")), Ok(()));
@@ -905,28 +905,37 @@ mod tests {
         let long = format!("https://e.com/{}", "a".repeat(max - 14));
         assert_eq!(validate(&link(&long)), Ok(()));
         assert!(err(&link(&format!("{long}a"))).contains(&format!("at most {max} code points")));
-        let max = VALIDATION_LIMITS.event_link_name_max_length;
+        let max = VALIDATION_LIMITS.event_link_title_max_length;
         for bad in [" ".to_string(), "n".repeat(max + 1)] {
             let post = with(&base, |v| {
-                v["links"] = serde_json::json!([{ "name": bad, "url": "https://x.y" }])
+                v["links"] = serde_json::json!([{ "title": bad, "url": "https://x.y" }])
             });
             assert_eq!(
                 err(&post),
                 format!(
-                    "Validation Error: links[0].name must be 1 to {max} code points and not blank"
+                    "Validation Error: links[0].title must be 1 to {max} code points and not blank"
                 )
             );
         }
         let max = VALIDATION_LIMITS.event_links_max_count;
         let many = with(&base, |v| {
             v["links"] = serde_json::json!(vec![
-                serde_json::json!({ "name": "n", "url": "https://x.y" });
+                serde_json::json!({ "title": "n", "url": "https://x.y" });
                 max + 1
             ])
         });
         assert_eq!(
             err(&many),
             format!("Validation Error: Event cannot have more than {max} links")
+        );
+        // the 1.1 alpha spelling of a link's title is refused, not read as a title
+        let named = with(&base, |v| {
+            v["links"] = serde_json::json!([{ "name": "Site", "url": "https://x.y" }])
+        });
+        assert!(
+            err(&named).contains("missing field `title`"),
+            "{}",
+            err(&named)
         );
     }
 

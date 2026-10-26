@@ -66,7 +66,7 @@ pubky-social-specs = { version = "1.1.0-alpha.1", features = ["openapi"] }
 | ------------------- | ---------------------------------------- |
 | `PubkySocialUser`      | User profile information                 |
 | `PubkySocialFile`      | Media bytes                              |
-| `PubkySocialPost`      | Posts, replies, embeds, collections, and the 1.1 kinds: events, rsvps, availabilities, ratings and routes |
+| `PubkySocialPost`      | Posts, replies, embeds, collections, and the 1.1 kinds: events, rsvps and ratings |
 | `PubkySocialTag`       | Tags applied to Pubky URIs               |
 | `PubkySocialBookmark`  | Private bookmarks, target in the filename |
 | `PubkySocialFollow`    | Follow relationships                     |
@@ -77,14 +77,29 @@ pubky-social-specs = { version = "1.1.0-alpha.1", features = ["openapi"] }
 shares (parent, embed, attachments, lock, the preserved `extra` map, the byte cap, the id mint
 and the versioned `posts/{id}/{editId}.json` layout under a namespace); the `PostKind` type
 parameter carries one namespace's kind vocabulary and its per-kind content rules. The 1.1 kinds
-(`event`, `rsvp`, `availability`, `rating`, `route`) are five more envelopes on the same post:
-`PubkySocialPost::new_event` and its siblings build them, `jscalendar` holds the date-time,
-duration, time zone and recurrence rules they share, and `geo` the two Maps conventions (a
+(`event`, `rsvp`, `rating`) are three more envelopes on the same post, the ones other apps must
+read: `PubkySocialPost::new_event` and its siblings build them, `jscalendar` holds the date-time,
+duration, time zone and recurrence rules they share, and `places` the two place conventions (a
 canonical OpenStreetMap object URL, one `geo:` spelling) their place positions enforce. An app that
 needs its own kinds instantiates the same envelope under its own namespace, with the same wire
-shape, and never touches the social kind set. Every refusal the npm package throws for the data model and every
+shape, and never touches the social kind set: that is a sub-spec (below). Every refusal the npm package throws for the data model and every
 `Validatable` rejection starts with `Validation Error: `; a `PostKind::validate_content` returns
 its messages with that prefix already, the envelope hands them through unchanged.
+
+## Sub-specs
+
+An app's own kinds live in its sub-spec: the same `PostEnvelope<K>` under
+`/{pub,priv}/<namespace>/v1/posts/{id}/{editId}.json`, with the app's `PostKind` enum, built from
+the `subspec` module of this crate. The public sub-specs of this workspace:
+
+| crate | namespace | kinds | instead of an own copy, it uses |
+| --- | --- | --- | --- |
+| [`pubky-maps-specs`](subspecs/maps) | `maps` | `route` | `rating` for place reviews (`parent` the OpenStreetMap URL), tags, collections of places |
+| [`pubky-events-specs`](subspecs/events) | `events` | `availability` | social `event` and `rsvp`, collections as calendars |
+| [`pubky-marketplace-specs`](subspecs/marketplace) | `marketplace` | `listing`, `drop` (a draft for adoption) | `rating` with `ext.marketplace` for reviews, bookmarks for the watchlist, tags, replies |
+
+Music's kinds are `pubky-music-specs`, in the music node's repository. [`docs/SUBSPECS.md`](docs/SUBSPECS.md)
+holds the conventions and the list of shared primitives a sub-spec never copies.
 
 ## Reading 0.x data
 
@@ -103,7 +118,7 @@ assert_eq!(
 
 ## Specification
 
-The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/rfc-v1-social-specs.md). The 1.1 kinds, events and maps, are specified in [`docs/SPEC_V1.1.md`](docs/SPEC_V1.1.md). The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
+The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/rfc-v1-social-specs.md). The 1.1 kinds, events, ratings and places, are specified in [`docs/SPEC_V1.1.md`](docs/SPEC_V1.1.md), and the rules every sub-spec follows in [`docs/SUBSPECS.md`](docs/SUBSPECS.md). The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
 
 ## Releasing
 

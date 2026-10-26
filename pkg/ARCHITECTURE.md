@@ -15,7 +15,7 @@ and on a core module that reaches `migration/`.
                |                                 | (index only)       |              |
  operations  objects  lifecycle  deletion        |            engine  memory  port  order
                |                                 |              |
- models      models/{user,post,events,maps,time,geo,graph,feed,file,kinds,label,common}   wasm.ts --> glue.js
+ models      models/{user,post,events,time,places,graph,feed,file,kinds,label,common}     wasm.ts --> glue.js
                |                                                 (the only door to the wasm)
  places      path  canonicalize  uri
                |
@@ -34,9 +34,9 @@ and on a core module that reaches `migration/`.
 - **places**: what a path names (`path.ts`), the URI canonicalizers, and the URI parser and
   builders. No `URL` anywhere (see `docs/decisions/0002-no-url-parser.md`).
 - **models**: each stored object's codec, size cap and rules, in the reference's order. `post.ts`
-  dispatches on the kind; the 1.1 envelopes live in `events.ts` (event, rsvp, availability,
-  rating) and `maps.ts` (route), over `time.ts` (the JSCalendar value rules) and `geo.ts` (the
-  two Maps conventions).
+  dispatches on the kind; the 1.1 envelopes live in `events.ts` (event, rsvp, rating), over
+  `time.ts` (the JSCalendar value rules) and `places.ts` (the two place conventions). An app's
+  own kinds are its sub-spec's (`docs/SUBSPECS.md` at the repository root), not this package's.
 - **operations**: reading and writing an object at a URI, the lifecycle plans, deletion paths.
 - **entries**: the public surface. `index.ts` copies every argument through `input.ts`, checks
   its JavaScript shape, and hands plain data down; `validate.ts` runs the builders' rules and

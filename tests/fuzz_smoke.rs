@@ -651,7 +651,7 @@ fn event(rng: &mut Rng) -> Case {
             ),
             ("an http link", "links[0].url must be an https URL", |v| {
                 envelope(v, |e| {
-                    e["links"] = json!([{ "name": "Site", "url": "http://example.com" }])
+                    e["links"] = json!([{ "title": "Site", "url": "http://example.com" }])
                 })
             }),
             ("a parent", "Event posts cannot have parent or embed", |v| {
@@ -710,74 +710,6 @@ fn rsvp(rng: &mut Rng) -> Case {
     }
 }
 
-fn availability(rng: &mut Rng) -> Case {
-    let mut schedule = PubkySocialAvailabilityContent::new(
-        rng.pick(&["Europe/Zurich", "UTC"]).to_string(),
-        rng.range(1, 366) as i64,
-    );
-    schedule.r#for = rng.opt(universal_ref);
-    schedule.available = (0..rng.below(4))
-        .map(|_| {
-            let title = rng.opt(|rng| {
-                let t = rng.text(1, 20);
-                rng.padded(&t)
-            });
-            let mut block = PubkySocialAvailabilityBlock::new(
-                local_date_time(rng),
-                rng.pick(&["PT8H", "PT1H", "P1D"]).to_string(),
-                title,
-            );
-            if rng.coin() {
-                block.recurrence_rules = vec![PubkySocialRecurrenceRule::new(
-                    PubkySocialRecurrenceFrequency::Weekly,
-                )];
-            }
-            block
-        })
-        .collect();
-    schedule.busy = (0..rng.below(4))
-        .map(|_| PubkySocialAvailabilityBlock::new(local_date_time(rng), "PT1H".into(), None))
-        .collect();
-    let post = PubkySocialPost::new_availability(schedule);
-    Case {
-        uri: mint(&post),
-        object: serde_json::to_value(&post).unwrap(),
-        breaks: &[
-            (
-                "horizon of zero",
-                "Availability horizonDays must be 1 to",
-                |v| envelope(v, |e| e["horizonDays"] = json!(0)),
-            ),
-            (
-                "a zone with a space",
-                "timeZone must be an IANA time zone name",
-                |v| envelope(v, |e| e["timeZone"] = json!("Zurich time")),
-            ),
-            ("a titled busy block", "busy[0] carries no title", |v| {
-                envelope(
-                    v,
-                    |e| e["busy"] = json!([{ "title": "Dentist", "start": "2026-10-21T14:00:00", "duration": "PT1H" }]),
-                )
-            }),
-            (
-                "a block with no duration",
-                "missing field `duration`",
-                |v| {
-                    envelope(v, |e| {
-                        e["available"] = json!([{ "start": "2026-10-21T14:00:00" }])
-                    })
-                },
-            ),
-            (
-                "attachments",
-                "Availability posts cannot have parent, embed or attachments",
-                |v| v["attachments"] = json!([{ "uri": "https://example.com/a.png" }]),
-            ),
-        ],
-        rehome: None,
-    }
-}
-
 fn rating(rng: &mut Rng) -> Case {
     let text = rng.opt(|rng| {
         let t = rng.text(1, 80);
@@ -815,86 +747,6 @@ fn rating(rng: &mut Rng) -> Case {
     }
 }
 
-fn route(rng: &mut Rng) -> Case {
-    let name = rng.text(1, 40);
-    let waypoints = (0..rng.range(2, 6))
-        .map(|_| {
-            let name = rng.opt(|rng| {
-                let n = rng.text(1, 20);
-                rng.padded(&n)
-            });
-            PubkySocialRouteWaypoint::new(place_ref(rng), name)
-        })
-        .collect();
-    let encoded_len = rng.range(1, 60);
-    let encoded = rng.string_of(&['_', 'p', '~', 'i', 'F', '@', '?', 'z', 'A'], encoded_len);
-    let activity = rng
-        .pick(&["Hiking", "cycling", "running", "e-bike"])
-        .to_string();
-    let mut content = PubkySocialRouteContent::new(
-        rng.padded(&name),
-        rng.padded(&activity),
-        waypoints,
-        PubkySocialRoutePolyline::new(
-            encoded,
-            rng.padded("valhalla"),
-            rng.pick(&["pedestrian", "bicycle", "auto"]).to_string(),
-            rng.pick(&[5, 6]),
-        ),
-        rng.range(0, 50_000) as i64,
-        rng.range(0, 36_000) as i64,
-    );
-    content.description = rng.opt(|rng| {
-        let d = rng.text(1, 120);
-        rng.padded(&d)
-    });
-    content.elevation_gain_m = rng.opt(|rng| rng.range(0, 3000) as i64);
-    content.steps = (0..rng.below(3))
-        .map(|_| {
-            let text = rng.text(1, 40);
-            PubkySocialRouteStep::new(
-                rng.padded(&text),
-                rng.opt(|rng| rng.range(0, 900) as i64),
-                None,
-            )
-        })
-        .collect();
-    let post = PubkySocialPost::new_route(content, rng.opt(universal_ref), attachments(rng));
-    Case {
-        uri: mint(&post),
-        object: serde_json::to_value(&post).unwrap(),
-        breaks: &[
-            (
-                "blank name",
-                "Route name must contain non-whitespace",
-                |v| envelope(v, |e| e["name"] = json!(" ")),
-            ),
-            (
-                "an activity with a space",
-                "Route activity must be a label",
-                |v| envelope(v, |e| e["activity"] = json!("trail run")),
-            ),
-            ("one waypoint", "Route must have 2 to 100 waypoints", |v| {
-                envelope(v, |e| e["waypoints"] = json!([{ "uri": "geo:46,8" }]))
-            }),
-            (
-                "a polyline outside its alphabet",
-                "polyline.encoded must be 1 to",
-                |v| envelope(v, |e| e["polyline"]["encoded"] = json!("über")),
-            ),
-            (
-                "a negative distance",
-                "Route distance_m must be 0 to",
-                |v| envelope(v, |e| e["distance_m"] = json!(-1)),
-            ),
-            ("a parent", "Route posts cannot have parent", |v| {
-                v["parent"] = json!(uri(OTHER, &format!("/pub/social/v1/posts/{TS}")))
-            }),
-        ],
-        rehome: None,
-    }
-}
-
 /// The object `from_uri` read, as JSON, to compare with what was written.
 fn read_back(object: &PubkySocialObject) -> Value {
     match object {
@@ -919,9 +771,7 @@ fn built_objects_read_back_and_broken_ones_do_not() {
         ("collection", collection),
         ("event", event),
         ("rsvp", rsvp),
-        ("availability", availability),
         ("rating", rating),
-        ("route", route),
         ("tag", tag),
         ("bookmark", bookmark),
         ("overflow bookmark", overflow_bookmark),

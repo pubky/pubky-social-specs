@@ -154,10 +154,14 @@ fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
         "collection",
         "event",
         "rsvp",
-        "availability",
         "rating",
-        "route",
     ]);
+    // The kinds that moved to a sub-spec are no social kind: a social reader meets them as
+    // kinds it does not know, under their own namespace or not
+    for moved in ["availability", "route"] {
+        let kind: PubkySocialPostKind = serde_json::from_str(&format!("\"{moved}\"")).unwrap();
+        assert_eq!(kind, PubkySocialPostKind::Unknown(moved.into()));
+    }
     round_trips::<PubkySocialCollectionLayout>(&["grid", "list", "visual"]);
     round_trips::<PubkySocialEventStatus>(&["confirmed", "tentative", "cancelled"]);
     round_trips::<PubkySocialAttendancePolicy>(&["open", "approval", "invite", "ticket"]);

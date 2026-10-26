@@ -73,7 +73,7 @@ fn minting<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
 
 /// A JSON error as this crate words it: the parser's message without its position. A position
 /// counts bytes of one spelling of the text, so it is no part of what a reader refused.
-pub(crate) fn json_error(e: &serde_json::Error) -> String {
+pub fn json_error(e: &serde_json::Error) -> String {
     let message = e.to_string();
     // Built from the error's own numbers rather than searched for: a message can quote text
     let position = format!(" at line {} column {}", e.line(), e.column());
@@ -108,7 +108,7 @@ pub fn frozen_trim(s: &str) -> &str {
 
 /// Builder trim for optional display text. Whitespace-only means absent, so "no bio" has one
 /// spelling on the wire instead of three.
-pub(crate) fn trimmed_or_none(text: String) -> Option<String> {
+pub fn trimmed_or_none(text: String) -> Option<String> {
     let trimmed = frozen_trim(&text);
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
@@ -129,7 +129,7 @@ pub fn code_point_len(s: &str) -> usize {
 /// The two rules on an `extra` map: no key shadows a known field, and every integer inside it
 /// is within the JSON-safe range, so a read-modify-write through any JSON engine, this crate's
 /// or a JS caller's, carries the member back with its value intact.
-pub(crate) fn check_extra(
+pub fn check_extra(
     extra: &serde_json::Map<String, serde_json::Value>,
     known: &[&str],
 ) -> Result<(), String> {

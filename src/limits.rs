@@ -3,8 +3,8 @@
 //! These constants are the single source of truth for client-side validation.
 //! Every `*_max_length` counts Unicode code points. Byte-denominated caps are the two object
 //! size caps, the media size cap and `bookmark_target_uri_max_bytes`. The 1.1 kinds add caps
-//! in other units, each named by its suffix: `_seconds`, `_days`, `_years`, `_metres`,
-//! `_people`, `_occurrences`, `_periods`, `_digits` and `_half_stars`.
+//! in other units, each named by its suffix: `_seconds`, `_years`, `_people`, `_occurrences`,
+//! `_periods`, `_digits` and `_half_stars`. A sub-spec's own caps are its crate's.
 //!
 //! # Examples
 //! Serialize the bundled limits for client consumption.
@@ -116,7 +116,8 @@ pub struct ValidationLimits {
     pub event_content_max_length: usize,
     /// Maximum length of an IANA time zone name in code points (`timeZone`).
     pub event_time_zone_max_length: usize,
-    /// Maximum `duration` of an event or an availability block, in seconds: one leap year.
+    /// Maximum `duration` of an event, in seconds: one leap year. A sub-spec's JSCalendar
+    /// durations (the events sub-spec's availability blocks) take it too.
     pub event_duration_max_seconds: u64,
     /// Maximum number of `locations` on an event.
     pub event_locations_max_count: usize,
@@ -124,8 +125,8 @@ pub struct ValidationLimits {
     pub event_location_name_max_length: usize,
     /// Maximum number of `links` on an event.
     pub event_links_max_count: usize,
-    /// Maximum length of a link's `name` in code points.
-    pub event_link_name_max_length: usize,
+    /// Maximum length of a link's `title` in code points, the profile link cap.
+    pub event_link_title_max_length: usize,
     /// Maximum length of a link's `url` in code points, the profile link cap.
     pub event_link_url_max_length: usize,
     /// Maximum `attendance.capacity`, in people.
@@ -141,7 +142,7 @@ pub struct ValidationLimits {
     pub event_recurrence_interval_max_periods: u64,
     /// Maximum number of entries in each `by*` list of a recurrence rule.
     pub event_recurrence_by_max_count: usize,
-    /// Maximum number of `excludedDates` on an event or an availability block.
+    /// Maximum number of `excludedDates` on an event.
     pub event_excluded_dates_max_count: usize,
     /// Maximum `guests` on an rsvp, in people.
     pub rsvp_guests_max_people: u64,
@@ -149,14 +150,6 @@ pub struct ValidationLimits {
     pub rsvp_note_max_length: usize,
     /// Maximum length of the raw rsvp envelope string, checked before it is parsed.
     pub rsvp_content_max_length: usize,
-    /// Maximum `horizonDays` of an availability, in days: one leap year.
-    pub availability_horizon_max_days: u64,
-    /// Maximum number of blocks in each of `available` and `busy`.
-    pub availability_blocks_max_count: usize,
-    /// Maximum length of an available block's `title` in code points.
-    pub availability_block_title_max_length: usize,
-    /// Maximum length of the raw availability envelope string, checked before it is parsed.
-    pub availability_content_max_length: usize,
     /// Minimum `rating`, in half stars: one half star.
     pub rating_min_half_stars: u64,
     /// Maximum `rating`, in half stars: five stars.
@@ -166,35 +159,9 @@ pub struct ValidationLimits {
     /// Maximum length of the raw rating envelope string, checked before it is parsed.
     pub rating_content_max_length: usize,
 
-    // ---- v1.1: maps ----
+    // ---- v1.1: places ----
     /// Maximum number of fraction digits of a `geo:` coordinate, about a metre.
     pub geo_fraction_max_digits: usize,
-    /// Maximum route name length in code points.
-    pub route_name_max_length: usize,
-    /// Maximum route description length in code points.
-    pub route_description_max_length: usize,
-    /// Minimum number of `waypoints` on a route: a start and an end.
-    pub route_waypoints_min_count: usize,
-    /// Maximum number of `waypoints` on a route.
-    pub route_waypoints_max_count: usize,
-    /// Maximum length of a waypoint's `name` in code points.
-    pub route_waypoint_name_max_length: usize,
-    /// Maximum length of the encoded polyline in code points.
-    pub route_polyline_max_length: usize,
-    /// Maximum length of the polyline's `engine` and `profile` labels in code points.
-    pub route_label_max_length: usize,
-    /// Maximum `distance_m` of a route, in metres.
-    pub route_distance_max_metres: u64,
-    /// Maximum `duration_s` of a route, in seconds: ten years.
-    pub route_duration_max_seconds: u64,
-    /// Maximum `elevation_gain_m` and `elevation_loss_m`, in metres.
-    pub route_elevation_max_metres: u64,
-    /// Maximum number of `steps` on a route.
-    pub route_steps_max_count: usize,
-    /// Maximum length of a step's `instruction` in code points.
-    pub route_step_instruction_max_length: usize,
-    /// Maximum length of the raw route envelope string, checked before it is parsed.
-    pub route_content_max_length: usize,
 }
 
 /// All validation limits in a single bundle.
@@ -241,7 +208,7 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     event_locations_max_count: 10,
     event_location_name_max_length: 100,
     event_links_max_count: 10,
-    event_link_name_max_length: 100,
+    event_link_title_max_length: 100,
     event_link_url_max_length: 300,
     event_capacity_max_people: 1_000_000,
     event_recurrence_rules_max_count: 1,
@@ -253,26 +220,9 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     rsvp_guests_max_people: 100,
     rsvp_note_max_length: 2000,
     rsvp_content_max_length: 5_000,
-    availability_horizon_max_days: 366,
-    availability_blocks_max_count: 100,
-    availability_block_title_max_length: 100,
-    availability_content_max_length: 100_000,
     rating_min_half_stars: 1,
     rating_max_half_stars: 10,
     rating_text_max_length: 2000,
     rating_content_max_length: 5_000,
     geo_fraction_max_digits: 5,
-    route_name_max_length: 100,
-    route_description_max_length: 2000,
-    route_waypoints_min_count: 2,
-    route_waypoints_max_count: 100,
-    route_waypoint_name_max_length: 100,
-    route_polyline_max_length: 100_000,
-    route_label_max_length: 50,
-    route_distance_max_metres: 100_000_000,
-    route_duration_max_seconds: 10 * 365 * 24 * 60 * 60,
-    route_elevation_max_metres: 100_000,
-    route_steps_max_count: 500,
-    route_step_instruction_max_length: 200,
-    route_content_max_length: 400_000,
 };

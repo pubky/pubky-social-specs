@@ -1,4 +1,4 @@
-// The event kinds of 1.1: `event` and `rsvp`, with the optional `availability` and `rating`.
+// The event kinds of 1.1: `event` and `rsvp`, with the optional `rating`.
 // Each is a post kind whose `content` is a JSON envelope with JSCalendar member names where
 // JSCalendar has one; the rules run in the reference's order and its words.
 
@@ -7,7 +7,7 @@ import { type Each, fail, member } from "../errors.js";
 import { bool, type Codec, defaulted, type Extra, i64, inputOf, inputReads, list, object, omitted, option, string } from "../json/schema.js";
 import { codePointLen, frozenTrim, trimmedOrNull } from "../text.js";
 import { checkExtra } from "./common.js";
-import { checkPlaceReference } from "./geo.js";
+import { checkPlaceReference } from "./places.js";
 import { type AttendancePolicy, attendancePolicies, attendancePolicy, type EventStatus, eventStatus, eventStatuses, isKnown, type RsvpStatus, rsvpStatus, rsvpStatuses } from "./kinds.js";
 import { checkDuration, checkLocalDateTime, checkRecurrenceRule, checkTimeZone, type RecurrenceRule, recurrenceRule } from "./time.js";
 
@@ -28,8 +28,8 @@ export interface EventAttendance extends Extra {
 }
 
 export interface EventLink extends Extra {
-  /** A name to show, trimmed by the builder: 1 to 100 code points, not blank. */
-  name: string;
+  /** A title to show, trimmed by the builder: 1 to 100 code points, not blank. */
+  title: string;
   /** An https URL of at most 300 code points, stored as written. */
   url: string;
 }
@@ -76,32 +76,6 @@ export interface RsvpContent extends Extra {
   note: string | null;
 }
 
-export interface AvailabilityBlock extends Extra {
-  /** On an `available` block only, a name, trimmed by the builder: 1 to 100 code points, not blank; null for none. */
-  title: string | null;
-  /** When the block starts, a local date-time in the schedule's `timeZone`. */
-  start: string;
-  /** How long it lasts, an ISO 8601 duration of at most 31622400 seconds. */
-  duration: string;
-  /** How it repeats: at most 1 rule; empty for once. */
-  recurrenceRules: RecurrenceRule[];
-  /** Occurrences removed from the series; at most 100. */
-  excludedDates: string[];
-}
-
-export interface AvailabilityContent extends Extra {
-  /** An IANA time zone name every block is read in, at most 64 code points. */
-  timeZone: string;
-  /** How far ahead the schedule is kept, 1 to 366 days. */
-  horizonDays: bigint;
-  /** The resource the schedule belongs to, a reference of any scheme; null for the author. */
-  for: string | null;
-  /** When a booking may start; at most 100 blocks. */
-  available: AvailabilityBlock[];
-  /** What is taken; at most 100 blocks, untitled. */
-  busy: AvailabilityBlock[];
-}
-
 export interface RatingContent extends Extra {
   /** The stars, 1 to 10 half stars: 10 is five stars. */
   rating: bigint;
@@ -111,7 +85,7 @@ export interface RatingContent extends Extra {
 
 export const location: Codec<EventLocation> = object<EventLocation>("PubkySocialEventLocation", { name: omitted(string), uri: string });
 export const attendance: Codec<EventAttendance> = object<EventAttendance>("PubkySocialEventAttendance", { policy: attendancePolicy, capacity: option(i64), waitlist: defaulted(bool, () => false) });
-export const link: Codec<EventLink> = object<EventLink>("PubkySocialEventLink", { name: string, url: string });
+export const link: Codec<EventLink> = object<EventLink>("PubkySocialEventLink", { title: string, url: string });
 export const event: Codec<EventContent> = object<EventContent>("PubkySocialEventContent", {
   title: string,
   description: omitted(string),
@@ -129,20 +103,6 @@ export const event: Codec<EventContent> = object<EventContent>("PubkySocialEvent
   recurrenceId: omitted(string),
 });
 export const rsvp: Codec<RsvpContent> = object<RsvpContent>("PubkySocialRsvpContent", { status: rsvpStatus, recurrenceId: omitted(string), guests: defaulted(i64, () => 0n), note: omitted(string) });
-export const block: Codec<AvailabilityBlock> = object<AvailabilityBlock>("PubkySocialAvailabilityBlock", {
-  title: omitted(string),
-  start: string,
-  duration: string,
-  recurrenceRules: defaulted(list(recurrenceRule), () => []),
-  excludedDates: defaulted(list(string), () => []),
-});
-export const availability: Codec<AvailabilityContent> = object<AvailabilityContent>("PubkySocialAvailabilityContent", {
-  timeZone: string,
-  horizonDays: i64,
-  for: omitted(string),
-  available: defaulted(list(block), () => []),
-  busy: defaulted(list(block), () => []),
-});
 export const rating: Codec<RatingContent> = object<RatingContent>("PubkySocialRatingContent", { rating: i64, text: omitted(string) });
 
 function openAttendance(): EventAttendance {
@@ -227,8 +187,8 @@ export function checkEvent(e: EventContent, each: Each): void {
     e.links.forEach((l, index) => {
       each(() => checkExtra(l.extra, `links[${index}].`));
       each(() => {
-        const max = limits.eventLinkNameMaxLength;
-        if (frozenTrim(l.name) === "" || codePointLen(l.name) > max) fail("length", `links[${index}].name must be 1 to ${max} code points and not blank`, `links[${index}].name`, max);
+        const max = limits.eventLinkTitleMaxLength;
+        if (frozenTrim(l.title) === "" || codePointLen(l.title) > max) fail("length", `links[${index}].title must be 1 to ${max} code points and not blank`, `links[${index}].title`, max);
       });
       each(() => {
         if (!l.url.startsWith("https://")) fail("reference", `links[${index}].url must be an https URL: ${l.url}`, `links[${index}].url`);
@@ -286,54 +246,6 @@ export function checkRsvp(e: RsvpContent, each: Each): void {
     if (frozenTrim(e.note) === "") fail("blank", "Rsvp note must not be blank", "note");
     if (codePointLen(e.note) > limits.rsvpNoteMaxLength) fail("length", `Rsvp note must be at most ${limits.rsvpNoteMaxLength} code points`, "note", limits.rsvpNoteMaxLength);
   });
-}
-
-/** The reference positions of an availability envelope. */
-export function availabilityRefs(e: AvailabilityContent): ContentRef[] {
-  return e.for === null ? [] : [{ field: "for", uri: e.for, schemes: "", max: limits.referenceUriMaxLength }];
-}
-
-function checkBlock(field: string, b: AvailabilityBlock, titled: boolean, each: Each): void {
-  each(() => checkExtra(b.extra, `${field}.`));
-  each(() => {
-    if (b.title === null) return;
-    if (!titled) fail("conflict", `${field} carries no title`, `${field}.title`);
-    checkShortText(b.title, `${field}.title`, limits.availabilityBlockTitleMaxLength);
-  });
-  each(() => {
-    const start = checkLocalDateTime(`${field}.start`, b.start);
-    each(() => void checkDuration(`${field}.duration`, b.duration));
-    each(() => {
-      const max = limits.eventRecurrenceRulesMaxCount;
-      if (b.recurrenceRules.length > max) fail("count", `${field} cannot have more than ${max} recurrence rules`, `${field}.recurrenceRules`, max);
-    });
-    b.recurrenceRules.forEach((rule, index) => checkRecurrenceRule(`${field}.recurrenceRules[${index}]`, rule, start, each));
-    each(() => {
-      const max = limits.eventExcludedDatesMaxCount;
-      if (b.excludedDates.length > max) fail("count", `${field} cannot have more than ${max} excluded dates`, `${field}.excludedDates`, max);
-    });
-    b.excludedDates.forEach((date, index) => each(() => void checkLocalDateTime(`${field}.excludedDates[${index}]`, date)));
-  });
-}
-
-/** The rules of an availability envelope, after the post's gate ran over `for`. */
-export function checkAvailability(e: AvailabilityContent, each: Each): void {
-  each(() => checkExtra(e.extra));
-  each(() => checkTimeZone("timeZone", e.timeZone));
-  each(() => {
-    const max = limits.availabilityHorizonMaxDays;
-    if (e.horizonDays < 1n || e.horizonDays > BigInt(max)) fail("range", `Availability horizonDays must be 1 to ${max} days`, "horizonDays", max);
-  });
-  each(() => {
-    const max = limits.availabilityBlocksMaxCount;
-    if (e.available.length > max) fail("count", `Availability cannot have more than ${max} available blocks`, "available", max);
-  });
-  each(() => {
-    const max = limits.availabilityBlocksMaxCount;
-    if (e.busy.length > max) fail("count", `Availability cannot have more than ${max} busy blocks`, "busy", max);
-  });
-  e.available.forEach((b, index) => checkBlock(`available[${index}]`, b, true, each));
-  e.busy.forEach((b, index) => checkBlock(`busy[${index}]`, b, false, each));
 }
 
 /** The rules of a rating envelope. */
@@ -449,47 +361,13 @@ export function eventFromInput(i: Record<string, unknown>, each: Each): EventCon
     },
     links:
       items(i.links, "input.links", (entry, at): EventLink => {
-        const l = inputOf(entry, at, ["name", "url"], each);
-        return { name: frozenTrim(str(l.name, `${at}.name`)), url: str(l.url, `${at}.url`), extra: new Map() };
+        const l = inputOf(entry, at, ["title", "url"], each);
+        return { title: frozenTrim(str(l.title, `${at}.title`)), url: str(l.url, `${at}.url`), extra: new Map() };
       }) ?? [],
     recurrenceRules: rulesFromInput(each, i.recurrenceRules, "input.recurrenceRules"),
     excludedDates: strings(each, i.excludedDates, "input.excludedDates"),
     recurrenceOf: opt(i.recurrenceOf, "input.recurrenceOf"),
     recurrenceId: opt(i.recurrenceId, "input.recurrenceId"),
-    extra: new Map(),
-  };
-}
-
-const BLOCK_MEMBERS = ["title", "start", "duration", "recurrenceRules", "excludedDates"];
-
-function blocksFromInput(each: Each, js: unknown, at: string): AvailabilityBlock[] {
-  const { str, opt, items } = inputReads(each);
-  return (
-    items(js, at, (entry, where): AvailabilityBlock => {
-      const b = inputOf(entry, where, BLOCK_MEMBERS, each);
-      return {
-        title: trimmedOrNull(opt(b.title, `${where}.title`)),
-        start: str(b.start, `${where}.start`),
-        duration: str(b.duration, `${where}.duration`),
-        recurrenceRules: rulesFromInput(each, b.recurrenceRules, `${where}.recurrenceRules`),
-        excludedDates: strings(each, b.excludedDates, `${where}.excludedDates`),
-        extra: new Map(),
-      };
-    }) ?? []
-  );
-}
-
-export const AVAILABILITY_MEMBERS = ["timeZone", "horizonDays", "for", "available", "busy"];
-
-/** An availability envelope from a caller's input, the builder's trims applied. */
-export function availabilityFromInput(i: Record<string, unknown>, each: Each): AvailabilityContent {
-  const { str, opt } = inputReads(each);
-  return {
-    timeZone: str(i.timeZone, "input.timeZone"),
-    horizonDays: requiredInt(each, i.horizonDays, "input.horizonDays"),
-    for: opt(i.for, "input.for"),
-    available: blocksFromInput(each, i.available, "input.available"),
-    busy: blocksFromInput(each, i.busy, "input.busy"),
     extra: new Map(),
   };
 }

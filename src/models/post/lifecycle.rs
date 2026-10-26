@@ -107,10 +107,9 @@ fn media_refs(post: &PubkySocialPost) -> Vec<String> {
 }
 
 /// Non-media reference positions: parent, embed, lock, and every envelope position but the
-/// cover (collection items, an event's locations, links and master, an availability's `for`, a
-/// route's waypoints). An item is a reference to a thing, never a media position, so a private
-/// file curated as an item is a private reference and publish refuses it: publish the file, or
-/// the post carrying it, first.
+/// cover (collection items, an event's locations, links and master). An item is a reference to a
+/// thing, never a media position, so a private file curated as an item is a private reference and
+/// publish refuses it: publish the file, or the post carrying it, first.
 fn other_refs(post: &PubkySocialPost) -> Vec<String> {
     let mut refs: Vec<String> = [&post.parent, &post.embed, &post.lock]
         .into_iter()
@@ -896,27 +895,6 @@ mod tests {
         )
     }
 
-    /// A route draft of `n` waypoints, the last one the owner's private post.
-    fn route_draft(n: usize) -> PubkySocialPost {
-        let mut waypoints: Vec<serde_json::Value> = (0..n.saturating_sub(1))
-            .map(|_| serde_json::json!({ "uri": "geo:0,0" }))
-            .collect();
-        waypoints
-            .push(serde_json::json!({ "uri": format!("pubky://{PK}/priv/social/v1/posts/{TS}") }));
-        let envelope = serde_json::json!({
-            "name": "n", "activity": "running", "waypoints": waypoints,
-            "polyline": { "encoded": "_p~iF", "engine": "valhalla", "profile": "pedestrian", "precision": 6 },
-            "distance_m": 1, "duration_s": 1,
-        });
-        PubkySocialPost::new(
-            envelope.to_string(),
-            PubkySocialPostKind::Route,
-            None,
-            None,
-            vec![],
-        )
-    }
-
     fn publish_err(draft: &PubkySocialPost) -> String {
         plan_publish(TS, TS, draft, None, &owner()).unwrap_err()
     }
@@ -925,15 +903,10 @@ mod tests {
     fn publish_refuses_an_oversized_list_before_it_reads_a_reference() {
         // within the caps the private location is what publish refuses
         assert!(publish_err(&event_draft(10, 0)).contains("cannot reference a private object"));
-        assert!(publish_err(&route_draft(100)).contains("cannot reference a private object"));
         // past them the cap is, and no reference in the list is read
         assert_eq!(
             publish_err(&event_draft(11, 0)),
             "Validation Error: Event cannot have more than 10 locations"
-        );
-        assert_eq!(
-            publish_err(&route_draft(101)),
-            "Validation Error: Route must have 2 to 100 waypoints"
         );
         let max = VALIDATION_LIMITS.event_content_max_length;
         assert_eq!(
@@ -942,16 +915,15 @@ mod tests {
         );
         // a list far past every cap: the byte cap of the written form, first
         let cap = VALIDATION_LIMITS.post_max_bytes;
-        for draft in [event_draft(150_000, 0), route_draft(150_000)] {
-            assert_eq!(
-                publish_err(&draft),
-                format!("Validation Error: object exceeds {cap} bytes")
-            );
-            assert_eq!(
-                private_media_refs(&draft, &owner()).unwrap_err(),
-                format!("Validation Error: object exceeds {cap} bytes")
-            );
-        }
+        let draft = event_draft(150_000, 0);
+        assert_eq!(
+            publish_err(&draft),
+            format!("Validation Error: object exceeds {cap} bytes")
+        );
+        assert_eq!(
+            private_media_refs(&draft, &owner()).unwrap_err(),
+            format!("Validation Error: object exceeds {cap} bytes")
+        );
     }
 
     #[test]
@@ -1004,16 +976,6 @@ mod tests {
                 PubkySocialPostKind::Rating,
                 "Rating",
                 VALIDATION_LIMITS.rating_content_max_length,
-            ),
-            (
-                PubkySocialPostKind::Availability,
-                "Availability",
-                VALIDATION_LIMITS.availability_content_max_length,
-            ),
-            (
-                PubkySocialPostKind::Route,
-                "Route",
-                VALIDATION_LIMITS.route_content_max_length,
             ),
         ] {
             let post = PubkySocialPost::new(

@@ -1,7 +1,10 @@
-# pubky-social-specs 1.1: events and maps
+# pubky-social-specs 1.1: events, ratings and places
 
-The 1.1 release adds post kinds to the `social/v1` envelope and two writer conventions. Nothing
-in 1.0 changes: the envelope, its reference gate, the ids, the paths and every 1.0 kind are as
+The 1.1 release adds three post kinds to the `social/v1` envelope, `event`, `rsvp` and `rating`,
+and two writer conventions for places. They are the kinds other apps must read: an event any app
+lists, the answers to it, and stars on any thing. A kind only its own app reads (a route, an
+availability, a listing) is that app's sub-spec, on the same envelope under its own namespace;
+`SUBSPECS.md` holds the rules every sub-spec follows. Nothing in 1.0 changes: the envelope, its reference gate, the ids, the paths and every 1.0 kind are as
 `v1` left them, and a 1.0 reader reads a 1.1 post as a post of a kind it does not know and skips
 it. This document is normative for the new kinds; the 1.0 design is in the `v1` RFC and the
 layout of 0.x data in `SPEC_V0.md`.
@@ -17,17 +20,17 @@ Every rule below is checked by both implementations, the Rust crate and the npm 
 the same message, and every refusal starts with `Validation Error: `. Builders trim display
 text and fold labels; readers accept the stored bytes or refuse them and never rewrite.
 
-## Part A: Events
+## Part A: Events and ratings
 
-Four kinds. `event` and `rsvp` are required of a client that shows events; `availability` and
-`rating` are optional. Member names follow JSCalendar (RFC 8984) wherever JSCalendar has one, so
+Three kinds. `event` and `rsvp` are required of a client that shows events; `rating` is optional. Member names follow JSCalendar (RFC 8984) wherever JSCalendar has one, so
 an iCalendar import or export is a rename. Times are local: a `start` is a wall-clock time in the
 object's `timeZone`, and the indexer computes the instant. The crate admits the values; it never
 evaluates a recurrence or resolves a zone.
 
 ### A1. JSCalendar values
 
-Three value grammars, shared by `event`, `availability` and `rsvp`.
+Three value grammars, shared by `event` and `rsvp`, and public for a sub-spec whose kinds carry
+times (the events sub-spec's `availability`).
 
 | value | grammar | refused |
 |---|---|---|
@@ -72,7 +75,7 @@ An event someone creates on Pubky is a post of kind `event`. The envelope:
   "status": "confirmed",
   "locations": [{ "name": "Plan ₿ Hub", "uri": "https://www.openstreetmap.org/way/481516234" }],
   "attendance": { "policy": "open", "capacity": null, "waitlist": false },
-  "links": [{ "name": "Website", "url": "https://planb.network/" }],
+  "links": [{ "title": "Website", "url": "https://planb.network/" }],
   "recurrenceRules": [{ "frequency": "monthly", "byDay": [{ "day": "tu", "nthOfPeriod": 2 }] }],
   "excludedDates": []
 }
@@ -89,7 +92,7 @@ An event someone creates on Pubky is a post of kind `event`. The envelope:
 | `status` | `confirmed`, `tentative` or `cancelled`; `confirmed` when absent |
 | `locations[]` | `{ name?, uri }`; `uri` a reference on the universal tier (a place as A5 and A6 spell it, an https meeting link, or any other resource), `name` trimmed, 1 to `event_location_name_max_length` (100) code points when present; at most `event_locations_max_count` (10) |
 | `attendance` | `{ policy, capacity, waitlist }`: `policy` one of `open`, `approval`, `invite`, `ticket`; `capacity` an integer 1 to `event_capacity_max_people` (1000000) or null for no limit; `waitlist` boolean. Open with no limit and no waitlist when absent |
-| `links[]` | `{ name, url }`; `name` trimmed, 1 to `event_link_name_max_length` (100) code points; `url` an https URL of at most `event_link_url_max_length` (300) code points, `http://` refused; at most `event_links_max_count` (10) |
+| `links[]` | `{ title, url }`, as a profile's links are; `title` trimmed, 1 to `event_link_title_max_length` (100) code points; `url` an https URL of at most `event_link_url_max_length` (300) code points, `http://` refused; at most `event_links_max_count` (10) |
 | `recurrenceRules[]` | at most `event_recurrence_rules_max_count` (1) rule, as A1 |
 | `excludedDates[]` | local date-times removed from the series; at most `event_excluded_dates_max_count` (100) |
 | `recurrenceOf`, `recurrenceId` | on an override of one occurrence only, set together: `recurrenceOf` a versionless pubky post reference to the master event, by the same author; `recurrenceId` the occurrence's local start. An override carries no `recurrenceRules` and no `excludedDates` |
@@ -103,7 +106,7 @@ The list caps run before any reference inside the lists is read, as the collecti
 does. Every `locations[].uri`, `links[].url` and `recurrenceOf` then runs through the
 envelope's reference gate: canonical spelling, the root rule (a public event never references a
 private object), the ownership rule where the author is in scope, the versionless rule. After the
-gate, a location that names a place takes the Maps conventions (Part B), and a link must be
+gate, a location that names a place takes the place conventions (Part B), and a link must be
 https.
 
 The same-author rule on `recurrenceOf` needs the author, which plain validation has no access
@@ -152,38 +155,7 @@ author per event or occurrence: the client edits its post, the indexer keeps the
 `accepted` once it holds the entitlement. Guests count toward `capacity` and the waitlist under
 `open`, `approval` and `invite`, and are ignored under `ticket`, where one ticket is one person.
 
-### A4. `availability` (optional)
-
-One current post per author saying when they, or a resource of theirs, can be booked. Public,
-coarse, derived by the client from its private calendar and bookings. `parent`, `embed` and
-`attachments` are refused.
-
-```json
-{
-  "timeZone": "Europe/Zurich", "horizonDays": 60,
-  "for": "pubky://<owner>/pub/shop/v1/listings/0032SSN7Q4EVG",
-  "available": [{ "title": "Office hours", "start": "2026-10-19T09:00:00", "duration": "PT8H",
-                  "recurrenceRules": [{ "frequency": "weekly", "byDay": [{ "day": "mo" }, { "day": "tu" }] }] }],
-  "busy": [{ "start": "2026-10-21T14:00:00", "duration": "PT1H" }]
-}
-```
-
-| member | rule |
-|---|---|
-| `timeZone` | an IANA zone name every block is read in; required |
-| `horizonDays` | an integer 1 to `availability_horizon_max_days` (366); required |
-| `for` | a reference on the universal tier, the resource the schedule belongs to; absent for the author |
-| `available[]`, `busy[]` | blocks, at most `availability_blocks_max_count` (100) each |
-
-A block is `{ title?, start, duration, recurrenceRules?, excludedDates? }`: `start` a local
-date-time, `duration` a duration (required), `recurrenceRules` at most one rule as A1 measured
-from the block's start, `excludedDates` at most 100 local date-times. `title` is allowed on an
-`available` block only (trimmed, 1 to `availability_block_title_max_length` (100) code points);
-a `busy` block is untitled, as the design says, and a title on one is refused. The raw envelope
-is bounded at `availability_content_max_length` (100000) code points. Slots are derived, never
-stored: `available` minus `busy` minus open reservations.
-
-### A5. `rating` (optional)
+### A4. `rating` (optional)
 
 Stars on a thing: a reply whose `parent` is what is rated, any universal reference (a place, an
 event, a listing, a link). `parent` is required; `embed` is refused; attachments are allowed
@@ -200,14 +172,20 @@ without is a plain reply to the same parent.
 | `text` | trimmed by the builder, a blank one absent; at most `rating_text_max_length` (2000) code points |
 
 The raw envelope is bounded at `rating_content_max_length` (5000) code points. The design page
-said 0 to 9; the scale is 1 to 10 to match `pubky-music-specs`' review kind, which already ships
-it.
+said 0 to 9; the scale is 1 to 10: half stars up to five, and no zero, which would read as no rating.
 
-## Part B: Maps
+Every app rates through this kind, never a review kind of its own: a place (`parent` the
+OpenStreetMap URL), a track, a listing or an event has one set of ratings that every reader and
+the indexer's counts see. What an app adds to a rating (the marketplace's purchase attestation)
+travels in the envelope's `ext` member under the app's namespace, `ext.<namespace>`, preserved by
+every reader as an unknown member.
 
-Two writer conventions and one optional kind. Nothing about location enters the envelope: a
-located post is a post whose `parent` or `embed` is a located resource, so nobody can misplace a
-thing, and collections hold places because their items are universal.
+## Part B: Places
+
+Two writer conventions. Nothing about location enters the envelope: a located post is a post
+whose `parent` or `embed` is a located resource, so nobody can misplace a thing, and collections
+hold places because their items are universal. A sub-spec's place positions (the maps
+sub-spec's route waypoints) take the same conventions through the crate's `places` module.
 
 ### B1. The conventions
 
@@ -237,54 +215,23 @@ Every writer lands on one resource without any folding in the indexers:
 | `geo:46.0,8`, `geo:046,8`, `geo:-0,8`, `geo:46,8;u=35`, `geo:46,8,100`, `geo:91,8` | not a pin |
 
 **Where the conventions are enforced.** In the place positions of the new kinds, an event's
-`locations[].uri` and a route's `waypoints[].uri`, after the universal gate: a `geo:` URI there
+`locations[].uri`, and of a sub-spec's kinds, after the universal gate: a `geo:` URI there
 must be the convention's spelling, and a URL on an OpenStreetMap host must be the canonical
 object URL; every other reference passes. In `parent`, `embed`, tag targets and collection
 items the 1.0 gate stands alone, so a post stored before 1.1 reads as it did; the conventions
 are what a 1.1 client writes there.
 
-### B2. `route` (optional)
-
-A saved route as a post. Members are snake_case, as the article and collection envelopes are: no
-outside standard names them. `parent` is refused; `embed` may name the trail the route follows
-(an OSM relation); attachments are allowed (photos).
-
-```json
-{
-  "name": "Lakeside loop", "description": "Flat, along the shore.", "activity": "running",
-  "waypoints": [{ "uri": "geo:46.00547,8.95186", "name": "Start" }, { "uri": "https://www.openstreetmap.org/node/240109189" }],
-  "polyline": { "encoded": "_p~iF~ps|U_ulLnnqC_mqNvxq`@", "engine": "valhalla", "profile": "pedestrian", "precision": 6 },
-  "distance_m": 5200, "duration_s": 1800, "elevation_gain_m": 12, "elevation_loss_m": 12,
-  "steps": [{ "instruction": "Head south on the promenade", "distance_m": 400, "duration_s": 150 }]
-}
-```
-
-| member | rule |
-|---|---|
-| `name` | trimmed by the builder; 1 to `route_name_max_length` (100) code points, not blank |
-| `description` | trimmed, a blank one absent; at most `route_description_max_length` (2000) code points |
-| `activity` | a label with a tag label's rules: 1 to 20 code points, no whitespace, comma or colon; ASCII-folded by the builder, read as stored. `hiking`, `cycling`, `running`, `driving` are the recommended values; the indexer facets it |
-| `waypoints[]` | `{ uri, name? }` in travel order, `route_waypoints_min_count` (2) to `route_waypoints_max_count` (100); `uri` a universal reference under the place conventions, `name` trimmed, 1 to `route_waypoint_name_max_length` (100) code points |
-| `polyline` | `{ encoded, engine, profile, precision }`: `encoded` 1 to `route_polyline_max_length` (100000) characters of the encoded polyline alphabet (`?` to `~`, the Google algorithm); `engine` and `profile` trimmed, 1 to `route_label_max_length` (50) code points; `precision` 5 or 6 |
-| `distance_m` | an integer 0 to `route_distance_max_metres` (100000000) |
-| `duration_s` | an integer 0 to `route_duration_max_seconds` (315360000, ten years) |
-| `elevation_gain_m`, `elevation_loss_m` | integers 0 to `route_elevation_max_metres` (100000); absent for none |
-| `steps[]` | `{ instruction, distance_m?, duration_s? }`, at most `route_steps_max_count` (500); `instruction` trimmed, 1 to `route_step_instruction_max_length` (200) code points; the measures under the route's caps |
-
-The raw envelope is bounded at `route_content_max_length` (400000) code points. The waypoint
-count runs before any waypoint reference is read. The indexer facets `activity`, `distance_m`,
-the duration, the first waypoint and the bounding box of the waypoints; it never decodes the
-polyline and never trusts a client-sent box.
-
 ## Part C: What a reader does
 
 - A 1.0 reader meets a 1.1 post as a kind it does not know: it reads, it fails validation, it
-  skips. Nothing it stored reads differently.
+  skips. Nothing it stored reads differently. A 1.1 reader meets an `availability` or a `route`
+  under `social`, which early drafts of 1.1 wrote, the same way: those kinds are the events and
+  maps sub-specs', under `/pub/events/v1/` and `/pub/maps/v1/`.
 - A 1.1 reader checks the envelope of each new kind as Parts A and B say, unknown members
   preserved, and writes a post back byte for byte.
 - **Bounds before content.** A 1.1 kind's raw content cap is checked on the string before the
-  envelope is parsed, and its list caps (an event's `locations` and `links`, a route's
-  `waypoints`) before any reference in the list is read. For a 1.1 kind the publish planner
+  envelope is parsed, and its list caps (an event's `locations` and `links`) before any reference
+  in the list is read. For a 1.1 kind the publish planner
   checks the post's byte cap, its attachment count and these caps before it reads a single
   reference, so an oversized version is refused by its cap and never walked. The 1.0 kinds keep
   the order 1.0 shipped, in validation and in the planner: a 1.0 post past a cap with a private
@@ -308,7 +255,7 @@ polyline and never trusts a client-sent box.
 | `event_locations_max_count` | 10 |
 | `event_location_name_max_length` | 100 |
 | `event_links_max_count` | 10 |
-| `event_link_name_max_length` | 100 |
+| `event_link_title_max_length` | 100 |
 | `event_link_url_max_length` | 300 |
 | `event_capacity_max_people` | 1000000 |
 | `event_recurrence_rules_max_count` | 1 |
@@ -320,25 +267,8 @@ polyline and never trusts a client-sent box.
 | `rsvp_guests_max_people` | 100 |
 | `rsvp_note_max_length` | 2000 |
 | `rsvp_content_max_length` | 5000 |
-| `availability_horizon_max_days` | 366 |
-| `availability_blocks_max_count` | 100 |
-| `availability_block_title_max_length` | 100 |
-| `availability_content_max_length` | 100000 |
 | `rating_min_half_stars` | 1 |
 | `rating_max_half_stars` | 10 |
 | `rating_text_max_length` | 2000 |
 | `rating_content_max_length` | 5000 |
 | `geo_fraction_max_digits` | 5 |
-| `route_name_max_length` | 100 |
-| `route_description_max_length` | 2000 |
-| `route_waypoints_min_count` | 2 |
-| `route_waypoints_max_count` | 100 |
-| `route_waypoint_name_max_length` | 100 |
-| `route_polyline_max_length` | 100000 |
-| `route_label_max_length` | 50 |
-| `route_distance_max_metres` | 100000000 |
-| `route_duration_max_seconds` | 315360000 |
-| `route_elevation_max_metres` | 100000 |
-| `route_steps_max_count` | 500 |
-| `route_step_instruction_max_length` | 200 |
-| `route_content_max_length` | 400000 |

@@ -35,7 +35,7 @@ const lugano = () => ({
   timeZone: "Europe/Zurich",
   duration: "PT2H30M",
   locations: [{ name: "Plan ₿ Hub", uri: HUB }],
-  links: [{ name: "Website", url: "https://planb.network/" }],
+  links: [{ title: "Website", url: "https://planb.network/" }],
   recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
 });
 
@@ -44,7 +44,7 @@ describe("the event kinds", () => {
   after(() => setClock());
 
   it("are in the tables", () => {
-    for (const kind of ["event", "rsvp", "availability", "rating"]) assert.ok(postKinds.includes(kind));
+    for (const kind of ["event", "rsvp", "rating"]) assert.ok(postKinds.includes(kind));
     assert.deepStrictEqual([...eventStatuses], ["confirmed", "tentative", "cancelled"]);
     assert.deepStrictEqual([...attendancePolicies], ["open", "approval", "invite", "ticket"]);
     assert.deepStrictEqual([...rsvpStatuses], ["requested", "accepted", "declined", "tentative"]);
@@ -63,7 +63,7 @@ describe("the event kinds", () => {
       assert.strictEqual(built.object.parent, null);
       assert.strictEqual(
         built.object.content,
-        '{"title":"Lugano Bitcoin Evening","description":"Monthly meetup. Talks start at 19:00.","start":"2026-10-14T18:30:00","timeZone":"Europe/Zurich","duration":"PT2H30M","showWithoutTime":false,"status":"confirmed","locations":[{"name":"Plan ₿ Hub","uri":"https://www.openstreetmap.org/way/481516234"}],"attendance":{"policy":"open","capacity":null,"waitlist":false},"links":[{"name":"Website","url":"https://planb.network/"}],"recurrenceRules":[{"frequency":"monthly","byDay":[{"day":"tu","nthOfPeriod":2}]}],"excludedDates":[]}',
+        '{"title":"Lugano Bitcoin Evening","description":"Monthly meetup. Talks start at 19:00.","start":"2026-10-14T18:30:00","timeZone":"Europe/Zurich","duration":"PT2H30M","showWithoutTime":false,"status":"confirmed","locations":[{"name":"Plan ₿ Hub","uri":"https://www.openstreetmap.org/way/481516234"}],"attendance":{"policy":"open","capacity":null,"waitlist":false},"links":[{"title":"Website","url":"https://planb.network/"}],"recurrenceRules":[{"frequency":"monthly","byDay":[{"day":"tu","nthOfPeriod":2}]}],"excludedDates":[]}',
       );
       const envelope = decodeContent(built.object);
       assert.strictEqual(envelope.kind, "event");
@@ -77,7 +77,7 @@ describe("the event kinds", () => {
         status: "confirmed",
         locations: [{ name: "Plan ₿ Hub", uri: HUB }],
         attendance: { policy: "open", capacity: null, waitlist: false },
-        links: [{ name: "Website", url: "https://planb.network/" }],
+        links: [{ title: "Website", url: "https://planb.network/" }],
         recurrenceRules: [
           { frequency: "monthly", interval: null, firstDayOfWeek: null, byDay: [{ day: "tu", nthOfPeriod: 2 }], byMonthDay: [], byMonth: [], bySetPosition: [], count: null, until: null },
         ],
@@ -97,13 +97,13 @@ describe("the event kinds", () => {
         title: "　 Evening 　",
         description: " \t ",
         locations: [{ uri: HUB, name: "  Hub  " }],
-        links: [{ name: "  Site  ", url: "https://planb.network/" }],
+        links: [{ title: "  Site  ", url: "https://planb.network/" }],
       });
       const { content } = decodeContent(built.object);
       assert.strictEqual(content.title, "Evening");
       assert.strictEqual(content.description, null);
       assert.strictEqual(content.locations[0].name, "Hub");
-      assert.strictEqual(content.links[0].name, "Site");
+      assert.strictEqual(content.links[0].title, "Site");
       refuses(() => buildPost(OTTO, { ...lugano(), start: " 2026-10-14T18:30:00" }), "Validation Error: start must be a local date-time of the form YYYY-MM-DDTHH:MM:SS:  2026-10-14T18:30:00");
       refuses(() => buildPost(OTTO, { ...lugano(), locations: [{ uri: " geo:46,8" }] }), "Validation Error: locations[0].uri must be spelled in canonical form:  geo:46,8");
     });
@@ -120,8 +120,10 @@ describe("the event kinds", () => {
       refuses(() => buildPost(OTTO, { ...lugano(), description: "a\u001b" }), /control characters/);
       refuses(() => buildPost(OTTO, { ...lugano(), description: "d".repeat(50001) }), "Validation Error: Event description must be at most 50000 code points");
       refuses(() => buildPost(OTTO, { ...lugano(), locations: [{ uri: HUB, name: "n".repeat(101) }] }), "Validation Error: locations[0].name must be 1 to 100 code points and not blank");
-      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ name: "n".repeat(101), url: "https://x.y" }] }), "Validation Error: links[0].name must be 1 to 100 code points and not blank");
-      refuses(() => buildPost(OTTO, { ...lugano(), links: Array.from({ length: 11 }, () => ({ name: "n", url: "https://x.y" })) }), "Validation Error: Event cannot have more than 10 links");
+      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ title: "n".repeat(101), url: "https://x.y" }] }), "Validation Error: links[0].title must be 1 to 100 code points and not blank");
+      refuses(() => buildPost(OTTO, { ...lugano(), links: Array.from({ length: 11 }, () => ({ title: "n", url: "https://x.y" })) }), "Validation Error: Event cannot have more than 10 links");
+      // the 1.1 alpha spelling of a link's title is no member of a link
+      misuse(() => buildPost(OTTO, { ...lugano(), links: [{ name: "Site", url: "https://x.y" }] }), /input\.links\[0\]\.name must be one of title, url/);
       refuses(() => buildPost(OTTO, { ...lugano(), excludedDates: Array.from({ length: 101 }, () => "2026-11-10T18:30:00") }), "Validation Error: Event cannot have more than 100 excluded dates");
       refuses(() => buildPost(OTTO, { ...lugano(), attendance: { capacity: 1000001 } }), "Validation Error: attendance.capacity must be 1 to 1000000 people");
       misuse(() => buildPost(OTTO, { ...lugano(), attendance: { waitlist: "yes" } }), /input\.attendance\.waitlist must be a boolean/);
@@ -141,8 +143,8 @@ describe("the event kinds", () => {
       );
       refuses(() => buildPost(OTTO, { ...lugano(), locations: [{ uri: "https://osm.org/way/1" }] }), /canonical OpenStreetMap/);
       refuses(() => buildPost(OTTO, { ...lugano(), locations: Array.from({ length: 11 }, () => ({ uri: "nowhere" })) }), "Validation Error: Event cannot have more than 10 locations");
-      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ name: "Site", url: "http://example.com" }] }), "Validation Error: links[0].url must be an https URL: http://example.com");
-      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ name: "Site", url: theirEvent }] }), /links\[0\]\.url must be a canonical web URI/);
+      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ title: "Site", url: "http://example.com" }] }), "Validation Error: links[0].url must be an https URL: http://example.com");
+      refuses(() => buildPost(OTTO, { ...lugano(), links: [{ title: "Site", url: theirEvent }] }), /links\[0\]\.url must be a canonical web URI/);
     });
 
     it("takes one recurrence rule inside the caps, and an override of one occurrence", () => {
@@ -217,7 +219,7 @@ describe("the event kinds", () => {
     });
 
     it("collects every issue for a form", () => {
-      const result = validatePost({ ...lugano(), title: " ", start: "soon", attendance: { policy: "rsvp", capacity: 0 }, links: [{ name: "x", url: "http://x.y" }] });
+      const result = validatePost({ ...lugano(), title: " ", start: "soon", attendance: { policy: "rsvp", capacity: 0 }, links: [{ title: "x", url: "http://x.y" }] });
       assert.deepStrictEqual(
         result.issues.map((i) => [i.path.join("."), i.code]),
         [
@@ -226,7 +228,7 @@ describe("the event kinds", () => {
         ],
       );
       // the start did not parse, so the rules that read it did not run; once it does they do
-      const more = validatePost({ ...lugano(), attendance: { policy: "rsvp", capacity: 0 }, links: [{ name: "x", url: "http://x.y" }] });
+      const more = validatePost({ ...lugano(), attendance: { policy: "rsvp", capacity: 0 }, links: [{ title: "x", url: "http://x.y" }] });
       assert.deepStrictEqual(
         more.issues.map((i) => [i.path.join("."), i.code, i.limit]),
         [
@@ -274,76 +276,6 @@ describe("the event kinds", () => {
         "Validation Error: Rsvp posts cannot have embed or attachments",
       );
       misuse(() => buildPost(OTTO, { kind: "rsvp", parent: theirEvent, status: "accepted", attachments: [] }), /input\.attachments must be one of/);
-    });
-  });
-
-  describe("availability", () => {
-    const weekly = () => ({
-      kind: "availability",
-      timeZone: "Europe/Zurich",
-      horizonDays: 60,
-      for: `pubky://${OTTO}/pub/shop/v1/listings/0035QZPT4QG00`,
-      available: [{ title: "Office hours", start: "2026-10-19T09:00:00", duration: "PT8H", recurrenceRules: [{ frequency: "weekly", byDay: [{ day: "mo" }, { day: "tu" }] }] }],
-      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
-    });
-
-    it("builds a schedule and reads it back", () => {
-      const built = buildPost(OTTO, weekly());
-      assert.ok(built.object.content.startsWith('{"timeZone":"Europe/Zurich","horizonDays":60,"for":"pubky://'));
-      const { content } = decodeContent(built.object);
-      assert.strictEqual(content.available[0].title, "Office hours");
-      assert.deepStrictEqual(content.available[0].recurrenceRules[0].byDay, [
-        { day: "mo", nthOfPeriod: null },
-        { day: "tu", nthOfPeriod: null },
-      ]);
-      assert.deepStrictEqual(content.busy[0].recurrenceRules, []);
-      assert.deepStrictEqual(decodeObject(built.url, built.body, "post"), built.object);
-      assert.strictEqual(buildPost(OTTO, { kind: "availability", timeZone: "UTC", horizonDays: 1 }).object.content, '{"timeZone":"UTC","horizonDays":1,"available":[],"busy":[]}');
-    });
-
-    it("refuses what the reference refuses, in its words", () => {
-      refuses(() => buildPost(OTTO, { ...weekly(), horizonDays: 0 }), "Validation Error: Availability horizonDays must be 1 to 366 days");
-      refuses(() => buildPost(OTTO, { ...weekly(), busy: [{ title: "Dentist", start: "2026-10-21T14:00:00", duration: "PT1H" }] }), "Validation Error: busy[0] carries no title");
-      // the builder drops a blank title; a stored one is refused
-      assert.strictEqual(decodeContent(buildPost(OTTO, { ...weekly(), available: [{ title: " ", start: "2026-10-21T14:00:00", duration: "PT1H" }] }).object).content.available[0].title, null);
-      const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
-      const stored = JSON.stringify({ timeZone: "UTC", horizonDays: 7, available: [{ title: " ", start: "2026-10-21T14:00:00", duration: "PT1H" }] });
-      refuses(
-        () => decodeObject(url, utf8(JSON.stringify({ content: stored, kind: "availability", parent: null, embed: null, attachments: [] })), "post"),
-        "Validation Error: available[0].title must be 1 to 100 code points and not blank",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), available: [{ start: "9am", duration: "PT1H" }] }),
-        "Validation Error: available[0].start must be a local date-time of the form YYYY-MM-DDTHH:MM:SS: 9am",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), busy: [{ start: "2026-10-21T14:00:00", duration: "1h" }] }),
-        "Validation Error: busy[0].duration must be an ISO 8601 duration of the form PnW or PnDTnHnMnS: 1h",
-      );
-      refuses(() => buildPost(OTTO, { ...weekly(), for: " https://x.y" }), /for must be a canonical URI/);
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), available: Array.from({ length: 101 }, () => ({ start: "2026-10-21T14:00:00", duration: "PT1H" })) }),
-        "Validation Error: Availability cannot have more than 100 available blocks",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), busy: Array.from({ length: 101 }, () => ({ start: "2026-10-21T14:00:00", duration: "PT1H" })) }),
-        "Validation Error: Availability cannot have more than 100 busy blocks",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-21T14:00:00", duration: "PT1H", recurrenceRules: [{ frequency: "daily" }, { frequency: "weekly" }] }] }),
-        "Validation Error: available[0] cannot have more than 1 recurrence rules",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-21T14:00:00", duration: "PT1H", excludedDates: Array.from({ length: 101 }, () => "2026-12-25T09:00:00") }] }),
-        "Validation Error: available[0] cannot have more than 100 excluded dates",
-      );
-      refuses(
-        () => buildPost(OTTO, { ...weekly(), busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H", excludedDates: ["2026-12-25"] }] }),
-        "Validation Error: busy[0].excludedDates[0] must be a local date-time of the form YYYY-MM-DDTHH:MM:SS: 2026-12-25",
-      );
-      refuses(() => buildPost(OTTO, { ...weekly(), horizonDays: 367 }), /horizonDays must be 1 to 366 days/);
-      refuses(() => buildPost(OTTO, { ...weekly(), timeZone: "Zurich time" }), "Validation Error: timeZone must be an IANA time zone name of at most 64 code points: Zurich time");
-      misuse(() => buildPost(OTTO, { ...weekly(), attachments: [] }), /input\.attachments must be one of/);
     });
   });
 
@@ -396,7 +328,6 @@ describe("the event kinds", () => {
     assert.strictEqual(encodeContent(event, "event"), encodeContent(event));
     assert.strictEqual(encodeContent({ status: "accepted", recurrenceId: null, guests: 0, note: null }), '{"status":"accepted","guests":0}');
     assert.strictEqual(encodeContent({ rating: 3, text: null }), '{"rating":3}');
-    assert.strictEqual(encodeContent({ timeZone: "UTC", horizonDays: 7, for: null, available: [], busy: [] }), '{"timeZone":"UTC","horizonDays":7,"available":[],"busy":[]}');
     misuse(() => encodeContent({ nothing: 1 }), /content must be an envelope/);
     refuses(() => encodeContent(event, "note"), /unknown variant `note`/);
     // an article still goes by its title, and an event's title does not make it one
@@ -410,23 +341,18 @@ describe("bounds before references", () => {
 
   const id = "0035QZPT4QG00";
   const privatePost = `pubky://${OTTO}/priv/social/v1/posts/${id}`;
-  // A version of `kind` whose list of `n` items ends in the owner's private post
+  // An event version whose list of `n` locations ends in the owner's private post
   const draft = (kind, n, pad = 0) => {
     const items = Array.from({ length: n - 1 }, () => ({ uri: "geo:0,0" }));
     items.push({ uri: privatePost });
-    const envelope =
-      kind === "event"
-        ? { title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: items, ...(pad > 0 ? { description: "d".repeat(pad) } : {}) }
-        : { name: "n", activity: "running", waypoints: items, polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 }, distance_m: 1, duration_s: 1 };
+    const envelope = { title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: items, ...(pad > 0 ? { description: "d".repeat(pad) } : {}) };
     return { content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [], lock: null };
   };
   const publish = (post) => planPublish(OTTO, { id, editId: id, post });
 
   it("publish refuses an oversized list by its cap, before it reads a reference in it", () => {
     refuses(() => publish(draft("event", 10)), /cannot reference a private object/);
-    refuses(() => publish(draft("route", 100)), /cannot reference a private object/);
     refuses(() => publish(draft("event", 11)), "Validation Error: Event cannot have more than 10 locations");
-    refuses(() => publish(draft("route", 101)), "Validation Error: Route must have 2 to 100 waypoints");
     refuses(() => publish(draft("event", 2, limits.eventContentMaxLength)), `Validation Error: Event content must be at most ${limits.eventContentMaxLength} code points`);
   });
 
@@ -441,12 +367,10 @@ describe("bounds before references", () => {
   });
 
   it("a list of 150,000 is refused by the byte cap, never walked into an argument list", () => {
-    for (const kind of ["event", "route"]) {
-      const huge = draft(kind, 150_000);
-      refuses(() => publish(huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
-      refuses(() => encodeObject({ kind: "post", root: "private" }, huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
-      refuses(() => decodeObject({ kind: "post", root: "private" }, utf8(JSON.stringify(huge))), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
-    }
+    const huge = draft("event", 150_000);
+    refuses(() => publish(huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
+    refuses(() => encodeObject({ kind: "post", root: "private" }, huge), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
+    refuses(() => decodeObject({ kind: "post", root: "private" }, utf8(JSON.stringify(huge))), `Validation Error: object exceeds ${limits.postMaxBytes} bytes`);
   });
 
   it("validation checks a raw content cap before it parses", () => {
@@ -455,8 +379,6 @@ describe("bounds before references", () => {
     for (const [kind, name, cap] of [
       ["rsvp", "Rsvp", limits.rsvpContentMaxLength],
       ["rating", "Rating", limits.ratingContentMaxLength],
-      ["availability", "Availability", limits.availabilityContentMaxLength],
-      ["route", "Route", limits.routeContentMaxLength],
     ]) {
       const post = { content: "[".repeat(cap + 1), kind, parent: `pubky://${OTTO}/pub/social/v1/posts/${id}`, embed: null, attachments: [], lock: null };
       refuses(() => encodeObject({ kind: "post", root: "private" }, post), `Validation Error: ${name} content must be at most ${cap} code points`);

@@ -1,7 +1,7 @@
-// The two writer conventions of the Maps spec, as the reference holds them: an OpenStreetMap
-// place is its canonical object URL, and a coordinate is one `geo:` spelling. Both pass the
-// universal reference gate like any URI; these rules run after it, in the positions that name
-// a place (an event's locations, a route's waypoints).
+// The place conventions, as the reference holds them: an OpenStreetMap place is its canonical
+// object URL, and a coordinate is one `geo:` spelling. Both pass the universal reference gate
+// like any URI; these rules run after it, in the positions that name a place (an event's
+// locations).
 
 import { limits } from "../data.js";
 import { fail } from "../errors.js";

@@ -1,6 +1,10 @@
 //! The `rating` kind: stars on a thing, a reply whose `parent` is what is rated, any universal
 //! reference (a place, an event, a listing, a link). One per author per target, the newest
 //! version wins. A post with stars is a rating; one without is a plain reply to the same parent.
+//! Every app rates through this kind rather than a review kind of its own, so a place, a track or
+//! a listing has one set of ratings that every reader and the indexer's counts see; an app that
+//! needs more (a purchase attestation) carries it in the envelope's `ext` member under its own
+//! namespace.
 
 use crate::common::{check_extra, code_point_len, frozen_trim, json_error};
 use crate::limits::VALIDATION_LIMITS;
@@ -16,7 +20,7 @@ use super::super::super::PubkySocialPost;
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PubkySocialRatingContent {
     /// `rating_min_half_stars..=rating_max_half_stars`: an integer 1 to 10, shown as half stars
-    /// up to five (10 is five stars). The same scale as the music specs' review kind.
+    /// up to five (10 is five stars).
     pub rating: i64,
     /// Trimmed by the builder, a blank one absent; at most `rating_text_max_length` code points.
     #[serde(default, skip_serializing_if = "Option::is_none")]

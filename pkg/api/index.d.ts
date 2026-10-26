@@ -1,5 +1,5 @@
 import { ValidationError } from "./errors.js";
-import * as geo from "./models/geo.js";
+import * as geo from "./models/places.js";
 import type * as T from "./types.js";
 export { ENGINE_CAPS, MIGRATION_CAPS } from "./caps.js";
 export { limits, validMimeTypes } from "./data.js";
@@ -7,7 +7,7 @@ export { ArgumentError, ValidationError } from "./errors.js";
 export type { ErrorCode } from "./errors.js";
 export { attendancePolicies, collectionLayouts, eventStatuses, feedLayouts, feedReaches, feedSorts, postKinds, recurrenceFrequencies, rsvpStatuses, weekdays } from "./models/kinds.js";
 export type { AttendancePolicy, CollectionLayout, EventStatus, FeedLayout, FeedReach, FeedSort, KnownAttendancePolicy, KnownCollectionLayout, KnownEventStatus, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, KnownRecurrenceFrequency, KnownRsvpStatus, KnownWeekday, PostKind, RecurrenceFrequency, RsvpStatus, Weekday, } from "./models/kinds.js";
-export type { OsmObject } from "./models/geo.js";
+export type { OsmObject } from "./models/places.js";
 export type * from "./types.js";
 export { feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser } from "./validate.js";
 export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
@@ -82,10 +82,9 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
     root?: T.Root | null;
 }, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
- * The envelope inside the `content` of an article, a collection, an event, an rsvp, an
- * availability, a rating or a route; null for any other kind. `post` is a stored post, the
- * `.object` of a result, or the `kind` and `content` of one, which is all an indexer may have
- * handed over.
+ * The envelope inside the `content` of an article, a collection, an event, an rsvp or a
+ * rating; null for any other kind. `post` is a stored post, the `.object` of a result, or the
+ * `kind` and `content` of one, which is all an indexer may have handed over.
  *
  * @throws `ValidationError` with `code: "json"` when the content of a typed kind is not its
  *  envelope, and `code: "format"` for content holding a lone surrogate;
@@ -125,9 +124,8 @@ export declare function tryDecodeContent(post: Pick<T.Post, "kind" | "content">)
 /**
  * The `content` string of a typed kind's envelope, for a post about to be edited. Without
  * `kind` the envelope is told apart by its members: an event has a `start`, an article a
- * `title`, a route a `polyline`, a collection a `name`, an rsvp a `status`, a rating a `rating`
- * and an availability a `horizonDays`. It only spells the envelope: the rules run when the post
- * is passed to `editPost` or `encodeObject`.
+ * `title`, a collection a `name`, an rsvp a `status` and a rating a `rating`. It only spells
+ * the envelope: the rules run when the post is passed to `editPost` or `encodeObject`.
  *
  * @throws `ArgumentError` for an envelope no kind has, or a member of the wrong type;
  *  `ValidationError` with `code: "unknown_name"` for a `kind` with no envelope.
@@ -162,10 +160,9 @@ export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.
 /**
  * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`, an
- * event its JSCalendar members, an rsvp and a rating their `parent` and answer, an availability
- * its blocks, a route its waypoints and polyline, and any other kind (`note` when absent,
- * `image`, `video`, `link`, `file`) takes `content`. `parent`, `embed`, `lock`, attachment, item,
- * location and waypoint URIs are references: stored as written.
+ * event its JSCalendar members, an rsvp and a rating their `parent` and answer, and any other
+ * kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`. `parent`, `embed`,
+ * `lock`, attachment, item and location URIs are references: stored as written.
  *
  * @throws `ValidationError` for a rule of the post (`field` the member: `content`,
  *  `attachments[0].uri`, `slug`, `title`) or a malformed `owner`; `ArgumentError` for a member of
@@ -596,10 +593,10 @@ export declare function toPath(uri: string): T.OwnerPath;
  */
 export declare function toUrl(owner: T.Given<"Owner">, path: T.PathArg): `pubky://${string}`;
 /**
- * The `geo:` URI of a point as the Maps convention spells it, `geo:<lat>,<lon>` in decimal
+ * The `geo:` URI of a point as the place convention spells it, `geo:<lat>,<lon>` in decimal
  * degrees rounded to `digits` fraction digits (at most 5, about a metre; 3 is about 100 m, 2
  * about 1 km) with no trailing zeros, so one point has one spelling. The place a located post,
- * an event location or a route waypoint names when it is a pin and not an OpenStreetMap object.
+ * an event location or a sub-spec's place names when it is a pin and not an OpenStreetMap object.
  *
  * @throws `ValidationError` with `code: "range"` for more than 5 digits or a point off the globe,
  *  `code: "format"` for a coordinate that is not finite; `ArgumentError` for an argument that is
@@ -614,7 +611,7 @@ export declare function toUrl(owner: T.Given<"Owner">, path: T.PathArg): `pubky:
  */
 export declare function geoUri(lat: number, lon: number, digits?: number): string;
 /**
- * Whether `value` is a `geo:` URI as the Maps convention spells it, as `geoUri` writes one: the
+ * Whether `value` is a `geo:` URI as the place convention spells it, as `geoUri` writes one: the
  * guard for a reference a form or an indexer handed over.
  *
  * @throws Nothing: a value that is no such URI is `false`.
@@ -628,7 +625,7 @@ export declare function geoUri(lat: number, lon: number, digits?: number): strin
 export declare function isGeoUri(value: unknown): boolean;
 /**
  * The canonical URL of an OpenStreetMap object, `https://www.openstreetmap.org/{node|way|relation}/{id}`:
- * the one spelling of a place every writer lands on, what an event location, a route waypoint,
+ * the one spelling of a place every writer lands on, what an event location, a sub-spec's place,
  * a tag target, a `parent` or an `embed` carries for a place.
  *
  * @throws `ValidationError` with `code: "unknown_name"` for an object type outside the three and

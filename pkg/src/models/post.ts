@@ -14,7 +14,6 @@ import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
 import { checkExtra, checkSize, type Model, parse, validate } from "./common.js";
 import * as events from "./events.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
-import * as maps from "./maps.js";
 
 export interface Attachment extends Extra {
   /** The media: a canonical `pubky`, `http` or `https` URI of at most 1024 code points, under the post's root rules. */
@@ -120,9 +119,7 @@ const ENVELOPES = {
   collection: { codec: collection, prefix: "Collection content must be a valid JSON envelope: " },
   event: { codec: events.event, prefix: "Event content must be a valid JSON envelope: " },
   rsvp: { codec: events.rsvp, prefix: "Rsvp content must be a valid JSON envelope: " },
-  availability: { codec: events.availability, prefix: "Availability content must be a valid JSON envelope: " },
   rating: { codec: events.rating, prefix: "Rating content must be a valid JSON envelope: " },
-  route: { codec: maps.route, prefix: "Route content must be a valid JSON envelope: " },
 } as const;
 
 type EnvelopeKind = keyof typeof ENVELOPES;
@@ -132,9 +129,7 @@ export type Envelopes = {
   collection: CollectionContent;
   event: events.EventContent;
   rsvp: events.RsvpContent;
-  availability: events.AvailabilityContent;
   rating: events.RatingContent;
-  route: maps.RouteContent;
 };
 const isEnvelopeKind = (kind: string): kind is EnvelopeKind => Object.hasOwn(ENVELOPES, kind);
 
@@ -147,9 +142,7 @@ export { isEnvelopeKind };
 const CONTENT_CAPS = {
   event: ["Event", limits.eventContentMaxLength],
   rsvp: ["Rsvp", limits.rsvpContentMaxLength],
-  availability: ["Availability", limits.availabilityContentMaxLength],
   rating: ["Rating", limits.ratingContentMaxLength],
-  route: ["Route", limits.routeContentMaxLength],
 } as const;
 
 /** The refusal of a 1.1 kind's content over its raw cap, checked on the string before it is parsed; null within it. */
@@ -238,8 +231,8 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
 
 /**
  * Every reference position inside the envelope, in the reference's order, as the gate takes
- * them: an article's or a collection's cover and items, an event's locations, links and master,
- * an availability's `for`, a route's waypoints. Content that does not parse references nothing.
+ * them: an article's or a collection's cover and items, an event's locations, links and master.
+ * Content that does not parse references nothing.
  */
 export function contentRefs(value: Post): events.ContentRef[] {
   const typed = typedEnvelope(value);
@@ -249,8 +242,7 @@ export function contentRefs(value: Post): events.ContentRef[] {
   items.forEach((uri, index) => refs.push({ field: `items[${index}].uri`, uri, schemes: "", max: limits.referenceUriMaxLength }));
   if (typed === null) return refs;
   // One at a time, never spread into an argument list: a list is as long as the caller made it
-  const inner =
-    typed.kind === "event" ? events.eventRefs(typed.parsed) : typed.kind === "availability" ? events.availabilityRefs(typed.parsed) : typed.kind === "route" ? maps.routeRefs(typed.parsed) : [];
+  const inner = typed.kind === "event" ? events.eventRefs(typed.parsed) : [];
   for (const ref of inner) refs.push(ref);
   return refs;
 }
@@ -362,7 +354,6 @@ function checkListCaps(value: Post, each: Each): void {
   });
   const typed = typedEnvelope(value);
   if (typed?.kind === "event") events.checkEventCounts(typed.parsed, each);
-  if (typed?.kind === "route") maps.checkRouteCounts(typed.parsed, each);
 }
 
 /**
@@ -379,7 +370,7 @@ export function checkBounds(value: Post): void {
 
 // The envelope rules of the 1.1 kinds: what the envelope may combine with, its cap, then its
 // members once it parsed, in the reference's order
-function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "rating" | "route", each: Each): void {
+function checkTyped(post: Post, kind: "event" | "rsvp" | "rating", each: Each): void {
   const [name, cap] = CONTENT_CAPS[kind];
   each(() => {
     switch (kind) {
@@ -390,16 +381,9 @@ function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "ratin
         if (post.parent === null) fail("conflict", "Rsvp posts must have a parent, the event they answer", "parent");
         if (post.embed !== null || post.attachments.length > 0) fail("conflict", "Rsvp posts cannot have embed or attachments", post.embed !== null ? "embed" : "attachments");
         break;
-      case "availability":
-        if (post.parent !== null || post.embed !== null || post.attachments.length > 0)
-          fail("conflict", "Availability posts cannot have parent, embed or attachments", post.parent !== null ? "parent" : post.embed !== null ? "embed" : "attachments");
-        break;
       case "rating":
         if (post.parent === null) fail("conflict", "Rating posts must have a parent, the thing they rate", "parent");
         if (post.embed !== null) fail("conflict", "Rating posts cannot have embed", "embed");
-        break;
-      case "route":
-        if (post.parent !== null) fail("conflict", "Route posts cannot have parent", "parent");
         break;
     }
   });
@@ -416,14 +400,8 @@ function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "ratin
       case "rsvp":
         events.checkRsvp(envelope as events.RsvpContent, each);
         break;
-      case "availability":
-        events.checkAvailability(envelope as events.AvailabilityContent, each);
-        break;
       case "rating":
         events.checkRating(envelope as events.RatingContent, each);
-        break;
-      case "route":
-        maps.checkRoute(envelope as maps.RouteContent, each);
         break;
     }
   });
@@ -468,9 +446,9 @@ export const post: Model<Post> = {
       return;
     }
     const { kind } = value;
-    if (kind === "event" || kind === "rsvp" || kind === "availability" || kind === "rating" || kind === "route") {
+    if (kind === "event" || kind === "rsvp" || kind === "rating") {
       // Known by the test above; the open string type of a stored kind does not narrow by itself
-      checkTyped(value, kind as "event" | "rsvp" | "availability" | "rating" | "route", each);
+      checkTyped(value, kind as "event" | "rsvp" | "rating", each);
       return;
     }
     each(() => {
@@ -602,12 +580,6 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const { root, slug } = placement(i);
     return create({ content: events.rsvp.write(envelope), kind, parent, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
-  if (kind === "availability") {
-    const i = inputOf(input, "input", ["kind", ...events.AVAILABILITY_MEMBERS, "root", "slug"], each);
-    const envelope = events.availabilityFromInput(i, each);
-    const { root, slug } = placement(i);
-    return create({ content: events.availability.write(envelope), kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
-  }
   if (kind === "rating") {
     const i = inputOf(input, "input", ["kind", "parent", "rating", "text", "attachments", "root", "slug"], each);
     const envelope = events.ratingFromInput(i, each);
@@ -615,13 +587,6 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const thread = threaded(i);
     const { root, slug } = placement(i);
     return create({ content: events.rating.write(envelope), kind, parent, embed: null, attachments: thread.attachments, lock: null, extra: new Map() }, root, slug);
-  }
-  if (kind === "route") {
-    const i = inputOf(input, "input", ["kind", ...maps.ROUTE_MEMBERS, "embed", "attachments", "root", "slug"], each);
-    const envelope = maps.routeFromInput(i, each);
-    const thread = threaded(i);
-    const { root, slug } = placement(i);
-    return create({ content: maps.route.write(envelope), kind, parent: null, embed: thread.embed, attachments: thread.attachments, lock: null, extra: new Map() }, root, slug);
   }
   if (kind === "collection") {
     const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"], each);

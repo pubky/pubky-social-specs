@@ -1,9 +1,9 @@
-//! The two writer conventions of the Maps spec, so every writer lands on one resource without
-//! any folding in the indexers: an OpenStreetMap place is its canonical object URL, and a
-//! coordinate is one `geo:` spelling. Both are references on the universal tier, so the
-//! reference gate admits them like any other URI; these rules run after it, in the positions
-//! that name a place (an event's `locations`, a route's `waypoints`), and are documented for
-//! `parent`, `embed` and tag targets, which keep the v1 gate alone.
+//! The place conventions, so every writer lands on one resource without any folding in the
+//! indexers: an OpenStreetMap place is its canonical object URL, and a coordinate is one `geo:`
+//! spelling. Both are references on the universal tier, so the reference gate admits them like
+//! any other URI; these rules run after it, in the positions that name a place (an event's
+//! `locations` here, and a sub-spec's place positions through [`check_place_reference`]), and
+//! are documented for `parent`, `embed` and tag targets, which keep the v1 gate alone.
 
 use crate::limits::VALIDATION_LIMITS;
 
@@ -178,8 +178,9 @@ pub fn geo_uri(lat: f64, lon: f64, digits: usize) -> Result<String, String> {
 
 /// The two conventions as a rule on a place position named `field`, after the reference gate
 /// has admitted the URI: a `geo:` URI must be the convention's spelling, and a URL on an
-/// OpenStreetMap host must be the canonical object URL. Every other reference passes.
-pub(crate) fn check_place_reference(field: &str, uri: &str) -> Result<(), String> {
+/// OpenStreetMap host must be the canonical object URL. Every other reference passes. A
+/// sub-spec runs it on its own place positions, after the envelope's gate.
+pub fn check_place_reference(field: &str, uri: &str) -> Result<(), String> {
     if uri.starts_with("geo:") && !is_geo_uri(uri) {
         return Err(format!(
             "Validation Error: {field} must be a geo URI, geo:<lat>,<lon> in decimal degrees with at most {} fraction digits and no trailing zeros: {uri}",

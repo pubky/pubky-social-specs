@@ -20,12 +20,12 @@ use crate::models::legacy_v0::{APP_PATH, PUBLIC_PATH};
 use crate::traits::{hash_id_from, HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx};
 use crate::{
     list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
-    PubkyId, PubkySocialAttachment, PubkySocialAvailabilityContent, PubkySocialBookmark,
-    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventContent,
-    PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
-    PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute, PubkySocialObject,
-    PubkySocialPost, PubkySocialPostKind, PubkySocialRouteContent, PubkySocialRsvpStatus,
-    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
+    PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialEventContent, PubkySocialFeed, PubkySocialFeedConfig,
+    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile,
+    PubkySocialFollow, PubkySocialMute, PubkySocialObject, PubkySocialPost, PubkySocialPostKind,
+    PubkySocialRsvpStatus, PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource,
+    StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -347,7 +347,7 @@ struct AttendanceInput {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EventLinkInput {
-    name: String,
+    title: String,
     url: String,
 }
 
@@ -411,53 +411,6 @@ struct RsvpInput {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct BlockInput {
-    #[serde(default)]
-    title: Option<String>,
-    start: String,
-    duration: String,
-    #[serde(default)]
-    recurrence_rules: Option<Vec<RuleInput>>,
-    #[serde(default)]
-    excluded_dates: Option<Vec<String>>,
-}
-
-fn blocks_of(input: Option<Vec<BlockInput>>) -> Vec<crate::PubkySocialAvailabilityBlock> {
-    input
-        .unwrap_or_default()
-        .into_iter()
-        .map(|b| crate::PubkySocialAvailabilityBlock {
-            title: b.title,
-            start: b.start,
-            duration: b.duration,
-            recurrence_rules: rules_of(b.recurrence_rules),
-            excluded_dates: b.excluded_dates.unwrap_or_default(),
-            extra: Default::default(),
-        })
-        .collect()
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct AvailabilityInput {
-    #[serde(rename = "kind")]
-    _kind: String,
-    time_zone: String,
-    horizon_days: i64,
-    #[serde(default)]
-    r#for: Option<String>,
-    #[serde(default)]
-    available: Option<Vec<BlockInput>>,
-    #[serde(default)]
-    busy: Option<Vec<BlockInput>>,
-    #[serde(default)]
-    root: Option<Root>,
-    #[serde(default)]
-    slug: Option<String>,
-}
-
-#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RatingInput {
     #[serde(rename = "kind")]
@@ -466,63 +419,6 @@ struct RatingInput {
     rating: i64,
     #[serde(default)]
     text: Option<String>,
-    #[serde(default)]
-    attachments: Option<Vec<AttachmentInput>>,
-    #[serde(default)]
-    root: Option<Root>,
-    #[serde(default)]
-    slug: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct WaypointInput {
-    uri: String,
-    #[serde(default)]
-    name: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PolylineInput {
-    encoded: String,
-    engine: String,
-    profile: String,
-    precision: i64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct StepInput {
-    instruction: String,
-    #[serde(default)]
-    distance_m: Option<i64>,
-    #[serde(default)]
-    duration_s: Option<i64>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RouteInput {
-    #[serde(rename = "kind")]
-    _kind: String,
-    name: String,
-    #[serde(default)]
-    description: Option<String>,
-    activity: String,
-    #[serde(default)]
-    waypoints: Option<Vec<WaypointInput>>,
-    polyline: PolylineInput,
-    distance_m: i64,
-    duration_s: i64,
-    #[serde(default)]
-    elevation_gain_m: Option<i64>,
-    #[serde(default)]
-    elevation_loss_m: Option<i64>,
-    #[serde(default)]
-    steps: Option<Vec<StepInput>>,
-    #[serde(default)]
-    embed: Option<String>,
     #[serde(default)]
     attachments: Option<Vec<AttachmentInput>>,
     #[serde(default)]
@@ -765,7 +661,7 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
                     .unwrap_or_default()
                     .into_iter()
                     .map(|l| crate::PubkySocialEventLink {
-                        name: l.name,
+                        title: l.title,
                         url: l.url,
                         extra: Default::default(),
                     })
@@ -790,19 +686,6 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
             );
             (post, i.root, i.slug)
         }
-        Some("availability") => {
-            let i: AvailabilityInput = parse(input)?;
-            let schedule = PubkySocialAvailabilityContent {
-                time_zone: i.time_zone,
-                horizon_days: i.horizon_days,
-                r#for: i.r#for,
-                available: blocks_of(i.available),
-                busy: blocks_of(i.busy),
-                extra: Default::default(),
-            };
-            let post = PubkySocialPost::new_availability(schedule);
-            (post, i.root, i.slug)
-        }
         Some("rating") => {
             let i: RatingInput = parse(input)?;
             let post = PubkySocialPost::new_rating(
@@ -811,49 +694,6 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
                 i.text,
                 attachments_of(i.attachments),
             );
-            (post, i.root, i.slug)
-        }
-        Some("route") => {
-            let i: RouteInput = parse(input)?;
-            let route = PubkySocialRouteContent {
-                name: i.name,
-                description: i.description,
-                activity: i.activity,
-                waypoints: i
-                    .waypoints
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|w| crate::PubkySocialRouteWaypoint {
-                        uri: w.uri,
-                        name: w.name,
-                        extra: Default::default(),
-                    })
-                    .collect(),
-                polyline: crate::PubkySocialRoutePolyline {
-                    encoded: i.polyline.encoded,
-                    engine: i.polyline.engine,
-                    profile: i.polyline.profile,
-                    precision: i.polyline.precision,
-                    extra: Default::default(),
-                },
-                distance_m: i.distance_m,
-                duration_s: i.duration_s,
-                elevation_gain_m: i.elevation_gain_m,
-                elevation_loss_m: i.elevation_loss_m,
-                steps: i
-                    .steps
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|st| crate::PubkySocialRouteStep {
-                        instruction: st.instruction,
-                        distance_m: st.distance_m,
-                        duration_s: st.duration_s,
-                        extra: Default::default(),
-                    })
-                    .collect(),
-                extra: Default::default(),
-            };
-            let post = PubkySocialPost::new_route(route, i.embed, attachments_of(i.attachments));
             (post, i.root, i.slug)
         }
         Some("collection") => {
@@ -952,10 +792,10 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         // The Maps conventions: the one spelling of a point and of an OpenStreetMap object
         "geoUri" => {
             let (lat, lon, digits): (f64, f64, usize) = a.parsed()?;
-            crate::geo::geo_uri(lat, lon, digits)?.into()
+            crate::places::geo_uri(lat, lon, digits)?.into()
         }
-        "isGeoUri" => crate::geo::is_geo_uri(a.s()?).into(),
-        "parseOsmUrl" => match crate::geo::parse_osm_url(a.s()?) {
+        "isGeoUri" => crate::places::is_geo_uri(a.s()?).into(),
+        "parseOsmUrl" => match crate::places::parse_osm_url(a.s()?) {
             Some((object, id)) => json!({ "object": object.segment(), "id": id }),
             None => Value::Null,
         },

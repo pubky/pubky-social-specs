@@ -16,10 +16,6 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `articleTitleMaxLength` | 100 | code points | The longest article title. |
 | `attachmentAltMaxLength` | 1000 | code points | The longest `alt` text of an attachment. |
 | `attachmentNameMaxLength` | 255 | code points | The longest `name` of an attachment. |
-| `availabilityBlockTitleMaxLength` | 100 | code points | The longest `title` of an available block. |
-| `availabilityBlocksMaxCount` | 100 | items | The most blocks in each of an availability's `available` and `busy`. |
-| `availabilityContentMaxLength` | 100000 | code points | The longest `content` of an availability post, the whole envelope as text. |
-| `availabilityHorizonMaxDays` | 366 | days | The furthest ahead an availability's `horizonDays` reaches, one leap year. |
 | `bookmarkTargetUriMaxBytes` | 187 | bytes | The longest target a primary bookmark spells in its filename; a longer one takes the overflow form, `~{hash}`. |
 | `collectionContentMaxLength` | 40000 | code points | The longest `content` of a collection post, the whole envelope as text. |
 | `collectionDescriptionMaxLength` | 500 | code points | The longest collection description. |
@@ -30,9 +26,9 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `eventCapacityMaxPeople` | 1000000 | people | The largest `attendance.capacity` of an event. |
 | `eventContentMaxLength` | 150000 | code points | The longest `content` of an event post, the whole envelope as text. |
 | `eventDescriptionMaxLength` | 50000 | code points | The longest event description. |
-| `eventDurationMaxSeconds` | 31622400 | seconds | The longest `duration` of an event or an availability block, one leap year. |
-| `eventExcludedDatesMaxCount` | 100 | items | The most `excludedDates` on an event or an availability block. |
-| `eventLinkNameMaxLength` | 100 | code points | The longest `name` of an event link. |
+| `eventDurationMaxSeconds` | 31622400 | seconds | The longest `duration` of an event, one leap year. |
+| `eventExcludedDatesMaxCount` | 100 | items | The most `excludedDates` on an event. |
+| `eventLinkTitleMaxLength` | 100 | code points | The longest `title` of an event link. |
 | `eventLinkUrlMaxLength` | 300 | code points | The longest `url` of an event link. |
 | `eventLinksMaxCount` | 10 | items | The most `links` on an event. |
 | `eventLocationNameMaxLength` | 100 | code points | The longest `name` of an event location. |
@@ -41,8 +37,8 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `eventRecurrenceIntervalMaxPeriods` | 1000 | periods | The largest `interval` of a recurrence rule. |
 | `eventRecurrenceMaxOccurrences` | 1000 | occurrences | The largest `count` of a recurrence rule, where the occurrence generator stops too. |
 | `eventRecurrenceMaxSpanYears` | 3 | years | The furthest a recurrence rule's `until` may lie after the start, where the occurrence generator stops too. |
-| `eventRecurrenceRulesMaxCount` | 1 | items | The most `recurrenceRules` on an event or an availability block. |
-| `eventTimeZoneMaxLength` | 64 | code points | The longest IANA time zone name, an event's or an availability's `timeZone`. |
+| `eventRecurrenceRulesMaxCount` | 1 | items | The most `recurrenceRules` on an event. |
+| `eventTimeZoneMaxLength` | 64 | code points | The longest IANA time zone name, an event's `timeZone`. |
 | `eventTitleMaxLength` | 100 | code points | The longest event title. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
@@ -61,19 +57,6 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `ratingMinHalfStars` | 1 | half stars | The lowest `rating`, one half star. |
 | `ratingTextMaxLength` | 2000 | code points | The longest `text` of a rating. |
 | `referenceUriMaxLength` | 1024 | code points | The longest reference: a `parent`, an `embed`, a `lock`, an attachment or a collection item. |
-| `routeContentMaxLength` | 400000 | code points | The longest `content` of a route post, the whole envelope as text. |
-| `routeDescriptionMaxLength` | 2000 | code points | The longest route description. |
-| `routeDistanceMaxMetres` | 100000000 | metres | The longest `distance_m` of a route or a step. |
-| `routeDurationMaxSeconds` | 315360000 | seconds | The longest `duration_s` of a route or a step, ten years. |
-| `routeElevationMaxMetres` | 100000 | metres | The largest `elevation_gain_m` and `elevation_loss_m` of a route. |
-| `routeLabelMaxLength` | 50 | code points | The longest `polyline.engine` and `polyline.profile` of a route. |
-| `routeNameMaxLength` | 100 | code points | The longest route name. |
-| `routePolylineMaxLength` | 100000 | code points | The longest `polyline.encoded` of a route. |
-| `routeStepInstructionMaxLength` | 200 | code points | The longest `instruction` of a route step. |
-| `routeStepsMaxCount` | 500 | items | The most `steps` on a route. |
-| `routeWaypointNameMaxLength` | 100 | code points | The longest `name` of a route waypoint. |
-| `routeWaypointsMaxCount` | 100 | items | The most `waypoints` on a route. |
-| `routeWaypointsMinCount` | 2 | items | The fewest `waypoints` on a route, a start and an end. |
 | `rsvpContentMaxLength` | 5000 | code points | The longest `content` of an rsvp post, the whole envelope as text. |
 | `rsvpGuestsMaxPeople` | 100 | people | The most `guests` on an rsvp. |
 | `rsvpNoteMaxLength` | 2000 | code points | The longest `note` of an rsvp. |
@@ -154,7 +137,7 @@ One version of a post, stored at `posts/{id}/{editId}[-slug].json` under the pub
 
 | member | type | null | meaning |
 |---|---|---|---|
-| `kind` | `"image" \| "note" \| "article" \| "video" \| "link" \| "file" \| "collection" \| "event" \| "rsvp" \| "availability" \| "rating" \| "route"` |  | What the post is, one of `postKinds`: a kind this version does not know is refused on read. It decides what `content` holds. |
+| `kind` | `"image" \| "note" \| "article" \| "video" \| "link" \| "file" \| "collection" \| "event" \| "rsvp" \| "rating"` |  | What the post is, one of `postKinds`: a kind this version does not know is refused on read. It decides what `content` holds. |
 | `attachments` | `Attachment[]` |  | At most 10 media references; empty for none. A collection carries none: its items are in its envelope. |
 | `content` | `string` |  | Text for an untyped kind; for an article or a collection, the envelope `decodeContent` reads. |
 | `parent` | `string \| number` | yes | The post this one replies to: a versionless reference of at most 1024 code points; null for none. |
@@ -252,17 +235,17 @@ Who may come to an event and how many.
 
 ### EventLink
 
-One link shown with an event, https only.
+One link shown with an event, `{ title, url }` as a profile's links are; https only.
 
 | member | type | null | meaning |
 |---|---|---|---|
-| `name` | `string` |  | A name to show, trimmed by the builder: 1 to 100 code points, not blank. |
+| `title` | `string` |  | A title to show, trimmed by the builder: 1 to 100 code points, not blank. |
 | `url` | `string` |  | An https URL of at most 300 code points, stored as written. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
 ### RecurrenceRule
 
-A JSCalendar recurrence rule, as an event or an availability block repeats.
+A JSCalendar recurrence rule, as an event repeats.
 
 | member | type | null | meaning |
 |---|---|---|---|
@@ -299,32 +282,6 @@ The envelope of an rsvp, inside its post's `content`; the post's `parent` is the
 | `guests` | `number` |  | Companions without an account, 0 to 100 people; 0 when absent. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
-### AvailabilityContent
-
-The envelope of an availability, inside its post's `content`: when its author, or a resource of theirs, can be booked.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `available` | `AvailabilityBlock[]` |  | When a booking may start; at most 100 blocks. |
-| `busy` | `AvailabilityBlock[]` |  | What is taken; at most 100 blocks, untitled. |
-| `timeZone` | `string` |  | An IANA time zone name every block is read in, at most 64 code points. |
-| `horizonDays` | `number` |  | How far ahead the schedule is kept, 1 to 366 days. |
-| `for` | `string \| number` | yes | The resource the schedule belongs to, a reference of any scheme; null for the author. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
-### AvailabilityBlock
-
-One block of an availability.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `recurrenceRules` | `RecurrenceRule[]` |  | How it repeats: at most 1 rule; empty for once. |
-| `title` | `string \| number` | yes | On an `available` block only, a name, trimmed by the builder: 1 to 100 code points, not blank; null for none. |
-| `start` | `string` |  | When the block starts, a local date-time in the schedule's `timeZone`. |
-| `duration` | `string` |  | How long it lasts, an ISO 8601 duration of at most 31622400 seconds. |
-| `excludedDates` | `string[]` |  | Occurrences removed from the series; at most 100. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
 ### RatingContent
 
 The envelope of a rating, inside its post's `content`; the post's `parent` is what is rated.
@@ -333,57 +290,6 @@ The envelope of a rating, inside its post's `content`; the post's `parent` is wh
 |---|---|---|---|
 | `rating` | `number` |  | The stars, 1 to 10 half stars: 10 is five stars. |
 | `text` | `string \| number` | yes | The review, trimmed by the builder: at most 2000 code points, not blank; null for none. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
-### RouteContent
-
-The envelope of a route, inside its post's `content`: read it with `decodeContent`.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `waypoints` | `RouteWaypoint[]` |  | The places it passes, in travel order: 2 to 100. |
-| `polyline` | `RoutePolyline` |  | The geometry and what produced it. |
-| `steps` | `RouteStep[]` |  | The guidance, at most 500 steps; empty for none. |
-| `name` | `string` |  | The name, trimmed by the builder: 1 to 100 code points, not blank. |
-| `description` | `string \| number` | yes | What the route is, trimmed by the builder: at most 2000 code points, not blank; null for none. |
-| `activity` | `string` |  | What it is for, a label with a tag label's rules (`hiking`, `cycling`, `running`, ...): 1 to 20 code points, no whitespace, comma or colon, ASCII-lowercased by the builder. |
-| `distance_m` | `number` |  | The length, 0 to 100000000 metres. |
-| `duration_s` | `number` |  | The time, 0 to 315360000 seconds. |
-| `elevation_gain_m` | `number` | yes | The climb, 0 to 100000 metres; null for none. |
-| `elevation_loss_m` | `number` | yes | The descent, 0 to 100000 metres; null for none. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
-### RouteWaypoint
-
-One waypoint of a route.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `uri` | `string` |  | A reference to the place, any scheme: a `geo:` point as `geoUri` spells it, a canonical OpenStreetMap object URL, or another reference; at most 1024 code points. |
-| `name` | `string \| number` | yes | A name to show, trimmed by the builder: 1 to 100 code points, not blank; null for none. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
-### RoutePolyline
-
-The geometry of a route and what produced it.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `encoded` | `string` |  | The geometry as an encoded polyline: 1 to 100000 characters of the alphabet `?` to `~`. |
-| `engine` | `string` |  | The routing engine that produced it, trimmed by the builder: 1 to 50 code points, not blank. |
-| `profile` | `string` |  | The engine's costing profile, trimmed by the builder: 1 to 50 code points, not blank. |
-| `precision` | `number` |  | The coordinate precision it was encoded at: 5 or 6 decimal digits. |
-| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
-
-### RouteStep
-
-One manoeuvre of a route's guidance.
-
-| member | type | null | meaning |
-|---|---|---|---|
-| `instruction` | `string` |  | The manoeuvre, trimmed by the builder: 1 to 200 code points, not blank. |
-| `distance_m` | `number` | yes | Its length, 0 to 100000000 metres; null for none. |
-| `duration_s` | `number` | yes | Its time, 0 to 315360000 seconds; null for none. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
 ### Tag

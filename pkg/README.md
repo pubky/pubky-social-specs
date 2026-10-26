@@ -84,7 +84,7 @@ console.log(writes.map((w) => w.path));
 
 A builder trims display text (a name, a title, a post's content, a label) and lowercases the ASCII letters of a tag label. A reference is stored as written, so it must be canonical already: a pubky reference comes from `buildUri`, and a web URL starts with lowercase `http://` or `https://` and holds no whitespace. Absent and `null` mean the same in an input.
 
-`buildPost` takes a note, an article, a collection, or one of the 1.1 kinds (an event, an rsvp, an availability, a rating, a route), told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). Besides the kinds with an envelope the kinds are `note` (the default), `image`, `video`, `link` and `file`, which all take `content`. It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`.
+`buildPost` takes a note, an article, a collection, or one of the 1.1 kinds (an event, an rsvp, a rating), told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). Besides the kinds with an envelope the kinds are `note` (the default), `image`, `video`, `link` and `file`, which all take `content`. It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`.
 
 A slug gives a version a readable leaf, `{editId}-{slug}.json`: 1 to 64 of a-z, 0-9 and `-`. It carries no identity, so a renamed slug is the next edit, and it is allowed under both roots.
 
@@ -196,9 +196,9 @@ await session.storage.putBytes(toPath(url), encodeObject(url, { ...profile, stat
 
 Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays on it. It also takes `{ kind, root? }` in place of a URL, for bytes that go somewhere the data model does not name. An edited feed filter moves the feed, since its id is the filter: write it at `buildUri(owner, "feed", feedId(feed))` and delete the old path. A feed is stored private. `feedPaths(id)` gives both of its addresses: to publish it, PUT the same bytes at `public`, and to unpublish, DELETE `public`; `deletionPaths` removes both copies.
 
-### Events and maps
+### Events, ratings and places
 
-The 1.1 kinds are posts whose `content` is an envelope with JSCalendar member names (an event's `start` is a local date-time in its `timeZone`, its `duration` an ISO 8601 duration), an rsvp and a rating are replies to the `parent` they answer or rate, and a route carries waypoints and an encoded polyline. A place is a canonical OpenStreetMap object URL or a `geo:` pin as `geoUri` spells it; `isGeoUri`, `osmUrl` and `parseOsmUrl` read and write the two conventions.
+The 1.1 kinds are posts whose `content` is an envelope with JSCalendar member names (an event's `start` is a local date-time in its `timeZone`, its `duration` an ISO 8601 duration), an rsvp and a rating are replies to the `parent` they answer or rate, whatever app wrote that thing. A place is a canonical OpenStreetMap object URL or a `geo:` pin as `geoUri` spells it; `isGeoUri`, `osmUrl` and `parseOsmUrl` read and write the two conventions.
 
 ```js
 import { buildPost, buildUri, decodeContent, geoUri } from "pubky-social-specs";
@@ -221,7 +221,7 @@ const envelope = decodeContent(meetup.object);
 if (envelope?.kind === "event") console.log(envelope.content.status, envelope.content.attendance.policy); // confirmed open
 ```
 
-A calendar is a collection whose items are event URIs; there is no calendar kind. The rules of each kind, with every cap, are in the crate's [`docs/SPEC_V1.1.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V1.1.md).
+A calendar is a collection whose items are event URIs; there is no calendar kind. An app's own kinds (a route, an availability, a listing) live in its sub-spec, on the same envelope under `/pub/<namespace>/v1/posts/`, and use these kinds, tags, replies, bookmarks and collections rather than copies of them: [`docs/SUBSPECS.md`](https://github.com/pubky/pubky-social-specs/blob/v1.1/docs/SUBSPECS.md). The rules of each kind, with every cap, are in the crate's [`docs/SPEC_V1.1.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V1.1.md).
 
 ### Articles, collections and the other envelopes
 
@@ -240,7 +240,7 @@ const edited = editPost(owner, article.url, { ...article.object, content });
 console.log(edited.editId > article.editId); // true
 ```
 
-`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. It tells the envelopes apart by their members (an event has a `start`, an article a `title`, a route a `polyline`, a collection a `name`, an rsvp a `status`, a rating a `rating`, an availability a `horizonDays`), or takes the kind as a second argument. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
+`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. It tells the envelopes apart by their members (an event has a `start`, an article a `title`, a collection a `name`, an rsvp a `status`, a rating a `rating`), or takes the kind as a second argument. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
 
 ## Delete
 

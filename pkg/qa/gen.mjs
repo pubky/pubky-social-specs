@@ -491,7 +491,7 @@ const eventEnvelope = (r) => {
   }
   if (r.chance(0.4))
     e.links = r.many(r.pick([2, 2, 11]), () => ({
-      name: r.pick(["Website", " Site ", " ", "n".repeat(r.pick([100, 101]))]),
+      title: r.pick(["Website", " Site ", " ", "n".repeat(r.pick([100, 101]))]),
       url: r.pick(["https://planb.network/", "http://example.com", `https://e.com/${"a".repeat(r.pick([286, 287]))}`, ref(r)]),
     }));
   if (r.chance(0.4)) e.recurrenceRules = r.many(r.pick([1, 1, 1, 2]), () => rule(r));
@@ -519,70 +519,12 @@ const rsvpEnvelope = (r) => {
   if (r.chance(0.5)) e.note = r.pick(["bringing cake", " padded ", " ", "", "n".repeat(r.pick([2000, 2001])), null]);
   return e;
 };
-const blockOf = (r, titled) => {
-  const b = { start: LOCAL(r), duration: DURATION(r) };
-  if (titled && r.chance(0.5)) b.title = r.pick(["Office hours", " ", "t".repeat(r.pick([100, 101])), null]);
-  if (!titled && r.chance(0.1)) b.title = "Dentist";
-  if (r.chance(0.3)) b.recurrenceRules = r.many(r.pick([1, 1, 2]), () => rule(r));
-  if (r.chance(0.2))
-    b.excludedDates = r.many(
-      rarely(r, () => 101, 2),
-      () => LOCAL(r),
-    );
-  return b;
-};
-const availabilityEnvelope = (r) => {
-  const e = { timeZone: ZONE(r), horizonDays: r.pick([60, 1, 366, 367, 0, -1]) };
-  if (r.chance(0.4)) e.for = r.pick([ref(r), `pubky://${OWNER}/pub/shop/v1/listings/${timestampIdOf(NOW - 5e9)}`, null]);
-  if (r.chance(0.7))
-    e.available = r.many(
-      rarely(r, () => 101, 3),
-      () => blockOf(r, true),
-    );
-  if (r.chance(0.6))
-    e.busy = r.many(
-      rarely(r, () => 101, 3),
-      () => blockOf(r, false),
-    );
-  return e;
-};
 const ratingEnvelope = (r) => {
   const e = { rating: r.pick([7, 1, 10, 0, 11, -1]) };
   if (r.chance(0.6)) e.text = r.pick(["great coffee", " padded ", " ", "", "t".repeat(r.pick([2000, 2001])), null]);
   return e;
 };
-const routeEnvelope = (r) => {
-  const e = {
-    name: r.pick(["Lakeside loop", " Loop ", " ", "n".repeat(r.pick([100, 101])), text(r)]),
-    activity: r.pick(["running", "Hiking", "e-bike", "trail run", "a,b", "", "x".repeat(r.pick([20, 21]))]),
-    waypoints: r.many(
-      rarely(r, () => 101, r.pick([4, 4, 4, 1])),
-      () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Start", " ", "n".repeat(r.pick([100, 101])), null]) }),
-    ),
-    polyline: {
-      encoded: r.pick(["_p~iF~ps|U_ulLnnqC_mqNvxq`@", "?~", "", "über", "a b", rarely(r, () => "x".repeat(r.pick([100000, 100001])), "x".repeat(300))]),
-      engine: r.pick(["valhalla", " Valhalla ", " ", "e".repeat(r.pick([50, 51]))]),
-      profile: r.pick(["pedestrian", "bicycle", "auto", " "]),
-      precision: r.pick([6, 5, 4, 7, 0]),
-    },
-    distance_m: r.pick([5200, 0, 100000000, 100000001, -1]),
-    duration_s: r.pick([1800, 0, 315360000, 315360001, -1]),
-  };
-  if (r.chance(0.4)) e.description = r.pick(["Flat, along the shore.", " ", "", "d".repeat(r.pick([2000, 2001])), null]);
-  if (r.chance(0.3)) e.elevation_gain_m = r.pick([12, 0, 100000, 100001, -1, null]);
-  if (r.chance(0.3)) e.elevation_loss_m = r.pick([12, 100001, null]);
-  if (r.chance(0.4))
-    e.steps = r.many(
-      rarely(r, () => 501, 2),
-      () => ({
-        instruction: r.pick(["Head south", " ", "i".repeat(r.pick([200, 201]))]),
-        ...(r.chance(0.5) ? { distance_m: r.pick([400, -1, null]) } : {}),
-        ...(r.chance(0.3) ? { duration_s: r.pick([150, 315360001]) } : {}),
-      }),
-    );
-  return e;
-};
-const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, availability: availabilityEnvelope, rating: ratingEnvelope, route: routeEnvelope };
+const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, rating: ratingEnvelope };
 
 const envelopeText = (r, envelope) =>
   r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
@@ -679,7 +621,7 @@ function postInput(r) {
 }
 
 // The 1.1 kinds, drawn by the `-1.1` families alone, so the 1.0 families draw as 1.0 recorded them.
-// A full-size cap edge (a 50,000-character description, a 100,000-character polyline) is drawn
+// A full-size cap edge (a 50,000-character description, a 101-item list) is drawn
 // rarely, so the recorded files stay small: every 1.1 edge is recorded once, at the cap and one
 // over, in the fixed `edges-1.1` family, and the fuzz reaches the rest
 const rarely = (r, big, small) => (r.chance(0.04) ? big() : small);
@@ -693,7 +635,9 @@ function stored11(r, object) {
 // A 1.1 envelope as stored, or content that is no envelope; the 40,001-character content of
 // `envelopeText` is the collection's raw cap, a 1.0 edge
 const envelopeText11 = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored11(r, envelope), () => r.pick(["", "{", "[]", "null", "not json"])])();
-const V11_KINDS = ["event", "rsvp", "availability", "rating", "route"];
+const V11_KINDS = ["event", "rsvp", "rating"];
+// The kinds 1.1 alphas had and the sub-specs took: a social reader refuses them as unknown
+const MOVED_KINDS = ["availability", "route"];
 const isReply = (kind) => kind === "rsvp" || kind === "rating";
 
 /** A 1.1 post every rule accepts, then at most one late rule broken. */
@@ -712,26 +656,12 @@ function cleanPost11(r) {
       recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
     }),
     rsvp: () => ({ status: "accepted", guests: 1 }),
-    availability: () => ({
-      timeZone: "UTC",
-      horizonDays: 30,
-      available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office" }],
-      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
-    }),
     rating: () => ({ rating: 7, text: "great" }),
-    route: () => ({
-      name: "Loop",
-      activity: "running",
-      waypoints: [{ uri: place() }, { uri: place() }],
-      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
-      distance_m: 5200,
-      duration_s: 1800,
-    }),
   };
   const envelope = clean[kind]();
   const p = { content: "hello", kind, parent: isReply(kind) ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
-  // an rsvp and an availability carry no media
-  const mediaFree = kind === "rsvp" || kind === "availability";
+  // an rsvp carries no media
+  const mediaFree = kind === "rsvp";
   if (!mediaFree && r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
   const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
   const breaks = {
@@ -742,24 +672,12 @@ function cleanPost11(r) {
       () => (envelope.recurrenceRules[0].count = r.pick([1000, 1001])),
       () => (envelope.recurrenceRules[0].until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01"])),
       () => (envelope.attendance = { policy: "ticket", capacity: r.pick([1000000, 1000001]), waitlist: true }),
-      () => (envelope.links = [{ name: "Site", url: r.pick(["https://x.y", "http://x.y"]) }]),
+      () => (envelope.links = [{ title: "Site", url: r.pick(["https://x.y", "http://x.y"]) }]),
       () => (envelope.status = r.pick(["cancelled", "maybe"])),
       () => (envelope.excludedDates = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => "2026-11-10T18:30:00")),
     ],
     rsvp: [() => (envelope.guests = r.pick([100, 101])), () => (envelope.note = "n".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
-    availability: [
-      () => (envelope.horizonDays = r.pick([366, 367])),
-      () => (envelope.available = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
-      () => (envelope.busy[0].title = "Dentist"),
-    ],
     rating: [() => (envelope.rating = r.pick([10, 11])), () => (envelope.text = "t".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
-    route: [
-      () => (envelope.waypoints = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ uri: place() }))),
-      () => (envelope.polyline.encoded = rarely(r, () => "?".repeat(r.pick([100000, 100001])), "?".repeat(300))),
-      () => (envelope.distance_m = r.pick([100000000, 100000001])),
-      () => (envelope.steps = Array.from({ length: rarely(r, () => r.pick([500, 501]), 3) }, () => ({ instruction: "go" }))),
-      () => (envelope.activity = "x".repeat(r.pick([20, 21]))),
-    ],
   }[kind];
   const any = [
     () => (attachment().alt = "a".repeat(r.pick([1000, 1001]))),
@@ -774,8 +692,10 @@ function cleanPost11(r) {
 /** A 1.1 post as stored: references of every tier, sometimes what a newer writer adds. */
 function storedPost11(r) {
   if (r.chance(0.35)) return cleanPost11(r);
-  const kind = r.pick(["event", "event", "rsvp", "availability", "rating", "route", "route"]);
+  const kind = r.pick(["event", "event", "rsvp", "rating"]);
   const p = { content: envelopeText11(r, TYPED[kind](r)), kind, parent: null, embed: null };
+  // now and then a kind a 1.1 alpha wrote that moved to a sub-spec
+  if (r.chance(0.03)) p.kind = r.pick(MOVED_KINDS);
   // the reply kinds mostly have the parent they need
   if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);
@@ -786,13 +706,12 @@ function storedPost11(r) {
 
 /** A builder input of a 1.1 kind: its envelope's members and the post's. */
 function postInput11(r) {
-  const kind = r.pick(["event", "event", "rsvp", "availability", "rating", "route", "route"]);
+  const kind = r.pick(["event", "event", "rsvp", "rating"]);
   const o = { kind, ...TYPED[kind](r) };
   for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
   // A reply kind's parent is a required member: absent, the shape is refused before any rule
   if (isReply(kind)) o.parent = ref(r);
-  if (kind === "route" && r.chance(0.3)) o.embed = ref(r);
-  if ((kind === "event" || kind === "rating" || kind === "route") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
+  if ((kind === "event" || kind === "rating") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
   if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
   if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
   if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
@@ -823,7 +742,7 @@ function draft(r) {
 function draft11(r) {
   const p = r.chance(0.5) ? cleanPost11(r) : storedPost11(r);
   const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r), `pubky://${OWNER}/priv/social/v1/posts/${postId(r)}`]);
-  if (p.kind !== "rsvp" && p.kind !== "availability" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
+  if (p.kind !== "rsvp" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   return p;
 }
 
@@ -899,24 +818,13 @@ export const fixed = {
     const reply = { parent: "https://example.com/thing" };
     const event = (more) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", ...more });
     const rsvp = (more) => ({ status: "accepted", ...more });
-    const availability = (more) => ({ timeZone: "UTC", horizonDays: 30, ...more });
     const rating = (more) => ({ rating: 7, ...more });
-    const route = (more) => ({
-      name: "n",
-      activity: "running",
-      waypoints: [{ uri: "geo:0,0" }, { uri: "geo:1,1" }],
-      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
-      distance_m: 1,
-      duration_s: 1,
-      ...more,
-    });
     // An envelope padded by an unknown member to exactly `size` code points of content
     const padded = (envelope, size) => {
       const bare = JSON.stringify({ ...envelope, pad: "" }).length;
       return { ...envelope, pad: "x".repeat(size - bare) };
     };
     const n = (count, make) => Array.from({ length: count }, make);
-    const block = () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" });
     // [at the edge, past it], each a request
     const pairs = [
       // event
@@ -934,16 +842,16 @@ export const fixed = {
         encode("event", event({ locations: [{ uri: "geo:0,0", name: "n".repeat(L.eventLocationNameMaxLength + 1) }] })),
       ],
       [
-        encode("event", event({ links: n(L.eventLinksMaxCount, () => ({ name: "n", url: "https://x.y" })) })),
-        encode("event", event({ links: n(L.eventLinksMaxCount + 1, () => ({ name: "n", url: "https://x.y" })) })),
+        encode("event", event({ links: n(L.eventLinksMaxCount, () => ({ title: "n", url: "https://x.y" })) })),
+        encode("event", event({ links: n(L.eventLinksMaxCount + 1, () => ({ title: "n", url: "https://x.y" })) })),
       ],
       [
-        encode("event", event({ links: [{ name: "n".repeat(L.eventLinkNameMaxLength), url: "https://x.y" }] })),
-        encode("event", event({ links: [{ name: "n".repeat(L.eventLinkNameMaxLength + 1), url: "https://x.y" }] })),
+        encode("event", event({ links: [{ title: "n".repeat(L.eventLinkTitleMaxLength), url: "https://x.y" }] })),
+        encode("event", event({ links: [{ title: "n".repeat(L.eventLinkTitleMaxLength + 1), url: "https://x.y" }] })),
       ],
       [
-        encode("event", event({ links: [{ name: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 14)}` }] })),
-        encode("event", event({ links: [{ name: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 13)}` }] })),
+        encode("event", event({ links: [{ title: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 14)}` }] })),
+        encode("event", event({ links: [{ title: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 13)}` }] })),
       ],
       [
         encode("event", event({ attendance: { policy: "ticket", capacity: L.eventCapacityMaxPeople, waitlist: false } })),
@@ -974,15 +882,6 @@ export const fixed = {
       [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), reply), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), reply)],
       [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), reply), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), reply)],
       [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), reply), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), reply)],
-      // availability
-      [encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays })), encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays + 1 }))],
-      [encode("availability", availability({ available: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ available: n(L.availabilityBlocksMaxCount + 1, block) }))],
-      [encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount + 1, block) }))],
-      [
-        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength) }] })),
-        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength + 1) }] })),
-      ],
-      [encode("availability", padded(availability({ timeZone: "no zone" }), L.availabilityContentMaxLength)), encode("availability", padded(availability({}), L.availabilityContentMaxLength + 1))],
       // rating
       [encode("rating", rating({ rating: L.ratingMinHalfStars }), reply), encode("rating", rating({ rating: L.ratingMinHalfStars - 1 }), reply)],
       [encode("rating", rating({ rating: L.ratingMaxHalfStars }), reply), encode("rating", rating({ rating: L.ratingMaxHalfStars + 1 }), reply)],
@@ -993,41 +892,6 @@ export const fixed = {
         encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits)},0` }] })),
         encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits + 1)},0` }] })),
       ],
-      // route
-      [encode("route", route({ name: "n".repeat(L.routeNameMaxLength) })), encode("route", route({ name: "n".repeat(L.routeNameMaxLength + 1) }))],
-      [encode("route", route({ description: "d".repeat(L.routeDescriptionMaxLength) })), encode("route", route({ description: "d".repeat(L.routeDescriptionMaxLength + 1) }))],
-      [
-        encode("route", route({ waypoints: n(L.routeWaypointsMinCount, () => ({ uri: "geo:0,0" })) })),
-        encode("route", route({ waypoints: n(L.routeWaypointsMinCount - 1, () => ({ uri: "geo:0,0" })) })),
-      ],
-      [
-        encode("route", route({ waypoints: n(L.routeWaypointsMaxCount, () => ({ uri: "geo:0,0" })) })),
-        encode("route", route({ waypoints: n(L.routeWaypointsMaxCount + 1, () => ({ uri: "geo:0,0" })) })),
-      ],
-      [
-        encode("route", route({ waypoints: [{ uri: "geo:0,0", name: "n".repeat(L.routeWaypointNameMaxLength) }, { uri: "geo:1,1" }] })),
-        encode("route", route({ waypoints: [{ uri: "geo:0,0", name: "n".repeat(L.routeWaypointNameMaxLength + 1) }, { uri: "geo:1,1" }] })),
-      ],
-      [
-        encode("route", route({ polyline: { encoded: "?".repeat(L.routePolylineMaxLength), engine: "v", profile: "p", precision: 6 }, distance_m: -1 })),
-        encode("route", route({ polyline: { encoded: "?".repeat(L.routePolylineMaxLength + 1), engine: "v", profile: "p", precision: 6 } })),
-      ],
-      [
-        encode("route", route({ polyline: { encoded: "_p~iF", engine: "e".repeat(L.routeLabelMaxLength), profile: "p".repeat(L.routeLabelMaxLength), precision: 6 } })),
-        encode("route", route({ polyline: { encoded: "_p~iF", engine: "e".repeat(L.routeLabelMaxLength + 1), profile: "p", precision: 6 } })),
-      ],
-      [encode("route", route({ distance_m: L.routeDistanceMaxMetres })), encode("route", route({ distance_m: L.routeDistanceMaxMetres + 1 }))],
-      [encode("route", route({ duration_s: L.routeDurationMaxSeconds })), encode("route", route({ duration_s: L.routeDurationMaxSeconds + 1 }))],
-      [
-        encode("route", route({ elevation_gain_m: L.routeElevationMaxMetres, elevation_loss_m: L.routeElevationMaxMetres })),
-        encode("route", route({ elevation_gain_m: L.routeElevationMaxMetres + 1 })),
-      ],
-      [encode("route", route({ steps: n(L.routeStepsMaxCount, () => ({ instruction: "go" })) })), encode("route", route({ steps: n(L.routeStepsMaxCount + 1, () => ({ instruction: "go" })) }))],
-      [
-        encode("route", route({ steps: [{ instruction: "i".repeat(L.routeStepInstructionMaxLength) }] })),
-        encode("route", route({ steps: [{ instruction: "i".repeat(L.routeStepInstructionMaxLength + 1) }] })),
-      ],
-      [encode("route", padded(route({ name: " " }), L.routeContentMaxLength)), encode("route", padded(route({}), L.routeContentMaxLength + 1))],
     ];
     return pairs.flat();
   },
@@ -1036,14 +900,6 @@ export const fixed = {
     const privatePost = `pubky://${OWNER}/priv/social/v1/posts/${id}`;
     const list = (n) => [...Array.from({ length: n - 1 }, () => ({ uri: "geo:0,0" })), { uri: privatePost }];
     const event = (n, pad = 0) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: list(n), ...(pad > 0 ? { description: "d".repeat(pad) } : {}) });
-    const route = (n) => ({
-      name: "n",
-      activity: "running",
-      waypoints: list(n),
-      polyline: { encoded: "_p~iF", engine: "valhalla", profile: "pedestrian", precision: 6 },
-      distance_m: 1,
-      duration_s: 1,
-    });
     const post = (kind, envelope) => ({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [] });
     const publish = (p) => request("planPublish", s(OWNER), { j: JSON.stringify({ id, editId: id, post: p }) });
     const decode = (root, p) => request("decode", s(`pubky://${OWNER}/${root}/social/v1/posts/${id}/${id}.json`), { j: JSON.stringify(p) });
@@ -1051,19 +907,15 @@ export const fixed = {
     return [
       // within the caps: the reference gate refuses the private item
       publish(post("event", event(10))),
-      publish(post("route", route(100))),
       // past a list cap: the cap, no item read
       publish(post("event", event(11))),
-      publish(post("route", route(101))),
       // past the raw content cap: the cap, nothing parsed
       publish(post("event", event(11, cap))),
       // past the byte cap of the written form: that cap, first
       publish(post("event", event(25_000))),
-      publish(post("route", route(25_000))),
       // the reader: the raw cap before the list cap, under either root
       decode("priv", post("event", event(11, cap))),
       decode("pub", post("event", event(11, cap))),
-      decode("priv", post("route", route(101))),
       // 1.0 kinds keep 1.0's planner order: the private reference, not the cap
       publish({ content: JSON.stringify({ name: "c", items: Array.from({ length: 101 }, () => ({ uri: privatePost })) }), kind: "collection", parent: null, embed: null, attachments: [] }),
       publish({ content: "n", kind: "note", parent: privatePost, embed: null, attachments: Array.from({ length: 11 }, () => ({ uri: "https://example.com/a.png" })) }),
@@ -1143,7 +995,7 @@ export const families = {
         return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r), limits.postMaxBytes) });
       },
     ])(),
-  maps: (r) => {
+  places: (r) => {
     const coordinate = (bound) =>
       r.pick([
         () => r.below(2 * bound * 1000) / 1000 - bound,
