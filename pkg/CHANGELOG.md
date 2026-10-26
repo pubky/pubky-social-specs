@@ -21,10 +21,14 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
-## Unreleased
+## 1.0.0-rc.1
 
 ### API
 
+- Breaking: the migration is its own package, `pubky-social-migrator`, released with this one at
+  the same version. `pubky-social-specs/migration` is `pubky-social-migrator`,
+  `pubky-social-specs/migration/pubky-sdk` is `pubky-social-migrator/pubky-sdk`, and the
+  `pubky-social-migrate` CLI moved with them. This package loads no wasm.
 - A URL or path argument takes a plain `string`, as the README said and the types did not: an
   entry of a LIST compiles where only a `pubky://` literal or a branded value did.
 - New: `decodeObject({ kind, root? }, bytes)` and the same form of `tryDecodeObject`, for bytes

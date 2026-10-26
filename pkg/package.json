@@ -1,6 +1,6 @@
 {
   "name": "pubky-social-specs",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0-rc.1",
   "description": "The Pubky social data model: builders, validation and URIs as plain synchronous functions",
   "license": "MIT",
   "type": "module",
@@ -19,12 +19,6 @@
       ],
       "client": [
         "./dist/client/index.d.ts"
-      ],
-      "migration": [
-        "./dist/migration/index.d.ts"
-      ],
-      "migration/pubky-sdk": [
-        "./dist/migration/adapters/pubky-sdk.d.ts"
       ]
     }
   },
@@ -47,38 +41,15 @@
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
     },
-    "./migration": {
-      "types@<5.7": "./ts-too-old.d.ts",
-      "types": "./dist/migration/index.d.ts",
-      "default": "./dist/migration/index.js"
-    },
-    "./migration/pubky-sdk": {
-      "types@<5.7": "./ts-too-old.d.ts",
-      "types": "./dist/migration/adapters/pubky-sdk.d.ts",
-      "default": "./dist/migration/adapters/pubky-sdk.js"
-    },
     "./reference.json": "./dist/reference.json",
     "./package.json": "./package.json"
-  },
-  "imports": {
-    "#glue": {
-      "types": "./src/migration/glue.d.ts",
-      "workerd": "./dist/migration/glue.workerd.js",
-      "node": "./dist/migration/glue.node.js",
-      "default": "./dist/migration/glue.js"
-    }
-  },
-  "bin": {
-    "pubky-social-migrate": "bin/migrate.js"
   },
   "files": [
     "dist",
     "ts-too-old.d.ts",
     "src",
     "!src/host.d.ts",
-    "bin/migrate.js",
     "example.js",
-    "MIGRATION.md",
     "CHANGELOG.md",
     "SECURITY.md",
     "docs/reference.md"
@@ -86,12 +57,11 @@
   "scripts": {
     "build": "RUSTFLAGS=\"--remap-path-prefix=$HOME=~\" cargo run --locked --features migrator --bin bundle_specs_npm",
     "pretest": "tsc -p .",
-    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run docs:snippets && npm run model -- --runs 25 --seed 1",
+    "test": "mocha '{test,*.test}.js' && node qa/data.mjs --check && npm run examples && npm run docs:snippets",
     "types": "tsc -p test-types",
     "size": "node qa/size.mjs",
     "score": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs",
     "conformance": "NODE_ENV=production node --max-old-space-size=1536 qa/score.mjs --fuzz 0",
-    "model": "node --max-old-space-size=1536 qa/model.mjs",
     "hostile": "node --expose-gc --max-old-space-size=1536 qa/hostile.mjs",
     "mutation": "stryker run",
     "tools": "npm ci --ignore-scripts --prefix tools",
@@ -108,7 +78,7 @@
     "deps": "node tools/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs --config tools/dependency-cruiser.cjs src",
     "e2e": "mocha e2e/migrate.e2e.js",
     "example": "node example.js",
-    "api": "diff -u api/index.d.ts dist/index.d.ts && diff -u api/types.d.ts dist/types.d.ts && diff -u api/validate.d.ts dist/validate.d.ts && diff -u api/testing.d.ts dist/testing.d.ts && diff -u api/migration.d.ts dist/migration/index.d.ts && diff -u api/pubky-sdk.d.ts dist/migration/adapters/pubky-sdk.d.ts && diff -u api/client.d.ts dist/client/index.d.ts && diff -u api/session.d.ts dist/session.d.ts && diff -u api/errors.d.ts dist/errors.d.ts"
+    "api": "diff -u api/index.d.ts dist/index.d.ts && diff -u api/types.d.ts dist/types.d.ts && diff -u api/validate.d.ts dist/validate.d.ts && diff -u api/testing.d.ts dist/testing.d.ts && diff -u api/client.d.ts dist/client/index.d.ts && diff -u api/session.d.ts dist/session.d.ts && diff -u api/errors.d.ts dist/errors.d.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0"
@@ -128,7 +98,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pubky/pubky-social-specs.git"
+    "url": "git+https://github.com/pubky/pubky-social-specs.git",
+    "directory": "pkg"
   },
   "homepage": "https://github.com/pubky/pubky-social-specs#readme",
   "bugs": {

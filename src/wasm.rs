@@ -133,6 +133,25 @@ pub fn reads(url: &str, bytes: &[u8]) -> bool {
     PubkySocialObject::from_uri_owned(url, bytes.to_vec()).is_ok()
 }
 
+/// The key a 0.x path is deduplicated by: `{key}`, `{needsDeref}` with the timestamp id of a
+/// 0.x File object whose `src` names the blob, or null for a path with none.
+#[wasm_bindgen(js_name = stableKey)]
+pub fn stable_key(owner_relative_path: &str) -> Result<JsValue, JsError> {
+    match crate::stable_id(owner_relative_path) {
+        Some(crate::StableId::Key(key)) => to_js(&serde_json::json!({ "key": key })),
+        Some(crate::StableId::NeedsDeref { tsid }) => {
+            to_js(&serde_json::json!({ "needsDeref": tsid }))
+        }
+        None => Ok(JsValue::NULL),
+    }
+}
+
+/// The key of the blob a 0.x File object's `src` names, or undefined when it names none.
+#[wasm_bindgen(js_name = legacyMediaKey)]
+pub fn legacy_media_key(v0_file_src: &str) -> Option<String> {
+    crate::resolve_deref("", v0_file_src)
+}
+
 /// A media id computed a chunk at a time, for bytes too large to copy into the wasm whole.
 /// Opaque to JS; `hasherFinish` consumes it.
 #[wasm_bindgen]

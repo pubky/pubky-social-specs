@@ -1,5 +1,5 @@
 // The layering of src (ARCHITECTURE.md): a module imports only from its own layer or the ones
-// below, the core never reaches migration/, and only migration/wasm.ts reaches the wasm glue.
+// below, and the core never reaches client/.
 //   cd pkg && npm run deps
 
 const layer = {
@@ -29,18 +29,11 @@ module.exports = {
       to: { path: above(name) },
     })),
     {
-      name: "core-imports-migration",
-      comment: "migration/ may import the core, never the reverse",
+      name: "core-imports-client",
+      comment: "client/ may import the core, never the reverse",
       severity: "error",
-      from: { path: "^src/", pathNot: "^src/(migration|client)/" },
-      to: { path: "^src/(migration|client)/" },
-    },
-    {
-      name: "glue-outside-wasm",
-      comment: "only migration/wasm.ts loads the wasm",
-      severity: "error",
-      from: { pathNot: "^src/migration/wasm\\.ts$" },
-      to: { path: "^(src|dist)/migration/glue" },
+      from: { path: "^src/", pathNot: "^src/client/" },
+      to: { path: "^src/client/" },
     },
     {
       name: "client-past-the-entry",
@@ -48,13 +41,6 @@ module.exports = {
       severity: "error",
       from: { path: "^src/client/" },
       to: { path: "^src/", pathNot: "^src/(client/|index\\.ts$|types\\.ts$|session\\.ts$)" },
-    },
-    {
-      name: "migration-past-the-core",
-      comment: "the migration reaches no entry: it would load the whole surface",
-      severity: "error",
-      from: { path: "^src/migration/" },
-      to: { path: layer.entries },
     },
   ],
   options: {

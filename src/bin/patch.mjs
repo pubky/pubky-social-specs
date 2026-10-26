@@ -1,10 +1,10 @@
-// Turns the wasm-bindgen glue of the migrator into the modules the package ships: an ES module
-// that loads nothing at import time, in three builds. dist/migration/glue.js carries the wasm
+// Turns the wasm-bindgen glue of the migrator into the modules pubky-social-migrator ships: an
+// ES module that loads nothing at import time, in three builds. dist/glue.js carries the wasm
 // inside it, so it works in a browser, a worker, Deno and Bun with no fetch and no file read;
-// dist/migration/glue.node.js reads dist/migration/glue.wasm, which Node does faster; and
-// dist/migration/glue.workerd.js imports glue.wasm as a module, which Cloudflare Workers
-// compiles at deploy time since it refuses to compile wasm at run time. The package's `#glue`
-// import picks one by the `workerd` and `node` conditions.
+// dist/glue.node.js reads dist/glue.wasm, which Node does faster; and dist/glue.workerd.js
+// imports glue.wasm as a module, which Cloudflare Workers compiles at deploy time since it
+// refuses to compile wasm at run time. The package's `#glue` import picks one by the `workerd`
+// and `node` conditions. It also writes the core's dist/reference.json.
 //
 // wasm-bindgen's nodejs target reads and instantiates the wasm synchronously as the module is
 // evaluated. The tail of the generated file is replaced by an async `__wbg_init()`, and the
@@ -16,10 +16,12 @@ import { copyFile, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../pkg");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const pkg = path.join(root, "pkg");
+const migrator = path.join(root, "migrator");
 const name = "pubky_social_specs";
-const built = path.join(pkg, "nodejs");
-const out = path.join(pkg, "dist/migration");
+const built = path.join(migrator, "nodejs");
+const out = path.join(migrator, "dist");
 
 const glue = await readFile(path.join(built, `${name}.js`), "utf8");
 
@@ -115,12 +117,11 @@ for (const [file, text] of builds) {
 await copyFile(path.join(built, `${name}_bg.wasm`), path.join(out, "glue.wasm"));
 
 // tsc does not carry a hand-written declaration over to the output
-await copyFile(path.join(pkg, "src/migration/glue.d.ts"), path.join(out, "glue.d.ts"));
+await copyFile(path.join(migrator, "src/glue.d.ts"), path.join(out, "glue.d.ts"));
 await rm(built, { recursive: true });
 
 // The reference this build was checked against: what a fork compares before it trusts its own
 // parity, since the debug escape table, the float spelling and the message text follow them
-const root = path.resolve(pkg, "..");
 const lock = await readFile(path.join(root, "Cargo.lock"), "utf8");
 const locked = (name) => new RegExp(`name = "${name}"\\nversion = "([^"]+)"`).exec(lock)?.[1] ?? null;
 const output = (cmd, args) => {

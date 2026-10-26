@@ -56,11 +56,8 @@ import {
   type PostRef,
 } from "pubky-social-specs";
 import { setClock } from "pubky-social-specs/testing";
-import { runMigration, type MigrationPort, type MigrationReport } from "pubky-social-specs/migration";
-import { sdkPort } from "pubky-social-specs/migration/pubky-sdk";
 
 declare const owner: string;
-declare const port: MigrationPort;
 
 // A body goes straight into fetch and Blob
 const built: BuiltPost = buildPost(owner, { content: "hello" });
@@ -171,10 +168,6 @@ try {
 } catch (e) {
   if (e instanceof ValidationError) e.message satisfies string;
 }
-
-// The migration subpaths
-const report: Promise<MigrationReport> = runMigration({ owner, port });
-void [report, sdkPort];
 
 // Brands: one kind of value cannot pass for another, a plain string passes for any
 const ref: PostRef = buildUri(owner, "post", built.id);

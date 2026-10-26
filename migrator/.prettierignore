@@ -1,0 +1,7 @@
+dist
+api
+node_modules
+qa/out
+qa/failures
+*.md
+src/data.ts
