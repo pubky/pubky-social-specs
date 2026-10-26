@@ -177,6 +177,8 @@ export const skipReasons = ${frozen(data.skipReasons)};
 export const transformRev: number = ${data.transformRev};
 `;
 let stale = false;
+// The debug escape table follows the Unicode tables of the rustc that built the oracle
+const withoutEscapes = (text) => text.replace(/^export const DEBUG_ESCAPED: .*$/m, "");
 for (const [path, text] of [
   ["../src/data.ts", source],
   ["../../migrator/src/data.ts", migration],
@@ -184,7 +186,12 @@ for (const [path, text] of [
   const file = fileURLToPath(new URL(path, import.meta.url));
   if (!args.check) fs.writeFileSync(file, text);
   else if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) {
-    console.error(`${path.slice(3)} is stale: run node pkg/qa/data.mjs`);
+    const escapesOnly = fs.existsSync(file) && withoutEscapes(fs.readFileSync(file, "utf8")) === withoutEscapes(text);
+    console.error(
+      escapesOnly
+        ? `${path.slice(3)} differs from this oracle in DEBUG_ESCAPED alone: build the oracle with the pinned Rust (RUST_TOOLCHAIN in .github/workflows/js-native.yml) and check again`
+        : `${path.slice(3)} is stale: run node pkg/qa/data.mjs`,
+    );
     stale = true;
   }
 }
