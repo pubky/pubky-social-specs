@@ -1,4 +1,5 @@
 {
+  "name": "pubky-social-specs-workspace",
   "private": true,
   "workspaces": [
     "pkg",
