@@ -291,8 +291,25 @@ describe("pubky-social-specs", () => {
 
     it("the default clock reads microseconds, so ids from two copies in one millisecond rarely meet", () => {
       setClock();
-      const micros = Array.from({ length: 50 }, () => buildFollow(OTTO, RIO).object.created_at % 1000);
-      assert.ok(new Set(micros).size > 1, "every created_at sat on a millisecond");
+      // A pinned wall and draw: a fast runner fits many reads in one millisecond, where the
+      // first draw holds until the next
+      const { now, random } = { now: Date.now, random: Math.random };
+      const ms = 4_000_000_000_000;
+      const at = (draw) => {
+        Math.random = () => draw;
+        return buildFollow(OTTO, RIO).object.created_at;
+      };
+      try {
+        Date.now = () => ms;
+        assert.strictEqual(at(0.25), ms * 1000 + 250);
+        assert.strictEqual(at(0.75), ms * 1000 + 750);
+        assert.strictEqual(at(0.1), ms * 1000 + 750, "a reading stepped back inside its millisecond");
+        Date.now = () => ms + 1;
+        assert.strictEqual(at(0.1), (ms + 1) * 1000 + 100);
+      } finally {
+        Date.now = now;
+        Math.random = random;
+      }
       const wall = Date.now() * 1000;
       assert.ok(Math.abs(buildFollow(OTTO, RIO).object.created_at - wall) < 5_000_000);
     });
