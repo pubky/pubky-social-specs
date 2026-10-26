@@ -41,11 +41,8 @@ as before.
   `EventLocation`, `EventAttendance`, `EventLink`, `RecurrenceRule`, `NthDay`, `RsvpContent`,
   `RatingContent`, `DecodedContent`, `Envelope`, `EnvelopeKind` and the `New*` inputs of each
   kind.
-- Earlier drafts of this release had an `availability` and a `route` kind, and an event link
-  `{ name, url }`. The two kinds are an app's own and moved to the events and maps sub-specs of
-  the crate's repository (`docs/SUBSPECS.md`), on the same envelope under their own namespaces;
-  a social reader refuses a post of either kind as one it does not know. The link is
-  `{ title, url }`.
+- An app's own kinds are its sub-spec's, on the same envelope under its own namespace:
+  `docs/SUBSPECS.md` in the crate's repository.
 - New: the place conventions. `geoUri(lat, lon, digits?)` spells a point one way, `isGeoUri`
   reads the spelling back, `osmUrl(object, id)` and `parseOsmUrl(url)` spell and read the
   canonical OpenStreetMap object URL.

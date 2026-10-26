@@ -24,9 +24,8 @@ ownership rule run with the author.
 
 ### `route`
 
-The shape the social 1.1 drafts had, moved as is; only the namespace changed. `parent` is refused,
-`embed` may name the trail the route follows (an OpenStreetMap relation), the cover is
-`attachments[0]`.
+`parent` is refused, `embed` may name the trail the route follows (an OpenStreetMap relation),
+the cover is `attachments[0]`.
 
 ```json
 {

@@ -41,12 +41,12 @@ follows.
 | value | rule |
 | --- | --- |
 | an instant | `*_at`, integer microseconds since the epoch, as social's ids and `created_at` count |
-| a duration | an integer whose name ends in its unit: `_ms` for media, `_s` for travel and timers, `_days` for terms. An ISO 8601 duration only where JSCalendar names the member (`duration`) |
+| a duration | an integer whose name ends in its unit: `_ms` for media, `_s` for travel and timers, `_days` for terms (`Days` in a JSCalendar-named kind, as `horizonDays`). An ISO 8601 duration only where JSCalendar names the member (`duration`) |
 | a place | a URI in a reference position: a canonical OpenStreetMap object URL or a `geo:` pin, under social's place conventions (`places::check_place_reference`); any other reference passes |
 | money | `{ amount_minor, currency, exponent }`, an integer of the minor unit |
-| a member name | a standard's names where one exists (JSCalendar's camelCase for times), else snake_case |
+| a member name | a standard's names where one exists, else snake_case. A kind whose members follow a standard spells its own members in that standard's style: an availability, in JSCalendar's names, writes `horizonDays` in JSCalendar's camelCase |
 | a cover image | `attachments[0]` |
-| another spec's member on an object | `ext.<ns>`: the key under `ext` is the writer's spec namespace (`ext.marketplace` on a rating) |
+| another spec's member on an object | the object's `ext` member (on a post, the post's, outside `content`), keyed by the writer's spec namespace: `ext.<ns>`, as `ext.marketplace` on a rating post |
 
 ## Shared primitives: never copy them
 

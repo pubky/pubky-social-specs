@@ -162,8 +162,8 @@ marketplace's additions in the post's `ext.marketplace`:
 **Where things are**
 
 1. Paths: `/pub/pubky.app/marketplace/v1/{listings,drops}/{id}` and `…/shop.json` become posts
-   under `/pub/marketplace/v1/posts/{id}/{editId}.json`, the namespace the owner settled
-   (`marketplace`, not ADR 0027's `app.marketplace`).
+   under `/pub/marketplace/v1/posts/{id}/{editId}.json`: the namespace is `marketplace`, not
+   ADR 0027's `app.marketplace`.
 2. Ids: a listing's and a drop's id is the post's timestamp id and an edit is a new `editId`; the
    seller-chosen `listingId` and `dropId` (32 hex in practice) go, as ADR 0027 planned.
 3. The base fields go: `schemaVersion` is the `v1` in the path, `recordType` the kind, `ownerPubky`

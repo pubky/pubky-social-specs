@@ -69,7 +69,7 @@ pub struct EventsLimits {
     pub availability_content_max_length: usize,
 }
 
-/// The values the social 1.1 drafts gave the availability kind, unchanged by the move.
+/// The caps of the availability kind.
 pub const EVENTS_LIMITS: EventsLimits = EventsLimits {
     availability_horizon_max_days: 366,
     availability_blocks_max_count: 100,

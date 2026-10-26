@@ -221,7 +221,7 @@ const envelope = decodeContent(meetup.object);
 if (envelope?.kind === "event") console.log(envelope.content.status, envelope.content.attendance.policy); // confirmed open
 ```
 
-A calendar is a collection whose items are event URIs; there is no calendar kind. An app's own kinds (a route, an availability, a listing) live in its sub-spec, on the same envelope under `/pub/<namespace>/v1/posts/`, and use these kinds, tags, replies, bookmarks and collections rather than copies of them: [`docs/SUBSPECS.md`](https://github.com/pubky/pubky-social-specs/blob/v1.1/docs/SUBSPECS.md). The rules of each kind, with every cap, are in the crate's [`docs/SPEC_V1.1.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V1.1.md).
+A calendar is a collection whose items are event URIs; there is no calendar kind. An app's own kinds (a route, an availability, a listing) live in its sub-spec, on the same envelope under `/pub/<namespace>/v1/posts/`, and use these kinds, tags, replies, bookmarks and collections rather than copies of them: [`docs/SUBSPECS.md`](https://github.com/pubky/pubky-social-specs/blob/v1.1/docs/SUBSPECS.md). The rules of each kind, with every cap, are in the crate's [`docs/SPEC_V1.1.md`](https://github.com/pubky/pubky-social-specs/blob/v1.1/docs/SPEC_V1.1.md).
 
 ### Articles, collections and the other envelopes
 

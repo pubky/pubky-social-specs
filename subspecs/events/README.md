@@ -26,10 +26,10 @@ of. Its reader is the time index, which takes it from the feed line.
 
 ### `availability`
 
-The shape the social 1.1 drafts had, moved as is; only the namespace changed. Member names are
-JSCalendar's (RFC 8984), and every time value takes social's JSCalendar rules
-(`pubky_social_specs::jscalendar`): a local date-time, a duration, an IANA zone name, a recurrence
-rule. `parent`, `embed` and `attachments` are refused.
+Member names are JSCalendar's (RFC 8984), and the kind's own members take its camelCase
+(`horizonDays`). Every time value takes social's JSCalendar rules (`pubky_social_specs::jscalendar`):
+a local date-time, a duration, an IANA zone name, a recurrence rule. `parent`, `embed` and
+`attachments` are refused.
 
 ```json
 {

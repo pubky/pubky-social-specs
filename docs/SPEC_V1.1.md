@@ -90,7 +90,7 @@ An event someone creates on Pubky is a post of kind `event`. The envelope:
 | `duration` | a duration; required unless `showWithoutTime` is true |
 | `showWithoutTime` | boolean; an all-day event, whose start time is not shown; false when absent |
 | `status` | `confirmed`, `tentative` or `cancelled`; `confirmed` when absent |
-| `locations[]` | `{ name?, uri }`; `uri` a reference on the universal tier (a place as A5 and A6 spell it, an https meeting link, or any other resource), `name` trimmed, 1 to `event_location_name_max_length` (100) code points when present; at most `event_locations_max_count` (10) |
+| `locations[]` | `{ name?, uri }`; `uri` a reference on the universal tier (a place as B1 spells it, an https meeting link, or any other resource), `name` trimmed, 1 to `event_location_name_max_length` (100) code points when present; at most `event_locations_max_count` (10) |
 | `attendance` | `{ policy, capacity, waitlist }`: `policy` one of `open`, `approval`, `invite`, `ticket`; `capacity` an integer 1 to `event_capacity_max_people` (1000000) or null for no limit; `waitlist` boolean. Open with no limit and no waitlist when absent |
 | `links[]` | `{ title, url }`, as a profile's links are; `title` trimmed, 1 to `event_link_title_max_length` (100) code points; `url` an https URL of at most `event_link_url_max_length` (300) code points, `http://` refused; at most `event_links_max_count` (10) |
 | `recurrenceRules[]` | at most `event_recurrence_rules_max_count` (1) rule, as A1 |
@@ -171,14 +171,15 @@ without is a plain reply to the same parent.
 | `rating` | an integer `rating_min_half_stars` (1) to `rating_max_half_stars` (10), shown as half stars up to five: 10 is five stars; required |
 | `text` | trimmed by the builder, a blank one absent; at most `rating_text_max_length` (2000) code points |
 
-The raw envelope is bounded at `rating_content_max_length` (5000) code points. The design page
-said 0 to 9; the scale is 1 to 10: half stars up to five, and no zero, which would read as no rating.
+The raw envelope is bounded at `rating_content_max_length` (5000) code points. The scale is 1 to
+10, whole half stars up to five, with no zero: a post without stars is a reply, not a rating of
+none.
 
 Every app rates through this kind, never a review kind of its own: a place (`parent` the
 OpenStreetMap URL), a track, a listing or an event has one set of ratings that every reader and
 the indexer's counts see. What an app adds to a rating (the marketplace's purchase attestation)
-travels in the envelope's `ext` member under the app's namespace, `ext.<namespace>`, preserved by
-every reader as an unknown member.
+travels in the post's `ext` member, outside `content`, under the app's namespace,
+`ext.<namespace>`, preserved by every reader as an unknown member.
 
 ## Part B: Places
 
@@ -225,7 +226,7 @@ are what a 1.1 client writes there.
 
 - A 1.0 reader meets a 1.1 post as a kind it does not know: it reads, it fails validation, it
   skips. Nothing it stored reads differently. A 1.1 reader meets an `availability` or a `route`
-  under `social`, which early drafts of 1.1 wrote, the same way: those kinds are the events and
+  under `social` the same way, as a kind social does not know: those kinds are the events and
   maps sub-specs', under `/pub/events/v1/` and `/pub/maps/v1/`.
 - A 1.1 reader checks the envelope of each new kind as Parts A and B say, unknown members
   preserved, and writes a post back byte for byte.

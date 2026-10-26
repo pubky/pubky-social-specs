@@ -82,7 +82,7 @@ pub struct MapsLimits {
     pub route_content_max_length: usize,
 }
 
-/// The values the social 1.1 drafts gave the route kind, unchanged by the move.
+/// The caps of the route kind.
 pub const MAPS_LIMITS: MapsLimits = MapsLimits {
     route_name_max_length: 100,
     route_description_max_length: 2000,
