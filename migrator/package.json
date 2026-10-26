@@ -1,6 +1,6 @@
 {
   "name": "pubky-social-migrator",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0-rc.1",
   "description": "Migrates a Pubky user's 0.x social data to the 1.x data model of pubky-social-specs",
   "license": "MIT",
   "type": "module",
@@ -70,7 +70,7 @@
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
-    "pubky-social-specs": "1.0.0-alpha.5"
+    "pubky-social-specs": "1.0.0-rc.1"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^9.6.1",

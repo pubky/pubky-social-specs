@@ -21,7 +21,7 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
-## Unreleased
+## 1.0.0-rc.1
 
 ### API
 

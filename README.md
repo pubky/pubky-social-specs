@@ -54,7 +54,7 @@ For a full homeserver flow, see [`examples/create_user.rs`](https://github.com/p
 | `migrator` | The 0.x to v1 transforms       |
 
 ```toml
-pubky-social-specs = { version = "1.0.0-alpha.5", features = ["openapi"] }
+pubky-social-specs = { version = "1.0.0-rc.1", features = ["openapi"] }
 ```
 
 `migrator` adds the `migrate` module: functions that take one owner's `pub/pubky.app/` objects as bytes and return the `social/v1` objects to write, with references rewritten, media dereferenced through the 0.x File objects, content-addressed ids re-derived, and every output read back through the v1 reader before it is returned. An object that cannot migrate is skipped with a counted category, never repaired. Every transform works from the object the frozen 0.x reader stores for the path at its own id, and an object is skipped when the frozen 0.x reader refuses it; a skip carries what the refusing parser or reader said as its `note`. The functions are pure but for one clock: the 0.x reader bounds a TimestampId by the time, so an object refused for a future id on one run is accepted on a later run. Only a client that runs the migration needs it, so it is off by default for the crate; the npm package is built with it, since that package is what the browser migrator runs.
@@ -108,12 +108,12 @@ The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pu
 One tag publishes the crate and both npm packages, `pubky-social-specs` (`pkg/`) and `pubky-social-migrator` (`migrator/`). Bump `version` in `Cargo.toml`, `pkg/package.json` and `migrator/package.json`, and the migrator's dependency on `pubky-social-specs`, in the same commit (CI fails when any of them differ, and `Cargo.lock` and `package-lock.json` have to follow), with the subject `chore: <version>`. Merge it into `v1` or `main`, then tag that commit and push the tag:
 
 ```bash
-git tag v1.0.0-alpha.5 && git push origin v1.0.0-alpha.5
+git tag v1.0.0-rc.1 && git push origin v1.0.0-rc.1
 ```
 
 The Release workflow runs every CI workflow again and refuses a tag that does not match both versions or that is not on `v1` or `main`. Then it publishes to crates.io and npm, the core before the migrator, and opens a GitHub release with both npm tarballs attached. A version with a `-` in it goes out under the npm `next` tag and is marked as a prerelease; any other version goes to `latest`. There are no registry tokens anywhere, both registries trust this workflow through GitHub OIDC.
 
-A prerelease tag like `v1.0.0-alpha.5` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that. Whoever approves the `release` environment has to confirm those before approving a stable tag.
+A prerelease tag like `v1.0.0-rc.1` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that. Whoever approves the `release` environment has to confirm those before approving a stable tag.
 
 The crates.io and npm jobs run in parallel. If npm fails after the crate already went out, open the run and use Re-run failed jobs, which picks up the tarballs uploaded earlier in the same run and skips a package already published at that version. Re-run all jobs would fail trying to publish the crate a second time.
 
@@ -157,7 +157,7 @@ A git dependency cannot give you the npm packages, because `dist/`, the compiled
 npm ci && (cd pkg && npm run build && npm pack) && (cd migrator && npm pack)
 ```
 
-and point the consuming project at them, for example `"pubky-social-specs": "file:../pubky-social-specs-1.0.0-alpha.5.tgz"`, and the same for `pubky-social-migrator` when it migrates. A dry run of the Release workflow uploads the same tarballs as an artifact, if you would rather not build them yourself. The crate has no such problem: a Cargo git dependency builds from source.
+and point the consuming project at them, for example `"pubky-social-specs": "file:../pubky-social-specs-1.0.0-rc.1.tgz"`, and the same for `pubky-social-migrator` when it migrates. A dry run of the Release workflow uploads the same tarballs as an artifact, if you would rather not build them yourself. The crate has no such problem: a Cargo git dependency builds from source.
 
 ## License
 
