@@ -61,6 +61,8 @@ const OBJECTS = [
   "RecurrenceRule",
   "NthDay",
   "RsvpContent",
+  "AvailabilityContent",
+  "AvailabilityBlock",
   "RatingContent",
   "Tag",
   "Bookmark",
@@ -121,6 +123,8 @@ for (const name of [
   "NewEventAttendance",
   "NewRecurrenceRule",
   "NewRsvp",
+  "NewAvailability",
+  "NewAvailabilityBlock",
   "NewRating",
   "NewFeed",
 ]) {

@@ -1,10 +1,11 @@
-# pubky-social-specs 1.1: events, ratings and places
+# pubky-social-specs 1.1: events, availability, ratings and places
 
-The 1.1 release adds three post kinds to the `social/v1` envelope, `event`, `rsvp` and `rating`,
-and two writer conventions for places. They are the kinds other apps must read: an event any app
-lists, the answers to it, and stars on any thing. A kind only its own app reads (a route, an
-availability, a listing) is that app's sub-spec, on the same envelope under its own namespace;
-`SUBSPECS.md` holds the rules every sub-spec follows. Nothing in 1.0 changes: the envelope, its reference gate, the ids, the paths and every 1.0 kind are as
+The 1.1 release adds four post kinds to the `social/v1` envelope, `event`, `rsvp`, `availability`
+and `rating`, and two writer conventions for places. They are the kinds other apps must read: an
+event any app lists, the answers to it, when a person or a resource can be booked, and stars on
+any thing. A kind only its own app reads (a route, a listing) is that app's sub-spec, on the same
+envelope under its own namespace; `SUBSPECS.md` holds the rules every sub-spec follows. Nothing in
+1.0 changes: the envelope, its reference gate, the ids, the paths and every 1.0 kind are as
 `v1` left them, and a 1.0 reader reads a 1.1 post as a post of a kind it does not know and skips
 it. This document is normative for the new kinds; the 1.0 design is in the `v1` RFC and the
 layout of 0.x data in `SPEC_V0.md`.
@@ -20,17 +21,18 @@ Every rule below is checked by both implementations, the Rust crate and the npm 
 the same message, and every refusal starts with `Validation Error: `. Builders trim display
 text and fold labels; readers accept the stored bytes or refuse them and never rewrite.
 
-## Part A: Events and ratings
+## Part A: Events, availability and ratings
 
-Three kinds. `event` and `rsvp` are required of a client that shows events; `rating` is optional. Member names follow JSCalendar (RFC 8984) wherever JSCalendar has one, so
+Four kinds. `event` and `rsvp` are required of a client that shows events; `availability` and
+`rating` are optional. Member names follow JSCalendar (RFC 8984) wherever JSCalendar has one, so
 an iCalendar import or export is a rename. Times are local: a `start` is a wall-clock time in the
 object's `timeZone`, and the indexer computes the instant. The crate admits the values; it never
 evaluates a recurrence or resolves a zone.
 
 ### A1. JSCalendar values
 
-Three value grammars, shared by `event` and `rsvp`, and public for a sub-spec whose kinds carry
-times (the events sub-spec's `availability`).
+Three value grammars, shared by `event`, `rsvp` and `availability`, and public for a sub-spec
+whose own kinds carry times.
 
 | value | grammar | refused |
 |---|---|---|
@@ -181,6 +183,47 @@ the indexer's counts see. What an app adds to a rating (the marketplace's purcha
 travels in the post's `ext` member, outside `content`, under the app's namespace,
 `ext.<namespace>`, preserved by every reader as an unknown member.
 
+### A5. `availability` (optional)
+
+When a person, or a resource of theirs, can be booked: a public, coarse schedule the client
+derives from its private calendar and its bookings. `parent`, `embed` and `attachments` are
+refused.
+
+```json
+{
+  "timeZone": "Europe/Zurich", "horizonDays": 60,
+  "for": "pubky://<owner>/pub/marketplace/v1/posts/0032SSN7Q4EVG",
+  "available": [{ "title": "Double room", "start": "2026-10-19T14:00:00", "duration": "P1D", "capacity": 12,
+                  "recurrenceRules": [{ "frequency": "daily" }] }],
+  "busy": [{ "start": "2026-10-24T14:00:00", "duration": "P2D" }]
+}
+```
+
+| member | rule |
+|---|---|
+| `timeZone` | an IANA zone name every block is read in; required |
+| `horizonDays` | an integer 1 to `availability_horizon_max_days` (366); required |
+| `for` | a reference on the universal tier, the resource the schedule belongs to (a room type, a listing, a staff member, a place); absent for the author |
+| `available[]`, `busy[]` | blocks, at most `availability_blocks_max_count` (100) each |
+
+A block is `{ title?, start, duration, capacity?, recurrenceRules?, excludedDates? }`: `start` a
+local date-time, `duration` a duration (required), `recurrenceRules` at most one rule as A1
+measured from the block's start, `excludedDates` at most 100 local date-times. `title` and
+`capacity` are allowed on an `available` block only, and refused on a `busy` one: `title` trimmed,
+1 to `availability_block_title_max_length` (100) code points; `capacity` the units free in the
+block (rooms of a type, seats), an integer 1 to `availability_capacity_max_units` (10000), absent
+for 1. The raw envelope is bounded at `availability_content_max_length` (100000) code points.
+
+One current availability per author per `for`, an absent `for` meaning the author: the client edits
+its post, the indexer keeps the newest version of each. A hotel writes one per room type, a
+business one per bookable resource or staff member. Slots are derived, never stored: `available`
+minus `busy` minus open reservations.
+
+The kind is the shared public view of a schedule and nothing more. Prices, minimum stays, slot
+lengths and booking rules are app data: an app that needs them extends the post with
+`ext.<namespace>`, or defines a richer kind of its own in its sub-spec, and keeps a social
+availability as the public view where it can.
+
 ## Part B: Places
 
 Two writer conventions. Nothing about location enters the envelope: a located post is a post
@@ -225,9 +268,8 @@ are what a 1.1 client writes there.
 ## Part C: What a reader does
 
 - A 1.0 reader meets a 1.1 post as a kind it does not know: it reads, it fails validation, it
-  skips. Nothing it stored reads differently. A 1.1 reader meets an `availability` or a `route`
-  under `social` the same way, as a kind social does not know: those kinds are the events and
-  maps sub-specs', under `/pub/events/v1/` and `/pub/maps/v1/`.
+  skips. Nothing it stored reads differently. A 1.1 reader meets a `route` under `social` the
+  same way, as a kind social does not know: it is the maps sub-spec's, under `/pub/maps/v1/`.
 - A 1.1 reader checks the envelope of each new kind as Parts A and B say, unknown members
   preserved, and writes a post back byte for byte.
 - **Bounds before content.** A 1.1 kind's raw content cap is checked on the string before the
@@ -268,6 +310,11 @@ are what a 1.1 client writes there.
 | `rsvp_guests_max_people` | 100 |
 | `rsvp_note_max_length` | 2000 |
 | `rsvp_content_max_length` | 5000 |
+| `availability_horizon_max_days` | 366 |
+| `availability_blocks_max_count` | 100 |
+| `availability_block_title_max_length` | 100 |
+| `availability_capacity_max_units` | 10000 |
+| `availability_content_max_length` | 100000 |
 | `rating_min_half_stars` | 1 |
 | `rating_max_half_stars` | 10 |
 | `rating_text_max_length` | 2000 |

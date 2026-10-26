@@ -15,12 +15,12 @@ pub mod content;
 pub mod lifecycle;
 
 pub use content::{
-    PubkySocialArticleContent, PubkySocialAttendancePolicy, PubkySocialCollectionContent,
-    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventAttendance,
-    PubkySocialEventContent, PubkySocialEventLink, PubkySocialEventLocation,
-    PubkySocialEventStatus, PubkySocialNthDay, PubkySocialRatingContent,
-    PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule, PubkySocialRsvpContent,
-    PubkySocialRsvpStatus, PubkySocialWeekday,
+    PubkySocialArticleContent, PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock,
+    PubkySocialAvailabilityContent, PubkySocialCollectionContent, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialEventAttendance, PubkySocialEventContent,
+    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
+    PubkySocialRatingContent, PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule,
+    PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
 };
 
 #[cfg(feature = "openapi")]
@@ -32,8 +32,8 @@ const POSTS_SEGMENT: &str = "posts/";
 /// Represents the type of pubky-app posted data
 /// Used primarily to best display the content in UI
 ///
-/// The 1.1 kinds, `event`, `rsvp` and `rating`, are the ones other apps must read: an event and
-/// its answers, and stars on any thing. Each carries a JSON envelope in `content`. An app's own
+/// The 1.1 kinds, `event`, `rsvp`, `availability` and `rating`, are the ones other apps must read:
+/// an event and its answers, when a person or a resource can be booked, and stars on any thing. Each carries a JSON envelope in `content`. An app's own
 /// kinds live in its sub-spec, on this envelope under its own namespace.
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
@@ -49,6 +49,7 @@ pub enum PubkySocialPostKind {
     Collection,
     Event,
     Rsvp,
+    Availability,
     Rating,
     Unknown(String),
 }
@@ -73,6 +74,7 @@ impl FromStr for PubkySocialPostKind {
             "collection" => Ok(PubkySocialPostKind::Collection),
             "event" => Ok(PubkySocialPostKind::Event),
             "rsvp" => Ok(PubkySocialPostKind::Rsvp),
+            "availability" => Ok(PubkySocialPostKind::Availability),
             "rating" => Ok(PubkySocialPostKind::Rating),
             _ => Err(format!("Validation Error: Invalid content kind: {}", s)),
         }
@@ -89,6 +91,7 @@ wire_names!(PubkySocialPostKind {
     Collection => "collection",
     Event => "event",
     Rsvp => "rsvp",
+    Availability => "availability",
     Rating => "rating",
 });
 
@@ -488,6 +491,9 @@ impl PubkySocialPostKind {
         match self {
             PubkySocialPostKind::Event => Some(("Event", l.event_content_max_length)),
             PubkySocialPostKind::Rsvp => Some(("Rsvp", l.rsvp_content_max_length)),
+            PubkySocialPostKind::Availability => {
+                Some(("Availability", l.availability_content_max_length))
+            }
             PubkySocialPostKind::Rating => Some(("Rating", l.rating_content_max_length)),
             _ => None,
         }
@@ -505,6 +511,9 @@ impl PostKind for PubkySocialPostKind {
             PubkySocialPostKind::Article => content::article::validate_article_post(post, ctx),
             PubkySocialPostKind::Event => content::events::event::validate_event_post(post),
             PubkySocialPostKind::Rsvp => content::events::rsvp::validate_rsvp_post(post),
+            PubkySocialPostKind::Availability => {
+                content::events::availability::validate_availability_post(post)
+            }
             PubkySocialPostKind::Rating => content::events::rating::validate_rating_post(post),
             // Note, Image, Video, Link, File: untyped content. The envelope refused Unknown
             // before dispatching, so the wildcard never sees it.
@@ -609,6 +618,13 @@ impl PostKind for PubkySocialPostKind {
                             PubkyOnly,
                             max,
                         ));
+                    }
+                }
+            }
+            PubkySocialPostKind::Availability => {
+                if let Some(schedule) = content::events::availability::parse_availability(post) {
+                    if let Some(resource) = schedule.r#for {
+                        refs.push(reference("for".to_string(), resource, Universal, max));
                     }
                 }
             }
@@ -796,6 +812,21 @@ impl PubkySocialPost {
             content,
             PubkySocialPostKind::Rsvp,
             Some(event),
+            None,
+            vec![],
+        )
+    }
+
+    /// Builds the availability envelope into `content` and wraps it in a `kind = Availability`
+    /// post. Trims each block's title, a blank one becoming absent. An availability replies to
+    /// nothing, quotes nothing and carries no media. Infallible; callers validate before writing.
+    pub fn new_availability(schedule: PubkySocialAvailabilityContent) -> Self {
+        let content = serde_json::to_string(&schedule.trimmed())
+            .expect("an envelope of strings and integers always serializes");
+        Self::new(
+            content,
+            PubkySocialPostKind::Availability,
+            None,
             None,
             vec![],
         )

@@ -8,8 +8,9 @@ pub use collection::{
     PubkySocialCollectionContent, PubkySocialCollectionItem, PubkySocialCollectionLayout,
 };
 pub use events::{
-    PubkySocialAttendancePolicy, PubkySocialEventAttendance, PubkySocialEventContent,
-    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
-    PubkySocialRatingContent, PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule,
-    PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
+    PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock, PubkySocialAvailabilityContent,
+    PubkySocialEventAttendance, PubkySocialEventContent, PubkySocialEventLink,
+    PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay, PubkySocialRatingContent,
+    PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule, PubkySocialRsvpContent,
+    PubkySocialRsvpStatus, PubkySocialWeekday,
 };

@@ -43,8 +43,8 @@ request alone and a recorded request replays to the same answer.
   answers, read by both sides. The twelve 1.0 files are as 1.0 recorded them: their families draw
   only the 1.0 kinds, so a re-recording reproduces them byte for byte, and their passing is the
   1.0 compatibility proof. The 1.1 kinds are recorded beside them: `post-1.1`, `plan-1.1` and
-  `loose-1.1` draw only `event`, `rsvp` and `rating` (and now and then an `availability` or a
-  `route`, kinds social does not know, which a social reader refuses), `places` the `geo:` and
+  `loose-1.1` draw only `event`, `rsvp`, `availability` and `rating` (and now and then a `route`
+  or a `listing`, kinds social does not know, which a social reader refuses), `places` the `geo:` and
   OpenStreetMap conventions. Two fixed lists (`fixed` in `pkg/qa/gen.mjs`) are recorded as they
   stand and never fuzzed: `edges-1.1` holds every 1.1 limit at its edge and one past it, and
   `bounds` the oversized and 1.0-order cases. The `-1.1` generators draw a full-size cap edge

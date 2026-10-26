@@ -1,10 +1,11 @@
 # Sub-specs
 
-A kind goes in the social specs only when other apps must read it: social 1.1 adds `event`, `rsvp`
-and `rating`, nothing else. An app's own kinds are its **sub-spec**: the same `PostEnvelope<K>`
-under the app's namespace, defined by the app's own crate in the app's own repository (as music's,
-`pubky-music-specs`, is), built from `pubky_social_specs::subspec`. The public namespaces are
-`music`, `maps`, `events` and `marketplace`. These are the rules every sub-spec follows.
+A kind goes in the social specs only when other apps must read it: social 1.1 adds `event`, `rsvp`,
+`availability` and `rating`, nothing else. An app's own kinds are its **sub-spec**: the same
+`PostEnvelope<K>` under the app's namespace, defined by the app's own crate in the app's own
+repository (as music's, `pubky-music-specs`, is), built from `pubky_social_specs::subspec`. The
+public namespaces are `music`, `maps`, `events` and `marketplace`. These are the rules every
+sub-spec follows.
 
 ## Paths and namespaces
 
@@ -40,10 +41,10 @@ under the app's namespace, defined by the app's own crate in the app's own repos
 | value | rule |
 | --- | --- |
 | an instant | `*_at`, integer microseconds since the epoch, as social's ids and `created_at` count |
-| a duration | an integer whose name ends in its unit: `_ms` for media, `_s` for travel and timers, `_days` for terms (`Days` in a JSCalendar-named kind, as `horizonDays`). An ISO 8601 duration only where JSCalendar names the member (`duration`) |
+| a duration | an integer whose name ends in its unit: `_ms` for media, `_s` for travel and timers, `_days` for terms (`Days` in a JSCalendar-named kind, as social's `horizonDays`). An ISO 8601 duration only where JSCalendar names the member (`duration`) |
 | a place | a URI in a reference position: a canonical OpenStreetMap object URL or a `geo:` pin, under social's place conventions (`places::check_place_reference`); any other reference passes |
 | money | `{ amount_minor, currency, exponent }`, an integer of the minor unit |
-| a member name | a standard's names where one exists, else snake_case. A kind whose members follow a standard spells its own members in that standard's style: an availability, in JSCalendar's names, writes `horizonDays` in JSCalendar's camelCase |
+| a member name | a standard's names where one exists, else snake_case. A kind whose members follow a standard spells its own members in that standard's style: social's availability, in JSCalendar's names, writes `horizonDays` in JSCalendar's camelCase |
 | a cover image | `attachments[0]` |
 | another spec's member on an object | the object's `ext` member (on a post, the post's, outside `content`), keyed by the writer's spec namespace: `ext.<ns>`, as `ext.marketplace` on a rating post |
 
@@ -61,6 +62,7 @@ sub-spec uses them and defines no kind that repeats one.
 | collections | the social `collection` kind | lists, calendars, playlists of URIs |
 | rating | the social `rating` kind, 1 to 10 half stars, `parent` the thing | reviews of a place, a track, a listing, an event |
 | event, rsvp | the social `event` and `rsvp` kinds | anything with a time people attend |
+| availability | the social `availability` kind, one per author per `for`, the units free in each block; more in `ext.<ns>` or an own richer kind | when a person, a room type, a resource or a staff member can be booked |
 | files and attachments | `/…/social/v1/files/`, a post's `attachments` | photos, media |
 | lock | a post's `lock` | gated content |
 

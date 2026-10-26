@@ -82,9 +82,9 @@ export declare function encodeObject(at: T.UrlArg<"file"> | {
     root?: T.Root | null;
 }, object: Uint8Array | ArrayBuffer): T.Bytes;
 /**
- * The envelope inside the `content` of an article, a collection, an event, an rsvp or a
- * rating; null for any other kind. `post` is a stored post, the `.object` of a result, or the
- * `kind` and `content` of one, which is all an indexer may have handed over.
+ * The envelope inside the `content` of an article, a collection, an event, an rsvp, an
+ * availability or a rating; null for any other kind. `post` is a stored post, the `.object` of a
+ * result, or the `kind` and `content` of one, which is all an indexer may have handed over.
  *
  * @throws `ValidationError` with `code: "json"` when the content of a typed kind is not its
  *  envelope, and `code: "format"` for content holding a lone surrogate;
@@ -124,8 +124,9 @@ export declare function tryDecodeContent(post: Pick<T.Post, "kind" | "content">)
 /**
  * The `content` string of a typed kind's envelope, for a post about to be edited. Without
  * `kind` the envelope is told apart by its members: an event has a `start`, an article a
- * `title`, a collection a `name`, an rsvp a `status` and a rating a `rating`. It only spells
- * the envelope: the rules run when the post is passed to `editPost` or `encodeObject`.
+ * `title`, a collection a `name`, an rsvp a `status`, a rating a `rating` and an availability a
+ * `horizonDays`. It only spells the envelope: the rules run when the post is passed to `editPost`
+ * or `encodeObject`.
  *
  * @throws `ArgumentError` for an envelope no kind has, or a member of the wrong type;
  *  `ValidationError` with `code: "unknown_name"` for a `kind` with no envelope.
@@ -160,9 +161,10 @@ export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.
 /**
  * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`, an
- * event its JSCalendar members, an rsvp and a rating their `parent` and answer, and any other
- * kind (`note` when absent, `image`, `video`, `link`, `file`) takes `content`. `parent`, `embed`,
- * `lock`, attachment, item and location URIs are references: stored as written.
+ * event its JSCalendar members, an rsvp and a rating their `parent` and answer, an availability
+ * its blocks, and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes
+ * `content`. `parent`, `embed`, `lock`, attachment, item, location and `for` URIs are references:
+ * stored as written.
  *
  * @throws `ValidationError` for a rule of the post (`field` the member: `content`,
  *  `attachments[0].uri`, `slug`, `title`) or a malformed `owner`; `ArgumentError` for a member of

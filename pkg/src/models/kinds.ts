@@ -6,7 +6,7 @@ import { fail } from "../errors.js";
 import { type Codec, string } from "../json/schema.js";
 
 /**
- * The post kinds this version knows: `note` (the default), `article`, `collection`, `event`, `rsvp` and `rating`, whose content is an envelope, and `image`, `video`, `link` and `file`, hints for how to show the text.
+ * The post kinds this version knows: `note` (the default), `article`, `collection`, `event`, `rsvp`, `availability` and `rating`, whose content is an envelope, and `image`, `video`, `link` and `file`, hints for how to show the text.
  *
  * @example
  * ```ts
@@ -14,7 +14,7 @@ import { type Codec, string } from "../json/schema.js";
  * console.log(postKinds.includes("article"));
  * ```
  */
-export const postKinds = Object.freeze(["note", "article", "image", "video", "link", "file", "collection", "event", "rsvp", "rating"] as const);
+export const postKinds = Object.freeze(["note", "article", "image", "video", "link", "file", "collection", "event", "rsvp", "availability", "rating"] as const);
 /**
  * Whether an event is on, JSCalendar's `status`: `confirmed` (the default), `tentative` or `cancelled`.
  *

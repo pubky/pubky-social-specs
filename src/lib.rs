@@ -63,12 +63,12 @@ pub use models::post::lifecycle::{
 };
 pub use models::post::{
     ContentReference, MintedVersion, PostEnvelope, PostKind, PubkySocialArticleContent,
-    PubkySocialAttachment, PubkySocialAttendancePolicy, PubkySocialCollectionContent,
-    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventAttendance,
-    PubkySocialEventContent, PubkySocialEventLink, PubkySocialEventLocation,
-    PubkySocialEventStatus, PubkySocialNthDay, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialRatingContent, PubkySocialRecurrenceFrequency, PubkySocialRecurrenceRule,
-    PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
+    PubkySocialAttachment, PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock,
+    PubkySocialAvailabilityContent, PubkySocialCollectionContent, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialEventAttendance, PubkySocialEventContent,
+    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRatingContent, PubkySocialRecurrenceFrequency,
+    PubkySocialRecurrenceRule, PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
 };
 // The JSCalendar value rules and the place conventions, under their own names
 pub use models::post::content::events::time as jscalendar;

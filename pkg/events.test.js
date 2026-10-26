@@ -44,7 +44,7 @@ describe("the event kinds", () => {
   after(() => setClock());
 
   it("are in the tables", () => {
-    for (const kind of ["event", "rsvp", "rating"]) assert.ok(postKinds.includes(kind));
+    for (const kind of ["event", "rsvp", "availability", "rating"]) assert.ok(postKinds.includes(kind));
     assert.deepStrictEqual([...eventStatuses], ["confirmed", "tentative", "cancelled"]);
     assert.deepStrictEqual([...attendancePolicies], ["open", "approval", "invite", "ticket"]);
     assert.deepStrictEqual([...rsvpStatuses], ["requested", "accepted", "declined", "tentative"]);
@@ -279,6 +279,92 @@ describe("the event kinds", () => {
     });
   });
 
+  describe("availability", () => {
+    const weekly = () => ({
+      kind: "availability",
+      timeZone: "Europe/Zurich",
+      horizonDays: 60,
+      for: `pubky://${OTTO}/pub/marketplace/v1/posts/0035QZPT4QG00`,
+      available: [{ title: "Office hours", start: "2026-10-19T09:00:00", duration: "PT8H", recurrenceRules: [{ frequency: "weekly", byDay: [{ day: "mo" }, { day: "tu" }] }] }],
+      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
+    });
+
+    it("builds a schedule and reads it back", () => {
+      const built = buildPost(OTTO, weekly());
+      assert.ok(built.object.content.startsWith('{"timeZone":"Europe/Zurich","horizonDays":60,"for":"pubky://'));
+      const { content } = decodeContent(built.object);
+      assert.strictEqual(content.available[0].title, "Office hours");
+      assert.deepStrictEqual(content.available[0].recurrenceRules[0].byDay, [
+        { day: "mo", nthOfPeriod: null },
+        { day: "tu", nthOfPeriod: null },
+      ]);
+      assert.deepStrictEqual(content.busy[0].recurrenceRules, []);
+      assert.deepStrictEqual(decodeObject(built.url, built.body, "post"), built.object);
+      assert.strictEqual(buildPost(OTTO, { kind: "availability", timeZone: "UTC", horizonDays: 1 }).object.content, '{"timeZone":"UTC","horizonDays":1,"available":[],"busy":[]}');
+    });
+
+    it("refuses what the reference refuses, in its words", () => {
+      refuses(() => buildPost(OTTO, { ...weekly(), horizonDays: 0 }), "Validation Error: Availability horizonDays must be 1 to 366 days");
+      refuses(() => buildPost(OTTO, { ...weekly(), busy: [{ title: "Dentist", start: "2026-10-21T14:00:00", duration: "PT1H" }] }), "Validation Error: busy[0] carries no title");
+      // the builder drops a blank title; a stored one is refused
+      assert.strictEqual(decodeContent(buildPost(OTTO, { ...weekly(), available: [{ title: " ", start: "2026-10-21T14:00:00", duration: "PT1H" }] }).object).content.available[0].title, null);
+      const url = `pubky://${OTTO}/pub/social/v1/posts/0035QZPT4QG00/0035QZPT4QG00.json`;
+      const stored = JSON.stringify({ timeZone: "UTC", horizonDays: 7, available: [{ title: " ", start: "2026-10-21T14:00:00", duration: "PT1H" }] });
+      refuses(
+        () => decodeObject(url, utf8(JSON.stringify({ content: stored, kind: "availability", parent: null, embed: null, attachments: [] })), "post"),
+        "Validation Error: available[0].title must be 1 to 100 code points and not blank",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), available: [{ start: "9am", duration: "PT1H" }] }),
+        "Validation Error: available[0].start must be a local date-time of the form YYYY-MM-DDTHH:MM:SS: 9am",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), busy: [{ start: "2026-10-21T14:00:00", duration: "1h" }] }),
+        "Validation Error: busy[0].duration must be an ISO 8601 duration of the form PnW or PnDTnHnMnS: 1h",
+      );
+      refuses(() => buildPost(OTTO, { ...weekly(), for: " https://x.y" }), /for must be a canonical URI/);
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), available: Array.from({ length: 101 }, () => ({ start: "2026-10-21T14:00:00", duration: "PT1H" })) }),
+        "Validation Error: Availability cannot have more than 100 available blocks",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), busy: Array.from({ length: 101 }, () => ({ start: "2026-10-21T14:00:00", duration: "PT1H" })) }),
+        "Validation Error: Availability cannot have more than 100 busy blocks",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-21T14:00:00", duration: "PT1H", recurrenceRules: [{ frequency: "daily" }, { frequency: "weekly" }] }] }),
+        "Validation Error: available[0] cannot have more than 1 recurrence rules",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-21T14:00:00", duration: "PT1H", excludedDates: Array.from({ length: 101 }, () => "2026-12-25T09:00:00") }] }),
+        "Validation Error: available[0] cannot have more than 100 excluded dates",
+      );
+      refuses(
+        () => buildPost(OTTO, { ...weekly(), busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H", excludedDates: ["2026-12-25"] }] }),
+        "Validation Error: busy[0].excludedDates[0] must be a local date-time of the form YYYY-MM-DDTHH:MM:SS: 2026-12-25",
+      );
+      refuses(() => buildPost(OTTO, { ...weekly(), horizonDays: 367 }), /horizonDays must be 1 to 366 days/);
+      refuses(() => buildPost(OTTO, { ...weekly(), timeZone: "Zurich time" }), "Validation Error: timeZone must be an IANA time zone name of at most 64 code points: Zurich time");
+    });
+
+    it("counts the units free in an available block, and none in a busy one", () => {
+      const rooms = buildPost(OTTO, { ...weekly(), available: [{ title: "Double room", start: "2026-10-19T14:00:00", duration: "P1D", capacity: 12 }] });
+      assert.strictEqual(decodeContent(rooms.object).content.available[0].capacity, 12);
+      assert.ok(rooms.object.content.includes('"duration":"P1D","capacity":12'));
+      assert.strictEqual(decodeContent(buildPost(OTTO, weekly()).object).content.available[0].capacity, null);
+      assert.strictEqual(limits.availabilityCapacityMaxUnits, 10000);
+      buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-19T14:00:00", duration: "P1D", capacity: limits.availabilityCapacityMaxUnits }] });
+      for (const bad of [0, -1, limits.availabilityCapacityMaxUnits + 1])
+        refuses(
+          () => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-19T14:00:00", duration: "P1D", capacity: bad }] }),
+          "Validation Error: available[0].capacity must be 1 to 10000 units",
+        );
+      refuses(() => buildPost(OTTO, { ...weekly(), busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H", capacity: 2 }] }), "Validation Error: busy[0] carries no capacity");
+      misuse(() => buildPost(OTTO, { ...weekly(), available: [{ start: "2026-10-19T14:00:00", duration: "P1D", capacity: "12" }] }), /capacity must be/);
+      misuse(() => buildPost(OTTO, { ...weekly(), attachments: [] }), /input\.attachments must be one of/);
+    });
+  });
+
   describe("rating", () => {
     it("puts stars on a thing, the text trimmed, photos on the attachments", () => {
       const built = buildPost(OTTO, { kind: "rating", parent: HUB, rating: 7, text: "  great coffee  " });
@@ -328,6 +414,7 @@ describe("the event kinds", () => {
     assert.strictEqual(encodeContent(event, "event"), encodeContent(event));
     assert.strictEqual(encodeContent({ status: "accepted", recurrenceId: null, guests: 0, note: null }), '{"status":"accepted","guests":0}');
     assert.strictEqual(encodeContent({ rating: 3, text: null }), '{"rating":3}');
+    assert.strictEqual(encodeContent({ timeZone: "UTC", horizonDays: 7, for: null, available: [], busy: [] }), '{"timeZone":"UTC","horizonDays":7,"available":[],"busy":[]}');
     misuse(() => encodeContent({ nothing: 1 }), /content must be an envelope/);
     refuses(() => encodeContent(event, "note"), /unknown variant `note`/);
     // an article still goes by its title, and an event's title does not make it one
@@ -379,6 +466,7 @@ describe("bounds before references", () => {
     for (const [kind, name, cap] of [
       ["rsvp", "Rsvp", limits.rsvpContentMaxLength],
       ["rating", "Rating", limits.ratingContentMaxLength],
+      ["availability", "Availability", limits.availabilityContentMaxLength],
     ]) {
       const post = { content: "[".repeat(cap + 1), kind, parent: `pubky://${OTTO}/pub/social/v1/posts/${id}`, embed: null, attachments: [], lock: null };
       refuses(() => encodeObject({ kind: "post", root: "private" }, post), `Validation Error: ${name} content must be at most ${cap} code points`);

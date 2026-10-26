@@ -519,12 +519,41 @@ const rsvpEnvelope = (r) => {
   if (r.chance(0.5)) e.note = r.pick(["bringing cake", " padded ", " ", "", "n".repeat(r.pick([2000, 2001])), null]);
   return e;
 };
+const blockOf = (r, available) => {
+  const b = { start: LOCAL(r), duration: DURATION(r) };
+  if (available && r.chance(0.5)) b.title = r.pick(["Office hours", " ", "t".repeat(r.pick([100, 101])), null]);
+  if (!available && r.chance(0.1)) b.title = "Dentist";
+  if (available && r.chance(0.4)) b.capacity = r.pick([1, 12, 10000, 10001, 0, -1, null]);
+  if (!available && r.chance(0.05)) b.capacity = 2;
+  if (r.chance(0.3)) b.recurrenceRules = r.many(r.pick([1, 1, 2]), () => rule(r));
+  if (r.chance(0.2))
+    b.excludedDates = r.many(
+      rarely(r, () => 101, 2),
+      () => LOCAL(r),
+    );
+  return b;
+};
+const availabilityEnvelope = (r) => {
+  const e = { timeZone: ZONE(r), horizonDays: r.pick([60, 1, 366, 367, 0, -1]) };
+  if (r.chance(0.4)) e.for = r.pick([ref(r), `pubky://${OWNER}/pub/shop/v1/listings/${timestampIdOf(NOW - 5e9)}`, null]);
+  if (r.chance(0.7))
+    e.available = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, true),
+    );
+  if (r.chance(0.6))
+    e.busy = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, false),
+    );
+  return e;
+};
 const ratingEnvelope = (r) => {
   const e = { rating: r.pick([7, 1, 10, 0, 11, -1]) };
   if (r.chance(0.6)) e.text = r.pick(["great coffee", " padded ", " ", "", "t".repeat(r.pick([2000, 2001])), null]);
   return e;
 };
-const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, rating: ratingEnvelope };
+const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, availability: availabilityEnvelope, rating: ratingEnvelope };
 
 const envelopeText = (r, envelope) =>
   r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
@@ -635,9 +664,9 @@ function stored11(r, object) {
 // A 1.1 envelope as stored, or content that is no envelope; the 40,001-character content of
 // `envelopeText` is the collection's raw cap, a 1.0 edge
 const envelopeText11 = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored11(r, envelope), () => r.pick(["", "{", "[]", "null", "not json"])])();
-const V11_KINDS = ["event", "rsvp", "rating"];
+const V11_KINDS = ["event", "rsvp", "availability", "rating"];
 // Kinds social does not know, under social: a social reader refuses them as unknown
-const FOREIGN_KINDS = ["availability", "route"];
+const FOREIGN_KINDS = ["route", "listing"];
 const isReply = (kind) => kind === "rsvp" || kind === "rating";
 
 /** A 1.1 post every rule accepts, then at most one late rule broken. */
@@ -656,12 +685,18 @@ function cleanPost11(r) {
       recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
     }),
     rsvp: () => ({ status: "accepted", guests: 1 }),
+    availability: () => ({
+      timeZone: "UTC",
+      horizonDays: 30,
+      available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office", capacity: 3 }],
+      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
+    }),
     rating: () => ({ rating: 7, text: "great" }),
   };
   const envelope = clean[kind]();
   const p = { content: "hello", kind, parent: isReply(kind) ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
-  // an rsvp carries no media
-  const mediaFree = kind === "rsvp";
+  // an rsvp and an availability carry no media
+  const mediaFree = kind === "rsvp" || kind === "availability";
   if (!mediaFree && r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
   const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
   const breaks = {
@@ -677,6 +712,12 @@ function cleanPost11(r) {
       () => (envelope.excludedDates = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => "2026-11-10T18:30:00")),
     ],
     rsvp: [() => (envelope.guests = r.pick([100, 101])), () => (envelope.note = "n".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
+    availability: [
+      () => (envelope.horizonDays = r.pick([366, 367])),
+      () => (envelope.available = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
+      () => (envelope.available[0].capacity = r.pick([10000, 10001])),
+      () => (envelope.busy[0].title = "Dentist"),
+    ],
     rating: [() => (envelope.rating = r.pick([10, 11])), () => (envelope.text = "t".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
   }[kind];
   const any = [
@@ -692,7 +733,7 @@ function cleanPost11(r) {
 /** A 1.1 post as stored: references of every tier, sometimes what a newer writer adds. */
 function storedPost11(r) {
   if (r.chance(0.35)) return cleanPost11(r);
-  const kind = r.pick(["event", "event", "rsvp", "rating"]);
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating"]);
   const p = { content: envelopeText11(r, TYPED[kind](r)), kind, parent: null, embed: null };
   // now and then a kind social does not know
   if (r.chance(0.03)) p.kind = r.pick(FOREIGN_KINDS);
@@ -706,7 +747,7 @@ function storedPost11(r) {
 
 /** A builder input of a 1.1 kind: its envelope's members and the post's. */
 function postInput11(r) {
-  const kind = r.pick(["event", "event", "rsvp", "rating"]);
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating"]);
   const o = { kind, ...TYPED[kind](r) };
   for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
   // A reply kind's parent is a required member: absent, the shape is refused before any rule
@@ -742,7 +783,7 @@ function draft(r) {
 function draft11(r) {
   const p = r.chance(0.5) ? cleanPost11(r) : storedPost11(r);
   const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r), `pubky://${OWNER}/priv/social/v1/posts/${postId(r)}`]);
-  if (p.kind !== "rsvp" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
+  if (p.kind !== "rsvp" && p.kind !== "availability" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   return p;
 }
 
@@ -818,6 +859,7 @@ export const fixed = {
     const reply = { parent: "https://example.com/thing" };
     const event = (more) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", ...more });
     const rsvp = (more) => ({ status: "accepted", ...more });
+    const availability = (more) => ({ timeZone: "UTC", horizonDays: 30, ...more });
     const rating = (more) => ({ rating: 7, ...more });
     // An envelope padded by an unknown member to exactly `size` code points of content
     const padded = (envelope, size) => {
@@ -825,6 +867,7 @@ export const fixed = {
       return { ...envelope, pad: "x".repeat(size - bare) };
     };
     const n = (count, make) => Array.from({ length: count }, make);
+    const block = () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" });
     // [at the edge, past it], each a request
     const pairs = [
       // event
@@ -882,6 +925,19 @@ export const fixed = {
       [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), reply), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), reply)],
       [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), reply), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), reply)],
       [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), reply), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), reply)],
+      // availability
+      [encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays })), encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays + 1 }))],
+      [encode("availability", availability({ available: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ available: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength) }] })),
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength + 1) }] })),
+      ],
+      [
+        encode("availability", availability({ available: [{ ...block(), capacity: L.availabilityCapacityMaxUnits }] })),
+        encode("availability", availability({ available: [{ ...block(), capacity: L.availabilityCapacityMaxUnits + 1 }] })),
+      ],
+      [encode("availability", padded(availability({ timeZone: "no zone" }), L.availabilityContentMaxLength)), encode("availability", padded(availability({}), L.availabilityContentMaxLength + 1))],
       // rating
       [encode("rating", rating({ rating: L.ratingMinHalfStars }), reply), encode("rating", rating({ rating: L.ratingMinHalfStars - 1 }), reply)],
       [encode("rating", rating({ rating: L.ratingMaxHalfStars }), reply), encode("rating", rating({ rating: L.ratingMaxHalfStars + 1 }), reply)],

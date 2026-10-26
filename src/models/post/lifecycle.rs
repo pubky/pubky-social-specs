@@ -107,9 +107,9 @@ fn media_refs(post: &PubkySocialPost) -> Vec<String> {
 }
 
 /// Non-media reference positions: parent, embed, lock, and every envelope position but the
-/// cover (collection items, an event's locations, links and master). An item is a reference to a
-/// thing, never a media position, so a private file curated as an item is a private reference and
-/// publish refuses it: publish the file, or the post carrying it, first.
+/// cover (collection items, an event's locations, links and master, an availability's `for`). An
+/// item is a reference to a thing, never a media position, so a private file curated as an item is
+/// a private reference and publish refuses it: publish the file, or the post carrying it, first.
 fn other_refs(post: &PubkySocialPost) -> Vec<String> {
     let mut refs: Vec<String> = [&post.parent, &post.embed, &post.lock]
         .into_iter()
@@ -976,6 +976,11 @@ mod tests {
                 PubkySocialPostKind::Rating,
                 "Rating",
                 VALIDATION_LIMITS.rating_content_max_length,
+            ),
+            (
+                PubkySocialPostKind::Availability,
+                "Availability",
+                VALIDATION_LIMITS.availability_content_max_length,
             ),
         ] {
             let post = PubkySocialPost::new(

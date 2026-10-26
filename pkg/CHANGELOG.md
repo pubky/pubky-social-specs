@@ -24,35 +24,37 @@ again.
 ## Unreleased
 
 The next release is 1.1.0-alpha.1: the kinds of the 1.1 specs other apps must read, `event`,
-`rsvp` and `rating`, and the place conventions, on the 1.0 data model, which it reads and writes
-as before.
+`rsvp`, `availability` and `rating`, and the place conventions, on the 1.0 data model, which it
+reads and writes as before.
 
 ### API
 
 - New: the 1.1 post kinds. `buildPost` takes an `event` (JSCalendar members: `title`, `start`,
   `timeZone`, `duration`, `showWithoutTime`, `status`, `locations`, `attendance`, `links`,
   `recurrenceRules`, `excludedDates`, `recurrenceOf`, `recurrenceId`), an `rsvp` and a `rating`
-  (replies to their `parent`), each told apart by `kind`; an event's `links` are `{ title, url }`
-  as a profile's are. `decodeContent` and
+  (replies to their `parent`) and an `availability` (`timeZone`, `horizonDays`, `for`,
+  `available` and `busy` blocks, an available block's `capacity` the units free in it), each told
+  apart by `kind`; an event's `links` are `{ title, url }` as a profile's are. `decodeContent` and
   `encodeContent` read and spell their envelopes, `encodeContent` taking the kind as a second
-  argument when the members alone do not tell. `postKinds` grows by the three; `eventStatuses`,
+  argument when the members alone do not tell. `postKinds` grows by the four; `eventStatuses`,
   `attendancePolicies`, `rsvpStatuses`, `recurrenceFrequencies` and `weekdays` are the new
   closed sets, with `Known*` types and `OrNewer` forms. The types `EventContent`,
   `EventLocation`, `EventAttendance`, `EventLink`, `RecurrenceRule`, `NthDay`, `RsvpContent`,
-  `RatingContent`, `DecodedContent`, `Envelope`, `EnvelopeKind` and the `New*` inputs of each
-  kind.
+  `AvailabilityContent`, `AvailabilityBlock`, `RatingContent`, `DecodedContent`, `Envelope`,
+  `EnvelopeKind` and the `New*` inputs of each kind.
 - An app's own kinds are its sub-spec's, in the app's own repository, on the same envelope under
   its own namespace, following the conventions in `docs/SUBSPECS.md`.
 - New: the place conventions. `geoUri(lat, lon, digits?)` spells a point one way, `isGeoUri`
   reads the spelling back, `osmUrl(object, id)` and `parseOsmUrl(url)` spell and read the
   canonical OpenStreetMap object URL.
 - New: `ErrorCode` `range`, a number outside its bounds, with `limit` the bound in the member's
-  unit. 25 limits join `limits`, each named by its unit (`eventDurationMaxSeconds`,
-  `eventCapacityMaxPeople`, `ratingMaxHalfStars`, `geoFractionMaxDigits`, ...).
+  unit. 30 limits join `limits`, each named by its unit (`eventDurationMaxSeconds`,
+  `eventCapacityMaxPeople`, `availabilityCapacityMaxUnits`, `ratingMaxHalfStars`,
+  `geoFractionMaxDigits`, ...).
 - `validatePost` collects the issues of the new kinds like the others, and with an owner runs
   the rule that an event override's `recurrenceOf` is the same author's post.
-- The size budgets of the entries that carry the post rules grew by 1 to 5 KB gzipped, the cost
-  of the three kinds; `import { buildUri }` by about 100 bytes, the cost of the longer limits
+- The size budgets of the entries that carry the post rules grew by 5 to 7 KB gzipped, the cost
+  of the four kinds; `import { buildUri }` by about 250 bytes, the cost of the longer limits
   table every bundle that reads a limit carries. `pubky-social-migrator`'s wasm grows too, since
   the crate it is compiled from reads every migrated post through the 1.1 reader.
 
@@ -60,8 +62,8 @@ as before.
 
 These follow the crate, which changes with them:
 
-- The three 1.1 kinds, as `docs/SPEC_V1.1.md` of the crate specifies them: a post of kind
-  `event`, `rsvp` or `rating` is read by its envelope's rules and
+- The four 1.1 kinds, as `docs/SPEC_V1.1.md` of the crate specifies them: a post of kind
+  `event`, `rsvp`, `availability` or `rating` is read by its envelope's rules and
   written back byte for byte, unknown members kept; a 1.0 reader skips it as a kind it does not
   know. Every integer inside is an `i64` within the JSON-safe range; a closed-set member with a
   spelling this version does not know (an event's `status`, a rule's `frequency`) is refused, not

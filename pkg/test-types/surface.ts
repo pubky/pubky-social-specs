@@ -84,6 +84,9 @@ buildPost(owner, {
 });
 buildPost(owner, { kind: "event", title: "t", start: "2026-10-14T00:00:00", timeZone: "UTC", showWithoutTime: true, recurrenceRules: [{ frequency: "weekly", byDay: [{ day: "mo" }], count: 10 }] });
 buildPost(owner, { kind: "rsvp", parent: "x", status: "accepted", guests: 1 });
+buildPost(owner, { kind: "availability", timeZone: "UTC", horizonDays: 30, available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office", capacity: 3 }] });
+// @ts-expect-error an availability replies to nothing
+buildPost(owner, { kind: "availability", timeZone: "UTC", horizonDays: 30, parent: "x" });
 buildPost(owner, { kind: "rating", parent: "x", rating: 9, text: "great" });
 buildPost(owner, { kind: "event", title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", links: [{ title: "Site", url: "https://x.y" }] });
 // @ts-expect-error an event link is { title, url }, as a profile's links are
@@ -122,6 +125,7 @@ if (decoded.kind === "post") {
     envelope.content.attendance.capacity satisfies number | null;
     envelope.content.recurrenceRules[0]?.byMonthDay satisfies number[] | undefined;
   }
+  if (envelope?.kind === "availability") envelope.content.available[0]?.capacity satisfies number | null | undefined;
   if (envelope?.kind === "rating") envelope.content.rating satisfies number;
   encodeObject(again.url, post) satisfies Bytes;
   planPublish(owner, { id: again.id, editId: again.editId, post }).put.body satisfies Bytes;

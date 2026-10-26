@@ -3,8 +3,8 @@
 //! These constants are the single source of truth for client-side validation.
 //! Every `*_max_length` counts Unicode code points. Byte-denominated caps are the two object
 //! size caps, the media size cap and `bookmark_target_uri_max_bytes`. The 1.1 kinds add caps
-//! in other units, each named by its suffix: `_seconds`, `_years`, `_people`, `_occurrences`,
-//! `_periods`, `_digits` and `_half_stars`. A sub-spec's own caps are its crate's.
+//! in other units, each named by its suffix: `_seconds`, `_days`, `_years`, `_people`, `_units`,
+//! `_occurrences`, `_periods`, `_digits` and `_half_stars`. A sub-spec's own caps are its crate's.
 //!
 //! # Examples
 //! Serialize the bundled limits for client consumption.
@@ -116,8 +116,7 @@ pub struct ValidationLimits {
     pub event_content_max_length: usize,
     /// Maximum length of an IANA time zone name in code points (`timeZone`).
     pub event_time_zone_max_length: usize,
-    /// Maximum `duration` of an event, in seconds: one leap year. A sub-spec's JSCalendar
-    /// durations (the events sub-spec's availability blocks) take it too.
+    /// Maximum `duration` of an event or an availability block, in seconds: one leap year.
     pub event_duration_max_seconds: u64,
     /// Maximum number of `locations` on an event.
     pub event_locations_max_count: usize,
@@ -142,7 +141,7 @@ pub struct ValidationLimits {
     pub event_recurrence_interval_max_periods: u64,
     /// Maximum number of entries in each `by*` list of a recurrence rule.
     pub event_recurrence_by_max_count: usize,
-    /// Maximum number of `excludedDates` on an event.
+    /// Maximum number of `excludedDates` on an event or an availability block.
     pub event_excluded_dates_max_count: usize,
     /// Maximum `guests` on an rsvp, in people.
     pub rsvp_guests_max_people: u64,
@@ -150,6 +149,16 @@ pub struct ValidationLimits {
     pub rsvp_note_max_length: usize,
     /// Maximum length of the raw rsvp envelope string, checked before it is parsed.
     pub rsvp_content_max_length: usize,
+    /// Maximum `horizonDays` of an availability, in days: one leap year.
+    pub availability_horizon_max_days: u64,
+    /// Maximum number of blocks in each of `available` and `busy`.
+    pub availability_blocks_max_count: usize,
+    /// Maximum length of an available block's `title` in code points.
+    pub availability_block_title_max_length: usize,
+    /// Maximum `capacity` of an available block, in units free in it (rooms of a type, seats).
+    pub availability_capacity_max_units: u64,
+    /// Maximum length of the raw availability envelope string, checked before it is parsed.
+    pub availability_content_max_length: usize,
     /// Minimum `rating`, in half stars: one half star.
     pub rating_min_half_stars: u64,
     /// Maximum `rating`, in half stars: five stars.
@@ -220,6 +229,11 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     rsvp_guests_max_people: 100,
     rsvp_note_max_length: 2000,
     rsvp_content_max_length: 5_000,
+    availability_horizon_max_days: 366,
+    availability_blocks_max_count: 100,
+    availability_block_title_max_length: 100,
+    availability_capacity_max_units: 10_000,
+    availability_content_max_length: 100_000,
     rating_min_half_stars: 1,
     rating_max_half_stars: 10,
     rating_text_max_length: 2000,

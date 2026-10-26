@@ -20,12 +20,12 @@ use crate::models::legacy_v0::{APP_PATH, PUBLIC_PATH};
 use crate::traits::{hash_id_from, HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx};
 use crate::{
     list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
-    PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialEventContent, PubkySocialFeed, PubkySocialFeedConfig,
-    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile,
-    PubkySocialFollow, PubkySocialMute, PubkySocialObject, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialRsvpStatus, PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource,
-    StableId, Visibility, PUB_CTX,
+    PubkyId, PubkySocialAttachment, PubkySocialAvailabilityContent, PubkySocialBookmark,
+    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventContent,
+    PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
+    PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute, PubkySocialObject,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRsvpStatus, PubkySocialTag, PubkySocialUser,
+    PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -411,6 +411,56 @@ struct RsvpInput {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BlockInput {
+    #[serde(default)]
+    title: Option<String>,
+    start: String,
+    duration: String,
+    #[serde(default)]
+    capacity: Option<i64>,
+    #[serde(default)]
+    recurrence_rules: Option<Vec<RuleInput>>,
+    #[serde(default)]
+    excluded_dates: Option<Vec<String>>,
+}
+
+fn blocks_of(input: Option<Vec<BlockInput>>) -> Vec<crate::PubkySocialAvailabilityBlock> {
+    input
+        .unwrap_or_default()
+        .into_iter()
+        .map(|b| crate::PubkySocialAvailabilityBlock {
+            title: b.title,
+            start: b.start,
+            duration: b.duration,
+            capacity: b.capacity,
+            recurrence_rules: rules_of(b.recurrence_rules),
+            excluded_dates: b.excluded_dates.unwrap_or_default(),
+            extra: Default::default(),
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct AvailabilityInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    time_zone: String,
+    horizon_days: i64,
+    #[serde(default)]
+    r#for: Option<String>,
+    #[serde(default)]
+    available: Option<Vec<BlockInput>>,
+    #[serde(default)]
+    busy: Option<Vec<BlockInput>>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RatingInput {
     #[serde(rename = "kind")]
@@ -684,6 +734,19 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
                 i.guests.unwrap_or(0),
                 i.note,
             );
+            (post, i.root, i.slug)
+        }
+        Some("availability") => {
+            let i: AvailabilityInput = parse(input)?;
+            let schedule = PubkySocialAvailabilityContent {
+                time_zone: i.time_zone,
+                horizon_days: i.horizon_days,
+                r#for: i.r#for,
+                available: blocks_of(i.available),
+                busy: blocks_of(i.busy),
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_availability(schedule);
             (post, i.root, i.slug)
         }
         Some("rating") => {

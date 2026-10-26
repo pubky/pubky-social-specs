@@ -23,6 +23,16 @@ export const limits = /* @__PURE__ */ Object.freeze({
   attachmentAltMaxLength: 1000,
   /** The longest `name` of an attachment, in code points: 255. */
   attachmentNameMaxLength: 255,
+  /** The longest `title` of an available block, in code points: 100. */
+  availabilityBlockTitleMaxLength: 100,
+  /** The most blocks in each of an availability's `available` and `busy`, in items: 100. */
+  availabilityBlocksMaxCount: 100,
+  /** The largest `capacity` of an available block, the units free in it, in units: 10000. */
+  availabilityCapacityMaxUnits: 10000,
+  /** The longest `content` of an availability post, the whole envelope as text, in code points: 100000. */
+  availabilityContentMaxLength: 100000,
+  /** The furthest ahead an availability's `horizonDays` reaches, one leap year, in days: 366. */
+  availabilityHorizonMaxDays: 366,
   /** The longest target a primary bookmark spells in its filename; a longer one takes the overflow form, `~{hash}`, in bytes: 187. */
   bookmarkTargetUriMaxBytes: 187,
   /** The longest `content` of a collection post, the whole envelope as text, in code points: 40000. */
@@ -43,9 +53,9 @@ export const limits = /* @__PURE__ */ Object.freeze({
   eventContentMaxLength: 150000,
   /** The longest event description, in code points: 50000. */
   eventDescriptionMaxLength: 50000,
-  /** The longest `duration` of an event, one leap year, in seconds: 31622400. */
+  /** The longest `duration` of an event or an availability block, one leap year, in seconds: 31622400. */
   eventDurationMaxSeconds: 31622400,
-  /** The most `excludedDates` on an event, in items: 100. */
+  /** The most `excludedDates` on an event or an availability block, in items: 100. */
   eventExcludedDatesMaxCount: 100,
   /** The longest `title` of an event link, in code points: 100. */
   eventLinkTitleMaxLength: 100,
@@ -65,9 +75,9 @@ export const limits = /* @__PURE__ */ Object.freeze({
   eventRecurrenceMaxOccurrences: 1000,
   /** The furthest a recurrence rule's `until` may lie after the start, where the occurrence generator stops too, in years: 3. */
   eventRecurrenceMaxSpanYears: 3,
-  /** The most `recurrenceRules` on an event, in items: 1. */
+  /** The most `recurrenceRules` on an event or an availability block, in items: 1. */
   eventRecurrenceRulesMaxCount: 1,
-  /** The longest IANA time zone name, an event's `timeZone`, in code points: 64. */
+  /** The longest IANA time zone name, an event's or an availability's `timeZone`, in code points: 64. */
   eventTimeZoneMaxLength: 64,
   /** The longest event title, in code points: 100. */
   eventTitleMaxLength: 100,

@@ -142,7 +142,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(limits.postNoteContentMaxLength, 2000);
       assert.strictEqual(limits.maxFileSizeBytes, 100 * 1024 * 1024);
       assert.ok(validMimeTypes.includes("image/png"));
-      assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection", "event", "rsvp", "rating"]);
+      assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection", "event", "rsvp", "availability", "rating"]);
       assert.ok(Object.isFrozen(limits) && Object.isFrozen(limits.tagInvalidChars) && Object.isFrozen(postKinds) && Object.isFrozen(validMimeTypes));
       assert.deepStrictEqual([feedReaches.length, feedLayouts.length, feedSorts.length, collectionLayouts.length], [6, 5, 2, 3]);
     });

@@ -154,13 +154,13 @@ fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
         "collection",
         "event",
         "rsvp",
+        "availability",
         "rating",
     ]);
     // Kinds social does not know read as unknown, whatever app writes them
-    for subspec_kind in ["availability", "route"] {
-        let kind: PubkySocialPostKind =
-            serde_json::from_str(&format!("\"{subspec_kind}\"")).unwrap();
-        assert_eq!(kind, PubkySocialPostKind::Unknown(subspec_kind.into()));
+    for foreign in ["route", "listing"] {
+        let kind: PubkySocialPostKind = serde_json::from_str(&format!("\"{foreign}\"")).unwrap();
+        assert_eq!(kind, PubkySocialPostKind::Unknown(foreign.into()));
     }
     round_trips::<PubkySocialCollectionLayout>(&["grid", "list", "visual"]);
     round_trips::<PubkySocialEventStatus>(&["confirmed", "tentative", "cancelled"]);

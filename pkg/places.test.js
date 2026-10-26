@@ -62,7 +62,7 @@ describe("a kind social does not know", () => {
   after(() => setClock());
 
   it("is no social kind: a builder refuses it and a reader refuses a stored one", () => {
-    for (const kind of ["availability", "route"]) {
+    for (const kind of ["route", "listing"]) {
       assert.ok(!postKinds.includes(kind), kind);
       refuses(() => buildPost(OTTO, { kind, content: "x" }), `Validation Error: Invalid content kind: ${kind}`);
       const stored = utf8(JSON.stringify({ content: "{}", kind, parent: null, embed: null, attachments: [] }));

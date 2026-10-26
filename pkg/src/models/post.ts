@@ -119,6 +119,7 @@ const ENVELOPES = {
   collection: { codec: collection, prefix: "Collection content must be a valid JSON envelope: " },
   event: { codec: events.event, prefix: "Event content must be a valid JSON envelope: " },
   rsvp: { codec: events.rsvp, prefix: "Rsvp content must be a valid JSON envelope: " },
+  availability: { codec: events.availability, prefix: "Availability content must be a valid JSON envelope: " },
   rating: { codec: events.rating, prefix: "Rating content must be a valid JSON envelope: " },
 } as const;
 
@@ -129,6 +130,7 @@ export type Envelopes = {
   collection: CollectionContent;
   event: events.EventContent;
   rsvp: events.RsvpContent;
+  availability: events.AvailabilityContent;
   rating: events.RatingContent;
 };
 const isEnvelopeKind = (kind: string): kind is EnvelopeKind => Object.hasOwn(ENVELOPES, kind);
@@ -142,6 +144,7 @@ export { isEnvelopeKind };
 const CONTENT_CAPS = {
   event: ["Event", limits.eventContentMaxLength],
   rsvp: ["Rsvp", limits.rsvpContentMaxLength],
+  availability: ["Availability", limits.availabilityContentMaxLength],
   rating: ["Rating", limits.ratingContentMaxLength],
 } as const;
 
@@ -231,8 +234,8 @@ export function envelopeRefs(value: Post): { cover: string | null; items: string
 
 /**
  * Every reference position inside the envelope, in the reference's order, as the gate takes
- * them: an article's or a collection's cover and items, an event's locations, links and master.
- * Content that does not parse references nothing.
+ * them: an article's or a collection's cover and items, an event's locations, links and master,
+ * an availability's `for`. Content that does not parse references nothing.
  */
 export function contentRefs(value: Post): events.ContentRef[] {
   const typed = typedEnvelope(value);
@@ -242,7 +245,7 @@ export function contentRefs(value: Post): events.ContentRef[] {
   items.forEach((uri, index) => refs.push({ field: `items[${index}].uri`, uri, schemes: "", max: limits.referenceUriMaxLength }));
   if (typed === null) return refs;
   // One at a time, never spread into an argument list: a list is as long as the caller made it
-  const inner = typed.kind === "event" ? events.eventRefs(typed.parsed) : [];
+  const inner = typed.kind === "event" ? events.eventRefs(typed.parsed) : typed.kind === "availability" ? events.availabilityRefs(typed.parsed) : [];
   for (const ref of inner) refs.push(ref);
   return refs;
 }
@@ -370,7 +373,7 @@ export function checkBounds(value: Post): void {
 
 // The envelope rules of the 1.1 kinds: what the envelope may combine with, its cap, then its
 // members once it parsed, in the reference's order
-function checkTyped(post: Post, kind: "event" | "rsvp" | "rating", each: Each): void {
+function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "rating", each: Each): void {
   const [name, cap] = CONTENT_CAPS[kind];
   each(() => {
     switch (kind) {
@@ -380,6 +383,10 @@ function checkTyped(post: Post, kind: "event" | "rsvp" | "rating", each: Each): 
       case "rsvp":
         if (post.parent === null) fail("conflict", "Rsvp posts must have a parent, the event they answer", "parent");
         if (post.embed !== null || post.attachments.length > 0) fail("conflict", "Rsvp posts cannot have embed or attachments", post.embed !== null ? "embed" : "attachments");
+        break;
+      case "availability":
+        if (post.parent !== null || post.embed !== null || post.attachments.length > 0)
+          fail("conflict", "Availability posts cannot have parent, embed or attachments", post.parent !== null ? "parent" : post.embed !== null ? "embed" : "attachments");
         break;
       case "rating":
         if (post.parent === null) fail("conflict", "Rating posts must have a parent, the thing they rate", "parent");
@@ -399,6 +406,9 @@ function checkTyped(post: Post, kind: "event" | "rsvp" | "rating", each: Each): 
         break;
       case "rsvp":
         events.checkRsvp(envelope as events.RsvpContent, each);
+        break;
+      case "availability":
+        events.checkAvailability(envelope as events.AvailabilityContent, each);
         break;
       case "rating":
         events.checkRating(envelope as events.RatingContent, each);
@@ -446,9 +456,9 @@ export const post: Model<Post> = {
       return;
     }
     const { kind } = value;
-    if (kind === "event" || kind === "rsvp" || kind === "rating") {
+    if (kind === "event" || kind === "rsvp" || kind === "availability" || kind === "rating") {
       // Known by the test above; the open string type of a stored kind does not narrow by itself
-      checkTyped(value, kind as "event" | "rsvp" | "rating", each);
+      checkTyped(value, kind as "event" | "rsvp" | "availability" | "rating", each);
       return;
     }
     each(() => {
@@ -579,6 +589,12 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const parent = str(i.parent, "input.parent");
     const { root, slug } = placement(i);
     return create({ content: events.rsvp.write(envelope), kind, parent, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
+  }
+  if (kind === "availability") {
+    const i = inputOf(input, "input", ["kind", ...events.AVAILABILITY_MEMBERS, "root", "slug"], each);
+    const envelope = events.availabilityFromInput(i, each);
+    const { root, slug } = placement(i);
+    return create({ content: events.availability.write(envelope), kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
   }
   if (kind === "rating") {
     const i = inputOf(input, "input", ["kind", "parent", "rating", "text", "attachments", "root", "slug"], each);

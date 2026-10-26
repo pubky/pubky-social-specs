@@ -149,7 +149,7 @@ export interface NthDay extends Open, Omit<Plain<time.NthDay>, "day"> {
   day: KnownWeekday;
 }
 
-/** A JSCalendar recurrence rule, as an event repeats. */
+/** A JSCalendar recurrence rule, as an event or an availability block repeats. */
 export interface RecurrenceRule extends Open, Omit<Plain<time.RecurrenceRule>, "frequency" | "firstDayOfWeek" | "byDay" | "byMonthDay" | "bySetPosition"> {
   /** How often, one of `recurrenceFrequencies`: a frequency this version does not know is refused on read. */
   frequency: KnownRecurrenceFrequency;
@@ -183,6 +183,20 @@ export interface RsvpContent extends Open, Omit<Plain<events.RsvpContent>, "stat
   status: KnownRsvpStatus;
 }
 
+/** One block of an availability. */
+export interface AvailabilityBlock extends Open, Omit<Plain<events.AvailabilityBlock>, "recurrenceRules"> {
+  /** How it repeats: at most 1 rule; empty for once. */
+  recurrenceRules: RecurrenceRule[];
+}
+
+/** The envelope of an availability, inside its post's `content`: when its author, or a resource of theirs, can be booked. */
+export interface AvailabilityContent extends Open, Omit<Plain<events.AvailabilityContent>, "available" | "busy"> {
+  /** When a booking may start; at most 100 blocks. */
+  available: AvailabilityBlock[];
+  /** What is taken; at most 100 blocks, untitled. */
+  busy: AvailabilityBlock[];
+}
+
 /** The envelope of a rating, inside its post's `content`; the post's `parent` is what is rated. */
 export interface RatingContent extends Open, Plain<events.RatingContent> {}
 
@@ -213,6 +227,12 @@ export type DecodedContent =
       content: RsvpContent;
     }
   | {
+      /** The availability kind. */
+      kind: "availability";
+      /** Its envelope. */
+      content: AvailabilityContent;
+    }
+  | {
       /** The rating kind. */
       kind: "rating";
       /** Its envelope. */
@@ -220,7 +240,7 @@ export type DecodedContent =
     };
 
 /** The envelopes `encodeContent` spells. */
-export type Envelope = ArticleContent | CollectionContent | EventContent | RsvpContent | RatingContent;
+export type Envelope = ArticleContent | CollectionContent | EventContent | RsvpContent | AvailabilityContent | RatingContent;
 
 /** A label on an object, stored at `/pub/social/v1/tags/{id}.json`; the id hashes the target and the label. */
 export interface Tag extends Open, Plain<graph.Tag> {}
@@ -357,7 +377,7 @@ interface Threaded {
 }
 
 /** The kinds whose `content` is an envelope a builder writes from members of its own. */
-export type EnvelopeKind = "article" | "collection" | "event" | "rsvp" | "rating";
+export type EnvelopeKind = "article" | "collection" | "event" | "rsvp" | "availability" | "rating";
 
 /** A post of any kind but one with an envelope: `note` when `kind` is absent. */
 export type NewNote = {
@@ -461,7 +481,7 @@ export interface NewEventAttendance {
   waitlist?: boolean | null;
 }
 
-/** A recurrence rule a new event takes, in JSCalendar's members. */
+/** A recurrence rule a new event or availability block takes, in JSCalendar's members. */
 export interface NewRecurrenceRule {
   /** How often, one of `recurrenceFrequencies`. */
   frequency: KnownRecurrenceFrequency;
@@ -547,6 +567,46 @@ export type NewRsvp = {
   lock?: never;
 } & Placement;
 
+/** One block a new availability takes. */
+export interface NewAvailabilityBlock {
+  /** On an `available` block, a name: 1 to 100 code points once trimmed. */
+  title?: string | null;
+  /** When it starts, a local date-time in the schedule's `timeZone`. */
+  start: string;
+  /** How long it lasts, an ISO 8601 duration of at most 31622400 seconds. */
+  duration: string;
+  /** On an `available` block, the units free in it (rooms of a type, seats): 1 to 10000 units; absent for one. */
+  capacity?: number | null;
+  /** How it repeats: at most 1 rule. */
+  recurrenceRules?: NewRecurrenceRule[] | null;
+  /** Occurrences removed from the series; at most 100. */
+  excludedDates?: string[] | null;
+}
+
+/** An availability: when the owner, or a resource of theirs, can be booked, which the builder writes into the post's `content` envelope. */
+export type NewAvailability = {
+  /** The availability kind. */
+  kind: "availability";
+  /** An IANA time zone name every block is read in, at most 64 code points. */
+  timeZone: string;
+  /** How far ahead the schedule is kept, 1 to 366 days. */
+  horizonDays: number;
+  /** The resource the schedule belongs to, any reference of at most 1024 code points; absent for the owner. */
+  for?: string | null;
+  /** When a booking may start; at most 100 blocks. */
+  available?: NewAvailabilityBlock[] | null;
+  /** What is taken; at most 100 untitled blocks. */
+  busy?: NewAvailabilityBlock[] | null;
+  /** An availability replies to nothing. */
+  parent?: never;
+  /** An availability quotes nothing. */
+  embed?: never;
+  /** An availability carries no media. */
+  attachments?: never;
+  /** An availability is not gated. */
+  lock?: never;
+} & Placement;
+
 /** A rating: stars on the thing at `parent`, which the builder writes into the post's `content` envelope. */
 export type NewRating = {
   /** The rating kind. */
@@ -565,8 +625,8 @@ export type NewRating = {
   lock?: never;
 } & Placement;
 
-/** What `buildPost` takes: a note, an article, a collection, an event, an rsvp or a rating, told apart by `kind`. */
-export type NewPost = NewNote | NewArticle | NewCollection | NewEvent | NewRsvp | NewRating;
+/** What `buildPost` takes: a note, an article, a collection, an event, an rsvp, an availability or a rating, told apart by `kind`. */
+export type NewPost = NewNote | NewArticle | NewCollection | NewEvent | NewRsvp | NewAvailability | NewRating;
 
 /** The version URL a reference member would hold, named where it is refused. */
 type NoVersion<T> = T extends { readonly [brand]: "PubkyUrl.post" }
@@ -583,9 +643,11 @@ type BranchOf<I> = I extends { kind: "article" }
       ? NewEvent
       : I extends { kind: "rsvp" }
         ? NewRsvp
-        : I extends { kind: "rating" }
-          ? NewRating
-          : NewNote;
+        : I extends { kind: "availability" }
+          ? NewAvailability
+          : I extends { kind: "rating" }
+            ? NewRating
+            : NewNote;
 
 /**
  * A post input as `buildPost` checks it at compile time: the members of its kind only, and no

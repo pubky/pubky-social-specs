@@ -16,6 +16,11 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `articleTitleMaxLength` | 100 | code points | The longest article title. |
 | `attachmentAltMaxLength` | 1000 | code points | The longest `alt` text of an attachment. |
 | `attachmentNameMaxLength` | 255 | code points | The longest `name` of an attachment. |
+| `availabilityBlockTitleMaxLength` | 100 | code points | The longest `title` of an available block. |
+| `availabilityBlocksMaxCount` | 100 | items | The most blocks in each of an availability's `available` and `busy`. |
+| `availabilityCapacityMaxUnits` | 10000 |  | The largest `capacity` of an available block, the units free in it. |
+| `availabilityContentMaxLength` | 100000 | code points | The longest `content` of an availability post, the whole envelope as text. |
+| `availabilityHorizonMaxDays` | 366 | days | The furthest ahead an availability's `horizonDays` reaches, one leap year. |
 | `bookmarkTargetUriMaxBytes` | 187 | bytes | The longest target a primary bookmark spells in its filename; a longer one takes the overflow form, `~{hash}`. |
 | `collectionContentMaxLength` | 40000 | code points | The longest `content` of a collection post, the whole envelope as text. |
 | `collectionDescriptionMaxLength` | 500 | code points | The longest collection description. |
@@ -26,8 +31,8 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `eventCapacityMaxPeople` | 1000000 | people | The largest `attendance.capacity` of an event. |
 | `eventContentMaxLength` | 150000 | code points | The longest `content` of an event post, the whole envelope as text. |
 | `eventDescriptionMaxLength` | 50000 | code points | The longest event description. |
-| `eventDurationMaxSeconds` | 31622400 | seconds | The longest `duration` of an event, one leap year. |
-| `eventExcludedDatesMaxCount` | 100 | items | The most `excludedDates` on an event. |
+| `eventDurationMaxSeconds` | 31622400 | seconds | The longest `duration` of an event or an availability block, one leap year. |
+| `eventExcludedDatesMaxCount` | 100 | items | The most `excludedDates` on an event or an availability block. |
 | `eventLinkTitleMaxLength` | 100 | code points | The longest `title` of an event link. |
 | `eventLinkUrlMaxLength` | 300 | code points | The longest `url` of an event link. |
 | `eventLinksMaxCount` | 10 | items | The most `links` on an event. |
@@ -37,8 +42,8 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `eventRecurrenceIntervalMaxPeriods` | 1000 | periods | The largest `interval` of a recurrence rule. |
 | `eventRecurrenceMaxOccurrences` | 1000 | occurrences | The largest `count` of a recurrence rule, where the occurrence generator stops too. |
 | `eventRecurrenceMaxSpanYears` | 3 | years | The furthest a recurrence rule's `until` may lie after the start, where the occurrence generator stops too. |
-| `eventRecurrenceRulesMaxCount` | 1 | items | The most `recurrenceRules` on an event. |
-| `eventTimeZoneMaxLength` | 64 | code points | The longest IANA time zone name, an event's `timeZone`. |
+| `eventRecurrenceRulesMaxCount` | 1 | items | The most `recurrenceRules` on an event or an availability block. |
+| `eventTimeZoneMaxLength` | 64 | code points | The longest IANA time zone name, an event's or an availability's `timeZone`. |
 | `eventTitleMaxLength` | 100 | code points | The longest event title. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
@@ -137,7 +142,7 @@ One version of a post, stored at `posts/{id}/{editId}[-slug].json` under the pub
 
 | member | type | null | meaning |
 |---|---|---|---|
-| `kind` | `"image" \| "note" \| "article" \| "video" \| "link" \| "file" \| "collection" \| "event" \| "rsvp" \| "rating"` |  | What the post is, one of `postKinds`: a kind this version does not know is refused on read. It decides what `content` holds. |
+| `kind` | `"image" \| "note" \| "article" \| "video" \| "link" \| "file" \| "collection" \| "event" \| "rsvp" \| "availability" \| "rating"` |  | What the post is, one of `postKinds`: a kind this version does not know is refused on read. It decides what `content` holds. |
 | `attachments` | `Attachment[]` |  | At most 10 media references; empty for none. A collection carries none: its items are in its envelope. |
 | `content` | `string` |  | Text for an untyped kind; for an article or a collection, the envelope `decodeContent` reads. |
 | `parent` | `string \| number` | yes | The post this one replies to: a versionless reference of at most 1024 code points; null for none. |
@@ -245,7 +250,7 @@ One link shown with an event, `{ title, url }` as a profile's links are; https o
 
 ### RecurrenceRule
 
-A JSCalendar recurrence rule, as an event repeats.
+A JSCalendar recurrence rule, as an event or an availability block repeats.
 
 | member | type | null | meaning |
 |---|---|---|---|
@@ -280,6 +285,33 @@ The envelope of an rsvp, inside its post's `content`; the post's `parent` is the
 | `note` | `string \| number` | yes | A note to the organiser, trimmed by the builder: at most 2000 code points, not blank; null for none. |
 | `recurrenceId` | `string \| number` | yes | The occurrence answered, its local start in the event's series; null for the series. |
 | `guests` | `number` |  | Companions without an account, 0 to 100 people; 0 when absent. |
+| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
+
+### AvailabilityContent
+
+The envelope of an availability, inside its post's `content`: when its author, or a resource of theirs, can be booked.
+
+| member | type | null | meaning |
+|---|---|---|---|
+| `available` | `AvailabilityBlock[]` |  | When a booking may start; at most 100 blocks. |
+| `busy` | `AvailabilityBlock[]` |  | What is taken; at most 100 blocks, untitled. |
+| `timeZone` | `string` |  | An IANA time zone name every block is read in, at most 64 code points. |
+| `horizonDays` | `number` |  | How far ahead the schedule is kept, 1 to 366 days. |
+| `for` | `string \| number` | yes | The resource the schedule belongs to, a reference of any scheme; null for the author. |
+| `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
+
+### AvailabilityBlock
+
+One block of an availability.
+
+| member | type | null | meaning |
+|---|---|---|---|
+| `recurrenceRules` | `RecurrenceRule[]` |  | How it repeats: at most 1 rule; empty for once. |
+| `title` | `string \| number` | yes | On an `available` block only, a name, trimmed by the builder: 1 to 100 code points, not blank; null for none. |
+| `start` | `string` |  | When the block starts, a local date-time in the schedule's `timeZone`. |
+| `duration` | `string` |  | How long it lasts, an ISO 8601 duration of at most 31622400 seconds. |
+| `excludedDates` | `string[]` |  | Occurrences removed from the series; at most 100. |
+| `capacity` | `number` | yes | On an `available` block only, the units free in it (rooms of a type, seats), 1 to 10000 units; null for one. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
 ### RatingContent

@@ -710,6 +710,85 @@ fn rsvp(rng: &mut Rng) -> Case {
     }
 }
 
+fn availability(rng: &mut Rng) -> Case {
+    let mut schedule = PubkySocialAvailabilityContent::new(
+        rng.pick(&["Europe/Zurich", "UTC"]).to_string(),
+        rng.range(1, 366) as i64,
+    );
+    schedule.r#for = rng.opt(universal_ref);
+    schedule.available = (0..rng.below(4))
+        .map(|_| {
+            let title = rng.opt(|rng| {
+                let t = rng.text(1, 20);
+                rng.padded(&t)
+            });
+            let mut block = PubkySocialAvailabilityBlock::new(
+                local_date_time(rng),
+                rng.pick(&["PT8H", "PT1H", "P1D"]).to_string(),
+                title,
+            );
+            block.capacity = rng.opt(|rng| rng.range(1, 40) as i64);
+            if rng.coin() {
+                block.recurrence_rules = vec![PubkySocialRecurrenceRule::new(
+                    PubkySocialRecurrenceFrequency::Weekly,
+                )];
+            }
+            block
+        })
+        .collect();
+    schedule.busy = (0..rng.below(4))
+        .map(|_| PubkySocialAvailabilityBlock::new(local_date_time(rng), "PT1H".into(), None))
+        .collect();
+    let post = PubkySocialPost::new_availability(schedule);
+    Case {
+        uri: mint(&post),
+        object: serde_json::to_value(&post).unwrap(),
+        breaks: &[
+            (
+                "horizon of zero",
+                "Availability horizonDays must be 1 to",
+                |v| envelope(v, |e| e["horizonDays"] = json!(0)),
+            ),
+            (
+                "a zone with a space",
+                "timeZone must be an IANA time zone name",
+                |v| envelope(v, |e| e["timeZone"] = json!("Zurich time")),
+            ),
+            (
+                "a block of no capacity",
+                "available[0].capacity must be 1 to 10000 units",
+                |v| {
+                    envelope(
+                        v,
+                        |e| e["available"] = json!([{ "start": "2026-10-21T14:00:00", "duration": "PT1H", "capacity": 0 }]),
+                    )
+                },
+            ),
+            ("a titled busy block", "busy[0] carries no title", |v| {
+                envelope(
+                    v,
+                    |e| e["busy"] = json!([{ "title": "Dentist", "start": "2026-10-21T14:00:00", "duration": "PT1H" }]),
+                )
+            }),
+            (
+                "a block with no duration",
+                "missing field `duration`",
+                |v| {
+                    envelope(v, |e| {
+                        e["available"] = json!([{ "start": "2026-10-21T14:00:00" }])
+                    })
+                },
+            ),
+            (
+                "attachments",
+                "Availability posts cannot have parent, embed or attachments",
+                |v| v["attachments"] = json!([{ "uri": "https://example.com/a.png" }]),
+            ),
+        ],
+        rehome: None,
+    }
+}
+
 fn rating(rng: &mut Rng) -> Case {
     let text = rng.opt(|rng| {
         let t = rng.text(1, 80);
@@ -771,6 +850,7 @@ fn built_objects_read_back_and_broken_ones_do_not() {
         ("collection", collection),
         ("event", event),
         ("rsvp", rsvp),
+        ("availability", availability),
         ("rating", rating),
         ("tag", tag),
         ("bookmark", bookmark),
