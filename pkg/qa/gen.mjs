@@ -636,8 +636,8 @@ function stored11(r, object) {
 // `envelopeText` is the collection's raw cap, a 1.0 edge
 const envelopeText11 = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored11(r, envelope), () => r.pick(["", "{", "[]", "null", "not json"])])();
 const V11_KINDS = ["event", "rsvp", "rating"];
-// The kinds 1.1 alphas had and the sub-specs took: a social reader refuses them as unknown
-const MOVED_KINDS = ["availability", "route"];
+// Kinds of the sub-specs, under social: a social reader refuses them as unknown
+const SUBSPEC_KINDS = ["availability", "route"];
 const isReply = (kind) => kind === "rsvp" || kind === "rating";
 
 /** A 1.1 post every rule accepts, then at most one late rule broken. */
@@ -694,8 +694,8 @@ function storedPost11(r) {
   if (r.chance(0.35)) return cleanPost11(r);
   const kind = r.pick(["event", "event", "rsvp", "rating"]);
   const p = { content: envelopeText11(r, TYPED[kind](r)), kind, parent: null, embed: null };
-  // now and then a kind a 1.1 alpha wrote that moved to a sub-spec
-  if (r.chance(0.03)) p.kind = r.pick(MOVED_KINDS);
+  // now and then a sub-spec's kind under social
+  if (r.chance(0.03)) p.kind = r.pick(SUBSPEC_KINDS);
   // the reply kinds mostly have the parent they need
   if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = ref(r);
   if (r.chance(0.3)) p.embed = ref(r);

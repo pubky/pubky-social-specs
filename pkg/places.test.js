@@ -1,4 +1,4 @@
-// The place conventions as a caller meets them, and the kinds that moved to sub-specs.
+// The place conventions as a caller meets them, and the sub-specs' kinds under social.
 
 import assert from "assert";
 import { buildPost, decodeObject, geoUri, isGeoUri, limits, osmUrl, parseOsmUrl, postKinds } from "./dist/index.js";
@@ -57,15 +57,15 @@ describe("the place conventions", () => {
   });
 });
 
-describe("the kinds that moved to a sub-spec", () => {
+describe("a sub-spec's kind under social", () => {
   beforeEach(() => setClock(() => T0));
   after(() => setClock());
 
-  it("are no social kind: a builder refuses them and a reader refuses a stored one", () => {
-    for (const moved of ["availability", "route"]) {
-      assert.ok(!postKinds.includes(moved), moved);
-      refuses(() => buildPost(OTTO, { kind: moved, content: "x" }), `Validation Error: Invalid content kind: ${moved}`);
-      const stored = utf8(JSON.stringify({ content: "{}", kind: moved, parent: null, embed: null, attachments: [] }));
+  it("is no social kind: a builder refuses it and a reader refuses a stored one", () => {
+    for (const kind of ["availability", "route"]) {
+      assert.ok(!postKinds.includes(kind), kind);
+      refuses(() => buildPost(OTTO, { kind, content: "x" }), `Validation Error: Invalid content kind: ${kind}`);
+      const stored = utf8(JSON.stringify({ content: "{}", kind, parent: null, embed: null, attachments: [] }));
       refuses(() => decodeObject(`pubky://${OTTO}/pub/social/v1/posts/0034A0X7NJ52C/0034A0X7NJ52C.json`, stored), "Validation Error: post kind is unknown");
     }
   });

@@ -122,7 +122,7 @@ describe("the event kinds", () => {
       refuses(() => buildPost(OTTO, { ...lugano(), locations: [{ uri: HUB, name: "n".repeat(101) }] }), "Validation Error: locations[0].name must be 1 to 100 code points and not blank");
       refuses(() => buildPost(OTTO, { ...lugano(), links: [{ title: "n".repeat(101), url: "https://x.y" }] }), "Validation Error: links[0].title must be 1 to 100 code points and not blank");
       refuses(() => buildPost(OTTO, { ...lugano(), links: Array.from({ length: 11 }, () => ({ title: "n", url: "https://x.y" })) }), "Validation Error: Event cannot have more than 10 links");
-      // the 1.1 alpha spelling of a link's title is no member of a link
+      // a link's title is `title`: a `name` is no member of a link
       misuse(() => buildPost(OTTO, { ...lugano(), links: [{ name: "Site", url: "https://x.y" }] }), /input\.links\[0\]\.name must be one of title, url/);
       refuses(() => buildPost(OTTO, { ...lugano(), excludedDates: Array.from({ length: 101 }, () => "2026-11-10T18:30:00") }), "Validation Error: Event cannot have more than 100 excluded dates");
       refuses(() => buildPost(OTTO, { ...lugano(), attendance: { capacity: 1000001 } }), "Validation Error: attendance.capacity must be 1 to 1000000 people");

@@ -27,8 +27,7 @@ const bundled = async (file, names, define = {}) => {
 
 const PROBES = [
   // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]. The
-  // 1.1 kinds added about 3 to 7 KB to the entries that carry the post rules; moving
-  // availability and route to their sub-specs took about 2 KB of it back
+  // 1.1 kinds add about 1 to 5 KB to the entries that carry the post rules
   ["index.js", "{ buildUri }", 3_600, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],

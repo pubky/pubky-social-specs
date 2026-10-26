@@ -928,7 +928,7 @@ mod tests {
             err(&many),
             format!("Validation Error: Event cannot have more than {max} links")
         );
-        // the 1.1 alpha spelling of a link's title is refused, not read as a title
+        // a link's title is `title`: a `name` is refused, not read as a title
         let named = with(&base, |v| {
             v["links"] = serde_json::json!([{ "name": "Site", "url": "https://x.y" }])
         });
