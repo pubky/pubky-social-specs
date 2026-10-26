@@ -1,16 +1,20 @@
 // Line and branch coverage of src per module, from the suites run on the sources, against a
 // floor per module. The floors are what the suites reach today, rounded down: a drop fails.
+// It measures the package it runs in, this one or the migrator.
 //   npm run coverage   (writes qa/out/coverage, prints the table)
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { PKG as pkg, SUITES } from "./lib.mjs";
+import { fileURLToPath } from "node:url";
+import { SUITES } from "./lib.mjs";
 
+const pkg = `${process.cwd()}/`;
+const { name } = JSON.parse(fs.readFileSync(`${pkg}package.json`, "utf8"));
 const out = `${pkg}qa/out/coverage`;
 const run = spawnSync(
   process.execPath,
   [
-    `${pkg}node_modules/c8/bin/c8.js`,
+    fileURLToPath(import.meta.resolve("c8/bin/c8.js")),
     "--reporter=json-summary",
     "--reporter=text",
     `--reports-dir=${out}`,
@@ -18,8 +22,8 @@ const run = spawnSync(
     "--exclude=src/**/*.d.ts",
     process.execPath,
     "--import",
-    "./qa/from-src.mjs",
-    "node_modules/mocha/bin/mocha.js",
+    fileURLToPath(new URL("from-src.mjs", import.meta.url)),
+    fileURLToPath(import.meta.resolve("mocha/bin/mocha.js")),
     SUITES,
   ],
   { cwd: pkg, stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, FC_RUNS: process.env.FC_RUNS ?? "50" } },
@@ -28,22 +32,26 @@ if (run.status !== 0) process.exit(run.status ?? 1);
 
 // [lines, branches] per module, by path prefix under src; the first match applies. Each is
 // what the suites reach, rounded down to the point below
-const FLOORS = [
-  ["src/models/", [96, 90]],
-  ["src/json/", [98, 94]],
-  ["src/client/", [95, 90]],
-  ["src/migration/engine.ts", [95, 93]],
-  // A module compiled ahead of time (a Workers bundle), a failed start retried and a hasher trap
-  // are branches no Node run reaches
-  ["src/migration/wasm.ts", [96, 84]],
-  // A null body, a chunk with no value and the fallthrough after #call's try stay uncovered
-  ["src/migration/adapters/", [99, 96]],
-  ["src/migration/", [99, 97]],
-  ["src/objects.ts", [98, 88]],
-  // The branch for a host with no process never runs under Node
-  ["src/dev.ts", [100, 88]],
-  ["src/", [98, 90]],
-];
+const FLOORS = {
+  "pubky-social-specs": [
+    ["src/models/", [96, 90]],
+    ["src/json/", [98, 94]],
+    ["src/client/", [95, 90]],
+    ["src/objects.ts", [98, 88]],
+    // The branch for a host with no process never runs under Node
+    ["src/dev.ts", [100, 88]],
+    ["src/", [98, 90]],
+  ],
+  "pubky-social-migrator": [
+    ["src/engine.ts", [95, 93]],
+    // A module compiled ahead of time (a Workers bundle), a failed start retried and a hasher
+    // trap are branches no Node run reaches
+    ["src/wasm.ts", [96, 84]],
+    // A null body, a chunk with no value and the fallthrough after #call's try stay uncovered
+    ["src/adapters/", [99, 96]],
+    ["src/", [99, 97]],
+  ],
+}[name];
 const summary = JSON.parse(fs.readFileSync(`${out}/coverage-summary.json`, "utf8"));
 const low = [];
 for (const [file, cover] of Object.entries(summary)) {

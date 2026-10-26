@@ -249,4 +249,4 @@ rule does not.
 | `unsafe_integer` | an integer a JS number cannot hold exactly |
 | `path` | a URL or path names no object of the kind asked for |
 | `conflict` | members or arguments that cannot go together |
-| `migration` | refused by the migrator, see the message |
+| `migration` | refused by pubky-social-migrator, see the message |

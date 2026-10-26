@@ -4,8 +4,9 @@
 
 Report it privately through GitHub: the **Report a vulnerability** button on the Security tab of
 [pubky/pubky-social-specs](https://github.com/pubky/pubky-social-specs/security). Do not open a
-public issue for it. Say which version, which entry (`.`, `/migration`, `/migration/pubky-sdk`,
-`/client`, the CLI) and how to reproduce it.
+public issue for it. Say which version, which entry (`.`, `/testing`, `/client`) and how to
+reproduce it. The migration is the separate package `pubky-social-migrator`, with its own
+`SECURITY.md`.
 
 ## Supported versions
 
@@ -16,10 +17,7 @@ The latest release of the current major line gets fixes. Before 1.0.0, that is t
 
 Releases are published from GitHub Actions with npm provenance, `dist` is built only in CI from a
 pinned toolchain, and a workflow rebuilds it from the tag and compares it with the published
-tarball. `npm audit signatures` checks the provenance of an installed copy. The migration wasm is
-embedded in `dist/migration/glue.js` with its SHA-256, which the migration's loader (`src/migration/wasm.ts`) checks before compiling it.
-Under the `workerd` condition the bundler compiles the shipped `dist/migration/glue.wasm` at deploy
-time, so the module arrives compiled and the digest check, which needs bytes, is the bundler's.
+tarball. `npm audit signatures` checks the provenance of an installed copy.
 
 Each release runs the differential fuzz against the reference (`npm run score -- --fuzz N`, 0
 mismatches) and the hostile-input benchmark (`npm run hostile`, every shape linear and under its
@@ -36,28 +34,22 @@ What the package defends, against whom, and what it leaves to others.
 | the caller's code | trusted to mean well, not to be careful | arguments of any JS shape |
 | other users' data | untrusted | bytes from their homeserver, read with `decodeObject` |
 | the owner's homeserver | trusted for availability, not for content | LIST pages, GET bodies, status codes |
-| the migration port | untrusted | every answer, a lying or hostile one included |
 | the pubky SDK and the session | trusted | the signed-in session, its capabilities |
-| the published tarball | verified (provenance, reproducible build, wasm digest) | the code itself |
+| the published tarball | verified (provenance, reproducible build) | the code itself |
 
 ### What it guarantees
 
 - **Canonical ids.** An id is derived from content or the clock exactly as the reference
   derives it; an alias spelling of an id is refused, so one object has one path.
-- **Owner-confined paths.** Every path a builder, a plan or the migration writes is under
-  `/pub/` or `/priv/` of the owner named, with every segment canonical. `buildUri` spells only
-  what `parseUri` reads back. The engine derives each write URL from the write's kind and id and
-  refuses a transform that names another; the engine and the SDK adapter share one check of
-  every URL they touch.
-- **The 0.x tree is never written** by the migration: no PUT and no DELETE under
-  `/pub/pubky.app/`.
+- **Owner-confined paths.** Every path a builder or a plan writes is under `/pub/` or `/priv/` of
+  the owner named, with every segment canonical. `buildUri` spells only what `parseUri` reads
+  back, and `toPath` gives a path only for such a URL.
 - **Hostile input is bounded.** A caller's argument is copied once, own data only, before any
   rule reads it, and an array in it is refused past 10,000 items before it is walked. Bytes in
   shared memory are copied first, so another thread cannot change them between two reads. A
   value of the wrong JS type is an `ArgumentError` (a `TypeError`) and a value the model refuses
   a `ValidationError`, never a crash, a hang or another error type (the boundary harness checks
-  every export). A 0.x object is read with a byte cap before the wasm sees it; a LIST is capped
-  at about a million objects and the flag at 64 MiB.
+  every export).
 - **Linear time on stored bytes.** Decoding takes time linear in the input whatever its shape,
   under 1 µs a byte, so the largest object, 512 KB, decodes within half a second.
   `qa/hostile.mjs` times each adversarial shape (nesting at the depth limit, many keys, long
@@ -72,31 +64,18 @@ What the package defends, against whom, and what it leaves to others.
   and reading those gives the same object again. A name this version does not know (a newer
   post kind in a feed filter, a newer collection layout) is written back with its spelling, and
   a number in an unknown member reads back to itself over any number of rewrites.
-- **A cleanup deletes only a copy it read back as its own**: before deleting a copy whose source
-  vanished, the engine reads it back and deletes it only when the bytes are the ones it wrote.
-  The read and the DELETE are two requests (see the conditional writes below).
-- **The CLI's secrets**: the passphrase is asked on the terminal with echo off or read once from
-  an environment variable that is then removed; never from the arguments. A recovery file
-  readable by others is refused; the file's bytes and a typed passphrase are zeroed after use;
-  the session signs out at the end, on signals and on uncaught errors.
 
 ### What it does not defend
 
 - **Conditional writes.** The homeserver honours neither `If-None-Match` on PUT nor `If-Match` on
-  DELETE. So `ifAbsent` is a HEAD then a PUT, and a write landing between the two is overwritten.
-  And the migration's cleanup of a copy whose 0.x source the owner deleted mid-run is a read-back
-  then a DELETE: a different write to that path landing between the two is deleted with it. An
-  identical one is the same deleted source copied by another run, which should go too. Leaving
-  the copy instead would bring back, as a 1.x object, something the owner deleted. Two copies of
-  the package minting in the same microsecond can mint the same id; the client re-mints on a
-  taken path, within the same window. A conditional DELETE on the homeserver would close both.
+  DELETE. Two copies of the package minting in the same microsecond can mint the same id; the
+  client re-mints on a taken path, but between its check and its PUT a write can land. A
+  conditional write on the homeserver would close it.
 - **References that render dangerously.** A reference may use any URI scheme the reference model
   accepts, `javascript:` and `data:` included. A renderer allow-lists schemes before making a
   link.
 - **Look-alike text.** Labels and names are trimmed and ASCII-lowercased only; Unicode
   normalization and bidirectional controls are the renderer's concern.
-- **A lost sign-out.** A process killed during the CLI's wait leaves its root grant active until
-  it expires or is revoked from Ring; the SDK has no scoped, short-lived grant for this yet.
 - **A deleted bookmark or feed of a migrated account** can come back from its 0.x copy, which
   `deletionPaths` does not reach, if no finished migration recorded it. Their 0.x ids hash a
   target the migration respells, so the 1.x id cannot name the 0.x path. A mute deletes its 0.x
@@ -128,5 +107,5 @@ What the package defends, against whom, and what it leaves to others.
 ### Changes that need a security review
 
 Path assembly (`src/path.ts`, `src/uri.ts`, `src/legacy.ts`), the input funnel (`src/input.ts`,
-`src/bytes.ts`), the JSON reader (`src/json/read.ts`), the engine's write
-fence and cleanup (`src/migration/engine.ts`), the SDK adapter, the CLI, and the wasm loader.
+`src/bytes.ts`), the JSON reader (`src/json/read.ts`), and the client's writes and deletes
+(`src/client/index.ts`).

@@ -1,4 +1,4 @@
-// Every ```js block of the shipped docs runs as pasted. Each block is type-checked against the
+// Every ```js block of the shipped docs, this package's and the migrator's, runs as pasted. Each block is type-checked against the
 // package's declarations and the real SDK's, then run in a process of its own; one preceded by
 // `<!-- no-run: reason -->` is type-checked only. A block takes its session from
 // `memoryHomeserver()` of the testing entry, which stands in for a signed-in SDK session.
@@ -12,7 +12,7 @@ import { PKG as pkg, scratch, tsc } from "./lib.mjs";
 
 const DOCS = [
   "README.md",
-  "MIGRATION.md",
+  "../migrator/README.md",
   ...fs
     .readdirSync(path.join(pkg, "docs"))
     .filter((f) => f.endsWith(".md"))

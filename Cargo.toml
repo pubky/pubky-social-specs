@@ -12,6 +12,9 @@ documentation = "https://docs.rs/pubky-social-specs"
 keywords = ["pubky", "pubky-social", "nexus", "social", "watcher"]
 exclude = [
     ".github",
+    "migrator",
+    "package.json",
+    "package-lock.json",
     "pkg",
     "src/bin",
 ]

@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 import { OWNER } from "./lib.mjs";
 
-const at = (file) => new URL(`../dist/${file}`, import.meta.url).pathname;
+const at = (file) => new URL(file.startsWith("migrator/") ? `../../migrator/dist/${file.slice("migrator/".length)}` : `../dist/${file}`, import.meta.url).pathname;
 const entry = at("index.js");
 /** `names` imported from `file` and kept, bundled and minified as a caller's bundler would. */
 const bundled = async (file, names, define = {}) => {
@@ -37,8 +37,9 @@ const PROBES = [
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
   ["testing.js", "* as all", 22_000, ["WebAssembly"]],
   ["client/index.js", "{ createSocialClient }", 29_000, ["WebAssembly"]],
-  ["migration/index.js", "* as all", 340_000, []],
-  ["migration/adapters/pubky-sdk.js", "* as all", 3_000, ["WebAssembly"]],
+  // pubky-social-migrator, with the public entry of the core it calls bundled in
+  ["migrator/index.js", "* as all", 360_000, []],
+  ["migrator/adapters/pubky-sdk.js", "* as all", 5_000, ["WebAssembly"]],
 ];
 
 let failed = false;

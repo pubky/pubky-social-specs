@@ -28,8 +28,8 @@ WebAssembly.Instance = new Proxy(Instance, {
 });
 
 const { default: sdk } = await import("@synonymdev/pubky");
-const { runMigration } = await import("pubky-social-specs/migration");
-const { sdkPort } = await import("pubky-social-specs/migration/pubky-sdk");
+const { runMigration } = await import("pubky-social-migrator");
+const { sdkPort } = await import("pubky-social-migrator/pubky-sdk");
 
 const hexToBytes = (hex) => Uint8Array.from(hex.match(/../g), (byte) => parseInt(byte, 16));
 // Chromium only; precise with --enable-precise-memory-info

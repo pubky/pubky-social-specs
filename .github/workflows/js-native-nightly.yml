@@ -33,21 +33,21 @@ jobs:
           - name: parity
             cmd: npm run score -- --fuzz 50000 --seed "$GITHUB_RUN_NUMBER"
           - name: model
-            cmd: npm run model -- --runs 10000 --seed "$GITHUB_RUN_NUMBER"
+            cmd: cd ../migrator && npm run model -- --runs 10000 --seed "$GITHUB_RUN_NUMBER"
           - name: properties
             cmd: FC_SEED="$GITHUB_RUN_NUMBER" FC_RUNS=5000 npx mocha property.test.js validate.test.js
           - name: chaos-main
-            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant main --seeds 1000 --out qa/out/chaos-main.json
+            cmd: cd ../migrator && node --max-old-space-size=3072 qa/chaos.mjs --variant main --seeds 1000 --out qa/out/chaos-main.json
           - name: chaos-quota-rate
-            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant quota-rate --seeds 300 --out qa/out/chaos-quota-rate.json
+            cmd: cd ../migrator && node --max-old-space-size=3072 qa/chaos.mjs --variant quota-rate --seeds 300 --out qa/out/chaos-quota-rate.json
           - name: chaos-lost-response
-            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant lost-response --seeds 300 --out qa/out/chaos-lost-response.json
+            cmd: cd ../migrator && node --max-old-space-size=3072 qa/chaos.mjs --variant lost-response --seeds 300 --out qa/out/chaos-lost-response.json
           - name: chaos-phantom-404
-            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant phantom-404 --seeds 300 --out qa/out/chaos-phantom-404.json
+            cmd: cd ../migrator && node --max-old-space-size=3072 qa/chaos.mjs --variant phantom-404 --seeds 300 --out qa/out/chaos-phantom-404.json
           - name: chaos-any-kind
-            cmd: node --max-old-space-size=3072 qa/chaos.mjs --variant any-kind --seeds 300 --out qa/out/chaos-any-kind.json
+            cmd: cd ../migrator && node --max-old-space-size=3072 qa/chaos.mjs --variant any-kind --seeds 300 --out qa/out/chaos-any-kind.json
           - name: stryker
-            cmd: npm run mutation
+            cmd: cd ../migrator && npm run mutation
           - name: named-mutations
             cmd: node qa/mutate.mjs --seeds 150 --out qa/out/mutate.json
           # One CPU-hour per target a night, the grown corpus then asked of the reference
@@ -66,13 +66,14 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: oracle
           path: oracle
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
+        working-directory: .
       - run: ${{ matrix.run.cmd }}
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -80,7 +81,8 @@ jobs:
           name: nightly-${{ matrix.run.name }}
           path: |
             pkg/qa/out/*.json
-            pkg/qa/out/stryker/report.json
+            migrator/qa/out/*.json
+            migrator/qa/out/stryker/report.json
             pkg/qa/failures
             pkg/qa/fuzz/corpus
             pkg/qa/fuzz/crashes

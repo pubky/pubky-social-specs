@@ -33,10 +33,10 @@ jobs:
       with:
         node-version: '22.13.0'
 
-    - name: Build the package
+    - name: Build both packages
       run: |
-        cd ./pkg
         npm ci
+        cd ./pkg
         npm run build
 
     - name: Install the replay tooling and its browsers

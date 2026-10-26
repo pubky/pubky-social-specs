@@ -1,7 +1,8 @@
 name: npm package (native)
 
-# The gates of the native TypeScript package. `dist` is built here only, by the pinned
-# toolchain, and every other job tests that build. Actions are pinned by commit.
+# The gates of the two npm packages, pubky-social-specs (pkg/) and pubky-social-migrator
+# (migrator/), one npm workspace. Both `dist` are built here only, by the pinned toolchain, and
+# every other job tests that build. Actions are pinned by commit.
 
 on:
   push:
@@ -40,11 +41,13 @@ jobs:
         with:
           node-version-file: pkg/.nvmrc
       - run: npm ci --ignore-scripts
-      - name: Build dist (tsc, then the migrator's wasm, cargo --locked)
+        working-directory: .
+      - name: Build both dist (tsc, then the migrator's wasm, cargo --locked)
         run: npm run build
       - name: The build left the tracked files untouched
+        working-directory: .
         run: |
-          if [ -n "$(git status --porcelain .)" ]; then git status --short .; exit 1; fi
+          if [ -n "$(git status --porcelain)" ]; then git status --short; exit 1; fi
       # The crate's answers, which the data check and the parity fuzz compare against
       - name: Build the surface oracle
         working-directory: .
@@ -57,7 +60,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: |
+            pkg/dist
+            migrator/dist
           if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -78,13 +83,14 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: oracle
           path: oracle
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
+        working-directory: .
       - run: npm run tools
       - name: The declarations as a consumer compiles them
         run: npm run types
@@ -110,6 +116,18 @@ jobs:
         run: npm run hostile
       - name: The API reference builds
         run: npm run docs
+      - name: "Migrator: typescript-eslint, strict and type-checked"
+        working-directory: migrator
+        run: npm run lint
+      - name: "Migrator: format"
+        working-directory: migrator
+        run: npm run format:check
+      - name: "Migrator: the public surface is the committed one"
+        working-directory: migrator
+        run: npm run api
+      - name: "Migrator: unit tests from the sources, with coverage floors per module"
+        working-directory: migrator
+        run: npm run coverage
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: api-reference
@@ -126,16 +144,18 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - run: npm ci --ignore-scripts
-      - name: Pack
-        run: echo "TARBALL=$(npm pack --json | jq -r '.[0].filename')" >> "$GITHUB_ENV"
-      - name: publint on the tarball
-        run: npx publint --strict "$TARBALL"
-      - name: Are the types wrong, on the tarball
-        run: npx attw "$TARBALL" --profile esm-only
-      - name: The tarball holds exactly the agreed files
-        run: tar -tzf "$TARBALL" | sed 's#^package/##' | sort | diff -u api/files.txt -
+        working-directory: .
+      - name: Each tarball, linted, its types checked, holding exactly the agreed files
+        working-directory: .
+        run: |
+          for dir in pkg migrator; do
+            tarball="$dir/$(cd "$dir" && npm pack --json | jq -r '.[0].filename')"
+            npx publint --strict "$tarball"
+            npx attw "$tarball" --profile esm-only
+            tar -tzf "$tarball" | sed 's#^package/##' | sort | diff -u "$dir/api/files.txt" -
+          done
       - name: Bundle size per entry, tree-shaking and cold start
         run: npm run size
 
@@ -156,15 +176,18 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: oracle
           path: oracle
       - run: chmod +x "$SURFACE_ORACLE"
       - run: npm ci --ignore-scripts
+        working-directory: .
       # Skips pretest, so the suites run on the build job's dist and not on one compiled here
       - run: npm test --ignore-scripts
+      - run: npm test --ignore-scripts
+        working-directory: migrator
 
   # The oldest TypeScript the types need, and the one below it, which must fail loudly
   typescript:
@@ -178,8 +201,9 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - run: npm ci --ignore-scripts
+        working-directory: .
       - name: A consumer on each floor and resolution
         run: node qa/ts-floor.mjs
 
@@ -198,8 +222,9 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - run: npm ci --ignore-scripts
+        working-directory: .
       - name: Node
         run: node qa/smoke.mjs
       - name: Deno
@@ -241,8 +266,9 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: dist
-          path: pkg/dist
+          path: .
       - run: npm ci --ignore-scripts
+        working-directory: .
       - name: Wait for the homeserver and the relays
         run: |
           # 6286 is the homeserver's HTTP port, 15411 the pkarr relay, 15412 the HTTP relay. The
@@ -256,6 +282,7 @@ jobs:
             exit 1
           fi
       - name: Run the live migration
+        working-directory: migrator
         run: npm run e2e
       - name: Testnet logs
         if: failure()

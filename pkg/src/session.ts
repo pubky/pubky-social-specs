@@ -1,6 +1,6 @@
 // The part of a signed-in pubky SDK session the package calls, `@synonymdev/pubky` >=0.11 <1,
 // declared here so nothing that compiles against the package needs the SDK installed. The
-// migration's adapter and the client take the same session.
+// client and the SDK adapter of pubky-social-migrator take the same session.
 
 /** The part of a streamed `Response` the port reads. */
 export interface SdkResponse {

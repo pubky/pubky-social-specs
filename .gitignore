@@ -5,3 +5,4 @@
 /tools/replay/node_modules/
 pkg/qa/fuzz/*.log
 pkg/qa/fuzz/crashes/
+/node_modules/

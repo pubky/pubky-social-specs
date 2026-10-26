@@ -1,7 +1,7 @@
 name: npm package (native), reproducible build
 
-# Rebuilds dist from the released tag with the pinned toolchain and compares it, file by file,
-# with the dist of the tarball npm serves for that version.
+# Rebuilds both dist from the released tag with the pinned toolchain and compares each, file by
+# file, with the dist of the tarball npm serves for that version.
 
 on:
   release:
@@ -39,16 +39,17 @@ jobs:
         with:
           node-version-file: pkg/.nvmrc
       - name: Build dist from the tag
-        working-directory: pkg
         run: |
           npm ci --ignore-scripts
-          npm run build
-      - name: Compare with the published tarball
-        working-directory: pkg
+          (cd pkg && npm run build)
+      - name: Compare with the published tarballs
         run: |
           version="${TAG#v}"
-          mkdir -p "$RUNNER_TEMP/published"
-          npm pack "pubky-social-specs@$version" --pack-destination "$RUNNER_TEMP/published"
-          tar -xzf "$RUNNER_TEMP"/published/*.tgz -C "$RUNNER_TEMP/published"
-          diff -r dist "$RUNNER_TEMP/published/package/dist"
-          echo "dist rebuilt from $TAG is byte for byte the published one"
+          for pair in pkg:pubky-social-specs migrator:pubky-social-migrator; do
+            dir="${pair%%:*}" name="${pair#*:}" published="$RUNNER_TEMP/published/$name"
+            mkdir -p "$published"
+            npm pack "$name@$version" --pack-destination "$published"
+            tar -xzf "$published"/*.tgz -C "$published"
+            diff -r "$dir/dist" "$published/package/dist"
+            echo "$name dist rebuilt from $TAG is byte for byte the published one"
+          done

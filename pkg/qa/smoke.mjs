@@ -1,10 +1,11 @@
-// The package as each runtime meets it: the core, the testing subpath and a migration of one
-// 0.x object over a MemoryPort, through the built entries. Prints "ok" or throws.
+// Both packages as each runtime meets them: the core, the testing subpath and a migration of one
+// 0.x object over a MemoryPort with pubky-social-migrator, through the built entries. Prints
+// "ok" or throws.
 //   node qa/smoke.mjs | deno run -A qa/smoke.mjs | bun qa/smoke.mjs; qa/browser.mjs runs it in Chromium
 
 import { buildPost, decodeObject, parseUri, validatePost } from "../dist/index.js";
 import { setClock } from "../dist/testing.js";
-import { MemoryPort, runMigration } from "../dist/migration/index.js";
+import { MemoryPort, runMigration } from "../../migrator/dist/index.js";
 
 const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
 setClock(() => 1_790_000_000_000);

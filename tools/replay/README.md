@@ -136,7 +136,7 @@ mode, so its file store sits on disk in the `replay-hs` Docker volume and surviv
 with Postgres in `replay-pg`. The in-memory default would hold every blob in RAM. A restart
 loses the testnet's DHT and pkarr relay, and with them every user's record, so every start
 publishes again the record of each user the seed signed up; `--from <step>` works after one. The
-CLI needs the package built: `cd pkg && npm install && npm run build`.
+CLI needs both packages built: `npm install` at the repository root, then `cd pkg && npm run build`.
 
 ```bash
 cd tools/replay
@@ -275,8 +275,8 @@ package's ESM build and its wasm loaded by a page, the SDK's browser build over 
 `fetch` and CORS, Web Locks for the lock, and a tab's memory for the largest blobs. The browser
 path runs exactly that, in Chromium and in Firefox through Playwright.
 
-`browser/harness.html` loads the package's `dist/index.js`, the migration subpath and its SDK adapter from the
-built package, and `@synonymdev/pubky`'s browser build from `node_modules`, through an import
+`browser/harness.html` loads the core's `dist/index.js`, `pubky-social-migrator` and its SDK adapter from the
+built packages, and `@synonymdev/pubky`'s browser build from `node_modules`, through an import
 map; `browser/serve.mjs` serves them on `127.0.0.1`, a secure context without TLS, so
 `navigator.locks` is there. `window.replay.run({secretHex, testnetHost, mode, rescan})` signs in
 with `Keypair.fromSecret` and `signin("pubky-social-migrate")`, runs `runMigration` over

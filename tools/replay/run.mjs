@@ -36,7 +36,7 @@ const { values: args } = parseArgs({
 });
 if (args.mode !== "run" && args.mode !== "dry") throw new Error(`--mode is run or dry, not ${args.mode}`);
 
-const CLI = fileURLToPath(new URL("../../pkg/bin/migrate.js", import.meta.url));
+const CLI = fileURLToPath(new URL("../../migrator/bin/migrate.js", import.meta.url));
 const PASSPHRASE = "replay";
 const ATTEMPTS = 3;
 // The testnet's pkarr relay has answered the homeserver's record without an HTTPS endpoint;

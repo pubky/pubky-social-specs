@@ -1,6 +1,6 @@
-// Mutation pass over the engine and the core: plants one bug at a time in a copy of the package
-// under qa/out/mutant, recompiles the copy, and runs its Node tests, and for an engine bug a
-// slice of the chaos harness. Stryker (`npm run mutation`) mutates the same files blindly; these
+// Mutation pass over the engine and the core: plants one bug at a time in a copy of both
+// packages under qa/out/mutant, recompiles the copy, and runs the Node tests of the package it
+// planted in, and for an engine bug a slice of the chaos harness. Stryker (`npm run mutation`) mutates the same files blindly; these
 // are the bugs a reviewer would expect, each named.
 // The sources are never written, so a crash or a Ctrl-C leaves no planted bug behind. A
 // mutation nothing catches is a gap in the suite.
@@ -14,21 +14,29 @@ import { PKG as source, SUITES, flags, writeOut } from "./lib.mjs";
 
 const args = flags({ seeds: { type: "string", default: "150" }, only: { type: "string" }, out: { type: "string" } });
 
-// The copy keeps the tree's shape, so the tests find ../vectors as they do from pkg/
+// The copy keeps the tree's shape, so the tests find ../vectors and each other's fixtures as
+// they do from the repository. The engine's copy imports the core the workspace links, which a
+// planted engine bug leaves alone
 const work = path.join(source, "qa/out/mutant");
 const pkg = path.join(work, "pkg");
+const migrator = path.join(work, "migrator");
+const migratorSource = path.join(source, "../migrator");
 fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(path.join(pkg, "qa"), { recursive: true });
+fs.mkdirSync(path.join(migrator, "qa"), { recursive: true });
 fs.symlinkSync(path.join(source, "../vectors"), path.join(work, "vectors"));
-fs.symlinkSync(path.join(source, "node_modules"), path.join(pkg, "node_modules"));
-// The suites and their fixture are the top-level .js files
-const scripts = fs.readdirSync(source).filter((f) => f.endsWith(".js"));
-for (const entry of ["src", "bin", "tsconfig.json", "package.json", ...scripts, "qa/chaos.mjs", "qa/lib.mjs", "qa/ops.mjs"]) {
+fs.symlinkSync(path.join(source, "../node_modules"), path.join(work, "node_modules"));
+// The suites and their fixtures are the top-level .js files
+const scripts = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith(".js"));
+for (const entry of ["src", "tsconfig.json", "package.json", ...scripts(source), "qa/lib.mjs", "qa/ops.mjs"]) {
   fs.cpSync(path.join(source, entry), path.join(pkg, entry), { recursive: true });
 }
+for (const entry of ["src", "bin", "tsconfig.json", "package.json", ...scripts(migratorSource), "qa/chaos.mjs"]) {
+  fs.cpSync(path.join(migratorSource, entry), path.join(migrator, entry), { recursive: true });
+}
 // The wasm glue is the one part of dist that tsc does not write
-fs.mkdirSync(path.join(pkg, "dist/migration"), { recursive: true });
-for (const file of ["glue.js", "glue.node.js", "glue.wasm"]) fs.copyFileSync(path.join(source, `dist/migration/${file}`), path.join(pkg, `dist/migration/${file}`));
+fs.mkdirSync(path.join(migrator, "dist"), { recursive: true });
+for (const file of ["glue.js", "glue.node.js", "glue.wasm"]) fs.copyFileSync(path.join(migratorSource, `dist/${file}`), path.join(migrator, `dist/${file}`));
 const seeds = Number(args.seeds);
 
 const MUTATIONS = [
@@ -59,7 +67,7 @@ const MUTATIONS = [
   {
     id: "M5",
     what: "the File objects are walked after the posts",
-    file: "src/migration/order.ts",
+    file: "migrator/src/order.ts",
     from: 'const BUCKETS = ["files", "blobs", "posts",',
     to: 'const BUCKETS = ["blobs", "posts", "files",',
   },
@@ -132,70 +140,70 @@ const MUTATIONS = [
   {
     id: "M17",
     what: "a clock any amount behind the last mint is a burst, never a correction",
-    file: "src/clock.ts",
+    file: "pkg/src/clock.ts",
     from: "const ROLLBACK_TOLERANCE = 1_000_000n;",
     to: "const ROLLBACK_TOLERANCE = 1n << 62n;",
   },
   {
     id: "M18",
     what: "a mute delete names no path",
-    file: "src/deletion.ts",
+    file: "pkg/src/deletion.ts",
     from: 'return [`${LEGACY_ROOT}mutes/${id}`, socialPath("private", `mutes/${id}.json`)];',
     to: "return [];",
   },
   {
     id: "M19",
     what: "an id with its spare bits set is taken as canonical",
-    file: "src/ids.ts",
+    file: "pkg/src/ids.ts",
     from: "if (CROCKFORD.indexOf(id[chars - 1] as string) & spare)",
     to: "if (CROCKFORD.indexOf(id[chars - 1] as string) & 0)",
   },
   {
     id: "M20",
     what: "a publish takes an editId older than its post",
-    file: "src/lifecycle.ts",
+    file: "pkg/src/lifecycle.ts",
     from: 'if (compareBytes(editId, id) < 0) fail("id", `editId ${editId} predates the post id ${id}`, "editId");',
     to: "",
   },
   {
     id: "M21",
     what: "an external reference may spell a pubky or a web scheme",
-    file: "src/canonicalize.ts",
+    file: "pkg/src/canonicalize.ts",
     from: 'if (folded.startsWith("pubky") || folded === "http" || folded === "https") return null;',
     to: "",
   },
   {
     id: "M22",
     what: "buildUri spells any id",
-    file: "src/uri.ts",
+    file: "pkg/src/uri.ts",
     from: "return named ? uri : fail(",
     to: "return true ? uri : fail(",
   },
   {
     id: "M23",
     what: "no input funnel: the caller's value is read where it lies, getters and all",
-    file: "src/input.ts",
+    file: "pkg/src/input.ts",
     from: "return copy(value, at, 0);",
     to: "return value;",
   },
 ];
 
-const run = (cmd, argv, timeoutMs) => {
-  const r = spawnSync(cmd, argv, { cwd: pkg, encoding: "utf8", timeout: timeoutMs, env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1536" } });
+const run = (cwd, cmd, argv, timeoutMs) => {
+  const r = spawnSync(cmd, argv, { cwd, encoding: "utf8", timeout: timeoutMs, env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1536" } });
   return { status: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}`, timedOut: r.error?.code === "ETIMEDOUT" };
 };
-const build = () => {
+const build = (cwd) => {
   // A planted bug often leaves a helper unread, which is no reason to stop the pass
-  execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd: pkg, stdio: "pipe" });
+  execFileSync("npx", ["--no", "--", "tsc", "-p", ".", "--noUnusedLocals", "false", "--noUnusedParameters", "false"], { cwd, stdio: "pipe" });
 };
-const tests = () => {
-  const r = run("npx", ["--no", "--", "mocha", SUITES], 600_000);
+const tests = (cwd) => {
+  const r = run(cwd, "npx", ["--no", "--", "mocha", cwd === pkg ? SUITES : "*.test.js"], 600_000);
   const failing = [...r.out.matchAll(/^\s+\d+\) (.+)$/gm)].map((m) => m[1].trim());
   const passing = Number(/(\d+) passing/.exec(r.out)?.[1] ?? 0);
   return { status: r.status, passing, failing: [...new Set(failing)].slice(0, 12), timedOut: r.timedOut };
 };
 const chaos = () => {
-  const r = run("node", ["--max-old-space-size=1536", "qa/chaos.mjs", "--seeds", String(seeds), "--no-minimize"], 1_200_000);
+  const r = run(migrator, "node", ["--max-old-space-size=1536", "qa/chaos.mjs", "--seeds", String(seeds), "--no-minimize"], 1_200_000);
   const m = /"violations": (\d+)/.exec(r.out.slice(r.out.lastIndexOf('{\n "variant"')));
   const invariants = [...new Set([...r.out.matchAll(/first ([\w-]+):/g)].map((x) => x[1]))];
   return { status: r.status, violatingSeeds: m ? Number(m[1]) : null, invariants, crashed: r.status !== 0 ? r.out.slice(-400) : undefined };
@@ -204,21 +212,26 @@ const chaos = () => {
 const results = [];
 const only = args.only?.split(",");
 // A pattern the code moved away from stops the pass before it plants anything
+const ENGINE = "migrator/src/engine.ts";
+// The core's copy is built once, for the chaos harness's shared helpers
+build(pkg);
 for (const mutation of MUTATIONS) {
-  const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
+  const file = path.join(work, mutation.file ?? ENGINE);
   if (!fs.readFileSync(file, "utf8").includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);
 }
 for (const mutation of MUTATIONS.filter((m) => !only || only.includes(m.id))) {
-  const file = path.join(pkg, mutation.file ?? "src/migration/engine.ts");
+  const file = path.join(work, mutation.file ?? ENGINE);
+  const engine = !(mutation.file ?? ENGINE).startsWith("pkg/");
+  const cwd = engine ? migrator : pkg;
   const clean = fs.readFileSync(file, "utf8");
   if (!clean.includes(mutation.from)) throw new Error(`${mutation.id}: the pattern is not in ${file}`);
   fs.writeFileSync(file, clean.replace(mutation.from, mutation.to));
   let entry;
   try {
-    build();
-    const t = tests();
+    build(cwd);
+    const t = tests(cwd);
     // The chaos harness drives the engine; a bug in the core is the suites' to catch
-    const c = mutation.file === undefined || mutation.file.startsWith("src/migration/") ? chaos() : null;
+    const c = engine ? chaos() : null;
     entry = { id: mutation.id, what: mutation.what, tests: t, chaos: c, caughtByTests: t.status !== 0, caughtByChaos: c === null ? null : c.status !== 0 || c.violatingSeeds > 0 };
   } catch (e) {
     entry = { id: mutation.id, what: mutation.what, buildError: `${e.stdout ?? ""}${e.stderr ?? ""}${e.message}`.slice(0, 600) };
