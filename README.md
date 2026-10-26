@@ -96,7 +96,7 @@ the `subspec` module of this crate. The public sub-specs of this workspace:
 | --- | --- | --- | --- |
 | [`pubky-maps-specs`](subspecs/maps) | `maps` | `route` | `rating` for place reviews (`parent` the OpenStreetMap URL), tags, collections of places |
 | [`pubky-events-specs`](subspecs/events) | `events` | `availability` | social `event` and `rsvp`, collections as calendars |
-| [`pubky-marketplace-specs`](subspecs/marketplace) | `marketplace` | `listing`, `drop` (a draft for adoption) | `rating` with `ext.marketplace` for reviews, bookmarks for the watchlist, tags, replies |
+| [`pubky-marketplace-specs`](subspecs/marketplace) | `marketplace` | `listing`, `drop`, `shop` (a draft for adoption) | `rating` with `ext.marketplace` for reviews, bookmarks for the watchlist, tags for keywords, replies for responses |
 
 Music's kinds are `pubky-music-specs`, in the music node's repository. [`docs/SUBSPECS.md`](docs/SUBSPECS.md)
 holds the conventions and the list of shared primitives a sub-spec never copies.

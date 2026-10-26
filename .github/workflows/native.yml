@@ -32,6 +32,21 @@ jobs:
       - name: Run native tests with the migrator, the replay tooling and the surface oracle
         run: cargo nextest run --no-fail-fast --features replay,surface -E 'not test(recorded_answers_are_current)'
 
+  subspecs:
+    name: sub-specs (maps, events, marketplace)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # Each crate's unit tests and the verdicts of its vector files
+      - name: Test the sub-specs
+        run: cargo test --locked -p pubky-maps-specs -p pubky-events-specs -p pubky-marketplace-specs
+      - name: Check the sub-specs on wasm32
+        run: cargo check --locked --target wasm32-unknown-unknown -p pubky-maps-specs -p pubky-events-specs -p pubky-marketplace-specs
+
   msrv:
     name: MSRV (1.89)
     runs-on: ubuntu-latest

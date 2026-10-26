@@ -23,7 +23,7 @@ jobs:
           components: rustfmt
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
   lint:
     runs-on: ubuntu-latest
@@ -44,7 +44,7 @@ jobs:
           cache-on-failure: true
 
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   package:
     runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
       - name: Cargo.toml and pkg/package.json agree on the version
         shell: bash
         run: |
-          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "pubky-social-specs") | .version')
           npm_version=$(jq -r .version pkg/package.json)
           if [ "$cargo_version" != "$npm_version" ]; then
             echo "::error::Cargo.toml is $cargo_version but pkg/package.json is $npm_version"
@@ -79,5 +79,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The frozen 0.x reader and its fixtures carry the old names on purpose.
-      - run: '! git grep -n -E "PubkyApp[A-Za-z]|pubky_app_specs|pubky-app-specs" -- . ":!SPEC.md" ":!docs/SPEC_V0.md" ":!.github/workflows/rust-checks.yml" ":!src/models/legacy_v0/**" ":!tests/fixtures/legacy_v0/**" ":!tests/legacy_v0_replay.rs" ":!tests/qa_transform_fuzz.rs" ":!src/bin/replay_remap.rs" ":!src/bin/replay_verify.rs"'
+      # The frozen 0.x reader and its fixtures carry the old names on purpose, and the marketplace
+      # sub-spec names the fork it models.
+      - run: '! git grep -n -E "PubkyApp[A-Za-z]|pubky_app_specs|pubky-app-specs" -- . ":!SPEC.md" ":!docs/SPEC_V0.md" ":!.github/workflows/rust-checks.yml" ":!src/models/legacy_v0/**" ":!tests/fixtures/legacy_v0/**" ":!tests/legacy_v0_replay.rs" ":!tests/qa_transform_fuzz.rs" ":!src/bin/replay_remap.rs" ":!src/bin/replay_verify.rs" ":!subspecs/marketplace/**"'

@@ -60,7 +60,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "pubky-social-specs") | .version')
           npm_version=$(jq -r .version pkg/package.json)
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             if [ "$GITHUB_REF_NAME" != "v$cargo_version" ] || [ "$GITHUB_REF_NAME" != "v$npm_version" ]; then
