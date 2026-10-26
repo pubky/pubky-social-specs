@@ -15,6 +15,7 @@ pub mod migrate;
 mod mime;
 mod models;
 mod normalize;
+pub mod subspec;
 #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
 #[doc(hidden)]
 pub mod surface;
