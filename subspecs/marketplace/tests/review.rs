@@ -100,6 +100,18 @@ fn recorded_verdicts_are_current() {
             r
         }),
         (
+            "a seller's review by someone who is not the seller",
+            url(BUYER),
+            {
+                let mut c = seller_claims();
+                c["sub"] = BUYER.into();
+                let mut r = review(&c);
+                r["parent"] = format!("pubky://{BUYER}/pub/social/v1/profile.json").into();
+                r["ext"]["marketplace"]["role"] = "seller_reviewing_buyer".into();
+                r
+            },
+        ),
+        (
             "a seller's review whose parent is the listing",
             url(SELLER),
             {

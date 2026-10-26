@@ -370,7 +370,12 @@ pub fn validate_review(post: &PubkySocialPost, author: &PubkyId) -> Result<Verif
             }
         }
         ReviewRole::SellerReviewingBuyer => {
-            bind("sub", author.as_ref() == seller)?;
+            if author.as_ref() != seller {
+                return Err(format!(
+                    "Validation Error: a seller's review is by the listing's seller: {}",
+                    ext.listing
+                ));
+            }
             let profile = format!("pubky://{}/pub/social/v1/profile.json", claims.cpk);
             if parent != profile {
                 return Err(format!(
