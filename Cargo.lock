@@ -1805,6 +1805,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pubky-marketplace-specs"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "base32",
+ "base64",
+ "ed25519-dalek",
+ "pubky",
+ "pubky-social-specs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pubky-social-specs"
 version = "1.1.0-alpha.1"
 dependencies = [
