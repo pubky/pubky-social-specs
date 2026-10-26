@@ -156,7 +156,7 @@ fn known_wire_strings_round_trip_and_unknown_serializes_as_unknown() {
         "rsvp",
         "rating",
     ]);
-    // A sub-spec's kinds are no social kind: a social reader meets them as kinds it does not know
+    // Kinds social does not know read as unknown, whatever app writes them
     for subspec_kind in ["availability", "route"] {
         let kind: PubkySocialPostKind =
             serde_json::from_str(&format!("\"{subspec_kind}\"")).unwrap();

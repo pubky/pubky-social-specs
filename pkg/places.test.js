@@ -1,4 +1,4 @@
-// The place conventions as a caller meets them, and the sub-specs' kinds under social.
+// The place conventions as a caller meets them, and kinds social does not know.
 
 import assert from "assert";
 import { buildPost, decodeObject, geoUri, isGeoUri, limits, osmUrl, parseOsmUrl, postKinds } from "./dist/index.js";
@@ -57,7 +57,7 @@ describe("the place conventions", () => {
   });
 });
 
-describe("a sub-spec's kind under social", () => {
+describe("a kind social does not know", () => {
   beforeEach(() => setClock(() => T0));
   after(() => setClock());
 

@@ -2,10 +2,9 @@
 
 A kind goes in the social specs only when other apps must read it: social 1.1 adds `event`, `rsvp`
 and `rating`, nothing else. An app's own kinds are its **sub-spec**: the same `PostEnvelope<K>`
-under the app's namespace, defined by the app's own crate, built from `pubky_social_specs::subspec`.
-The public sub-specs are `music` (`pubky-music-specs`, in the music node's repository) and, in this
-workspace, `maps`, `events` and `marketplace` (`subspecs/`). These are the rules every sub-spec
-follows.
+under the app's namespace, defined by the app's own crate in the app's own repository (as music's,
+`pubky-music-specs`, is), built from `pubky_social_specs::subspec`. The public namespaces are
+`music`, `maps`, `events` and `marketplace`. These are the rules every sub-spec follows.
 
 ## Paths and namespaces
 

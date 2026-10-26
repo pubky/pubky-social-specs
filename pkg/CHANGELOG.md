@@ -41,8 +41,8 @@ as before.
   `EventLocation`, `EventAttendance`, `EventLink`, `RecurrenceRule`, `NthDay`, `RsvpContent`,
   `RatingContent`, `DecodedContent`, `Envelope`, `EnvelopeKind` and the `New*` inputs of each
   kind.
-- An app's own kinds are its sub-spec's, on the same envelope under its own namespace:
-  `docs/SUBSPECS.md` in the crate's repository.
+- An app's own kinds are its sub-spec's, in the app's own repository, on the same envelope under
+  its own namespace, following the conventions in `docs/SUBSPECS.md`.
 - New: the place conventions. `geoUri(lat, lon, digits?)` spells a point one way, `isGeoUri`
   reads the spelling back, `osmUrl(object, id)` and `parseOsmUrl(url)` spell and read the
   canonical OpenStreetMap object URL.
