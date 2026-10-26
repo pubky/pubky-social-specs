@@ -1,13 +1,13 @@
 // Runs the suites from src, no build step: an import of dist/<module>.js resolves to
 // src/<module>.ts when there is one, and Node strips the types (22.18 and later). The wasm
-// glue has no source and stays in dist.
+// glue has no source and stays in dist. It maps the package it runs in, this one or the migrator.
 //   node --import ./qa/from-src.mjs node_modules/.bin/mocha test.js ...
 
 import { existsSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const pkg = fileURLToPath(new URL("..", import.meta.url));
+const pkg = `${process.cwd()}/`;
 const dist = `${pkg}dist/`;
 
 registerHooks({

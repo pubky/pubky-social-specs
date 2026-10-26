@@ -17,7 +17,7 @@ export declare const PREFIX = "Validation Error: ";
  * - `unsafe_integer`: an integer a JS number cannot hold exactly;
  * - `path`: a URL or path names no object of the kind asked for;
  * - `conflict`: members or arguments that cannot go together;
- * - `migration`: refused by the migrator, see the message.
+ * - `migration`: refused by pubky-social-migrator, see the message.
  */
 export type ErrorCode = "json" | "size" | "length" | "count" | "range" | "blank" | "format" | "id" | "reference" | "unknown_name" | "unsafe_integer" | "path" | "conflict" | "migration";
 /**

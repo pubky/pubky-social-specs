@@ -14,7 +14,11 @@ import { timestampId } from "../dist/ids.js";
 export const PKG = fileURLToPath(new URL("..", import.meta.url));
 
 /** Each subpath the package exports, and its module under dist. */
-export const ENTRIES = { ".": "index", "./testing": "testing", "./migration": "migration/index", "./migration/pubky-sdk": "migration/adapters/pubky-sdk", "./client": "client/index" };
+export const ENTRIES = { ".": "index", "./testing": "testing", "./client": "client/index" };
+
+/** The migrator's directory, and each subpath it exports with its module under its dist. */
+export const MIGRATOR = fileURLToPath(new URL("../../migrator/", import.meta.url));
+export const MIGRATOR_ENTRIES = { ".": "index", "./pubky-sdk": "adapters/pubky-sdk" };
 
 export const OWNER = "8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo";
 export const OTHER = "pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy";
@@ -43,7 +47,7 @@ export const scratch = (name) => {
 /** The package's TypeScript over the project in `dir`: what it printed, or "" when it passed. */
 export const tsc = (dir) => {
   try {
-    execFileSync(process.execPath, [path.join(PKG, "node_modules/typescript/bin/tsc"), "-p", dir], { stdio: "pipe" });
+    execFileSync(process.execPath, [path.join(path.dirname(createRequire(import.meta.url).resolve("typescript/package.json")), "bin/tsc"), "-p", dir], { stdio: "pipe" });
     return "";
   } catch (e) {
     return `${e.stdout}${e.stderr}`;

@@ -15,7 +15,9 @@ Rust types, builders, and validation for Pubky social data models. The builders 
 cargo add pubky-social-specs
 ```
 
-**JavaScript / TypeScript** ([npm](https://www.npmjs.com/package/pubky-social-specs)): see [`pkg/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/pkg/README.md). The package is a native TypeScript implementation of this crate's 1.x surface, held to it by the surface oracle (feature `surface`, see [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md)); only its migration subpath is this crate compiled to wasm.
+**JavaScript / TypeScript** ([npm](https://www.npmjs.com/package/pubky-social-specs)): see [`pkg/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/pkg/README.md). The package is a native TypeScript implementation of this crate's 1.x surface, held to it by the surface oracle (feature `surface`, see [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md)), and loads no wasm.
+
+**Migrating 0.x data** ([npm](https://www.npmjs.com/package/pubky-social-migrator)): see [`migrator/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/migrator/README.md). The migration is its own npm package, released with the core at the same version; its transforms are this crate compiled to wasm.
 
 ## Rust quick start
 
@@ -122,25 +124,25 @@ The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pu
 
 ## Releasing
 
-One tag publishes both the crate and the npm package. Bump `version` in `Cargo.toml` and `pkg/package.json` in the same commit (CI fails when they differ, and `Cargo.lock` has to follow), with the subject `chore: <version>`. Merge it into `v1` or `main`, then tag that commit and push the tag:
+One tag publishes the crate and both npm packages, `pubky-social-specs` (`pkg/`) and `pubky-social-migrator` (`migrator/`). Bump `version` in `Cargo.toml`, `pkg/package.json` and `migrator/package.json`, and the migrator's dependency on `pubky-social-specs`, in the same commit (CI fails when any of them differ, and `Cargo.lock` and `package-lock.json` have to follow), with the subject `chore: <version>`. Merge it into `v1` or `main`, then tag that commit and push the tag:
 
 ```bash
 git tag v1.1.0-alpha.1 && git push origin v1.1.0-alpha.1
 ```
 
-The Release workflow runs every CI workflow again and refuses a tag that does not match both versions or that is not on `v1` or `main`. Then it publishes to crates.io and npm and opens a GitHub release with the npm tarball attached. A version with a `-` in it goes out under the npm `next` tag and is marked as a prerelease; any other version goes to `latest`. There are no registry tokens anywhere, both registries trust this workflow through GitHub OIDC.
+The Release workflow runs every CI workflow again and refuses a tag that does not match both versions or that is not on `v1` or `main`. Then it publishes to crates.io and npm, the core before the migrator, and opens a GitHub release with both npm tarballs attached. A version with a `-` in it goes out under the npm `next` tag and is marked as a prerelease; any other version goes to `latest`. There are no registry tokens anywhere, both registries trust this workflow through GitHub OIDC.
 
 A prerelease tag like `v1.1.0-alpha.1` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that. Whoever approves the `release` environment has to confirm those before approving a stable tag.
 
-The crates.io and npm jobs run in parallel. If npm fails after the crate already went out, open the run and use Re-run failed jobs, which picks up the tarball uploaded earlier in the same run. Re-run all jobs would fail trying to publish the crate a second time.
+The crates.io and npm jobs run in parallel. If npm fails after the crate already went out, open the run and use Re-run failed jobs, which picks up the tarballs uploaded earlier in the same run and skips a package already published at that version. Re-run all jobs would fail trying to publish the crate a second time.
 
 ### Rehearsing
 
-In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_run` checked. It runs all the checks and the build and uploads the npm tarball as an artifact, but publishes nothing. Unchecking `dry_run` only publishes from a tag, on a branch the run fails.
+In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_run` checked. It runs all the checks and the build and uploads both npm tarballs as an artifact, but publishes nothing. GitHub offers Run workflow only once `release.yml` is on the default branch. Unchecking `dry_run` only publishes from a tag, on a branch the run fails.
 
 ### One-time setup
 
-The repository has to be `pubky/pubky-social-specs` before anything else, so rename it first if it still has the old name. Until then the npm publish fails, because npm requires `repository.url` in `pkg/package.json` to match the repository the workflow runs in.
+The repository has to be `pubky/pubky-social-specs` before anything else, so rename it first if it still has the old name. Until then the npm publish fails, because npm requires `repository.url` in each `package.json` to match the repository the workflow runs in.
 
 Then create an environment called `release` in the repository settings. Add required reviewers to it, and under Deployment branches and tags pick Selected with the tag rule `v*`. A repository ruleset limiting who can create `v*` tags belongs next to it. The registries accept any run of `release.yml` in the `release` environment whatever ref it started from, so these rules are what keep someone with write access from publishing a modified workflow off a branch.
 
@@ -148,10 +150,12 @@ A trusted publisher can only be added to a package that already exists, on both 
 
 ```bash
 cargo publish --locked
-cd pkg && npm run build && npm publish --access public --tag next
+npm ci && (cd pkg && npm run build)
+(cd pkg && npm publish --access public --tag next)
+(cd migrator && npm publish --access public --tag next)
 ```
 
-Do not push a `v` tag for that version, the workflow would try to publish it again. After the bootstrap, add the trusted publisher on each registry. On crates.io it lives under the crate's Settings, Trusted Publishing, GitHub. On npmjs.com it is the package's Settings page, Trusted Publisher, GitHub Actions. Both take the same values:
+Do not push a `v` tag for that version, the workflow would try to publish it again. After the bootstrap, add the trusted publisher on each registry, and on npm to each of the two packages. On crates.io it lives under the crate's Settings, Trusted Publishing, GitHub. On npmjs.com it is the package's Settings page, Trusted Publisher, GitHub Actions. Both take the same values:
 
 | Field | Value |
 | --- | --- |
@@ -162,17 +166,17 @@ Do not push a `v` tag for that version, the workflow would try to publish it aga
 
 On npmjs.com the same form has Allowed actions. `npm stage publish` is always allowed, and a trusted publisher created after September 3, 2026 allows only that by default. Enable `npm publish` there too, because the workflow publishes directly. With the default left in place the npm job fails, possibly after the crate already went out to crates.io.
 
-Both registries match on the repository name, and npm also checks it against `repository.url` in `pkg/package.json`. Renaming the GitHub repository again later means updating both entries and that field.
+Both registries match on the repository name, and npm also checks it against `repository.url` in each `package.json`. Renaming the GitHub repository again later means updating both entries and that field.
 
 ### Using a build that is not published yet
 
-A git dependency cannot give you the npm package, because `dist/`, the compiled modules and the migrator's wasm, is build output and never committed. Build a tarball instead:
+A git dependency cannot give you the npm packages, because `dist/`, the compiled modules and the migrator's wasm, is build output and never committed. Build the tarballs instead:
 
 ```bash
-cd pkg && npm run build && npm pack
+npm ci && (cd pkg && npm run build && npm pack) && (cd migrator && npm pack)
 ```
 
-and point the consuming project at it, for example `"pubky-social-specs": "file:../pubky-social-specs-1.1.0-alpha.1.tgz"`. A dry run of the Release workflow uploads the same tarball as an artifact, if you would rather not build it yourself. The crate has no such problem: a Cargo git dependency builds from source.
+and point the consuming project at them, for example `"pubky-social-specs": "file:../pubky-social-specs-1.1.0-alpha.1.tgz"`, and the same for `pubky-social-migrator` when it migrates. A dry run of the Release workflow uploads the same tarballs as an artifact, if you would rather not build them yourself. The crate has no such problem: a Cargo git dependency builds from source.
 
 ## License
 

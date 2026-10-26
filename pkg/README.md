@@ -18,7 +18,7 @@ A post is a directory of **versions**: each edit writes a new file, `posts/{id}/
 
 A LIST is recursive: listing `/pub/social/v1/posts/` returns every version file below it, a page of up to 1000 URLs at a time. A **plan** is a function that computes which files to copy and delete for a change of several files (publishing a draft, deleting a post) and performs no request itself.
 
-This package writes the **1.x** layout, under `/{root}/social/v1/`. Data written by pubky-app before it, the **0.x** layout under `/pub/pubky.app/`, is read only by the migration in `pubky-social-specs/migration`, which copies it into 1.x.
+This package writes the **1.x** layout, under `/{root}/social/v1/`. Data written by pubky-app before it, the **0.x** layout under `/pub/pubky.app/`, is read only by the migration, the separate package [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator), which copies it into 1.x.
 
 The reference implementation is the Rust crate of the same name. This package is held to it on every operation: the same stored bytes, the same ids and paths, and the same message when an object is refused.
 
@@ -257,7 +257,7 @@ console.log(edited.editId > article.editId); // true
 | `file` | the hash | each 0.x File object, the 0.x blob, then each listed copy, public before private | the 1.x copies, and each 0.x File object with its `src` |
 | `tag` | the hash id | each listed 0.x tag, then `/pub/social/v1/tags/<id>.json` | each 0.x tag with its `uri` and `label` |
 
-For a post, prefer `planDelete` (below): it takes the same copies, orders them the same way, and also returns the media the post referenced. A bookmark and a feed delete their 1.x copies only: their 0.x id hashes a target that the migration respells, so their own id cannot name the 0.x path. That copy stays readable under `/pub/pubky.app/`, and a later migration run does not copy it back (see [`MIGRATION.md`](MIGRATION.md)). Every listing is checked, and one that is not a copy of the object is refused with a `ValidationError` naming it.
+For a post, prefer `planDelete` (below): it takes the same copies, orders them the same way, and also returns the media the post referenced. A bookmark and a feed delete their 1.x copies only: their 0.x id hashes a target that the migration respells, so their own id cannot name the 0.x path. That copy stays readable under `/pub/pubky.app/`, and a later migration run does not copy it back (see [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator)). Every listing is checked, and one that is not a copy of the object is refused with a `ValidationError` naming it.
 
 ```js
 import { buildFollow, deletionPaths } from "pubky-social-specs";
@@ -370,7 +370,7 @@ A `ValidationError` has `message`, the reference text starting with `Validation 
 | `unsafe_integer` | an integer a JavaScript number cannot hold exactly | |
 | `path` | a URL or path that names no object of the kind asked for | |
 | `conflict` | members or arguments that cannot go together | |
-| `migration` | refused by the migrator; see the message | |
+| `migration` | refused by `pubky-social-migrator`; see the message | |
 
 ## Testing your code
 
@@ -419,7 +419,7 @@ It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`
 - ESM only, with types. Node `^20.19.0 || >=22.12.0`, where `require()` of an ES module works too; Deno 2; Bun 1; browsers with ES2022. One dependency, [`@noble/hashes`](https://www.npmjs.com/package/@noble/hashes).
 - TypeScript 5.7 or later. An older compiler fails on the import with `has no exported member`, where it would otherwise read every byte type as `any`. A CommonJS file compiled with TypeScript `module: node16` cannot import an ES module; 5.8 or later with `nodenext` can.
 - jest runs it in ESM mode (`NODE_OPTIONS=--experimental-vm-modules` and `transform: {}`) or on Node 24.9 or later; vitest needs nothing. Under jsdom the bytes a builder returns are Node's `Uint8Array`, not the window's, so `expect.any(Uint8Array)` misses them: compare with `toEqual(new Uint8Array(...))` or check `ArrayBuffer.isView`.
-- The main entry uses no host-specific global, so it runs in a worker, in Cloudflare Workers and during server rendering. The migration subpath picks a build of its wasm per runtime: inlined by default, read from its file under Node, and compiled at deploy time under the `workerd` condition Wrangler sets. Vercel Edge is untested for the migration.
+- The package uses no host-specific global and loads no wasm, so it runs in a worker, in Cloudflare Workers and during server rendering.
 - `decodeObject` pulls in every model, about 20 kB gzipped; `buildUri` alone is about 3 kB and the whole entry about 28 kB (`npm run size`: esbuild, minified, gzipped).
 - The id guard and the clock belong to one copy of the package. A library that wraps this one should declare it a peer dependency, so a page holds one copy.
 
@@ -427,7 +427,6 @@ It covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`
 
 - Hover any export in an editor: every one carries its doc and an example, which `npm run examples` compiles and runs.
 - [`docs/reference.md`](docs/reference.md): the limits, the media types, every stored object member by member, and the error codes, generated from the package.
-- [`MIGRATION.md`](MIGRATION.md): the 0.x to 1.x migration, its port contract, report and CLI.
 - [`SECURITY.md`](SECURITY.md): what is attacker-controlled and what the package guarantees about it.
 - [`CHANGELOG.md`](CHANGELOG.md): what a version promises about the API and about the stored bytes, separately.
 
@@ -435,7 +434,7 @@ The legacy 0.x layout is described in [`docs/SPEC_V0.md`](https://github.com/pub
 
 ## Migration
 
-`pubky-social-specs/migration` migrates an owner's 0.x tree to 1.x, `pubky-social-specs/migration/pubky-sdk` is its port over an SDK session, and `pubky-social-migrate` runs it from a terminal. It is the only part of the package that loads a wasm. See [`MIGRATION.md`](MIGRATION.md).
+[`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator) migrates an owner's 0.x tree to 1.x: the engine, its port over an SDK session, and the `pubky-social-migrate` CLI. It is a separate package, released with this one at the same version, so the wasm it loads stays out of an app that never migrates, and it can be retired without a new major version of this one.
 
 ## License
 

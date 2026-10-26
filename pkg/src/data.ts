@@ -149,28 +149,6 @@ export const MIME_TO_EXT = /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object
 export const validMimeTypes = /* @__PURE__ */ Object.freeze(["application/javascript", "application/json", "application/octet-stream", "application/pdf", "application/x-www-form-urlencoded", "application/xml", "application/zip", "audio/mpeg", "audio/wav", "image/gif", "image/jpeg", "image/png", "image/svg+xml", "image/webp", "multipart/form-data", "text/css", "text/csv", "text/html", "text/plain", "text/xml", "video/mp4", "video/mpeg"] as const);
 
 /**
- * Why the migration leaves a 0.x object behind: the keys of a report's `skipped`.
- *
- * @example
- * ```ts
- * import { skipReasons } from "pubky-social-specs/migration";
- * console.log(skipReasons.join(", "));
- * ```
- */
-export const skipReasons = /* @__PURE__ */ Object.freeze(["malformed", "shape", "unsafe_integer", "empty_title", "unknown_feed_content", "oversize", "invalid", "not_migrated"] as const);
-
-/**
- * The revision of the migration's transforms: a flag recorded under a lower one is walked again.
- *
- * @example
- * ```ts
- * import { transformRev } from "pubky-social-specs/migration";
- * console.log(transformRev);
- * ```
- */
-export const transformRev: number = 3;
-
-/**
  * The code points the reference spells as \u{..} when an error quotes text, as inclusive
  * ranges laid end to end. It follows the Unicode tables the reference was built with.
  */

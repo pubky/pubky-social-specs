@@ -1,5 +1,5 @@
-//! Builds the npm package into `pkg/dist`: the TypeScript sources through tsc, and the
-//! migrator's wasm through wasm-pack and `patch.mjs`.
+//! Builds both npm packages: `pkg/dist` (pubky-social-specs) through tsc, and `migrator/dist`
+//! (pubky-social-migrator) through tsc, then its wasm through wasm-pack and `patch.mjs`.
 
 use std::env;
 use std::fs;
@@ -9,27 +9,34 @@ use std::process::{Command, ExitStatus};
 
 fn main() {
     let root = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let pkg = Path::new(&root).join("pkg");
 
-    // A module renamed or removed since the last build would otherwise ship stale
-    match fs::remove_dir_all(pkg.join("dist")) {
-        Err(e) if e.kind() != io::ErrorKind::NotFound => panic!("cannot clear pkg/dist: {e}"),
-        _ => {}
+    for package in ["pkg", "migrator"] {
+        // A module renamed or removed since the last build would otherwise ship stale
+        let dist = Path::new(&root).join(package).join("dist");
+        match fs::remove_dir_all(&dist) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => {
+                panic!("cannot clear {package}/dist: {e}")
+            }
+            _ => {}
+        }
     }
 
-    // A failed step must fail the build, or a stale glue from an earlier run ships
-    check(
-        "tsc (is `npm install` done in pkg/?)",
-        Command::new("npx")
-            .args(["--no", "--", "tsc", "-p", "."])
-            .current_dir(&pkg)
-            .status(),
-    );
+    // A failed step must fail the build, or a stale glue from an earlier run ships. The
+    // migrator compiles against the core's declarations, so the core goes first
+    for package in ["pkg", "migrator"] {
+        check(
+            &format!("tsc in {package}/ (is `npm install` done at the repository root?)"),
+            Command::new("npx")
+                .args(["--no", "--", "tsc", "-p", "."])
+                .current_dir(Path::new(&root).join(package))
+                .status(),
+        );
+    }
     check(
         "wasm-pack",
         Command::new("wasm-pack")
             .args(["build", &root, "--release", "--target", "nodejs"])
-            .args(["--out-dir", "pkg/nodejs", "--no-pack"])
+            .args(["--out-dir", "migrator/nodejs", "--no-pack"])
             // The wasm is the migrator and nothing else
             .args(["--", "--features", "migrator", "--locked"])
             .status(),
@@ -40,7 +47,7 @@ fn main() {
             .arg(format!("{root}/src/bin/patch.mjs"))
             .status(),
     );
-    println!("pubky-social-specs: built into pkg/dist");
+    println!("built pkg/dist and migrator/dist");
 }
 
 fn check(step: &str, status: io::Result<ExitStatus>) {

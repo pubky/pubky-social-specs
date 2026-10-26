@@ -11,7 +11,7 @@ import { HOST, atomicWrite, dumpTree, keypairOf, seedEpoch } from "../testnet.mj
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const REPO = path.resolve(here, "../../..");
-export const CLI = path.join(REPO, "pkg/bin/migrate.js");
+export const CLI = path.join(REPO, "migrator/bin/migrate.js");
 const VERIFY = path.join(REPO, "target/debug/replay_verify");
 const PASSPHRASE = "replay";
 

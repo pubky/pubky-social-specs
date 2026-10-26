@@ -1,4 +1,4 @@
-// Every export of every entry, and every member of an exported object type, carries the doc an
+// Every export of every entry of either package, and every member of an exported object type, carries the doc an
 // editor shows on hover; a number member's doc names its unit. Reads the built declarations
 // with the TypeScript checker, as an editor does.
 //
@@ -7,14 +7,18 @@
 // Exits 1 and names each export or member that hovers empty.
 
 import path from "node:path";
-import { ENTRIES, PKG, declarations, flags } from "./lib.mjs";
+import { ENTRIES, MIGRATOR, MIGRATOR_ENTRIES, PKG, declarations, flags } from "./lib.mjs";
 
-const dist = path.join(PKG, "dist");
+const dists = [path.join(PKG, "dist"), path.join(MIGRATOR, "dist")];
+const modules = [
+  ...Object.entries(ENTRIES).map(([entry, module]) => [entry, path.join(dists[0], `${module}.d.ts`)]),
+  ...Object.entries(MIGRATOR_ENTRIES).map(([entry, module]) => [`migrator${entry.slice(1)}`, path.join(dists[1], `${module}.d.ts`)]),
+];
 const UNIT =
   /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP|people|days|years|metres|degrees|digits|half stars|stars|occurrences|periods|places|links|blocks|rules?|waypoints|dates|id)\b/i;
 
-const { ts, program, checker } = declarations(Object.values(ENTRIES).map((module) => path.join(dist, `${module}.d.ts`)));
-const ours = (symbol) => (symbol.declarations ?? []).some((d) => d.getSourceFile().fileName.startsWith(dist));
+const { ts, program, checker } = declarations(modules.map(([, file]) => file));
+const ours = (symbol) => (symbol.declarations ?? []).some((d) => dists.some((dist) => d.getSourceFile().fileName.startsWith(dist)));
 const docOf = (symbol) => ts.displayPartsToString(symbol.getDocumentationComment(checker)).trim();
 
 const empty = [];
@@ -44,11 +48,11 @@ function members(type, owner, depth) {
   }
 }
 
-for (const [entry, module] of Object.entries(ENTRIES)) {
-  const source = program.getSourceFile(path.join(dist, `${module}.d.ts`));
+for (const [entry, file] of modules) {
+  const source = program.getSourceFile(file);
   const moduleSymbol = checker.getSymbolAtLocation(source);
   for (let symbol of checker.getExportsOfModule(moduleSymbol)) {
-    const name = `${entry === "." ? "" : `${entry.slice(2)}:`}${symbol.name}`;
+    const name = `${entry === "." ? "" : `${entry.replace(/^\.\//, "")}:`}${symbol.name}`;
     if (symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
     if (seen.has(symbol)) continue;
     seen.add(symbol);

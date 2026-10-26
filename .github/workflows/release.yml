@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/native.yml
   wasm:
     uses: ./.github/workflows/wasm.yml
-  # The native package's gates, the e2e migration included
+  # Both npm packages' gates, the e2e migration included
   js-native:
     uses: ./.github/workflows/js-native.yml
 
@@ -41,6 +41,8 @@ jobs:
       publish: ${{ steps.version.outputs.publish }}
       tarball: ${{ steps.pack.outputs.tarball }}
       tarball_bytes: ${{ steps.pack.outputs.tarball_bytes }}
+      migrator_tarball: ${{ steps.pack.outputs.migrator_tarball }}
+      migrator_tarball_bytes: ${{ steps.pack.outputs.migrator_tarball_bytes }}
 
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +64,13 @@ jobs:
         run: |
           cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "pubky-social-specs") | .version')
           npm_version=$(jq -r .version pkg/package.json)
+          migrator_version=$(jq -r .version migrator/package.json)
+          # The migrator runs on the core of its own release and no other
+          migrator_core=$(jq -r '.dependencies["pubky-social-specs"]' migrator/package.json)
+          if [ "$migrator_version" != "$npm_version" ] || [ "$migrator_core" != "$npm_version" ]; then
+            echo "::error::migrator/package.json is $migrator_version on pubky-social-specs $migrator_core, pkg/package.json is $npm_version: one version for all three"
+            exit 1
+          fi
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             if [ "$GITHUB_REF_NAME" != "v$cargo_version" ] || [ "$GITHUB_REF_NAME" != "v$npm_version" ]; then
               echo "::error::tag $GITHUB_REF_NAME, Cargo.toml $cargo_version and pkg/package.json $npm_version must name one version"
@@ -101,21 +110,26 @@ jobs:
           node-version-file: pkg/.nvmrc
 
       # No build cache here: this build is what gets published.
-      - name: Build and pack the npm package
+      - name: Build and pack both npm packages
         id: pack
         shell: bash
         run: |
-          cd pkg
           npm ci
-          npm run build
-          tarball=$(npm pack --json | jq -r '.[0].filename')
+          (cd pkg && npm run build)
+          tarball=$(cd pkg && npm pack --json --pack-destination .. | jq -r '.[0].filename')
+          migrator_tarball=$(cd migrator && npm pack --json --pack-destination .. | jq -r '.[0].filename')
           tarball_bytes=$(stat -c %s "$tarball")
-          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
-          echo "tarball_bytes=$tarball_bytes" >> "$GITHUB_OUTPUT"
+          migrator_tarball_bytes=$(stat -c %s "$migrator_tarball")
           {
-            echo "### pubky-social-specs ${{ steps.version.outputs.version }}"
+            echo "tarball=$tarball"
+            echo "tarball_bytes=$tarball_bytes"
+            echo "migrator_tarball=$migrator_tarball"
+            echo "migrator_tarball_bytes=$migrator_tarball_bytes"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### pubky-social-specs and pubky-social-migrator ${{ steps.version.outputs.version }}"
             echo
-            echo "- npm tarball: $tarball_bytes bytes"
+            echo "- npm tarballs: $tarball_bytes and $migrator_tarball_bytes bytes"
             echo "- npm dist-tag: ${{ steps.version.outputs.dist_tag }}"
             echo "- publish: ${{ steps.version.outputs.publish }}"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -123,7 +137,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: npm-package
-          path: pkg/${{ steps.pack.outputs.tarball }}
+          path: |
+            ${{ steps.pack.outputs.tarball }}
+            ${{ steps.pack.outputs.migrator_tarball }}
           if-no-files-found: error
 
   crates:
@@ -143,10 +159,26 @@ jobs:
         with:
           toolchain: "1.97.0"
 
+      # A version already on crates.io is skipped, as npm's is, so a re-run publishes nothing twice
+      - name: Is this version on crates.io
+        id: published
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' -A "pubky-social-specs release" \
+            "https://crates.io/api/v1/crates/pubky-social-specs/$VERSION")
+          case "$status" in
+            200) echo "pubky-social-specs $VERSION is already on crates.io"; echo "skip=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "skip=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::crates.io answered $status"; exit 1 ;;
+          esac
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+
       - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.published.outputs.skip != 'true'
         id: auth
 
       - name: Publish to crates.io
+        if: steps.published.outputs.skip != 'true'
         run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
@@ -181,11 +213,23 @@ jobs:
         with:
           name: npm-package
 
+      # The core first: the migrator depends on exactly this version of it. A package already at
+      # this version is skipped, so a re-run after the migrator failed publishes only the migrator
       - name: Publish to npm
-        run: npm publish "./$TARBALL" --access public --tag "$DIST_TAG" --provenance
+        run: |
+          for pair in "pubky-social-specs:$TARBALL" "pubky-social-migrator:$MIGRATOR_TARBALL"; do
+            name="${pair%%:*}" tarball="${pair#*:}"
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "$name $VERSION is already on npm"
+              continue
+            fi
+            npm publish "./$tarball" --access public --tag "$DIST_TAG" --provenance
+          done
         env:
           TARBALL: ${{ needs.verify.outputs.tarball }}
+          MIGRATOR_TARBALL: ${{ needs.verify.outputs.migrator_tarball }}
           DIST_TAG: ${{ needs.verify.outputs.dist_tag }}
+          VERSION: ${{ needs.verify.outputs.version }}
 
   github-release:
     needs: [verify, crates, npm]
@@ -200,18 +244,21 @@ jobs:
 
       - name: Create the GitHub release
         run: |
-          gh release create "$GITHUB_REF_NAME" "./$TARBALL" \
+          gh release create "$GITHUB_REF_NAME" "./$TARBALL" "./$MIGRATOR_TARBALL" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --generate-notes \
             --prerelease="$PRERELEASE" \
-            --notes "npm tarball: $TARBALL_BYTES bytes
+            --notes "npm tarballs: pubky-social-specs $TARBALL_BYTES bytes, pubky-social-migrator $MIGRATOR_TARBALL_BYTES bytes
 
           - crates.io: https://crates.io/crates/pubky-social-specs/$VERSION
-          - npm: https://www.npmjs.com/package/pubky-social-specs/v/$VERSION"
+          - npm: https://www.npmjs.com/package/pubky-social-specs/v/$VERSION
+          - npm: https://www.npmjs.com/package/pubky-social-migrator/v/$VERSION"
         env:
           GH_TOKEN: ${{ github.token }}
           TARBALL: ${{ needs.verify.outputs.tarball }}
           VERSION: ${{ needs.verify.outputs.version }}
           PRERELEASE: ${{ needs.verify.outputs.prerelease }}
           TARBALL_BYTES: ${{ needs.verify.outputs.tarball_bytes }}
+          MIGRATOR_TARBALL: ${{ needs.verify.outputs.migrator_tarball }}
+          MIGRATOR_TARBALL_BYTES: ${{ needs.verify.outputs.migrator_tarball_bytes }}

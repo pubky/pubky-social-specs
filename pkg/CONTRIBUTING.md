@@ -4,26 +4,30 @@ Read `ARCHITECTURE.md` first: the layers, the parity boundary and the generated 
 
 ## Building
 
-Everything but the migration builds with Node alone:
+The repository holds two npm packages in one workspace: this one, `pkg/`, and
+`pubky-social-migrator`, `../migrator/`. Install at the root. This package builds with Node
+alone:
 
 ```sh
+npm ci --ignore-scripts      # at the repository root
 cd pkg
-npm ci --ignore-scripts
-npx tsc -p .          # src -> dist, the whole core and the engine's TypeScript
+npx tsc -p .
 npm test
 ```
 
-The migrator's wasm and its three loaders, `dist/migration/glue.js`, `glue.node.js`,
+The migrator's wasm and its three loaders, `migrator/dist/glue.js`, `glue.node.js`,
 `glue.workerd.js`, `glue.wasm` and `glue.d.ts`, are the files tsc does not write. Without
 cargo, take them from a published build of the same version, or from the `dist` artifact of the
 `js-native` workflow:
 
 ```sh
-npm pack pubky-social-specs@<version> && tar -xzf pubky-social-specs-<version>.tgz 'package/dist/migration/glue*'
-cp package/dist/migration/glue* dist/migration/
+cd ../migrator && npx tsc -p .
+npm pack pubky-social-migrator@<version> && tar -xzf pubky-social-migrator-<version>.tgz 'package/dist/glue*'
+cp package/dist/glue* dist/
 ```
 
-With the Rust toolchain, `npm run build` builds everything; it wipes `dist` first. Never run
+With the Rust toolchain, `npm run build` in either package builds both; it wipes both `dist`
+first. Never run
 `wasm-pack build --out-dir pkg` by hand: it overwrites `package.json`. A release `dist` is built
 only in CI, from the pinned toolchain, and a job rebuilds it from the tag and compares.
 
@@ -38,7 +42,7 @@ a pull request, also run `npm run types`, `npm run api`, `npm run lint`, `npm ru
 `npm run format:check` and `npm run coverage`.
 
 The docs are checked like code. `npm run docs:snippets` type-checks every `js` block of the
-README, `MIGRATION.md` and `docs/`, and runs each against the in-memory homeserver of `pubky-social-specs/testing`; `npm run docs:check`
+README, the migrator's README and `docs/`, and runs each against the in-memory homeserver of `pubky-social-specs/testing`; `npm run docs:check`
 fails when `docs/reference.md` differs from what `qa/docs.mjs` generates from the package; and
 `npm run docs:hover` fails on any export or member whose editor hover is empty, or a number
 whose doc names no unit. A changed limit, member or error code is a regenerated reference:

@@ -1,0 +1,103 @@
+{
+  "name": "pubky-social-migrator",
+  "version": "1.1.0-alpha.1",
+  "description": "Migrates a Pubky user's 0.x social data to the 1.x data model of pubky-social-specs",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "<5.7": {
+      "*": [
+        "./ts-too-old.d.ts"
+      ]
+    },
+    "*": {
+      "pubky-sdk": [
+        "./dist/adapters/pubky-sdk.d.ts"
+      ]
+    }
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "types@<5.7": "./ts-too-old.d.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./pubky-sdk": {
+      "types@<5.7": "./ts-too-old.d.ts",
+      "types": "./dist/adapters/pubky-sdk.d.ts",
+      "default": "./dist/adapters/pubky-sdk.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "imports": {
+    "#glue": {
+      "types": "./src/glue.d.ts",
+      "workerd": "./dist/glue.workerd.js",
+      "node": "./dist/glue.node.js",
+      "default": "./dist/glue.js"
+    }
+  },
+  "bin": {
+    "pubky-social-migrate": "bin/migrate.js"
+  },
+  "files": [
+    "dist",
+    "ts-too-old.d.ts",
+    "src",
+    "!src/host.d.ts",
+    "bin/migrate.js",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "build": "npm run build --prefix ../pkg",
+    "pretest": "tsc -p .",
+    "test": "mocha '*.test.js' && npm run model -- --runs 25 --seed 1",
+    "model": "node --max-old-space-size=1536 qa/model.mjs",
+    "chaos": "node --max-old-space-size=1536 qa/chaos.mjs",
+    "mutation": "stryker run",
+    "coverage": "node ../pkg/qa/coverage.mjs",
+    "lint": "node ../pkg/tools/node_modules/eslint/bin/eslint.js -c ../pkg/tools/eslint.config.mjs --max-warnings 0 src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "e2e": "mocha e2e/migrate.e2e.js",
+    "api": "diff -u api/migration.d.ts dist/index.d.ts && diff -u api/pubky-sdk.d.ts dist/adapters/pubky-sdk.d.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0",
+    "pubky-social-specs": "1.1.0-alpha.1"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@synonymdev/pubky": "^0.14.0",
+    "fast-check": "^4.10.2",
+    "mocha": "^12.0.3",
+    "prettier": "^3.9.9",
+    "typescript": "^7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pubky/pubky-social-specs.git",
+    "directory": "migrator"
+  },
+  "homepage": "https://github.com/pubky/pubky-social-specs/tree/main/migrator#readme",
+  "bugs": {
+    "url": "https://github.com/pubky/pubky-social-specs/issues"
+  },
+  "contributors": [
+    "SHAcollision",
+    "tipogi",
+    "ok300"
+  ],
+  "keywords": [
+    "pubky",
+    "social",
+    "migration"
+  ]
+}

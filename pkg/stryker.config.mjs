@@ -1,5 +1,5 @@
-// Mutation testing of the core and of the engine's claim logic: Stryker plants one change at a
-// time in a copy of the package and counts the ones no test catches.
+// Mutation testing of the core: Stryker plants one change at a time in a copy of the package and
+// counts the ones no test catches. The migrator has its own, over the engine's claim logic.
 //
 //   npx stryker run          (nightly in CI; the report lands in qa/out/stryker)
 
@@ -13,23 +13,12 @@ if (!fs.existsSync(`${temp}/vectors`)) fs.symlinkSync(path.resolve("../vectors")
 
 /** @type {import("@stryker-mutator/api/core").PartialStrykerOptions} */
 export default {
-  mutate: [
-    "src/ids.ts",
-    "src/clock.ts",
-    "src/canonicalize.ts",
-    "src/deletion.ts",
-    "src/lifecycle.ts",
-    // keyOf and claimKey; taking the claims in #migrateOne, then #copy, #holds, #landed and
-    // #claim, leaving out #fence between them. Line ranges: move them with the code
-    "src/migration/engine.ts:160-170",
-    "src/migration/engine.ts:461-476",
-    "src/migration/engine.ts:494-609",
-  ],
+  mutate: ["src/ids.ts", "src/clock.ts", "src/canonicalize.ts", "src/deletion.ts", "src/lifecycle.ts"],
   // The mocha runner does not take mocha 12 yet, so each mutant runs the suites as a command,
   // the fastest killers first and stopping at the first failure
   testRunner: "command",
   commandRunner: {
-    command: "FC_RUNS=30 node --max-old-space-size=1024 node_modules/.bin/mocha --bail vectors.test.js edges.test.js test.js property.test.js migration.test.js",
+    command: "FC_RUNS=30 NODE_OPTIONS=--max-old-space-size=1024 npx --no -- mocha --bail vectors.test.js edges.test.js test.js property.test.js",
   },
   buildCommand: "npx tsc -p .",
   // Stryker rewrites the extends and references of this file through the TypeScript 5 API,

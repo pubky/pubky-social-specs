@@ -56,9 +56,37 @@ as before.
   the rule that an event override's `recurrenceOf` is the same author's post.
 - The size budgets of the entries that carry the post rules grew by 1 to 5 KB gzipped, the cost
   of the three kinds; `import { buildUri }` by about 100 bytes, the cost of the longer limits
-  table every bundle that reads a limit carries; the migration's wasm by about 34 KB, since the
-  crate it is compiled from reads every migrated post through the 1.1 reader.
+  table every bundle that reads a limit carries. `pubky-social-migrator`'s wasm grows too, since
+  the crate it is compiled from reads every migrated post through the 1.1 reader.
 
+### Stored bytes
+
+These follow the crate, which changes with them:
+
+- The three 1.1 kinds, as `docs/SPEC_V1.1.md` of the crate specifies them: a post of kind
+  `event`, `rsvp` or `rating` is read by its envelope's rules and
+  written back byte for byte, unknown members kept; a 1.0 reader skips it as a kind it does not
+  know. Every integer inside is an `i64` within the JSON-safe range; a closed-set member with a
+  spelling this version does not know (an event's `status`, a rule's `frequency`) is refused, not
+  degraded. In an event's `locations`, a `geo:` URI must be the
+  convention's spelling and an OpenStreetMap URL the canonical object URL; `parent`, `embed`,
+  tags and collection items keep the 1.0 gate alone.
+- `planPublish` refuses a private reference in any envelope position of the new kinds as it
+  refused one in a collection item, before the final validation would.
+- A 1.1 kind's raw content cap is checked before its envelope is parsed, and for a 1.1 kind
+  `planPublish` checks the byte cap, the attachment count and the list caps before it reads a
+  reference: an event with a list far past its cap is refused by the cap, where the
+  package threw `RangeError: Maximum call stack size exceeded` at about 150,000 items. The
+  answers of the 1.0 kinds are unchanged, in validation and in the planner.
+
+## 1.0.0-rc.1
+
+### API
+
+- Breaking: the migration is its own package, `pubky-social-migrator`, released with this one at
+  the same version. `pubky-social-specs/migration` is `pubky-social-migrator`,
+  `pubky-social-specs/migration/pubky-sdk` is `pubky-social-migrator/pubky-sdk`, and the
+  `pubky-social-migrate` CLI moved with them. This package loads no wasm.
 - A URL or path argument takes a plain `string`, as the README said and the types did not: an
   entry of a LIST compiles where only a `pubky://` literal or a branded value did.
 - New: `decodeObject({ kind, root? }, bytes)` and the same form of `tryDecodeObject`, for bytes
@@ -159,22 +187,6 @@ as before.
 ### Stored bytes
 
 These follow the crate, which changes with them:
-
-- The three 1.1 kinds, as `docs/SPEC_V1.1.md` of the crate specifies them: a post of kind
-  `event`, `rsvp` or `rating` is read by its envelope's rules and
-  written back byte for byte, unknown members kept; a 1.0 reader skips it as a kind it does not
-  know. Every integer inside is an `i64` within the JSON-safe range; a closed-set member with a
-  spelling this version does not know (an event's `status`, a rule's `frequency`) is refused, not
-  degraded. In an event's `locations`, a `geo:` URI must be the
-  convention's spelling and an OpenStreetMap URL the canonical object URL; `parent`, `embed`,
-  tags and collection items keep the 1.0 gate alone.
-- `planPublish` refuses a private reference in any envelope position of the new kinds as it
-  refused one in a collection item, before the final validation would.
-- A 1.1 kind's raw content cap is checked before its envelope is parsed, and for a 1.1 kind
-  `planPublish` checks the byte cap, the attachment count and the list caps before it reads a
-  reference: an event with a list far past its cap is refused by the cap, where the
-  package threw `RangeError: Maximum call stack size exceeded` at about 150,000 items. The
-  answers of the 1.0 kinds are unchanged, in validation and in the planner.
 
 - A feed's `layout` may be `cards`, as 0.8.1 clients store it. The migration carries such a
   feed, which it skipped before, and `transform_rev` is 3 so a migrated tree is walked again.

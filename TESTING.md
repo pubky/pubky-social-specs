@@ -8,23 +8,23 @@ how to run each again. Every command runs from the repository root unless it say
 | what | command | covers |
 |---|---|---|
 | Rust unit and integration tests | `cargo nextest run --features replay,surface` (or `cargo test` with the same features; `replay` adds the migrator and the two replay binaries, `surface` the oracle the npm package is checked against) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the replay tooling, and that the recorded answers under `vectors/js` are the ones the crate gives now |
-| the wasm build | `cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings` | the migrator, the one part of the package that is this crate compiled to wasm, builds clean for its target; its behaviour is tested through the package |
-| the npm package | `cd pkg && npm ci --ignore-scripts && npm run build && npm test` | the recorded vectors offline, the entry as a caller meets it (shapes, errors, the clock, unknown members), the edges the mutation pass found, properties, validators, the client over a fake session, the transforms over the semantic vectors, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI, the data check, 25 runs of the model fuzz |
-| from the sources | `cd pkg && npm run test:src` (Node 22.18 or later) | the same suites with no build step: `qa/from-src.mjs` resolves `dist/*.js` to `src/*.ts` and Node strips the types |
-| coverage per module | `cd pkg && npm run coverage` | lines and branches of every module of `src` from the run on the sources, each against its floor in `qa/coverage.mjs`; 98.8% of lines and 95.6% of branches in all |
+| the wasm build | `cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings` | the migrator, the one part of the npm packages that is this crate compiled to wasm, builds clean for its target; its behaviour is tested through the package |
+| the npm packages | `npm ci --ignore-scripts` at the root, then `cd pkg && npm run build && npm test` and `cd migrator && npm test` | the recorded vectors offline, the entry as a caller meets it (shapes, errors, the clock, unknown members), the edges the mutation pass found, properties, validators, the client over a fake session, the transforms over the semantic vectors, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI, the data check, 25 runs of the model fuzz |
+| from the sources | `cd pkg && npm run test:src` (Node 22.18 or later; the migrator's run with `npm run coverage`) | the same suites with no build step: `qa/from-src.mjs` resolves `dist/*.js` to `src/*.ts` and Node strips the types |
+| coverage per module | `npm run coverage` in `pkg` and in `migrator` | lines and branches of every module of each package's `src` from the run on the sources, each against its floor in `qa/coverage.mjs`; 98.8% of lines and 95.6% of branches in all |
 | lint, layering, format | `cd pkg && npm run tools && npm run lint && npm run deps && npm run format:check` | typescript-eslint strict-type-checked, the layers of `ARCHITECTURE.md` and no cycle (dependency-cruiser), prettier |
-| the tarball | `npm pack`, then `npx publint --strict <tgz>`, `npx attw <tgz> --profile esm-only`, the file list against `pkg/api/files.txt` | what npm would serve, as a consumer resolves it |
-| runtimes | `node qa/smoke.mjs`, `deno run --allow-read --allow-env qa/smoke.mjs`, `bun qa/smoke.mjs`, `node qa/browser.mjs` (Chromium through Playwright) | the core, the testing subpath and a migration of one object over `MemoryPort`, in each |
-| Stryker | `cd pkg && npm run mutation` (nightly) | mutants of `ids`, `clock`, `canonicalize`, `deletion`, `lifecycle` and the engine's claims, each run against the suites; the floor is 96% |
+| the tarballs | `npm pack` in `pkg` and in `migrator`, then `npx publint --strict <tgz>`, `npx attw <tgz> --profile esm-only`, the file list against each `api/files.txt` | what npm would serve, as a consumer resolves it |
+| runtimes | `cd pkg && node qa/smoke.mjs`, `deno run --allow-read --allow-env qa/smoke.mjs`, `bun qa/smoke.mjs`, `node qa/browser.mjs` (Chromium through Playwright) | the core, the testing subpath and a migration of one object over `MemoryPort`, in each |
+| Stryker | `npm run mutation` in `pkg` and in `migrator` (nightly) | mutants of `ids`, `clock`, `canonicalize`, `deletion`, `lifecycle`, and in the migrator of the engine's claims, each run against the suites; the floor is 96% |
 | the package against the crate | `cargo build --release --features surface --bin surface_oracle`, then `cd pkg && npm run score -- --fuzz 50000` | every operation of the entry, on the recorded vectors and on fresh seeded cases: the same bytes, ids, paths and messages as the crate (see below) |
 | types, size, hostile arguments | `cd pkg && npm run types && npm run size && node --expose-gc qa/boundary.mjs` | the declarations as a consumer compiles them, what an import costs a bundle, and that no argument makes a call hang, leak or throw anything but a `ValidationError` or a `TypeError` |
-| live e2e | `cd pkg && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-native.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
+| live e2e | `cd migrator && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-native.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
 | lint and format | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` | |
 | properties | `cd pkg && npx mocha property.test.js` (in `npm test`; `FC_SEED` and `FC_RUNS` change the seed and the count) | what holds for every input the generators make: built objects decode to themselves and encode back to their bytes, `parseUri` and `buildUri` are inverses both ways, minting is strictly increasing under any clock inside the tolerance, a plan names each path once, publish then unpublish brings a version back |
-| the model fuzz | `cd pkg && npm run model -- --runs 1000` (25 runs in `npm test`, 10000 nightly) | a seeded sequence of builds, edits, publishes, unpublishes, deletes, migrations with port faults, rescans, revision bumps, clock steps and a second copy of the package over one tree, checked after every step: deleted stays deleted, nothing private under `/pub/`, every object decodes, no path overwritten. A failure prints the shrunk sequence, its seed and its path; `--seed N --path P` replays it |
+| the model fuzz | `cd migrator && npm run model -- --runs 1000` (25 runs in `npm test`, 10000 nightly) | a seeded sequence of builds, edits, publishes, unpublishes, deletes, migrations with port faults, rescans, revision bumps, clock steps and a second copy of the package over one tree, checked after every step: deleted stays deleted, nothing private under `/pub/`, every object decodes, no path overwritten. A failure prints the shrunk sequence, its seed and its path; `--seed N --path P` replays it |
 
 The semantic vectors (`vectors/semantic/v0_to_v1.json`) are shared by the Rust test
-`tests/migrate_vectors.rs` and the package test `pkg/transforms.test.js`: a behaviour of the
+`tests/migrate_vectors.rs` and the package test `migrator/transforms.test.js`: a behaviour of the
 transforms ships with a vector row, and both sides read the same file. The 0.x inputs in it are
 what the frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.rs`.
 
@@ -144,11 +144,11 @@ own time between them, and `browser.mjs` writes both into each user's report.
 
 | harness | command | what it checks |
 |---|---|---|
-| chaos port | `cd pkg && node --max-old-space-size=1536 qa/chaos.mjs [--variant main\|quota-rate\|lost-response\|any-kind\|phantom-404] [--seeds 1000]` | `runMigration` over a `MemoryPort` that fails, races and stalls by a seeded schedule, run again until it finishes, then compared with a fault-free run: create-only writes, the 0.x tree untouched, the flag only after `done`, no hang, counts that add up |
+| chaos port | `cd migrator && node --max-old-space-size=1536 qa/chaos.mjs [--variant main\|quota-rate\|lost-response\|any-kind\|phantom-404] [--seeds 1000]` | `runMigration` over a `MemoryPort` that fails, races and stalls by a seeded schedule, run again until it finishes, then compared with a fault-free run: create-only writes, the 0.x tree untouched, the flag only after `done`, no hang, counts that add up |
 | transform fuzz | `QA_FUZZ_CASES=10000 cargo test --release --features migrator --test qa_transform_fuzz -- --nocapture` (needs `CARGO_PROFILE_RELEASE_PANIC=unwind` for a release test build) | reader-shaped 0.x objects with hostile content: no panic, deterministic, every write reads back through the 1.x reader, every skip carries a published category and `invalid` a note |
 | hostile arguments | `cd pkg && node --expose-gc --max-old-space-size=1536 qa/boundary.mjs` | every export of the entry with one argument slot, or one member of an object argument, replaced by a hostile value (proxies, cycles, lying typed arrays, megabyte strings, sparse arrays): a result, a `ValidationError` or a `TypeError`, promptly, with the heap back where it was |
-| benchmarks | `cd pkg && node qa/bench.mjs --dump inputs.json`, then `QA_BENCH_INPUT=inputs.json cargo test --release --features migrator --test qa_transform_bench -- --nocapture` | throughput per kind through the wasm and natively, the blob door and hasher, a whole run with the time split between wasm, port and engine |
-| mutation pass | `cd pkg && node qa/mutate.mjs [--seeds 150] [--only M3]` | plants one bug at a time in a copy of the package under `qa/out/mutant` (the sources are never written), runs the copy's tests and a slice of the chaos harness, reports what nothing caught |
+| benchmarks | `cd migrator && node qa/bench.mjs --dump inputs.json`, then `QA_BENCH_INPUT=inputs.json cargo test --release --features migrator --test qa_transform_bench -- --nocapture` | throughput per kind through the wasm and natively, the blob door and hasher, a whole run with the time split between wasm, port and engine |
+| mutation pass | `cd pkg && node qa/mutate.mjs [--seeds 150] [--only M3]` | plants one bug at a time in a copy of both packages under `pkg/qa/out/mutant` (the sources are never written), runs the copy's tests and a slice of the chaos harness, reports what nothing caught |
 
 A chaos seed that breaks an invariant is minimized by the harness (`--seed N --verbose` replays
 one); a fuzz failure prints its seed and case so `QA_FUZZ_SEED` reproduces it.
@@ -188,6 +188,9 @@ the per-PUT collision check scans every entry of a user, and the SDK copies blob
 its wasm.
 
 ## The native package campaign of 2026-10-07
+
+The commands are as they ran then, when the migration was the `./migration` subpath of `pkg/`;
+it is now the package in `migrator/`, where its rows run today.
 
 The npm package moved from the crate compiled to wasm to a native TypeScript implementation,
 with the wasm kept for the migrator alone. This is what holds the two equal, and how to run each

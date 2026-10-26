@@ -1,12 +1,12 @@
-// typescript-eslint, strict and type-checked, over src.
+// typescript-eslint, strict and type-checked, over the src of the package it runs in, this one
+// or the migrator.
 //   cd pkg && npm run lint
 
-import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config({ ignores: ["**/*.d.ts"] }, ...tseslint.configs.strictTypeChecked, {
   languageOptions: {
-    parserOptions: { project: "./tsconfig.json", tsconfigRootDir: fileURLToPath(new URL("..", import.meta.url)) },
+    parserOptions: { project: "./tsconfig.json", tsconfigRootDir: process.cwd() },
   },
   rules: {
     // The reference's messages spell counts and limits as numbers

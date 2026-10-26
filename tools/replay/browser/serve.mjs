@@ -1,4 +1,4 @@
-// Serves the harness page, the built package under `/pkg/` and this directory's `node_modules`
+// Serves the harness page, the built packages under `/pkg/` and `/migrator/`, and this directory's `node_modules`
 // under `/node_modules/`, on 127.0.0.1 only. A secure context needs no TLS on a loopback
 // origin, so Web Locks are there.
 //
@@ -13,6 +13,7 @@ import { parseArgs } from "node:util";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOTS = {
   "/pkg/": path.resolve(here, "../../../pkg"),
+  "/migrator/": path.resolve(here, "../../../migrator"),
   "/node_modules/": path.resolve(here, "../node_modules"),
   "/": here,
 };
