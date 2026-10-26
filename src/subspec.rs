@@ -249,7 +249,7 @@ pub fn read_version<K: PostKind>(
 }
 
 /// The vector files a sub-spec ships beside its crate, so another implementation (a TypeScript
-/// package, an indexer) is held to the same verdicts: one JSON document per line,
+/// package, another app's reader) is held to the same verdicts: one JSON document per line,
 /// `{"name", "url", "body", "verdict"}`, `body` the stored bytes as text and `verdict` `"ok"` or
 /// the refusal. [`check_vectors`] reads a file and fails on the first verdict the crate no longer
 /// gives; with `RECORD_VECTORS=1` in the environment it writes the file from the cases instead.

@@ -64,21 +64,17 @@ sub-spec uses them and defines no kind that repeats one.
 | files and attachments | `/…/social/v1/files/`, a post's `attachments` | photos, media |
 | lock | a post's `lock` | gated content |
 
-## Feed-only kinds
+## Indexing
 
-Nexus gives a durable app kind a generic graph node (namespace, kind, author, its `parent` and
-`embed` edges, no content) and a reference-feed line `{ op, author, path, namespace, kind }`. A kind
-a sub-spec marks feed-only gets the line only. A sub-spec crate exports
-`pub const FEED_ONLY_KINDS: &[&str]`, the kinds' wire names, and `is_feed_only()` on its kind enum.
-Mark a kind feed-only when it is state rather than a post people answer: one current version per
-author, or a stream of moments, with no edges of its own, read by an index that takes it from the
-feed line (music's `listening`, events' `availability`). Every other kind is durable.
+An indexer treats every namespace's posts the same way and keeps no list of any app's kinds. It
+reads the generic `PostEnvelope`: the namespace, the kind, the author, and the `parent` and
+`embed` references. It reads nothing inside an app's `content`. What an app's kind means is for
+the app and its readers. A kind other apps must read belongs in social instead.
 
 ## What a sub-spec crate ships
 
-`NAMESPACE`, the kind enum and its `PostKind` impl, the content rules, `FEED_ONLY_KINDS`, its limits
-as one pinned table, the path builders (`version_path`, `post_uri`, `parse_post_uri`) and the
-builders; unit tests; vector files (`subspec::vectors`: one JSON document per line,
-`{ name, url, body, verdict }`, checked by the crate's tests and readable by another
-implementation); and a short README of its paths, its kinds and the shared primitives it uses
-instead of its own copies.
+`NAMESPACE`, the kind enum and its `PostKind` impl, the content rules, its limits as one pinned
+table, the path builders (`version_path`, `post_uri`, `parse_post_uri`) and the builders; unit
+tests; vector files (`subspec::vectors`: one JSON document per line, `{ name, url, body, verdict }`,
+checked by the crate's tests and readable by another implementation); and a short README of its
+paths, its kinds and the shared primitives it uses instead of its own copies.
