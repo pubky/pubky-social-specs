@@ -135,9 +135,11 @@ feed) sits in a calendar next to `event` posts.
 
 ### A3. `rsvp`
 
-An answer to an event: a reply whose `parent` is the event's versionless URI. `parent` is
-required; the envelope's gate admits any universal reference, and which targets are events is
-the indexer's question (an answer to an external event page is the same post). `embed` and
+An answer to a Pubky event: a reply whose `parent` is the event's versionless social post URI,
+`pubky://<owner>/pub/social/v1/posts/<id>`, or its `/priv` URI for a private post, as the
+envelope's gate allows. `parent` is required, and any other scheme or path is refused. Whether
+the post named is an event is the indexer's question. An external event (a Luma or Meetup page)
+takes the ordinary v1 posts: replies, tags, bookmarks and collections, no rsvp. `embed` and
 `attachments` are refused.
 
 ```json

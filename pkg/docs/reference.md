@@ -277,7 +277,7 @@ One `byDay` entry of a recurrence rule.
 
 ### RsvpContent
 
-The envelope of an rsvp, inside its post's `content`; the post's `parent` is the event.
+The envelope of an rsvp, inside its post's `content`; the post's `parent` is the event, a social post.
 
 | member | type | null | meaning |
 |---|---|---|---|

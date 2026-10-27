@@ -277,6 +277,30 @@ describe("the event kinds", () => {
       );
       misuse(() => buildPost(OTTO, { kind: "rsvp", parent: theirEvent, status: "accepted", attachments: [] }), /input\.attachments must be one of/);
     });
+
+    it("answers a Pubky event only: a social post, private only for one's own private post", () => {
+      const ownPrivate = `pubky://${OTTO}/priv/social/v1/posts/0035QZPT4QG00`;
+      assert.strictEqual(buildPost(OTTO, { kind: "rsvp", parent: ownPrivate, status: "accepted", root: "private" }).object.parent, ownPrivate);
+      refuses(() => buildPost(OTTO, { kind: "rsvp", parent: ownPrivate, status: "accepted" }), /parent must not reference a private object/);
+      for (const parent of [
+        "https://lu.ma/abc",
+        "geo:46.00547,8.95186",
+        `pubky://${RIO}`,
+        `pubky://${RIO}/pub/social/v1/profile.json`,
+        `pubky://${RIO}/pub/events/v1/posts/0035QZPT4QG00`,
+        `pubky://${RIO}/pub/social/v1/posts/not-an-id`,
+      ]) {
+        refuses(() => buildPost(OTTO, { kind: "rsvp", parent, status: "accepted" }), `Validation Error: Rsvp parent must be a social post URI, the Pubky event it answers: ${parent}`);
+      }
+      const result = validatePost({ kind: "rsvp", parent: "https://lu.ma/abc", status: "going" });
+      assert.deepStrictEqual(
+        result.issues.map((i) => [i.path.join("."), i.code]),
+        [
+          ["parent", "reference"],
+          ["status", "unknown_name"],
+        ],
+      );
+    });
   });
 
   describe("availability", () => {

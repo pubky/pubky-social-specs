@@ -161,10 +161,10 @@ export declare function buildUser(owner: T.Given<"Owner">, input: T.NewUser): T.
 /**
  * A new post at `posts/{id}/{id}[-slug].json`, the id minted here from the clock. The input is
  * told apart by `kind`: an article takes `title` and `body`, a collection `name` and `items`, an
- * event its JSCalendar members, an rsvp and a rating their `parent` and answer, an availability
- * its blocks, and any other kind (`note` when absent, `image`, `video`, `link`, `file`) takes
- * `content`. `parent`, `embed`, `lock`, attachment, item, location and `for` URIs are references:
- * stored as written.
+ * event its JSCalendar members, an rsvp its answer and `parent` (the social post of the event it
+ * answers), a rating its `parent` and stars, an availability its blocks, and any other kind
+ * (`note` when absent, `image`, `video`, `link`, `file`) takes `content`. `parent`, `embed`,
+ * `lock`, attachment, item, location and `for` URIs are references: stored as written.
  *
  * @throws `ValidationError` for a rule of the post (`field` the member: `content`,
  *  `attachments[0].uri`, `slug`, `title`) or a malformed `owner`; `ArgumentError` for a member of

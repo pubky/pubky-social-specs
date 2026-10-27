@@ -83,7 +83,9 @@ buildPost(owner, {
   attendance: { policy: "ticket", capacity: 50 },
 });
 buildPost(owner, { kind: "event", title: "t", start: "2026-10-14T00:00:00", timeZone: "UTC", showWithoutTime: true, recurrenceRules: [{ frequency: "weekly", byDay: [{ day: "mo" }], count: 10 }] });
-buildPost(owner, { kind: "rsvp", parent: "x", status: "accepted", guests: 1 });
+buildPost(owner, { kind: "rsvp", parent: buildUri(owner, "post", "0035QZPT4QG00"), status: "accepted", guests: 1 });
+// @ts-expect-error an rsvp answers a Pubky event; an external event page takes ordinary posts
+buildPost(owner, { kind: "rsvp", parent: "https://lu.ma/abc", status: "accepted" });
 buildPost(owner, { kind: "availability", timeZone: "UTC", horizonDays: 30, available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office", capacity: 3 }] });
 // @ts-expect-error an availability replies to nothing
 buildPost(owner, { kind: "availability", timeZone: "UTC", horizonDays: 30, parent: "x" });
@@ -94,9 +96,9 @@ buildPost(owner, { kind: "event", title: "t", start: "2026-10-14T18:30:00", time
 // @ts-expect-error an event replies to nothing
 buildPost(owner, { kind: "event", title: "t", start: "s", timeZone: "UTC", duration: "PT1H", parent: "x" });
 // @ts-expect-error an rsvp's stars are a rating's member
-buildPost(owner, { kind: "rsvp", parent: "x", status: "accepted", rating: 9 });
+buildPost(owner, { kind: "rsvp", parent: "pubky://x", status: "accepted", rating: 9 });
 // @ts-expect-error a status outside the set
-buildPost(owner, { kind: "rsvp", parent: "x", status: "going" });
+buildPost(owner, { kind: "rsvp", parent: "pubky://x", status: "going" });
 // @ts-expect-error a rating carries no lock
 buildPost(owner, { kind: "rating", parent: "x", rating: 9, lock: "x" });
 // @ts-expect-error a route is the maps sub-spec's kind, not a social one

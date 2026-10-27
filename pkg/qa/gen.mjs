@@ -668,6 +668,9 @@ const V11_KINDS = ["event", "rsvp", "availability", "rating"];
 // Kinds social does not know, under social: a social reader refuses them as unknown
 const FOREIGN_KINDS = ["route", "listing"];
 const isReply = (kind) => kind === "rsvp" || kind === "rating";
+// An rsvp answers a social post; mostly one, now and then any reference, which it refuses
+const eventRef = (r) => (r.chance(0.7) ? `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${timestampIdOf(NOW - 5e9)}` : ref(r));
+const parentOf = (r, kind) => (kind === "rsvp" ? eventRef(r) : ref(r));
 
 /** A 1.1 post every rule accepts, then at most one late rule broken. */
 function cleanPost11(r) {
@@ -711,7 +714,12 @@ function cleanPost11(r) {
       () => (envelope.status = r.pick(["cancelled", "maybe"])),
       () => (envelope.excludedDates = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => "2026-11-10T18:30:00")),
     ],
-    rsvp: [() => (envelope.guests = r.pick([100, 101])), () => (envelope.note = "n".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
+    rsvp: [
+      () => (envelope.guests = r.pick([100, 101])),
+      () => (envelope.note = "n".repeat(r.pick([2000, 2001]))),
+      () => (p.parent = null),
+      () => (p.parent = r.pick(["https://lu.ma/abc", "geo:46.00547,8.95186", own("public", "profile.json"), `pubky://${OTHER}/pub/events/v1/posts/${timestampIdOf(NOW - 5e9)}`])),
+    ],
     availability: [
       () => (envelope.horizonDays = r.pick([366, 367])),
       () => (envelope.available = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
@@ -738,7 +746,7 @@ function storedPost11(r) {
   // now and then a kind social does not know
   if (r.chance(0.03)) p.kind = r.pick(FOREIGN_KINDS);
   // the reply kinds mostly have the parent they need
-  if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = ref(r);
+  if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = parentOf(r, kind);
   if (r.chance(0.3)) p.embed = ref(r);
   if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
   if (r.chance(0.2)) p.lock = r.pick([ref(r), `pubky://${OTHER}/pub/social/v1/profile.json`, null]);
@@ -751,7 +759,7 @@ function postInput11(r) {
   const o = { kind, ...TYPED[kind](r) };
   for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
   // A reply kind's parent is a required member: absent, the shape is refused before any rule
-  if (isReply(kind)) o.parent = ref(r);
+  if (isReply(kind)) o.parent = parentOf(r, kind);
   if ((kind === "event" || kind === "rating") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
   if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
   if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
@@ -857,6 +865,7 @@ export const fixed = {
     const encode = (kind, envelope, post = {}) =>
       request("encodeKind", s("post"), { j: JSON.stringify("public") }, { j: JSON.stringify({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [], ...post }) });
     const reply = { parent: "https://example.com/thing" };
+    const answer = { parent: `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}` };
     const event = (more) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", ...more });
     const rsvp = (more) => ({ status: "accepted", ...more });
     const availability = (more) => ({ timeZone: "UTC", horizonDays: 30, ...more });
@@ -921,10 +930,11 @@ export const fixed = {
         encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount, () => "2026-11-10T18:30:00") })),
         encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount + 1, () => "2026-11-10T18:30:00") })),
       ],
-      // rsvp
-      [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), reply), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), reply)],
-      [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), reply), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), reply)],
-      [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), reply), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), reply)],
+      // rsvp: it answers a social post, not an external page
+      [encode("rsvp", rsvp({}), answer), encode("rsvp", rsvp({}), reply)],
+      [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), answer), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), answer)],
+      [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), answer), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), answer)],
+      [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), answer), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), answer)],
       // availability
       [encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays })), encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays + 1 }))],
       [encode("availability", availability({ available: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ available: n(L.availabilityBlocksMaxCount + 1, block) }))],

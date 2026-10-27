@@ -31,8 +31,9 @@ reads and writes as before.
 
 - New: the 1.1 post kinds. `buildPost` takes an `event` (JSCalendar members: `title`, `start`,
   `timeZone`, `duration`, `showWithoutTime`, `status`, `locations`, `attendance`, `links`,
-  `recurrenceRules`, `excludedDates`, `recurrenceOf`, `recurrenceId`), an `rsvp` and a `rating`
-  (replies to their `parent`) and an `availability` (`timeZone`, `horizonDays`, `for`,
+  `recurrenceRules`, `excludedDates`, `recurrenceOf`, `recurrenceId`), an `rsvp` (a reply to
+  the Pubky event it answers, its `parent` typed `` `pubky://${string}` ``), a `rating` (a reply
+  to its `parent`) and an `availability` (`timeZone`, `horizonDays`, `for`,
   `available` and `busy` blocks, an available block's `capacity` the units free in it), each told
   apart by `kind`; an event's `links` are `{ title, url }` as a profile's are. `decodeContent` and
   `encodeContent` read and spell their envelopes, `encodeContent` taking the kind as a second
@@ -68,8 +69,10 @@ These follow the crate, which changes with them:
   know. Every integer inside is an `i64` within the JSON-safe range; a closed-set member with a
   spelling this version does not know (an event's `status`, a rule's `frequency`) is refused, not
   degraded. In an event's `locations`, a `geo:` URI must be the
-  convention's spelling and an OpenStreetMap URL the canonical object URL; `parent`, `embed`,
-  tags and collection items keep the 1.0 gate alone.
+  convention's spelling and an OpenStreetMap URL the canonical object URL. An rsvp's `parent`
+  must be a versionless social post URI (`/priv` only for a private post, as the gate allows);
+  any other scheme or path is refused, and an external event takes ordinary posts. Every other
+  `parent`, `embed`, tags and collection items keep the 1.0 gate alone.
 - `planPublish` refuses a private reference in any envelope position of the new kinds as it
   refused one in a collection item, before the final validation would.
 - A 1.1 kind's raw content cap is checked before its envelope is parsed, and for a 1.1 kind

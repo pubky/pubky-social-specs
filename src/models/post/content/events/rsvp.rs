@@ -1,9 +1,11 @@
-//! The `rsvp` kind: an answer to an event, a reply whose `parent` is the event's versionless
-//! URI. One per author per event or occurrence: the client edits its post, the indexer keeps the
-//! newest version.
+//! The `rsvp` kind: an answer to a Pubky event, a reply whose `parent` is the event's versionless
+//! social post URI. One per author per event or occurrence: the client edits its post, the
+//! indexer keeps the newest version. Whether the post named is an event is the indexer's
+//! question; an external event takes the ordinary posts (replies, tags, bookmarks, collections).
 
 use crate::common::{check_extra, code_point_len, frozen_trim, json_error};
 use crate::limits::VALIDATION_LIMITS;
+use crate::{ParsedUri, Resource};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "openapi")]
@@ -55,10 +57,23 @@ pub struct PubkySocialRsvpContent {
 
 /// Validates a `kind = Rsvp` post, including its JSON content envelope.
 pub(crate) fn validate_rsvp_post(post: &PubkySocialPost) -> Result<(), String> {
-    if post.parent.is_none() {
+    let Some(parent) = &post.parent else {
         return Err(
             "Validation Error: Rsvp posts must have a parent, the event they answer".into(),
         );
+    };
+    // The gate ran first, so the parent is canonical and a post reference names no version
+    let is_post = matches!(
+        ParsedUri::try_from(parent.as_str()),
+        Ok(ParsedUri {
+            resource: Resource::Post { .. },
+            ..
+        })
+    );
+    if !is_post {
+        return Err(format!(
+            "Validation Error: Rsvp parent must be a social post URI, the Pubky event it answers: {parent}"
+        ));
     }
     if post.embed.is_some() || !post.attachments.is_empty() {
         return Err("Validation Error: Rsvp posts cannot have embed or attachments".into());
@@ -111,7 +126,7 @@ pub(crate) fn validate_rsvp_post(post: &PubkySocialPost) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::traits::{TimestampId, Validatable, PUB_CTX};
+    use crate::traits::{Root, TimestampId, Validatable, ValidationCtx, PUB_CTX};
     use crate::{PubkySocialAttachment, PubkySocialPostKind};
 
     const PK: &str = "operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo";
@@ -209,24 +224,34 @@ mod tests {
             None,
         )];
         assert!(err(&with_media).contains("embed or attachments"));
-        // the parent is any universal reference, through the gate; which ones are events is the indexer's
+        // the parent is a social post, public or (for a private post) private; whether it is an
+        // event is the indexer's question
+        let answer = |parent: String| raw(r#"{"status":"accepted"}"#, Some(parent));
+        assert_eq!(validate(&answer(event())), Ok(()));
+        let private = answer(format!("pubky://{PK}/priv/social/v1/posts/0032SSN7Q4EVG"));
+        assert_eq!(
+            private.validate(None, &ValidationCtx { root: Root::Priv }),
+            Ok(())
+        );
+        assert!(err(&private).contains("must not reference a private object"));
         for parent in [
-            "https://lu.ma/abc",
-            "nostr:naddr1x",
-            format!("pubky://{PK}").as_str(),
+            "https://lu.ma/abc".to_string(),
+            "nostr:naddr1x".into(),
+            "geo:46.00547,8.95186".into(),
+            format!("pubky://{PK}"),
+            format!("pubky://{PK}/pub/social/v1/profile.json"),
+            format!("pubky://{PK}/pub/social/v1/files/0032SSN7Q4EVG"),
+            format!("pubky://{PK}/pub/events/v1/posts/0032SSN7Q4EVG"),
+            format!("pubky://{PK}/pub/social/v1/posts/not-an-id"),
         ] {
             assert_eq!(
-                validate(&raw(r#"{"status":"accepted"}"#, Some(parent.into()))),
-                Ok(()),
-                "{parent}"
+                err(&answer(parent.clone())),
+                format!("Validation Error: Rsvp parent must be a social post URI, the Pubky event it answers: {parent}"),
             );
         }
-        assert!(err(&raw(
-            r#"{"status":"accepted"}"#,
-            Some(format!(
-                "pubky://{PK}/pub/social/v1/posts/0032SSN7Q4EVG/0032SSN7Q4EVG.json"
-            ))
-        ))
+        assert!(err(&answer(format!(
+            "pubky://{PK}/pub/social/v1/posts/0032SSN7Q4EVG/0032SSN7Q4EVG.json"
+        )))
         .contains("versionless"));
         let over = "x".repeat(VALIDATION_LIMITS.rsvp_content_max_length + 1);
         assert!(err(&raw(&over, Some(event()))).contains("Rsvp content must be at most"));

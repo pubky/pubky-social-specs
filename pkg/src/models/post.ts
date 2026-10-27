@@ -2,7 +2,7 @@
 // the version is stored under.
 
 import { blake3 } from "@noble/hashes/blake3.js";
-import { checkReference } from "../canonicalize.js";
+import { canonicalPubky, checkReference } from "../canonicalize.js";
 import { mintFrom, nowMicros } from "../clock.js";
 import { limits } from "../data.js";
 import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
@@ -10,7 +10,7 @@ import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
 import { type Codec, defaulted, type Extra, inputOf, inputReads, list, object, omitted, option, rootOf, string } from "../json/schema.js";
 import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8, utf8Len } from "../text.js";
-import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
+import { isSlug, type OwnerPath, parsePath, type Root, socialPath, splitPubky } from "../path.js";
 import { checkExtra, checkSize, type Model, parse, validate } from "./common.js";
 import * as events from "./events.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
@@ -371,6 +371,12 @@ export function checkBounds(value: Post): void {
   checkListCaps(value, throwing);
 }
 
+// A social post, as the gate leaves it: canonical, and a version is the gate's refusal
+function isPostReference(uri: string): boolean {
+  const split = splitPubky(canonicalPubky(uri) ?? "");
+  return split !== null && parsePath(split.path)?.kind === "post";
+}
+
 // The envelope rules of the 1.1 kinds: what the envelope may combine with, its cap, then its
 // members once it parsed, in the reference's order
 function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "rating", each: Each): void {
@@ -382,6 +388,7 @@ function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "ratin
         break;
       case "rsvp":
         if (post.parent === null) fail("conflict", "Rsvp posts must have a parent, the event they answer", "parent");
+        if (!isPostReference(post.parent)) fail("reference", `Rsvp parent must be a social post URI, the Pubky event it answers: ${post.parent}`, "parent");
         if (post.embed !== null || post.attachments.length > 0) fail("conflict", "Rsvp posts cannot have embed or attachments", post.embed !== null ? "embed" : "attachments");
         break;
       case "availability":

@@ -142,7 +142,7 @@ export interface EventContent extends Open, Omit<Plain<events.EventContent>, "st
     /** How it repeats: at most 1 rule; empty for a single event. */
     recurrenceRules: RecurrenceRule[];
 }
-/** The envelope of an rsvp, inside its post's `content`; the post's `parent` is the event. */
+/** The envelope of an rsvp, inside its post's `content`; the post's `parent` is the event, a social post. */
 export interface RsvpContent extends Open, Omit<Plain<events.RsvpContent>, "status"> {
     /** The answer, one of `rsvpStatuses`: a status this version does not know is refused on read. */
     status: KnownRsvpStatus;
@@ -484,12 +484,12 @@ export type NewEvent = {
     /** An event quotes nothing. */
     embed?: never;
 } & Placement;
-/** An rsvp: an answer to the event at `parent`, which the builder writes into the post's `content` envelope. */
+/** An rsvp: an answer to the Pubky event at `parent`, which the builder writes into the post's `content` envelope. */
 export type NewRsvp = {
     /** The rsvp kind. */
     kind: "rsvp";
-    /** The event answered: `buildUri(author, "post", id)`, or any reference of at most 1024 code points. */
-    parent: string;
+    /** The event answered, a social post: `buildUri(author, "post", id)`, or its `/priv` URI for a private post. */
+    parent: `pubky://${string}`;
     /** The answer, one of `rsvpStatuses`. */
     status: KnownRsvpStatus;
     /** The occurrence answered, its local start in the event's series; absent for the series. */

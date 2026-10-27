@@ -691,6 +691,11 @@ fn rsvp(rng: &mut Rng) -> Case {
             ("no parent", "Rsvp posts must have a parent", |v| {
                 v["parent"] = Value::Null
             }),
+            (
+                "an external event page",
+                "Rsvp parent must be a social post URI",
+                |v| v["parent"] = json!("https://lu.ma/abc"),
+            ),
             ("unknown status", "Rsvp status must be one of", |v| {
                 envelope(v, |e| e["status"] = json!("going"))
             }),

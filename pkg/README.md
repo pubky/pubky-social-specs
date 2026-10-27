@@ -198,7 +198,7 @@ Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays 
 
 ### Events, availability, ratings and places
 
-The 1.1 kinds are posts whose `content` is an envelope with JSCalendar member names (an event's `start` is a local date-time in its `timeZone`, its `duration` an ISO 8601 duration), an rsvp and a rating are replies to the `parent` they answer or rate, whatever app wrote that thing, and an availability says when its author, or the resource it is `for`, can be booked: one per author per `for`, each available block with the units free in it (`capacity`). A place is a canonical OpenStreetMap object URL or a `geo:` pin as `geoUri` spells it; `isGeoUri`, `osmUrl` and `parseOsmUrl` read and write the two conventions.
+The 1.1 kinds are posts whose `content` is an envelope with JSCalendar member names (an event's `start` is a local date-time in its `timeZone`, its `duration` an ISO 8601 duration), an rsvp is a reply to the Pubky event it answers, a social post (an external event page takes ordinary posts: replies, tags, bookmarks, collections), a rating a reply to the `parent` it rates, whatever app wrote that thing, and an availability says when its author, or the resource it is `for`, can be booked: one per author per `for`, each available block with the units free in it (`capacity`). A place is a canonical OpenStreetMap object URL or a `geo:` pin as `geoUri` spells it; `isGeoUri`, `osmUrl` and `parseOsmUrl` read and write the two conventions.
 
 ```js
 import { buildPost, buildUri, decodeContent, geoUri } from "pubky-social-specs";
