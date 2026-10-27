@@ -1,10 +1,8 @@
 //! The `rating` kind: stars on a thing, a reply whose `parent` is what is rated, any universal
 //! reference (a place, an event, a listing, a link). One per author per target, the newest
 //! version wins. A post with stars is a rating; one without is a plain reply to the same parent.
-//! Every app rates through this kind rather than a review kind of its own, so a place, a track or
-//! a listing has one set of ratings that every reader and the indexer's counts see; an app that
-//! needs more (a purchase attestation) carries it in the envelope's `ext` member under its own
-//! namespace.
+//! It is the shared star rating any app can use; an app that needs more than stars and a text
+//! defines its own kind in its sub-spec.
 
 use crate::common::{check_extra, code_point_len, frozen_trim, json_error};
 use crate::limits::VALIDATION_LIMITS;

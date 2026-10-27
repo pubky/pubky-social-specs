@@ -177,11 +177,9 @@ The raw envelope is bounded at `rating_content_max_length` (5000) code points. T
 10, whole half stars up to five, with no zero: a post without stars is a reply, not a rating of
 none.
 
-Every app rates through this kind, never a review kind of its own: a place (`parent` the
-OpenStreetMap URL), a track, a listing or an event has one set of ratings that every reader and
-the indexer's counts see. What an app adds to a rating (the marketplace's purchase attestation)
-travels in the post's `ext` member, outside `content`, under the app's namespace,
-`ext.<namespace>`, preserved by every reader as an unknown member.
+The social rating is the shared star rating any app can use: a place (`parent` the OpenStreetMap
+URL), a track, a listing or an event. An app that needs more than stars and a text defines its own
+kind in its sub-spec.
 
 ### A5. `availability` (optional)
 
@@ -220,9 +218,8 @@ business one per bookable resource or staff member. Slots are derived, never sto
 minus `busy` minus open reservations.
 
 The kind is the shared public view of a schedule and nothing more. Prices, minimum stays, slot
-lengths and booking rules are app data: an app that needs them extends the post with
-`ext.<namespace>`, or defines a richer kind of its own in its sub-spec, and keeps a social
-availability as the public view where it can.
+lengths and booking rules are not in it: an app that needs them defines a richer kind of its own
+in its sub-spec, and keeps a social availability as the public view where it can.
 
 ## Part B: Places
 

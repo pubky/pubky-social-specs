@@ -7,6 +7,13 @@ repository (as music's, `pubky-music-specs`, is), built from `pubky_social_specs
 public namespaces are `music`, `maps`, `events` and `marketplace`. These are the rules every
 sub-spec follows.
 
+## Where data goes
+
+1. A shared primitive (below), when one holds it.
+2. Else a social kind, when other apps must read it.
+3. Else a kind in the app's sub-spec.
+4. Else private app data, `/priv/<app domain>/…`, which no spec defines.
+
 ## Paths and namespaces
 
 - A version is `/{pub,priv}/<ns>/v1/posts/{id}/{editId}[-{slug}].json`, a post as references name it
@@ -46,12 +53,13 @@ sub-spec follows.
 | money | `{ amount_minor, currency, exponent }`, an integer of the minor unit |
 | a member name | a standard's names where one exists, else snake_case. A kind whose members follow a standard spells its own members in that standard's style: social's availability, in JSCalendar's names, writes `horizonDays` in JSCalendar's camelCase |
 | a cover image | `attachments[0]` |
-| another spec's member on an object | the object's `ext` member (on a post, the post's, outside `content`), keyed by the writer's spec namespace: `ext.<ns>`, as `ext.marketplace` on a rating post |
 
 ## Shared primitives: never copy them
 
 They work on any URI, and an app's readers, other apps and the indexer's counts all see them. A
-sub-spec uses them and defines no kind that repeats one.
+sub-spec uses them and defines no kind that repeats one. An app that needs more than a primitive
+holds (a review with sub-ratings and a proof of purchase, a schedule with prices) defines its own
+kind.
 
 | primitive | where | for |
 | --- | --- | --- |
@@ -60,9 +68,9 @@ sub-spec uses them and defines no kind that repeats one.
 | embeds | a post's `embed` | quoting a resource |
 | bookmarks | `/priv/social/v1/bookmarks/{base64url target}.json` | saved things, watchlists |
 | collections | the social `collection` kind | lists, calendars, playlists of URIs |
-| rating | the social `rating` kind, 1 to 10 half stars, `parent` the thing | reviews of a place, a track, a listing, an event |
+| rating | the social `rating` kind, 1 to 10 half stars and a text, `parent` the thing | stars on a place, a track, a listing, an event |
 | event, rsvp | the social `event` and `rsvp` kinds | anything with a time people attend |
-| availability | the social `availability` kind, one per author per `for`, the units free in each block; more in `ext.<ns>` or an own richer kind | when a person, a room type, a resource or a staff member can be booked |
+| availability | the social `availability` kind, one per author per `for`, the units free in each block | when a person, a room type, a resource or a staff member can be booked |
 | files and attachments | `/…/social/v1/files/`, a post's `attachments` | photos, media |
 | lock | a post's `lock` | gated content |
 

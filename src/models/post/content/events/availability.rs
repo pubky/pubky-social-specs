@@ -4,7 +4,7 @@
 //! client from its private calendar and its bookings: `available` blocks in the fields of a
 //! calendar event's timing, each with the units free in it, and `busy` blocks, untitled. Slots are
 //! derived, never stored. An app that needs more (prices, minimum stays, slot lengths, booking
-//! rules) carries it in `ext.<namespace>` on the post or defines a richer kind in its sub-spec.
+//! rules) defines a richer kind in its sub-spec.
 
 use crate::common::{check_extra, code_point_len, frozen_trim, json_error, trimmed_or_none};
 use crate::limits::VALIDATION_LIMITS;
