@@ -62,7 +62,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "pubky-social-specs") | .version')
+          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           npm_version=$(jq -r .version pkg/package.json)
           migrator_version=$(jq -r .version migrator/package.json)
           # The migrator runs on the core of its own release and no other

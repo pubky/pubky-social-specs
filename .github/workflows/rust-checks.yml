@@ -68,7 +68,7 @@ jobs:
       - name: Cargo.toml and pkg/package.json agree on the version
         shell: bash
         run: |
-          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "pubky-social-specs") | .version')
+          cargo_version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           npm_version=$(jq -r .version pkg/package.json)
           if [ "$cargo_version" != "$npm_version" ]; then
             echo "::error::Cargo.toml is $cargo_version but pkg/package.json is $npm_version"
