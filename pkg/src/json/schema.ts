@@ -20,6 +20,8 @@ export interface Codec<T> {
   absent?: () => T;
   /** Not written when null. */
   skipNull?: true;
+  /** Not written when an empty list. */
+  skipEmpty?: true;
 }
 
 /** Refuses the value ahead as the wrong type, naming what it is. Reads it to name it. */
@@ -39,6 +41,26 @@ function invalidType(r: Reader, expected: string): never {
   }
   return r.fail(`invalid type: ${met}, expected ${expected}`);
 }
+
+export const bool: Codec<boolean> = {
+  read(r: Reader) {
+    const b = r.peekToken();
+    if (b !== 0x74 && b !== 0x66) invalidType(r, "a boolean");
+    r.pos++;
+    if (b === 0x74) {
+      r.ident("rue");
+      return true;
+    }
+    r.ident("alse");
+    return false;
+  },
+  write: (value) => (value ? "true" : "false"),
+  plain: (value) => value,
+  parse(js, at) {
+    if (typeof js !== "boolean") misuse(at, "a boolean");
+    return js;
+  },
+};
 
 export const string: Codec<string> = {
   read(r: Reader) {
@@ -99,6 +121,9 @@ export const omitted = <T>(inner: Codec<T>): Codec<T | null> => ({ ...option(inn
 
 /** A member that reads as `make()` when absent. */
 export const defaulted = <T>(inner: Codec<T>, make: () => T): Codec<T> => ({ ...inner, absent: make });
+
+/** A list that reads as empty when absent and is left out of the text when empty. */
+export const omittedList = <T>(inner: Codec<T>): Codec<T[]> => ({ ...list(inner), absent: () => [], skipEmpty: true });
 
 export function list<T>(inner: Codec<T>): Codec<T[]> {
   return {
@@ -170,7 +195,9 @@ export function object<T extends Extra>(name: string, fields: Fields<T>): Codec<
       const known: string[] = [];
       for (const [key, codec] of codecs) {
         const member = (value as Record<string, unknown>)[key];
-        if (!(codec.skipNull && member === null)) known.push(`${writeString(key)}:${codec.write(member)}`);
+        if (codec.skipNull && member === null) continue;
+        if (codec.skipEmpty && Array.isArray(member) && member.length === 0) continue;
+        known.push(`${writeString(key)}:${codec.write(member)}`);
       }
       return `{${[...known, ...writeMembers(value.extra)].join(",")}}`;
     },

@@ -2,7 +2,9 @@
 //!
 //! These constants are the single source of truth for client-side validation.
 //! Every `*_max_length` counts Unicode code points. Byte-denominated caps are the two object
-//! size caps, the media size cap and `bookmark_target_uri_max_bytes`.
+//! size caps, the media size cap and `bookmark_target_uri_max_bytes`. The 1.1 kinds add caps
+//! in other units, each named by its suffix: `_seconds`, `_days`, `_years`, `_people`, `_units`,
+//! `_occurrences`, `_periods`, `_digits` and `_half_stars`. A sub-spec's own caps are its crate's.
 //!
 //! # Examples
 //! Serialize the bundled limits for client consumption.
@@ -103,6 +105,72 @@ pub struct ValidationLimits {
     /// Maximum serialized size of every other JSON object in bytes (profile, tag,
     /// bookmark, follow, mute, feed). Media bytes have their own cap.
     pub object_max_bytes: usize,
+
+    // ---- v1.1: events ----
+    /// Maximum event title length in code points, the article title cap.
+    pub event_title_max_length: usize,
+    /// Maximum event description length in code points, the article body cap.
+    pub event_description_max_length: usize,
+    /// Maximum length of the raw event envelope string, checked before it is parsed. Twice the
+    /// description, as the article bound is, plus room for the lists at their caps.
+    pub event_content_max_length: usize,
+    /// Maximum length of an IANA time zone name in code points (`timeZone`).
+    pub event_time_zone_max_length: usize,
+    /// Maximum `duration` of an event or an availability block, in seconds: one leap year.
+    pub event_duration_max_seconds: u64,
+    /// Maximum number of `locations` on an event.
+    pub event_locations_max_count: usize,
+    /// Maximum length of a location's `name` in code points.
+    pub event_location_name_max_length: usize,
+    /// Maximum number of `links` on an event.
+    pub event_links_max_count: usize,
+    /// Maximum length of a link's `title` in code points, the profile link cap.
+    pub event_link_title_max_length: usize,
+    /// Maximum length of a link's `url` in code points, the profile link cap.
+    pub event_link_url_max_length: usize,
+    /// Maximum `attendance.capacity`, in people.
+    pub event_capacity_max_people: u64,
+    /// Maximum number of `recurrenceRules`: one, as the design says.
+    pub event_recurrence_rules_max_count: usize,
+    /// Maximum `count` of a recurrence rule, in occurrences; the generator stops there too.
+    pub event_recurrence_max_occurrences: u64,
+    /// Maximum span of a recurrence rule's `until` after `start`, in calendar years; the
+    /// generator stops there too.
+    pub event_recurrence_max_span_years: u64,
+    /// Maximum `interval` of a recurrence rule, in periods of its frequency.
+    pub event_recurrence_interval_max_periods: u64,
+    /// Maximum number of entries in each `by*` list of a recurrence rule.
+    pub event_recurrence_by_max_count: usize,
+    /// Maximum number of `excludedDates` on an event or an availability block.
+    pub event_excluded_dates_max_count: usize,
+    /// Maximum `guests` on an rsvp, in people.
+    pub rsvp_guests_max_people: u64,
+    /// Maximum length of an rsvp `note` in code points, the note content cap.
+    pub rsvp_note_max_length: usize,
+    /// Maximum length of the raw rsvp envelope string, checked before it is parsed.
+    pub rsvp_content_max_length: usize,
+    /// Maximum `horizonDays` of an availability, in days: one leap year.
+    pub availability_horizon_max_days: u64,
+    /// Maximum number of blocks in each of `available` and `busy`.
+    pub availability_blocks_max_count: usize,
+    /// Maximum length of an available block's `title` in code points.
+    pub availability_block_title_max_length: usize,
+    /// Maximum `capacity` of an available block, in units free in it (rooms of a type, seats).
+    pub availability_capacity_max_units: u64,
+    /// Maximum length of the raw availability envelope string, checked before it is parsed.
+    pub availability_content_max_length: usize,
+    /// Minimum `rating`, in half stars: one half star.
+    pub rating_min_half_stars: u64,
+    /// Maximum `rating`, in half stars: five stars.
+    pub rating_max_half_stars: u64,
+    /// Maximum length of a rating's `text` in code points, the note content cap.
+    pub rating_text_max_length: usize,
+    /// Maximum length of the raw rating envelope string, checked before it is parsed.
+    pub rating_content_max_length: usize,
+
+    // ---- v1.1: places ----
+    /// Maximum number of fraction digits of a `geo:` coordinate, about a metre.
+    pub geo_fraction_max_digits: usize,
 }
 
 /// All validation limits in a single bundle.
@@ -141,4 +209,34 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     post_slug_max_length: 64,
     post_max_bytes: 512 * 1024,
     object_max_bytes: 64 * 1024,
+    event_title_max_length: 100,
+    event_description_max_length: 50_000,
+    event_content_max_length: 150_000,
+    event_time_zone_max_length: 64,
+    event_duration_max_seconds: 366 * 24 * 60 * 60,
+    event_locations_max_count: 10,
+    event_location_name_max_length: 100,
+    event_links_max_count: 10,
+    event_link_title_max_length: 100,
+    event_link_url_max_length: 300,
+    event_capacity_max_people: 1_000_000,
+    event_recurrence_rules_max_count: 1,
+    event_recurrence_max_occurrences: 1_000,
+    event_recurrence_max_span_years: 3,
+    event_recurrence_interval_max_periods: 1_000,
+    event_recurrence_by_max_count: 31,
+    event_excluded_dates_max_count: 100,
+    rsvp_guests_max_people: 100,
+    rsvp_note_max_length: 2000,
+    rsvp_content_max_length: 5_000,
+    availability_horizon_max_days: 366,
+    availability_blocks_max_count: 100,
+    availability_block_title_max_length: 100,
+    availability_capacity_max_units: 10_000,
+    availability_content_max_length: 100_000,
+    rating_min_half_stars: 1,
+    rating_max_half_stars: 10,
+    rating_text_max_length: 2000,
+    rating_content_max_length: 5_000,
+    geo_fraction_max_digits: 5,
 };

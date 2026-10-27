@@ -2,10 +2,23 @@
 // (null when it has no value), integers as numbers. Members this version does not know travel
 // in `$unknown`, as text to carry along untouched.
 
+import type * as events from "./models/events.js";
 import type * as feeds from "./models/feed.js";
 import type * as graph from "./models/graph.js";
-import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind } from "./models/kinds.js";
+import type {
+  KnownAttendancePolicy,
+  KnownCollectionLayout,
+  KnownEventStatus,
+  KnownFeedLayout,
+  KnownFeedReach,
+  KnownFeedSort,
+  KnownPostKind,
+  KnownRecurrenceFrequency,
+  KnownRsvpStatus,
+  KnownWeekday,
+} from "./models/kinds.js";
 import type * as posts from "./models/post.js";
+import type * as time from "./models/time.js";
 import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
 import type { ObjectKind, OwnerPath as PathText, Root } from "./path.js";
@@ -75,7 +88,8 @@ export type MimeType = (typeof validMimeTypes)[number];
  * unknown ones as `$unknown` text. Every public object type below is this of its model, so a
  * member added to a model reaches the type a caller sees.
  */
-type Plain<T> = { [K in keyof T as K extends "extra" ? never : K]: T[K] extends bigint ? number : T[K] };
+type PlainValue<V> = V extends bigint ? number : V extends bigint | null ? number | null : V extends bigint[] ? number[] : V;
+type Plain<T> = { [K in keyof T as K extends "extra" ? never : K]: PlainValue<T[K]> };
 
 interface Open {
   /** The members a newer writer added, as the text they were read with. Carry it along. */
@@ -116,6 +130,117 @@ export interface CollectionContent extends Open, Omit<Plain<posts.CollectionCont
   /** At most 100 items, in the curator's order; empty for none. */
   items: CollectionItem[];
 }
+
+/** One place or meeting link of an event. */
+export interface EventLocation extends Open, Plain<events.EventLocation> {}
+
+/** Who may come to an event and how many. */
+export interface EventAttendance extends Open, Omit<Plain<events.EventAttendance>, "policy"> {
+  /** How a person gets in, one of `attendancePolicies`: a policy this version does not know is refused on read. */
+  policy: KnownAttendancePolicy;
+}
+
+/** One link shown with an event, `{ title, url }` as a profile's links are; https only. */
+export interface EventLink extends Open, Plain<events.EventLink> {}
+
+/** One `byDay` entry of a recurrence rule. */
+export interface NthDay extends Open, Omit<Plain<time.NthDay>, "day"> {
+  /** The weekday, one of `weekdays`: a day this version does not know is refused on read. */
+  day: KnownWeekday;
+}
+
+/** A JSCalendar recurrence rule, as an event or an availability block repeats. */
+export interface RecurrenceRule extends Open, Omit<Plain<time.RecurrenceRule>, "frequency" | "firstDayOfWeek" | "byDay" | "byMonthDay" | "bySetPosition"> {
+  /** How often, one of `recurrenceFrequencies`: a frequency this version does not know is refused on read. */
+  frequency: KnownRecurrenceFrequency;
+  /** The first day of the week for a weekly rule, one of `weekdays`; null for the default. */
+  firstDayOfWeek: KnownWeekday | null;
+  /** The weekdays, with which one of the period; at most 31 entries. */
+  byDay: NthDay[];
+  /** Days of the month, -31 to 31 and never 0; at most 31 entries. */
+  byMonthDay: number[];
+  /** Positions in the expanded period, -366 to 366 and never 0; at most 31 entries. */
+  bySetPosition: number[];
+}
+
+/** The envelope of an event, inside its post's `content`: read it with `decodeContent`. Member names are JSCalendar's. */
+export interface EventContent extends Open, Omit<Plain<events.EventContent>, "status" | "locations" | "attendance" | "links" | "recurrenceRules"> {
+  /** Whether the event is on, one of `eventStatuses`: a status this version does not know is refused on read. */
+  status: KnownEventStatus;
+  /** Where it is: at most 10 places or meeting links; empty for none. */
+  locations: EventLocation[];
+  /** Who may come and how many. */
+  attendance: EventAttendance;
+  /** At most 10 links shown with the event, https only; empty for none. */
+  links: EventLink[];
+  /** How it repeats: at most 1 rule; empty for a single event. */
+  recurrenceRules: RecurrenceRule[];
+}
+
+/** The envelope of an rsvp, inside its post's `content`; the post's `parent` is the event, a social post. */
+export interface RsvpContent extends Open, Omit<Plain<events.RsvpContent>, "status"> {
+  /** The answer, one of `rsvpStatuses`: a status this version does not know is refused on read. */
+  status: KnownRsvpStatus;
+}
+
+/** One block of an availability. */
+export interface AvailabilityBlock extends Open, Omit<Plain<events.AvailabilityBlock>, "recurrenceRules"> {
+  /** How it repeats: at most 1 rule; empty for once. */
+  recurrenceRules: RecurrenceRule[];
+}
+
+/** The envelope of an availability, inside its post's `content`: when its author, or a resource of theirs, can be booked. */
+export interface AvailabilityContent extends Open, Omit<Plain<events.AvailabilityContent>, "available" | "busy"> {
+  /** When a booking may start; at most 100 blocks. */
+  available: AvailabilityBlock[];
+  /** What is taken; at most 100 blocks, untitled. */
+  busy: AvailabilityBlock[];
+}
+
+/** The envelope of a rating, inside its post's `content`; the post's `parent` is what is rated. */
+export interface RatingContent extends Open, Plain<events.RatingContent> {}
+
+/** What `decodeContent` gives: the kind and its envelope, or null for a kind whose content is plain text. */
+export type DecodedContent =
+  | {
+      /** The article kind. */
+      kind: "article";
+      /** Its envelope. */
+      content: ArticleContent;
+    }
+  | {
+      /** The collection kind. */
+      kind: "collection";
+      /** Its envelope. */
+      content: CollectionContent;
+    }
+  | {
+      /** The event kind. */
+      kind: "event";
+      /** Its envelope. */
+      content: EventContent;
+    }
+  | {
+      /** The rsvp kind. */
+      kind: "rsvp";
+      /** Its envelope. */
+      content: RsvpContent;
+    }
+  | {
+      /** The availability kind. */
+      kind: "availability";
+      /** Its envelope. */
+      content: AvailabilityContent;
+    }
+  | {
+      /** The rating kind. */
+      kind: "rating";
+      /** Its envelope. */
+      content: RatingContent;
+    };
+
+/** The envelopes `encodeContent` spells. */
+export type Envelope = ArticleContent | CollectionContent | EventContent | RsvpContent | AvailabilityContent | RatingContent;
 
 /** A label on an object, stored at `/pub/social/v1/tags/{id}.json`; the id hashes the target and the label. */
 export interface Tag extends Open, Plain<graph.Tag> {}
@@ -251,10 +376,13 @@ interface Threaded {
   lock?: string | null;
 }
 
-/** A post of any kind but an article or a collection: `note` when `kind` is absent. */
+/** The kinds whose `content` is an envelope a builder writes from members of its own. */
+export type EnvelopeKind = "article" | "collection" | "event" | "rsvp" | "availability" | "rating";
+
+/** A post of any kind but one with an envelope: `note` when `kind` is absent. */
 export type NewNote = {
   /** `note` when absent, else `image`, `video`, `link` or `file`: a hint for how to show `content`. */
-  kind?: Exclude<KnownPostKind, "article" | "collection"> | null;
+  kind?: Exclude<KnownPostKind, EnvelopeKind> | null;
   /** The text: at most 2000 code points once trimmed; empty only with an embed or an attachment. */
   content: string;
   /** An article's member: give `kind: "article"`. */
@@ -327,8 +455,178 @@ export type NewCollection = {
   lock?: never;
 } & Placement;
 
-/** What `buildPost` takes: a note, an article or a collection, told apart by `kind`. */
-export type NewPost = NewNote | NewArticle | NewCollection;
+/** One place or meeting link a new event takes. */
+export interface NewEventLocation {
+  /** The place: a canonical OpenStreetMap object URL, a `geo:` point from `geoUri`, or an https meeting link; at most 1024 code points. */
+  uri: string;
+  /** A name to show: 1 to 100 code points once trimmed. */
+  name?: string | null;
+}
+
+/** One link a new event takes, `{ title, url }` as a profile's links are. */
+export interface NewEventLink {
+  /** A title to show: 1 to 100 code points once trimmed. */
+  title: string;
+  /** An https URL of at most 300 code points, stored as written. */
+  url: string;
+}
+
+/** Who may come to a new event. */
+export interface NewEventAttendance {
+  /** How a person gets in, one of `attendancePolicies`; `open` when absent. */
+  policy?: KnownAttendancePolicy | null;
+  /** Seats, 1 to 1000000 people; absent for no limit. */
+  capacity?: number | null;
+  /** Whether people past the capacity queue; false when absent. */
+  waitlist?: boolean | null;
+}
+
+/** A recurrence rule a new event or availability block takes, in JSCalendar's members. */
+export interface NewRecurrenceRule {
+  /** How often, one of `recurrenceFrequencies`. */
+  frequency: KnownRecurrenceFrequency;
+  /** Every `interval`th period, 1 to 1000 periods; absent for every period. */
+  interval?: number | null;
+  /** The first day of the week for a weekly rule, one of `weekdays`. */
+  firstDayOfWeek?: KnownWeekday | null;
+  /** The weekdays, each with which one of the period (-53 to 53, never 0); at most 31 entries. */
+  byDay?: { day: KnownWeekday; nthOfPeriod?: number | null }[] | null;
+  /** Days of the month, -31 to 31 and never 0; at most 31 entries. */
+  byMonthDay?: number[] | null;
+  /** Months, `"1"` to `"12"`; at most 31 entries. */
+  byMonth?: string[] | null;
+  /** Positions in the expanded period, -366 to 366 and never 0; at most 31 entries. */
+  bySetPosition?: number[] | null;
+  /** Occurrences in all, 1 to 1000. */
+  count?: number | null;
+  /** The last local date-time an occurrence may start, at most 3 years after the start. */
+  until?: string | null;
+}
+
+/** An event: JSCalendar members, which the builder writes into the post's `content` envelope. The cover is `attachments[0]`; categories are tags. */
+export type NewEvent = {
+  /** The event kind. */
+  kind: "event";
+  /** The title: 1 to 100 code points once trimmed. */
+  title: string;
+  /** Markdown: at most 50000 code points once trimmed; empty for none. */
+  description?: string | null;
+  /** When it starts, a local date-time `YYYY-MM-DDTHH:MM:SS` in `timeZone`. */
+  start: string;
+  /** An IANA time zone name of at most 64 code points. */
+  timeZone: string;
+  /** How long it lasts, an ISO 8601 duration `PnW` or `PnDTnHnMnS` of at most 31622400 seconds; required unless `showWithoutTime`. */
+  duration?: string | null;
+  /** An all-day event; false when absent. */
+  showWithoutTime?: boolean | null;
+  /** Whether the event is on, one of `eventStatuses`; `confirmed` when absent. */
+  status?: KnownEventStatus | null;
+  /** At most 10 places or meeting links. */
+  locations?: NewEventLocation[] | null;
+  /** Who may come; open with no limit when absent. */
+  attendance?: NewEventAttendance | null;
+  /** At most 10 links, https only. */
+  links?: NewEventLink[] | null;
+  /** How it repeats: at most 1 rule. */
+  recurrenceRules?: NewRecurrenceRule[] | null;
+  /** Occurrences removed from the series, each a local date-time; at most 100. */
+  excludedDates?: string[] | null;
+  /** On an override of one occurrence, the master event: `buildUri(owner, "post", id)` of the same owner. Set together with `recurrenceId`. */
+  recurrenceOf?: string | null;
+  /** On an override of one occurrence, its local start in the master's series. */
+  recurrenceId?: string | null;
+  /** At most 10 media references; the first is the cover. */
+  attachments?: NewAttachment[] | null;
+  /** A pubky reference to the lock guarding the private details, at most 1024 code points. */
+  lock?: string | null;
+  /** An event replies to nothing. */
+  parent?: never;
+  /** An event quotes nothing. */
+  embed?: never;
+} & Placement;
+
+/** An rsvp: an answer to the Pubky event at `parent`, which the builder writes into the post's `content` envelope. */
+export type NewRsvp = {
+  /** The rsvp kind. */
+  kind: "rsvp";
+  /** The event answered, a social post: `buildUri(author, "post", id)`, or its `/priv` URI for a private post. */
+  parent: `pubky://${string}`;
+  /** The answer, one of `rsvpStatuses`. */
+  status: KnownRsvpStatus;
+  /** The occurrence answered, its local start in the event's series; absent for the series. */
+  recurrenceId?: string | null;
+  /** Companions without an account, 0 to 100 people; 0 when absent. */
+  guests?: number | null;
+  /** A note to the organiser: at most 2000 code points once trimmed; empty for none. */
+  note?: string | null;
+  /** An rsvp quotes nothing. */
+  embed?: never;
+  /** An rsvp carries no media. */
+  attachments?: never;
+  /** An rsvp is not gated. */
+  lock?: never;
+} & Placement;
+
+/** One block a new availability takes. */
+export interface NewAvailabilityBlock {
+  /** On an `available` block, a name: 1 to 100 code points once trimmed. */
+  title?: string | null;
+  /** When it starts, a local date-time in the schedule's `timeZone`. */
+  start: string;
+  /** How long it lasts, an ISO 8601 duration of at most 31622400 seconds. */
+  duration: string;
+  /** On an `available` block, the units free in it (rooms of a type, seats): 1 to 10000 units; absent for one. */
+  capacity?: number | null;
+  /** How it repeats: at most 1 rule. */
+  recurrenceRules?: NewRecurrenceRule[] | null;
+  /** Occurrences removed from the series; at most 100. */
+  excludedDates?: string[] | null;
+}
+
+/** An availability: when the owner, or a resource of theirs, can be booked, which the builder writes into the post's `content` envelope. */
+export type NewAvailability = {
+  /** The availability kind. */
+  kind: "availability";
+  /** An IANA time zone name every block is read in, at most 64 code points. */
+  timeZone: string;
+  /** How far ahead the schedule is kept, 1 to 366 days. */
+  horizonDays: number;
+  /** The resource the schedule belongs to, any reference of at most 1024 code points; absent for the owner. */
+  for?: string | null;
+  /** When a booking may start; at most 100 blocks. */
+  available?: NewAvailabilityBlock[] | null;
+  /** What is taken; at most 100 untitled blocks. */
+  busy?: NewAvailabilityBlock[] | null;
+  /** An availability replies to nothing. */
+  parent?: never;
+  /** An availability quotes nothing. */
+  embed?: never;
+  /** An availability carries no media. */
+  attachments?: never;
+  /** An availability is not gated. */
+  lock?: never;
+} & Placement;
+
+/** A rating: stars on the thing at `parent`, which the builder writes into the post's `content` envelope. */
+export type NewRating = {
+  /** The rating kind. */
+  kind: "rating";
+  /** What is rated: a place, an event, a listing or a link, any reference of at most 1024 code points. */
+  parent: string;
+  /** The stars, 1 to 10 half stars: 10 is five stars. */
+  rating: number;
+  /** The review: at most 2000 code points once trimmed; empty for none. */
+  text?: string | null;
+  /** At most 10 media references, photos of the thing. */
+  attachments?: NewAttachment[] | null;
+  /** A rating quotes nothing. */
+  embed?: never;
+  /** A rating is not gated. */
+  lock?: never;
+} & Placement;
+
+/** What `buildPost` takes: a note, an article, a collection, an event, an rsvp, an availability or a rating, told apart by `kind`. */
+export type NewPost = NewNote | NewArticle | NewCollection | NewEvent | NewRsvp | NewAvailability | NewRating;
 
 /** The version URL a reference member would hold, named where it is refused. */
 type NoVersion<T> = T extends { readonly [brand]: "PubkyUrl.post" }
@@ -337,7 +635,19 @@ type NoVersion<T> = T extends { readonly [brand]: "PubkyUrl.post" }
     ? { [K in keyof T]: NoVersion<T[K]> }
     : T;
 
-type BranchOf<I> = I extends { kind: "article" } ? NewArticle : I extends { kind: "collection" } ? NewCollection : NewNote;
+type BranchOf<I> = I extends { kind: "article" }
+  ? NewArticle
+  : I extends { kind: "collection" }
+    ? NewCollection
+    : I extends { kind: "event" }
+      ? NewEvent
+      : I extends { kind: "rsvp" }
+        ? NewRsvp
+        : I extends { kind: "availability" }
+          ? NewAvailability
+          : I extends { kind: "rating" }
+            ? NewRating
+            : NewNote;
 
 /**
  * A post input as `buildPost` checks it at compile time: the members of its kind only, and no

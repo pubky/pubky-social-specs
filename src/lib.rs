@@ -15,6 +15,7 @@ pub mod migrate;
 mod mime;
 mod models;
 mod normalize;
+pub mod subspec;
 #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
 #[doc(hidden)]
 pub mod surface;
@@ -62,9 +63,16 @@ pub use models::post::lifecycle::{
 };
 pub use models::post::{
     ContentReference, MintedVersion, PostEnvelope, PostKind, PubkySocialArticleContent,
-    PubkySocialAttachment, PubkySocialCollectionContent, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialPost, PubkySocialPostKind,
+    PubkySocialAttachment, PubkySocialAttendancePolicy, PubkySocialAvailabilityBlock,
+    PubkySocialAvailabilityContent, PubkySocialCollectionContent, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialEventAttendance, PubkySocialEventContent,
+    PubkySocialEventLink, PubkySocialEventLocation, PubkySocialEventStatus, PubkySocialNthDay,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRatingContent, PubkySocialRecurrenceFrequency,
+    PubkySocialRecurrenceRule, PubkySocialRsvpContent, PubkySocialRsvpStatus, PubkySocialWeekday,
 };
+// The JSCalendar value rules and the place conventions, under their own names
+pub use models::post::content::events::time as jscalendar;
+pub use models::post::content::places;
 pub use models::tag::{sanitize_tag_label, validate_tag_label, PubkySocialTag};
 pub use models::user::{PubkySocialUser, PubkySocialUserLink};
 pub use models::{ObjectKind, PubkySocialObject};

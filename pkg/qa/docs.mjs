@@ -20,7 +20,21 @@ const exported = new Map(checker.getExportsOfModule(checker.getSymbolAtLocation(
 const doc = (symbol) => ts.displayPartsToString(symbol.getDocumentationComment(checker)).replace(/\s+/g, " ").trim();
 const cell = (text) => text.replaceAll("|", "\\|");
 
-const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : "");
+const UNITS = {
+  Bytes: "bytes",
+  Count: "items",
+  Length: "code points",
+  Seconds: "seconds",
+  Days: "days",
+  Years: "years",
+  Metres: "metres",
+  People: "people",
+  Occurrences: "occurrences",
+  Periods: "periods",
+  Digits: "digits",
+  HalfStars: "half stars",
+};
+const unitOf = (name) => Object.entries(UNITS).find(([suffix]) => name.endsWith(suffix))?.[1] ?? "";
 const limitsType = checker.getTypeOfSymbolAtLocation(exported.get("limits"), exported.get("limits").valueDeclaration);
 const limitRows = checker.getPropertiesOfType(limitsType).map((p) => {
   const value = limits[p.name];
@@ -32,15 +46,50 @@ const limitRows = checker.getPropertiesOfType(limitsType).map((p) => {
 const mapped = new Map(MIME_TO_EXT);
 const mimeRows = [...new Set([...validMimeTypes, ...mapped.keys()])].sort().map((type) => `| \`${type}\` | \`.${mapped.get(type) ?? "bin"}\` |`);
 
-const OBJECTS = ["User", "UserLink", "Post", "Attachment", "ArticleContent", "CollectionContent", "CollectionItem", "Tag", "Bookmark", "Follow", "Mute", "Feed", "FeedConfig"];
+const OBJECTS = [
+  "User",
+  "UserLink",
+  "Post",
+  "Attachment",
+  "ArticleContent",
+  "CollectionContent",
+  "CollectionItem",
+  "EventContent",
+  "EventLocation",
+  "EventAttendance",
+  "EventLink",
+  "RecurrenceRule",
+  "NthDay",
+  "RsvpContent",
+  "AvailabilityContent",
+  "AvailabilityBlock",
+  "RatingContent",
+  "Tag",
+  "Bookmark",
+  "Follow",
+  "Mute",
+  "Feed",
+  "FeedConfig",
+];
 const limitValues = new Set(Object.values(limits).filter((v) => typeof v === "number"));
 const claims = [];
-// Every bound a doc states is a limit of the model; "0.x" and "1.x" are epochs, "0-9" a range
+// Every bound a doc states is a limit of the model; "0.x" and "1.x" are epochs, "0-9" a range,
+// a JSCalendar grammar (`PnDTnHnMnS`, `YYYY-MM-DD`), a precision of 5 or 6 digits, a sign range
+// (-53 to 53) and the zero of a lower bound are no limits
 const checkBounds = (member, text) => {
   for (const [, n] of text
     .replace(/`[^`]*`/g, "")
     .replace(/\b\d+\.x\b/g, "")
     .replace(/0-9/g, "")
+    .replace(/-\d+ to \d+/g, "")
+    .replace(/\b5 or 6\b/g, "")
+    .replace(/\b0 to\b/g, "to")
+    .replace(/\b0 when\b/g, "when")
+    .replace(/\b0 is\b/g, "is")
+    .replace(/\b10 is five stars\b/g, "")
+    .replace(/\bYYYY-MM-DDTHH:MM:SS\b/g, "")
+    .replace(/\bISO 8601\b/g, "")
+    .replace(/\bnever 0\b/g, "")
     .matchAll(/\b(\d+)\b/g)) {
     if (!limitValues.has(Number(n)) && n !== "1") claims.push(`${member}: ${n} is no value of limits`);
   }
@@ -62,7 +111,23 @@ const objectSections = OBJECTS.map((name) => {
   return `### ${name}\n\n${doc(symbol)}\n\n| member | type | null | meaning |\n|---|---|---|---|\n${rows.join("\n")}`;
 });
 // The builder inputs state bounds too, and have no table of their own
-for (const name of ["NewUser", "NewAttachment", "NewNote", "NewArticle", "NewCollection", "NewFeed"]) {
+for (const name of [
+  "NewUser",
+  "NewAttachment",
+  "NewNote",
+  "NewArticle",
+  "NewCollection",
+  "NewEvent",
+  "NewEventLocation",
+  "NewEventLink",
+  "NewEventAttendance",
+  "NewRecurrenceRule",
+  "NewRsvp",
+  "NewAvailability",
+  "NewAvailabilityBlock",
+  "NewRating",
+  "NewFeed",
+]) {
   const type = checker.getDeclaredTypeOfSymbol(exported.get(name));
   for (const p of checker.getPropertiesOfType(type)) checkBounds(`${name}.${p.name}`, doc(p));
 }

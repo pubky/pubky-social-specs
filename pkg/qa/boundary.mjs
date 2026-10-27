@@ -190,6 +190,10 @@ const calls = {
   idMicros: [post.id],
   microsToDate: [1_790_000_000_000_000],
   dateToMicros: [new Date(1_790_000_000_000)],
+  geoUri: [46.00547, 8.95186, 5],
+  isGeoUri: ["geo:46.00547,8.95186"],
+  osmUrl: ["way", 481516234],
+  parseOsmUrl: ["https://www.openstreetmap.org/way/481516234"],
 };
 
 const functions = Object.keys(api).filter((name) => typeof api[name] === "function" && name !== "ValidationError" && name !== "ArgumentError");

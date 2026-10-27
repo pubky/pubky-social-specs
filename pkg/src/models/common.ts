@@ -49,7 +49,7 @@ export interface Model<T> {
   check(value: T, id: string | null, publicRoot: boolean, each: Each): void;
 }
 
-function checkSize(bytes: number, max: number): void {
+export function checkSize(bytes: number, max: number): void {
   if (bytes > max) fail("size", `object exceeds ${max} bytes`, undefined, max);
 }
 

@@ -56,8 +56,53 @@ const LIMIT_DOCS = {
   userNameMaxLength: "The longest profile name",
   userNameMinLength: "The shortest profile name",
   userStatusMaxLength: "The longest profile status",
+  eventTitleMaxLength: "The longest event title",
+  eventDescriptionMaxLength: "The longest event description",
+  eventContentMaxLength: "The longest `content` of an event post, the whole envelope as text",
+  eventTimeZoneMaxLength: "The longest IANA time zone name, an event's or an availability's `timeZone`",
+  eventDurationMaxSeconds: "The longest `duration` of an event or an availability block, one leap year",
+  eventLocationsMaxCount: "The most `locations` on an event",
+  eventLocationNameMaxLength: "The longest `name` of an event location",
+  eventLinksMaxCount: "The most `links` on an event",
+  eventLinkTitleMaxLength: "The longest `title` of an event link",
+  eventLinkUrlMaxLength: "The longest `url` of an event link",
+  eventCapacityMaxPeople: "The largest `attendance.capacity` of an event",
+  eventRecurrenceRulesMaxCount: "The most `recurrenceRules` on an event or an availability block",
+  eventRecurrenceMaxOccurrences: "The largest `count` of a recurrence rule, where the occurrence generator stops too",
+  eventRecurrenceMaxSpanYears: "The furthest a recurrence rule's `until` may lie after the start, where the occurrence generator stops too",
+  eventRecurrenceIntervalMaxPeriods: "The largest `interval` of a recurrence rule",
+  eventRecurrenceByMaxCount: "The most entries in each `by*` list of a recurrence rule",
+  eventExcludedDatesMaxCount: "The most `excludedDates` on an event or an availability block",
+  rsvpGuestsMaxPeople: "The most `guests` on an rsvp",
+  rsvpNoteMaxLength: "The longest `note` of an rsvp",
+  rsvpContentMaxLength: "The longest `content` of an rsvp post, the whole envelope as text",
+  availabilityHorizonMaxDays: "The furthest ahead an availability's `horizonDays` reaches, one leap year",
+  availabilityBlocksMaxCount: "The most blocks in each of an availability's `available` and `busy`",
+  availabilityBlockTitleMaxLength: "The longest `title` of an available block",
+  availabilityCapacityMaxUnits: "The largest `capacity` of an available block, the units free in it",
+  availabilityContentMaxLength: "The longest `content` of an availability post, the whole envelope as text",
+  ratingMinHalfStars: "The lowest `rating`, one half star",
+  ratingMaxHalfStars: "The highest `rating`, five stars",
+  ratingTextMaxLength: "The longest `text` of a rating",
+  ratingContentMaxLength: "The longest `content` of a rating post, the whole envelope as text",
+  geoFractionMaxDigits: "The most fraction digits of a `geo:` coordinate, about a metre",
 };
-const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : null);
+// The unit a limit's name ends in
+const UNITS = {
+  Bytes: "bytes",
+  Count: "items",
+  Length: "code points",
+  Seconds: "seconds",
+  Days: "days",
+  Years: "years",
+  People: "people",
+  Units: "units",
+  Occurrences: "occurrences",
+  Periods: "periods",
+  Digits: "digits",
+  HalfStars: "half stars",
+};
+const unitOf = (name) => Object.entries(UNITS).find(([suffix]) => name.endsWith(suffix))?.[1] ?? null;
 const undocumented = Object.keys(data.limits).filter((name) => !Object.hasOwn(LIMIT_DOCS, name));
 if (undocumented.length > 0) {
   console.error(`limits with no line in qa/data.mjs LIMIT_DOCS: ${undocumented.join(", ")}`);
@@ -139,6 +184,8 @@ export const skipReasons = ${frozen(data.skipReasons)};
 export const transformRev: number = ${data.transformRev};
 `;
 let stale = false;
+// The debug escape table follows the Unicode tables of the rustc that built the oracle
+const withoutEscapes = (text) => text.replace(/^export const DEBUG_ESCAPED: .*$/m, "");
 for (const [path, text] of [
   ["../src/data.ts", source],
   ["../../migrator/src/data.ts", migration],
@@ -146,7 +193,12 @@ for (const [path, text] of [
   const file = fileURLToPath(new URL(path, import.meta.url));
   if (!args.check) fs.writeFileSync(file, text);
   else if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) {
-    console.error(`${path.slice(3)} is stale: run node pkg/qa/data.mjs`);
+    const escapesOnly = fs.existsSync(file) && withoutEscapes(fs.readFileSync(file, "utf8")) === withoutEscapes(text);
+    console.error(
+      escapesOnly
+        ? `${path.slice(3)} differs from this oracle in DEBUG_ESCAPED alone: build the oracle with the pinned Rust (RUST_TOOLCHAIN in .github/workflows/js-native.yml) and check again`
+        : `${path.slice(3)} is stale: run node pkg/qa/data.mjs`,
+    );
     stale = true;
   }
 }

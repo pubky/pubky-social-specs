@@ -430,6 +430,131 @@ const collectionEnvelope = (r) => {
   if (r.chance(0.3)) e.layout = r.pick(["grid", "list", "visual", "mosaic", null]);
   return e;
 };
+const PLACE = (r) =>
+  r.pick([
+    "geo:46.00547,8.95186",
+    "geo:46,8",
+    "geo:46.0,8",
+    "geo:-0,8",
+    "geo:91,8",
+    "geo:46,8;u=35",
+    "https://www.openstreetmap.org/way/481516234",
+    "https://www.openstreetmap.org/node/1",
+    "https://www.openstreetmap.org/way/481516234/",
+    "https://openstreetmap.org/way/1",
+    "https://osm.org/node/1",
+    "https://www.openstreetmap.org/?mlat=46&mlon=8",
+    "https://meet.jit.si/room",
+    ref(r),
+  ]);
+const LOCAL = (r) =>
+  r.pick([
+    "2026-10-14T18:30:00",
+    "2026-10-14T18:30:00",
+    "2026-02-29T00:00:00",
+    "2024-02-29T23:59:59",
+    "2026-10-14T24:00:00",
+    "2026-10-14T18:30:00Z",
+    "2026-10-14",
+    "soon",
+    "2026-13-01T00:00:00",
+    text(r, 2),
+  ]);
+const DURATION = (r) => r.pick(["PT2H30M", "PT2H30M", "P1D", "P2W", "PT0S", "P1DT1H1M1S", "PT90M", "P366D", "P367D", "P1W1D", "PT", "PT1.5S", "2h", "P1Y", "-PT1H", "PT1000000000S"]);
+const ZONE = (r) =>
+  r.pick(["Europe/Zurich", "Europe/Zurich", "UTC", "Etc/GMT+2", "America/Argentina/Buenos_Aires", "+02:00", "Europe/", "Europe/Zürich", "Zurich time", "", "a".repeat(r.pick([64, 65]))]);
+const rule = (r) => {
+  const o = { frequency: r.pick(["weekly", "monthly", "daily", "yearly", "hourly", "Weekly"]) };
+  if (r.chance(0.3)) o.interval = r.pick([1, 2, 1000, 1001, 0, -1]);
+  if (r.chance(0.2)) o.firstDayOfWeek = r.pick(["mo", "su", "monday"]);
+  if (r.chance(0.4))
+    o.byDay = r.many(r.pick([2, 2, 32]), () => (r.chance(0.6) ? { day: r.pick(["mo", "tu", "we", "th", "fr", "sa", "su", "Mo", "x"]) } : { day: "tu", nthOfPeriod: r.pick([2, -1, 53, 54, 0, -53]) }));
+  if (r.chance(0.2)) o.byMonthDay = r.many(3, () => r.pick([14, -1, 31, 32, 0]));
+  if (r.chance(0.2)) o.byMonth = r.many(3, () => r.pick(["10", "1", "12", "13", "01", "0", "1L"]));
+  if (r.chance(0.15)) o.bySetPosition = r.many(3, () => r.pick([1, -1, 366, 367, 0]));
+  if (r.chance(0.3)) o.count = r.pick([1, 52, 1000, 1001, 0]);
+  if (r.chance(0.3)) o.until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01", "2026-10-14T18:30:00", "2026-01-01T00:00:00", "tomorrow"]);
+  return o;
+};
+const eventEnvelope = (r) => {
+  const e = { title: r.pick(["Evening", " Evening ", " ", "t".repeat(r.pick([100, 101])), "a\u0000b", text(r)]), start: LOCAL(r), timeZone: ZONE(r) };
+  if (r.chance(0.85)) e.duration = DURATION(r);
+  if (r.chance(0.3)) e.showWithoutTime = r.chance(0.8);
+  if (r.chance(0.4)) e.description = r.pick(["Monthly meetup.", " ", "", rarely(r, () => "d".repeat(r.pick([50000, 50001])), "d".repeat(300)), text(r, 12)]);
+  if (r.chance(0.3)) e.status = r.pick(["confirmed", "tentative", "cancelled", "maybe"]);
+  if (r.chance(0.5)) e.locations = r.many(r.pick([2, 2, 11]), () => (r.chance(0.6) ? { uri: PLACE(r) } : { uri: PLACE(r), name: r.pick(["Hub", " Hub ", " ", "n".repeat(r.pick([100, 101])), null]) }));
+  if (r.chance(0.4)) {
+    const a = { policy: r.pick(["open", "approval", "invite", "ticket", "rsvp"]) };
+    if (r.chance(0.6)) a.capacity = r.pick([50, 1, 1000000, 1000001, 0, -1, null]);
+    if (r.chance(0.5)) a.waitlist = r.chance(0.5);
+    e.attendance = a;
+  }
+  if (r.chance(0.4))
+    e.links = r.many(r.pick([2, 2, 11]), () => ({
+      title: r.pick(["Website", " Site ", " ", "n".repeat(r.pick([100, 101]))]),
+      url: r.pick(["https://planb.network/", "http://example.com", `https://e.com/${"a".repeat(r.pick([286, 287]))}`, ref(r)]),
+    }));
+  if (r.chance(0.4)) e.recurrenceRules = r.many(r.pick([1, 1, 1, 2]), () => rule(r));
+  if (r.chance(0.3))
+    e.excludedDates = r.many(
+      rarely(r, () => 101, 2),
+      () => LOCAL(r),
+    );
+  if (r.chance(0.15)) {
+    e.recurrenceOf = r.pick([
+      `pubky://${OWNER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`,
+      `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}`,
+      `pubky://${OWNER}/pub/social/v1/profile.json`,
+      ref(r),
+    ]);
+    if (r.chance(0.85)) e.recurrenceId = LOCAL(r);
+    if (r.chance(0.6)) e.recurrenceRules = [];
+  }
+  return e;
+};
+const rsvpEnvelope = (r) => {
+  const e = { status: r.pick(["accepted", "requested", "declined", "tentative", "going"]) };
+  if (r.chance(0.4)) e.recurrenceId = LOCAL(r);
+  if (r.chance(0.5)) e.guests = r.pick([0, 1, 100, 101, -1]);
+  if (r.chance(0.5)) e.note = r.pick(["bringing cake", " padded ", " ", "", "n".repeat(r.pick([2000, 2001])), null]);
+  return e;
+};
+const blockOf = (r, available) => {
+  const b = { start: LOCAL(r), duration: DURATION(r) };
+  if (available && r.chance(0.5)) b.title = r.pick(["Office hours", " ", "t".repeat(r.pick([100, 101])), null]);
+  if (!available && r.chance(0.1)) b.title = "Dentist";
+  if (available && r.chance(0.4)) b.capacity = r.pick([1, 12, 10000, 10001, 0, -1, null]);
+  if (!available && r.chance(0.05)) b.capacity = 2;
+  if (r.chance(0.3)) b.recurrenceRules = r.many(r.pick([1, 1, 2]), () => rule(r));
+  if (r.chance(0.2))
+    b.excludedDates = r.many(
+      rarely(r, () => 101, 2),
+      () => LOCAL(r),
+    );
+  return b;
+};
+const availabilityEnvelope = (r) => {
+  const e = { timeZone: ZONE(r), horizonDays: r.pick([60, 1, 366, 367, 0, -1]) };
+  if (r.chance(0.4)) e.for = r.pick([ref(r), `pubky://${OWNER}/pub/shop/v1/listings/${timestampIdOf(NOW - 5e9)}`, null]);
+  if (r.chance(0.7))
+    e.available = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, true),
+    );
+  if (r.chance(0.6))
+    e.busy = r.many(
+      rarely(r, () => 101, 3),
+      () => blockOf(r, false),
+    );
+  return e;
+};
+const ratingEnvelope = (r) => {
+  const e = { rating: r.pick([7, 1, 10, 0, 11, -1]) };
+  if (r.chance(0.6)) e.text = r.pick(["great coffee", " padded ", " ", "", "t".repeat(r.pick([2000, 2001])), null]);
+  return e;
+};
+const TYPED = { event: eventEnvelope, rsvp: rsvpEnvelope, availability: availabilityEnvelope, rating: ratingEnvelope };
+
 const envelopeText = (r, envelope) =>
   r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored(r, envelope), () => r.pick(["", "{", "[]", "null", "x".repeat(40001), "not json"])])();
 
@@ -524,6 +649,124 @@ function postInput(r) {
   return o;
 }
 
+// The 1.1 kinds, drawn by the `-1.1` families alone, so the 1.0 families draw as 1.0 recorded them.
+// A full-size cap edge (a 50,000-character description, a 101-item list) is drawn
+// rarely, so the recorded files stay small: every 1.1 edge is recorded once, at the cap and one
+// over, in the fixed `edges-1.1` family, and the fuzz reaches the rest
+const rarely = (r, big, small) => (r.chance(0.04) ? big() : small);
+// A stored 1.1 post: spoiled as `stored` spoils one, never padded to the byte cap, a 1.0 limit
+// the 1.0 files and `bounds` record
+function stored11(r, object) {
+  const out = spoil(r, object);
+  if (!out.endsWith("}") || out.length <= 2) return out;
+  return r.chance(0.3) ? `${out.slice(0, -1)},${r.pick(EXTRA)}}` : out;
+}
+// A 1.1 envelope as stored, or content that is no envelope; the 40,001-character content of
+// `envelopeText` is the collection's raw cap, a 1.0 edge
+const envelopeText11 = (r, envelope) => r.pick([() => JSON.stringify(envelope), () => JSON.stringify(envelope), () => stored11(r, envelope), () => r.pick(["", "{", "[]", "null", "not json"])])();
+const V11_KINDS = ["event", "rsvp", "availability", "rating"];
+// Kinds social does not know, under social: a social reader refuses them as unknown
+const FOREIGN_KINDS = ["route", "listing"];
+const isReply = (kind) => kind === "rsvp" || kind === "rating";
+// An rsvp answers a social post; mostly one, now and then any reference, which it refuses
+const eventRef = (r) => (r.chance(0.7) ? `pubky://${r.pick([OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${timestampIdOf(NOW - 5e9)}` : ref(r));
+const parentOf = (r, kind) => (kind === "rsvp" ? eventRef(r) : ref(r));
+
+/** A 1.1 post every rule accepts, then at most one late rule broken. */
+function cleanPost11(r) {
+  const kind = r.pick(V11_KINDS);
+  const own = (root, leaf) => `pubky://${OWNER}/${seg(root)}/social/v1/${leaf}`;
+  const media = () => own(r.pick(["public", "public", "private"]), `files/${hashIdText(r)}.png`);
+  const place = () => r.pick(["geo:46.00547,8.95186", "https://www.openstreetmap.org/way/481516234"]);
+  const clean = {
+    event: () => ({
+      title: "Evening",
+      start: "2026-10-14T18:30:00",
+      timeZone: "Europe/Zurich",
+      duration: "PT2H30M",
+      locations: [{ uri: place(), name: "Hub" }],
+      recurrenceRules: [{ frequency: "monthly", byDay: [{ day: "tu", nthOfPeriod: 2 }] }],
+    }),
+    rsvp: () => ({ status: "accepted", guests: 1 }),
+    availability: () => ({
+      timeZone: "UTC",
+      horizonDays: 30,
+      available: [{ start: "2026-10-19T09:00:00", duration: "PT8H", title: "Office", capacity: 3 }],
+      busy: [{ start: "2026-10-21T14:00:00", duration: "PT1H" }],
+    }),
+    rating: () => ({ rating: 7, text: "great" }),
+  };
+  const envelope = clean[kind]();
+  const p = { content: "hello", kind, parent: isReply(kind) ? own("public", `posts/${timestampIdOf(NOW - 5e9)}`) : null, embed: null };
+  // an rsvp and an availability carry no media
+  const mediaFree = kind === "rsvp" || kind === "availability";
+  if (!mediaFree && r.chance(0.5)) p.attachments = [{ uri: media(), alt: "alt", name: "pic.png" }];
+  const attachment = () => (p.attachments ??= [{ uri: media() }])[0];
+  const breaks = {
+    event: [
+      () => (envelope.title = "t".repeat(r.pick([100, 101]))),
+      () => (envelope.description = rarely(r, () => "d".repeat(r.pick([50000, 50001])), "d".repeat(300))),
+      () => (envelope.locations = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: place() }))),
+      () => (envelope.recurrenceRules[0].count = r.pick([1000, 1001])),
+      () => (envelope.recurrenceRules[0].until = r.pick(["2029-10-14T18:30:00", "2029-10-14T18:30:01"])),
+      () => (envelope.attendance = { policy: "ticket", capacity: r.pick([1000000, 1000001]), waitlist: true }),
+      () => (envelope.links = [{ title: "Site", url: r.pick(["https://x.y", "http://x.y"]) }]),
+      () => (envelope.status = r.pick(["cancelled", "maybe"])),
+      () => (envelope.excludedDates = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => "2026-11-10T18:30:00")),
+    ],
+    rsvp: [
+      () => (envelope.guests = r.pick([100, 101])),
+      () => (envelope.note = "n".repeat(r.pick([2000, 2001]))),
+      () => (p.parent = null),
+      () => (p.parent = r.pick(["https://lu.ma/abc", "geo:46.00547,8.95186", own("public", "profile.json"), `pubky://${OTHER}/pub/events/v1/posts/${timestampIdOf(NOW - 5e9)}`])),
+    ],
+    availability: [
+      () => (envelope.horizonDays = r.pick([366, 367])),
+      () => (envelope.available = Array.from({ length: rarely(r, () => r.pick([100, 101]), 3) }, () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" }))),
+      () => (envelope.available[0].capacity = r.pick([10000, 10001])),
+      () => (envelope.busy[0].title = "Dentist"),
+    ],
+    rating: [() => (envelope.rating = r.pick([10, 11])), () => (envelope.text = "t".repeat(r.pick([2000, 2001]))), () => (p.parent = null)],
+  }[kind];
+  const any = [
+    () => (attachment().alt = "a".repeat(r.pick([1000, 1001]))),
+    () => (p.attachments = Array.from({ length: r.pick([10, 11]) }, () => ({ uri: media() }))),
+    () => (p.parent = own("private", `posts/${timestampIdOf(NOW - 5e9)}`)),
+  ];
+  if (r.chance(0.6)) r.pick([...breaks, ...(mediaFree ? [] : any)])();
+  p.content = JSON.stringify(envelope);
+  return p;
+}
+
+/** A 1.1 post as stored: references of every tier, sometimes what a newer writer adds. */
+function storedPost11(r) {
+  if (r.chance(0.35)) return cleanPost11(r);
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating"]);
+  const p = { content: envelopeText11(r, TYPED[kind](r)), kind, parent: null, embed: null };
+  // now and then a kind social does not know
+  if (r.chance(0.03)) p.kind = r.pick(FOREIGN_KINDS);
+  // the reply kinds mostly have the parent they need
+  if (r.chance(isReply(kind) ? 0.85 : 0.3)) p.parent = parentOf(r, kind);
+  if (r.chance(0.3)) p.embed = ref(r);
+  if (r.chance(0.5)) p.attachments = r.many(r.pick([2, 2, 2, 11]), () => attachmentOf(r));
+  if (r.chance(0.2)) p.lock = r.pick([ref(r), `pubky://${OTHER}/pub/social/v1/profile.json`, null]);
+  return p;
+}
+
+/** A builder input of a 1.1 kind: its envelope's members and the post's. */
+function postInput11(r) {
+  const kind = r.pick(["event", "event", "rsvp", "availability", "rating"]);
+  const o = { kind, ...TYPED[kind](r) };
+  for (const [member, value] of Object.entries(o)) if (value === null && r.chance(0.5)) delete o[member];
+  // A reply kind's parent is a required member: absent, the shape is refused before any rule
+  if (isReply(kind)) o.parent = parentOf(r, kind);
+  if ((kind === "event" || kind === "rating") && r.chance(0.4)) o.attachments = r.many(3, () => attachmentOf(r));
+  if (kind === "event" && r.chance(0.15)) o.lock = ref(r);
+  if (r.chance(0.4)) o.root = r.pick(["public", "private", null]);
+  if (r.chance(0.3)) o.slug = r.pick(["a-slug", "", "UP", "s".repeat(r.pick([64, 65])), null]);
+  return o;
+}
+
 // Clocks around a head: past it, behind it, and too far behind to leave room
 const env = (r) => ({ now: NOW + r.pick([0, 0, 0, -6e9, -7.3e9, -1e10, 1e6]), last: r.pick([0, 0, NOW - 1, NOW, NOW + 5, NOW + 2e6, NOW - 2e6]) });
 
@@ -541,6 +784,14 @@ function draft(r) {
   if (r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   if (p.kind === "article" && r.chance(0.7)) p.content = JSON.stringify({ title: "T", body: "B", cover_image: media(), ...(r.chance(0.2) ? { z: r.pick([1, "x", 9007199254740991]), a: [1] } : {}) });
   if (p.kind === "collection" && r.chance(0.7)) p.content = JSON.stringify({ name: "List", items: r.many(2, () => ({ uri: ref(r) })), ...(r.chance(0.5) ? { cover_image: media() } : {}) });
+  return p;
+}
+
+/** A private 1.1 version about to be published: its media and its references mostly the owner's own private ones. */
+function draft11(r) {
+  const p = r.chance(0.5) ? cleanPost11(r) : storedPost11(r);
+  const media = () => r.pick([ownMedia(r, "private"), ownMedia(r, "private"), ownMedia(r, "public"), ref(r), `pubky://${OWNER}/priv/social/v1/posts/${postId(r)}`]);
+  if (p.kind !== "rsvp" && p.kind !== "availability" && r.chance(0.6)) p.attachments = r.many(3, () => ({ uri: media() }));
   return p;
 }
 
@@ -594,6 +845,149 @@ function deletion(r) {
 
 const s = (value) => ({ s: value });
 const request = (op, ...args) => ({ op, args, now: NOW, last: 0 });
+
+/**
+ * Fixed requests, recorded as they are and never fuzzed: the edges a seeded draw would reach
+ * only by a list too long to record 400 times. Each is a 1.1 envelope whose list is past its
+ * cap and ends in a private reference, so the answer says which ran first, the cap or the
+ * reference gate, at the planner and at the reader; then 1.0 posts past a cap with a private
+ * reference, whose answer is the one 1.0 gave, the reference.
+ */
+export const fixed = {
+  /**
+   * Every 1.1 limit at its edge and one past it, read by `encodeKind`: a minimum at the minimum
+   * and one under. A row whose value is large breaks a rule that runs after the cap too, so its
+   * answer is that later rule's short refusal, which shows the cap admitted the value, and the
+   * file stays small.
+   */
+  "edges-1.1": () => {
+    const L = limits;
+    const encode = (kind, envelope, post = {}) =>
+      request("encodeKind", s("post"), { j: JSON.stringify("public") }, { j: JSON.stringify({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [], ...post }) });
+    const reply = { parent: "https://example.com/thing" };
+    const answer = { parent: `pubky://${OTHER}/pub/social/v1/posts/${timestampIdOf(NOW - 5e9)}` };
+    const event = (more) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", ...more });
+    const rsvp = (more) => ({ status: "accepted", ...more });
+    const availability = (more) => ({ timeZone: "UTC", horizonDays: 30, ...more });
+    const rating = (more) => ({ rating: 7, ...more });
+    // An envelope padded by an unknown member to exactly `size` code points of content
+    const padded = (envelope, size) => {
+      const bare = JSON.stringify({ ...envelope, pad: "" }).length;
+      return { ...envelope, pad: "x".repeat(size - bare) };
+    };
+    const n = (count, make) => Array.from({ length: count }, make);
+    const block = () => ({ start: "2026-10-19T09:00:00", duration: "PT1H" });
+    // [at the edge, past it], each a request
+    const pairs = [
+      // event
+      [encode("event", event({ title: "t".repeat(L.eventTitleMaxLength) })), encode("event", event({ title: "t".repeat(L.eventTitleMaxLength + 1) }))],
+      [encode("event", event({ description: "d".repeat(L.eventDescriptionMaxLength), start: "soon" })), encode("event", event({ description: "d".repeat(L.eventDescriptionMaxLength + 1) }))],
+      [encode("event", padded(event({ start: "soon" }), L.eventContentMaxLength)), encode("event", padded(event({}), L.eventContentMaxLength + 1))],
+      [encode("event", event({ timeZone: "a".repeat(L.eventTimeZoneMaxLength) })), encode("event", event({ timeZone: "a".repeat(L.eventTimeZoneMaxLength + 1) }))],
+      [encode("event", event({ duration: "P366D" })), encode("event", event({ duration: "P366DT1S" }))],
+      [
+        encode("event", event({ locations: n(L.eventLocationsMaxCount, () => ({ uri: "geo:0,0" })) })),
+        encode("event", event({ locations: n(L.eventLocationsMaxCount + 1, () => ({ uri: "geo:0,0" })) })),
+      ],
+      [
+        encode("event", event({ locations: [{ uri: "geo:0,0", name: "n".repeat(L.eventLocationNameMaxLength) }] })),
+        encode("event", event({ locations: [{ uri: "geo:0,0", name: "n".repeat(L.eventLocationNameMaxLength + 1) }] })),
+      ],
+      [
+        encode("event", event({ links: n(L.eventLinksMaxCount, () => ({ title: "n", url: "https://x.y" })) })),
+        encode("event", event({ links: n(L.eventLinksMaxCount + 1, () => ({ title: "n", url: "https://x.y" })) })),
+      ],
+      [
+        encode("event", event({ links: [{ title: "n".repeat(L.eventLinkTitleMaxLength), url: "https://x.y" }] })),
+        encode("event", event({ links: [{ title: "n".repeat(L.eventLinkTitleMaxLength + 1), url: "https://x.y" }] })),
+      ],
+      [
+        encode("event", event({ links: [{ title: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 14)}` }] })),
+        encode("event", event({ links: [{ title: "n", url: `https://e.com/${"a".repeat(L.eventLinkUrlMaxLength - 13)}` }] })),
+      ],
+      [
+        encode("event", event({ attendance: { policy: "ticket", capacity: L.eventCapacityMaxPeople, waitlist: false } })),
+        encode("event", event({ attendance: { policy: "ticket", capacity: L.eventCapacityMaxPeople + 1, waitlist: false } })),
+      ],
+      [encode("event", event({ recurrenceRules: [{ frequency: "daily" }] })), encode("event", event({ recurrenceRules: [{ frequency: "daily" }, { frequency: "weekly" }] }))],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", count: L.eventRecurrenceMaxOccurrences }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", count: L.eventRecurrenceMaxOccurrences + 1 }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", until: "2029-10-14T18:30:00" }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", until: "2029-10-14T18:30:01" }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", interval: L.eventRecurrenceIntervalMaxPeriods }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "daily", interval: L.eventRecurrenceIntervalMaxPeriods + 1 }] })),
+      ],
+      [
+        encode("event", event({ recurrenceRules: [{ frequency: "monthly", byMonthDay: n(L.eventRecurrenceByMaxCount, (_, i) => i + 1) }] })),
+        encode("event", event({ recurrenceRules: [{ frequency: "monthly", byMonthDay: n(L.eventRecurrenceByMaxCount + 1, (_, i) => (i % 31) + 1) }] })),
+      ],
+      [
+        encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount, () => "2026-11-10T18:30:00") })),
+        encode("event", event({ excludedDates: n(L.eventExcludedDatesMaxCount + 1, () => "2026-11-10T18:30:00") })),
+      ],
+      // rsvp: it answers a social post, not an external page
+      [encode("rsvp", rsvp({}), answer), encode("rsvp", rsvp({}), reply)],
+      [encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople }), answer), encode("rsvp", rsvp({ guests: L.rsvpGuestsMaxPeople + 1 }), answer)],
+      [encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength) }), answer), encode("rsvp", rsvp({ note: "n".repeat(L.rsvpNoteMaxLength + 1) }), answer)],
+      [encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength), answer), encode("rsvp", padded(rsvp({}), L.rsvpContentMaxLength + 1), answer)],
+      // availability
+      [encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays })), encode("availability", availability({ horizonDays: L.availabilityHorizonMaxDays + 1 }))],
+      [encode("availability", availability({ available: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ available: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount, block) })), encode("availability", availability({ busy: n(L.availabilityBlocksMaxCount + 1, block) }))],
+      [
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength) }] })),
+        encode("availability", availability({ available: [{ ...block(), title: "t".repeat(L.availabilityBlockTitleMaxLength + 1) }] })),
+      ],
+      [
+        encode("availability", availability({ available: [{ ...block(), capacity: L.availabilityCapacityMaxUnits }] })),
+        encode("availability", availability({ available: [{ ...block(), capacity: L.availabilityCapacityMaxUnits + 1 }] })),
+      ],
+      [encode("availability", padded(availability({ timeZone: "no zone" }), L.availabilityContentMaxLength)), encode("availability", padded(availability({}), L.availabilityContentMaxLength + 1))],
+      // rating
+      [encode("rating", rating({ rating: L.ratingMinHalfStars }), reply), encode("rating", rating({ rating: L.ratingMinHalfStars - 1 }), reply)],
+      [encode("rating", rating({ rating: L.ratingMaxHalfStars }), reply), encode("rating", rating({ rating: L.ratingMaxHalfStars + 1 }), reply)],
+      [encode("rating", rating({ text: "t".repeat(L.ratingTextMaxLength) }), reply), encode("rating", rating({ text: "t".repeat(L.ratingTextMaxLength + 1) }), reply)],
+      [encode("rating", padded(rating({}), L.ratingContentMaxLength), reply), encode("rating", padded(rating({}), L.ratingContentMaxLength + 1), reply)],
+      // the geo convention, in a place position
+      [
+        encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits)},0` }] })),
+        encode("event", event({ locations: [{ uri: `geo:0.${"1".repeat(L.geoFractionMaxDigits + 1)},0` }] })),
+      ],
+    ];
+    return pairs.flat();
+  },
+  bounds: () => {
+    const id = timestampIdOf(NOW - 5e9);
+    const privatePost = `pubky://${OWNER}/priv/social/v1/posts/${id}`;
+    const list = (n) => [...Array.from({ length: n - 1 }, () => ({ uri: "geo:0,0" })), { uri: privatePost }];
+    const event = (n, pad = 0) => ({ title: "t", start: "2026-10-14T18:30:00", timeZone: "UTC", duration: "PT1H", locations: list(n), ...(pad > 0 ? { description: "d".repeat(pad) } : {}) });
+    const post = (kind, envelope) => ({ content: JSON.stringify(envelope), kind, parent: null, embed: null, attachments: [] });
+    const publish = (p) => request("planPublish", s(OWNER), { j: JSON.stringify({ id, editId: id, post: p }) });
+    const decode = (root, p) => request("decode", s(`pubky://${OWNER}/${root}/social/v1/posts/${id}/${id}.json`), { j: JSON.stringify(p) });
+    const cap = limits.eventContentMaxLength;
+    return [
+      // within the caps: the reference gate refuses the private item
+      publish(post("event", event(10))),
+      // past a list cap: the cap, no item read
+      publish(post("event", event(11))),
+      // past the raw content cap: the cap, nothing parsed
+      publish(post("event", event(11, cap))),
+      // past the byte cap of the written form: that cap, first
+      publish(post("event", event(25_000))),
+      // the reader: the raw cap before the list cap, under either root
+      decode("priv", post("event", event(11, cap))),
+      decode("pub", post("event", event(11, cap))),
+      // 1.0 kinds keep 1.0's planner order: the private reference, not the cap
+      publish({ content: JSON.stringify({ name: "c", items: Array.from({ length: 101 }, () => ({ uri: privatePost })) }), kind: "collection", parent: null, embed: null, attachments: [] }),
+      publish({ content: "n", kind: "note", parent: privatePost, embed: null, attachments: Array.from({ length: 11 }, () => ({ uri: "https://example.com/a.png" })) }),
+    ];
+  },
+};
 
 export const families = {
   text: (r) =>
@@ -667,6 +1061,38 @@ export const families = {
         return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored(r, storedPost(r), limits.postMaxBytes) });
       },
     ])(),
+  places: (r) => {
+    const coordinate = (bound) =>
+      r.pick([
+        () => r.below(2 * bound * 1000) / 1000 - bound,
+        () => bound,
+        () => -bound,
+        () => bound + 0.000005,
+        () => bound + 0.000004,
+        () => 0,
+        () => 0.125,
+        () => -0.125,
+        () => 1e-7,
+        () => 46.00547,
+        () => 1e300,
+        () => -1e-320,
+      ]);
+    return r.pick([
+      () => request("isGeoUri", s(r.pick([PLACE(r), `geo:${coordinate(90)()},${coordinate(180)()}`, `geo:${str(r, 6)},${str(r, 6)}`, str(r, 12)]))),
+      () =>
+        request(
+          "parseOsmUrl",
+          s(
+            r.pick([
+              PLACE(r),
+              `https://www.openstreetmap.org/${r.pick(["node", "way", "relation", "Way", "user", ""])}/${r.pick([String(r.below(1e6)), "0", "007", "1".repeat(r.pick([18, 19])), "-1", ""])}${r.pick(["", "", "/", "?x", "#y"])}`,
+              str(r, 20),
+            ]),
+          ),
+        ),
+      () => request("geoUri", { j: JSON.stringify([coordinate(90)(), coordinate(180)(), r.pick([5, 5, 5, 3, 2, 0, 6])]) }),
+    ])();
+  },
   plan: (r) => {
     const id = postId(r);
     const owner = () => (r.chance(0.8) ? OWNER : key(r));
@@ -713,6 +1139,51 @@ export const families = {
     ])();
     return request("encodeKind", s(kind), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: withRaw(stored(r, object, kind === "post" ? limits.postMaxBytes : undefined)) });
   },
+  // The 1.1 kinds, recorded apart so the 1.0 files stay as 1.0 recorded them
+  "post-1.1": (r) =>
+    r.pick([
+      () => ({ ...request("createPost", s(key(r)), { j: JSON.stringify(postInput11(r)) }), ...env(r) }),
+      () => ({ ...request("createPost", s(OWNER), { j: JSON.stringify(postInput11(r)) }), ...env(r) }),
+      () => {
+        const id = postId(r);
+        const head = r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW + 1e9), timestampIdOf(NOW + 7.1e9), timestampIdOf(NOW - 9e9), "x"]);
+        const at = { id, head };
+        if (r.chance(0.4)) at.root = r.pick(["public", "private"]);
+        if (r.chance(0.3)) at.slug = r.pick(["edited", "Bad Slug"]);
+        return { ...request("editPost", s(key(r)), { j: stored11(r, storedPost11(r)) }, { j: JSON.stringify(at) }), ...env(r) };
+      },
+      () => {
+        const id = postId(r);
+        const leaf = r.pick([`${id}/${id}.json`, `${id}/${timestampIdOf(NOW - 4e9)}-a-slug.json`, id, `${id}/${timestampIdOf(NOW + r.pick([7.1e9, 7.3e9]))}.json`]);
+        return request("decode", s(`pubky://${r.pick([OWNER, OWNER, OTHER])}/${r.pick(["pub", "pub", "priv"])}/social/v1/posts/${leaf}`), { j: stored11(r, storedPost11(r)) });
+      },
+    ])(),
+  "plan-1.1": (r) => {
+    const id = postId(r);
+    const owner = () => (r.chance(0.8) ? OWNER : key(r));
+    return r.pick([
+      () =>
+        request("planPublish", s(owner()), {
+          j: JSON.stringify({
+            id,
+            editId: r.pick([id, id, timestampIdOf(NOW - 4e9), timestampIdOf(NOW - 9e9), "x"]),
+            post: draft11(r),
+            ...(r.chance(0.3) ? { slug: r.pick(["my-post", "a", "Bad", "x".repeat(65)]) } : {}),
+          }),
+        }),
+      () => {
+        const post = { id: r.pick([id, id, id, "x"]) };
+        if (r.chance(0.8))
+          post.copies = editIds(r).map((e) => {
+            const root = r.pick(["public", "private"]);
+            return { root, path: versionPath(r, root, id, e) };
+          });
+        post.versions = r.many(3, () => draft11(r));
+        return request("planDelete", s(owner()), { j: JSON.stringify(post) });
+      },
+    ])();
+  },
+  "loose-1.1": (r) => request("encodeKind", s("post"), { j: JSON.stringify(r.pick(["public", "private", null])) }, { j: stored11(r, storedPost11(r)) }),
   feed: (r) =>
     r.pick([
       () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),

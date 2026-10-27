@@ -20,10 +20,11 @@ use crate::models::legacy_v0::{APP_PATH, PUBLIC_PATH};
 use crate::traits::{hash_id_from, HasIdPath, HasPath, HashId, Root, Validatable, ValidationCtx};
 use crate::{
     list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
-    PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
-    PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout,
-    PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute,
-    PubkySocialObject, PubkySocialPost, PubkySocialPostKind, PubkySocialTag, PubkySocialUser,
+    PubkyId, PubkySocialAttachment, PubkySocialAvailabilityContent, PubkySocialBookmark,
+    PubkySocialCollectionItem, PubkySocialCollectionLayout, PubkySocialEventContent,
+    PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
+    PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute, PubkySocialObject,
+    PubkySocialPost, PubkySocialPostKind, PubkySocialRsvpStatus, PubkySocialTag, PubkySocialUser,
     PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -263,6 +264,219 @@ struct CollectionInput {
     slug: Option<String>,
 }
 
+/// A caller's member for a member of an envelope: the same spelling, read with no unknown
+/// member and no `extra`, then rebuilt as the builder would be given it. One struct per nested
+/// object, so a stray member inside a location or a rule is a refusal and never stored.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct NthDayInput {
+    day: String,
+    #[serde(default)]
+    nth_of_period: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct RuleInput {
+    frequency: String,
+    #[serde(default)]
+    interval: Option<i64>,
+    #[serde(default)]
+    first_day_of_week: Option<String>,
+    #[serde(default)]
+    by_day: Option<Vec<NthDayInput>>,
+    #[serde(default)]
+    by_month_day: Option<Vec<i64>>,
+    #[serde(default)]
+    by_month: Option<Vec<String>>,
+    #[serde(default)]
+    by_set_position: Option<Vec<i64>>,
+    #[serde(default)]
+    count: Option<i64>,
+    #[serde(default)]
+    until: Option<String>,
+}
+
+fn rules_of(input: Option<Vec<RuleInput>>) -> Vec<crate::PubkySocialRecurrenceRule> {
+    input
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| crate::PubkySocialRecurrenceRule {
+            frequency: r.frequency.into(),
+            interval: r.interval,
+            first_day_of_week: r.first_day_of_week.map(Into::into),
+            by_day: r
+                .by_day
+                .unwrap_or_default()
+                .into_iter()
+                .map(|d| crate::PubkySocialNthDay {
+                    day: d.day.into(),
+                    nth_of_period: d.nth_of_period,
+                    extra: Default::default(),
+                })
+                .collect(),
+            by_month_day: r.by_month_day.unwrap_or_default(),
+            by_month: r.by_month.unwrap_or_default(),
+            by_set_position: r.by_set_position.unwrap_or_default(),
+            count: r.count,
+            until: r.until,
+            extra: Default::default(),
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LocationInput {
+    uri: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttendanceInput {
+    #[serde(default)]
+    policy: Option<String>,
+    #[serde(default)]
+    capacity: Option<i64>,
+    #[serde(default)]
+    waitlist: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventLinkInput {
+    title: String,
+    url: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct EventInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    title: String,
+    #[serde(default)]
+    description: Option<String>,
+    start: String,
+    time_zone: String,
+    #[serde(default)]
+    duration: Option<String>,
+    #[serde(default)]
+    show_without_time: Option<bool>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    locations: Option<Vec<LocationInput>>,
+    #[serde(default)]
+    attendance: Option<AttendanceInput>,
+    #[serde(default)]
+    links: Option<Vec<EventLinkInput>>,
+    #[serde(default)]
+    recurrence_rules: Option<Vec<RuleInput>>,
+    #[serde(default)]
+    excluded_dates: Option<Vec<String>>,
+    #[serde(default)]
+    recurrence_of: Option<String>,
+    #[serde(default)]
+    recurrence_id: Option<String>,
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentInput>>,
+    #[serde(default)]
+    lock: Option<String>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct RsvpInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    parent: String,
+    status: String,
+    #[serde(default)]
+    recurrence_id: Option<String>,
+    #[serde(default)]
+    guests: Option<i64>,
+    #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BlockInput {
+    #[serde(default)]
+    title: Option<String>,
+    start: String,
+    duration: String,
+    #[serde(default)]
+    capacity: Option<i64>,
+    #[serde(default)]
+    recurrence_rules: Option<Vec<RuleInput>>,
+    #[serde(default)]
+    excluded_dates: Option<Vec<String>>,
+}
+
+fn blocks_of(input: Option<Vec<BlockInput>>) -> Vec<crate::PubkySocialAvailabilityBlock> {
+    input
+        .unwrap_or_default()
+        .into_iter()
+        .map(|b| crate::PubkySocialAvailabilityBlock {
+            title: b.title,
+            start: b.start,
+            duration: b.duration,
+            capacity: b.capacity,
+            recurrence_rules: rules_of(b.recurrence_rules),
+            excluded_dates: b.excluded_dates.unwrap_or_default(),
+            extra: Default::default(),
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct AvailabilityInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    time_zone: String,
+    horizon_days: i64,
+    #[serde(default)]
+    r#for: Option<String>,
+    #[serde(default)]
+    available: Option<Vec<BlockInput>>,
+    #[serde(default)]
+    busy: Option<Vec<BlockInput>>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RatingInput {
+    #[serde(rename = "kind")]
+    _kind: String,
+    parent: String,
+    rating: i64,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    attachments: Option<Vec<AttachmentInput>>,
+    #[serde(default)]
+    root: Option<Root>,
+    #[serde(default)]
+    slug: Option<String>,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EditAt {
@@ -461,6 +675,90 @@ fn new_post(owner: &PubkyId, input: &str) -> Result<Value, String> {
             );
             (post, i.root, i.slug)
         }
+        Some("event") => {
+            let i: EventInput = parse(input)?;
+            let attendance = i.attendance.unwrap_or(AttendanceInput {
+                policy: None,
+                capacity: None,
+                waitlist: None,
+            });
+            let event = PubkySocialEventContent {
+                title: i.title,
+                description: i.description,
+                start: i.start,
+                time_zone: i.time_zone,
+                duration: i.duration,
+                show_without_time: i.show_without_time.unwrap_or(false),
+                status: i.status.map(Into::into).unwrap_or_default(),
+                locations: i
+                    .locations
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| crate::PubkySocialEventLocation {
+                        name: l.name,
+                        uri: l.uri,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                attendance: crate::PubkySocialEventAttendance {
+                    policy: attendance.policy.map(Into::into).unwrap_or_default(),
+                    capacity: attendance.capacity,
+                    waitlist: attendance.waitlist.unwrap_or(false),
+                    extra: Default::default(),
+                },
+                links: i
+                    .links
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| crate::PubkySocialEventLink {
+                        title: l.title,
+                        url: l.url,
+                        extra: Default::default(),
+                    })
+                    .collect(),
+                recurrence_rules: rules_of(i.recurrence_rules),
+                excluded_dates: i.excluded_dates.unwrap_or_default(),
+                recurrence_of: i.recurrence_of,
+                recurrence_id: i.recurrence_id,
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_event(event, attachments_of(i.attachments), i.lock);
+            (post, i.root, i.slug)
+        }
+        Some("rsvp") => {
+            let i: RsvpInput = parse(input)?;
+            let post = PubkySocialPost::new_rsvp(
+                i.parent,
+                PubkySocialRsvpStatus::from(i.status),
+                i.recurrence_id,
+                i.guests.unwrap_or(0),
+                i.note,
+            );
+            (post, i.root, i.slug)
+        }
+        Some("availability") => {
+            let i: AvailabilityInput = parse(input)?;
+            let schedule = PubkySocialAvailabilityContent {
+                time_zone: i.time_zone,
+                horizon_days: i.horizon_days,
+                r#for: i.r#for,
+                available: blocks_of(i.available),
+                busy: blocks_of(i.busy),
+                extra: Default::default(),
+            };
+            let post = PubkySocialPost::new_availability(schedule);
+            (post, i.root, i.slug)
+        }
+        Some("rating") => {
+            let i: RatingInput = parse(input)?;
+            let post = PubkySocialPost::new_rating(
+                i.parent,
+                i.rating,
+                i.text,
+                attachments_of(i.attachments),
+            );
+            (post, i.root, i.slug)
+        }
         Some("collection") => {
             let i: CollectionInput = parse(input)?;
             let layout = i
@@ -554,6 +852,16 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "canonicalWeb" => value(&canonicalize_web_uri(a.s()?).ok())?,
         "canonicalExternal" => value(&canonicalize_external_uri(a.s()?).ok())?,
         "canonicalUniversal" => value(&canonicalize_universal(a.s()?).ok())?,
+        // The place conventions: the one spelling of a point and of an OpenStreetMap object
+        "geoUri" => {
+            let (lat, lon, digits): (f64, f64, usize) = a.parsed()?;
+            crate::places::geo_uri(lat, lon, digits)?.into()
+        }
+        "isGeoUri" => crate::places::is_geo_uri(a.s()?).into(),
+        "parseOsmUrl" => match crate::places::parse_osm_url(a.s()?) {
+            Some((object, id)) => json!({ "object": object.segment(), "id": id }),
+            None => Value::Null,
+        },
         // Any JSON value read and written back, as an unknown member of an object is
         "json" => STANDARD
             .encode(serde_json::to_vec(&a.parsed::<Value>()?).map_err(|e| e.to_string())?)

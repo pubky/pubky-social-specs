@@ -14,7 +14,8 @@ const modules = [
   ...Object.entries(ENTRIES).map(([entry, module]) => [entry, path.join(dists[0], `${module}.d.ts`)]),
   ...Object.entries(MIGRATOR_ENTRIES).map(([entry, module]) => [`migrator${entry.slice(1)}`, path.join(dists[1], `${module}.d.ts`)]),
 ];
-const UNIT = /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP)\b/i;
+const UNIT =
+  /\b(code points?|bytes?|items?|milliseconds?|microseconds?|seconds?|ms|µs|steps?|attempts?|members?|urls?|entries|objects?|count|index|revision|status|HTTP|people|units|days|years|metres|degrees|digits|half stars|stars|occurrences|periods|places|links|blocks|rules?|waypoints|dates|id)\b/i;
 
 const { ts, program, checker } = declarations(modules.map(([, file]) => file));
 const ours = (symbol) => (symbol.declarations ?? []).some((d) => dists.some((dist) => d.getSourceFile().fileName.startsWith(dist)));

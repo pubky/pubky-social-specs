@@ -21,6 +21,66 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
+## Unreleased
+
+The next release is 1.1.0-alpha.1: the kinds of the 1.1 specs other apps must read, `event`,
+`rsvp`, `availability` and `rating`, and the place conventions, on the 1.0 data model, which it
+reads and writes as before.
+
+### API
+
+- New: the 1.1 post kinds. `buildPost` takes an `event` (JSCalendar members: `title`, `start`,
+  `timeZone`, `duration`, `showWithoutTime`, `status`, `locations`, `attendance`, `links`,
+  `recurrenceRules`, `excludedDates`, `recurrenceOf`, `recurrenceId`), an `rsvp` (a reply to
+  the Pubky event it answers, its `parent` typed `` `pubky://${string}` ``), a `rating` (a reply
+  to its `parent`) and an `availability` (`timeZone`, `horizonDays`, `for`,
+  `available` and `busy` blocks, an available block's `capacity` the units free in it), each told
+  apart by `kind`; an event's `links` are `{ title, url }` as a profile's are. `decodeContent` and
+  `encodeContent` read and spell their envelopes, `encodeContent` taking the kind as a second
+  argument when the members alone do not tell. `postKinds` grows by the four; `eventStatuses`,
+  `attendancePolicies`, `rsvpStatuses`, `recurrenceFrequencies` and `weekdays` are the new
+  closed sets, with `Known*` types and `OrNewer` forms. The types `EventContent`,
+  `EventLocation`, `EventAttendance`, `EventLink`, `RecurrenceRule`, `NthDay`, `RsvpContent`,
+  `AvailabilityContent`, `AvailabilityBlock`, `RatingContent`, `DecodedContent`, `Envelope`,
+  `EnvelopeKind` and the `New*` inputs of each kind.
+- An app's own kinds are its sub-spec's, in the app's own repository, on the same envelope under
+  its own namespace, following the conventions in `docs/SUBSPECS.md`.
+- New: the place conventions. `geoUri(lat, lon, digits?)` spells a point one way, `isGeoUri`
+  reads the spelling back, `osmUrl(object, id)` and `parseOsmUrl(url)` spell and read the
+  canonical OpenStreetMap object URL.
+- New: `ErrorCode` `range`, a number outside its bounds, with `limit` the bound in the member's
+  unit. 30 limits join `limits`, each named by its unit (`eventDurationMaxSeconds`,
+  `eventCapacityMaxPeople`, `availabilityCapacityMaxUnits`, `ratingMaxHalfStars`,
+  `geoFractionMaxDigits`, ...).
+- `validatePost` collects the issues of the new kinds like the others, and with an owner runs
+  the rule that an event override's `recurrenceOf` is the same author's post.
+- The size budgets of the entries that carry the post rules grew by 5 to 7 KB gzipped, the cost
+  of the four kinds; `import { buildUri }` by about 250 bytes, the cost of the longer limits
+  table every bundle that reads a limit carries. `pubky-social-migrator`'s wasm grows too, since
+  the crate it is compiled from reads every migrated post through the 1.1 reader.
+
+### Stored bytes
+
+These follow the crate, which changes with them:
+
+- The four 1.1 kinds, as `docs/SPEC_V1.1.md` of the crate specifies them: a post of kind
+  `event`, `rsvp`, `availability` or `rating` is read by its envelope's rules and
+  written back byte for byte, unknown members kept; a 1.0 reader skips it as a kind it does not
+  know. Every integer inside is an `i64` within the JSON-safe range; a closed-set member with a
+  spelling this version does not know (an event's `status`, a rule's `frequency`) is refused, not
+  degraded. In an event's `locations`, a `geo:` URI must be the
+  convention's spelling and an OpenStreetMap URL the canonical object URL. An rsvp's `parent`
+  must be a versionless social post URI (`/priv` only for a private post, as the gate allows);
+  any other scheme or path is refused, and an external event takes ordinary posts. Every other
+  `parent`, `embed`, tags and collection items keep the 1.0 gate alone.
+- `planPublish` refuses a private reference in any envelope position of the new kinds as it
+  refused one in a collection item, before the final validation would.
+- A 1.1 kind's raw content cap is checked before its envelope is parsed, and for a 1.1 kind
+  `planPublish` checks the byte cap, the attachment count and the list caps before it reads a
+  reference: an event with a list far past its cap is refused by the cap, where the
+  package threw `RangeError: Maximum call stack size exceeded` at about 150,000 items. The
+  answers of the 1.0 kinds are unchanged, in validation and in the planner.
+
 ## 1.0.0-rc.1
 
 ### API

@@ -26,19 +26,22 @@ const bundled = async (file, names, define = {}) => {
 };
 
 const PROBES = [
-  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
-  ["index.js", "{ buildUri }", 3_200, ["Too many attachments", "WebAssembly"]],
+  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]. The
+  // 1.1 kinds add about 5 to 7 KB to the entries that carry the post rules
+  ["index.js", "{ buildUri }", 3_600, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],
-  ["index.js", "{ buildPost }", 20_000, ["WebAssembly"]],
-  ["index.js", "{ decodeObject }", 22_000, ["WebAssembly"]],
-  ["index.js", "{ validatePost }", 17_000, ["WebAssembly"]],
-  ["index.js", "* as all", 30_000, ["WebAssembly"]],
+  ["index.js", "{ buildPost }", 23_000, ["WebAssembly"]],
+  ["index.js", "{ decodeObject }", 26_500, ["WebAssembly"]],
+  ["index.js", "{ validatePost }", 23_500, ["WebAssembly"]],
+  ["index.js", "* as all", 38_000, ["WebAssembly"]],
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
-  ["testing.js", "* as all", 22_000, ["WebAssembly"]],
-  ["client/index.js", "{ createSocialClient }", 29_000, ["WebAssembly"]],
-  // pubky-social-migrator, with the public entry of the core it calls bundled in
-  ["migrator/index.js", "* as all", 360_000, []],
+  ["testing.js", "* as all", 29_000, ["WebAssembly"]],
+  ["client/index.js", "{ createSocialClient }", 35_500, ["WebAssembly"]],
+  // pubky-social-migrator: its engine, the wasm of the crate built with the migrator feature (the
+  // 0.x transforms and the 1.x reader every migrated object goes through, the 1.1 kinds included)
+  // and the public entry of the core it calls, bundled in
+  ["migrator/index.js", "* as all", 389_000, []],
   ["migrator/adapters/pubky-sdk.js", "* as all", 5_000, ["WebAssembly"]],
 ];
 

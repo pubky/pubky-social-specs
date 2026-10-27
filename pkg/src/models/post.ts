@@ -2,16 +2,17 @@
 // the version is stored under.
 
 import { blake3 } from "@noble/hashes/blake3.js";
-import { checkReference } from "../canonicalize.js";
+import { canonicalPubky, checkReference } from "../canonicalize.js";
 import { mintFrom, nowMicros } from "../clock.js";
 import { limits } from "../data.js";
 import { type Each, fail, member, throwing, ValidationError } from "../errors.js";
 import { checkPublicKey, timestampId, timestampIdMicros } from "../ids.js";
 import { type Json, JsonError, readJson } from "../json/read.js";
-import { defaulted, type Extra, inputOf, inputReads, list, object, omitted, option, rootOf, string } from "../json/schema.js";
-import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8 } from "../text.js";
-import { isSlug, type OwnerPath, type Root, socialPath } from "../path.js";
-import { checkExtra, type Model, parse, validate } from "./common.js";
+import { type Codec, defaulted, type Extra, inputOf, inputReads, list, object, omitted, option, rootOf, string } from "../json/schema.js";
+import { codePointLen, compareBytes, frozenTrim, trimmedOrNull, utf8, utf8Len } from "../text.js";
+import { isSlug, type OwnerPath, parsePath, type Root, socialPath, splitPubky } from "../path.js";
+import { checkExtra, checkSize, type Model, parse, validate } from "./common.js";
+import * as events from "./events.js";
 import { collectionLayout, type CollectionLayout, collectionLayouts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
 
 export interface Attachment extends Extra {
@@ -97,7 +98,7 @@ export function checkVersion(id: string, editId: string): void {
   if (compareBytes(editId, id) < 0) fail("id", `version ${editId} is older than the post id ${id}`, "editId");
 }
 
-/** Every reference of a post through the one gate. With an owner the ownership rule runs too. */
+/** Every reference of a post through the one gate. With an owner the ownership rule and the kinds' owner rules run too. */
 export function checkReferences(value: Post, publicRoot: boolean, owner: string | null, each: Each = throwing): void {
   const max = limits.referenceUriMaxLength;
   const { parent, embed, lock } = value;
@@ -105,17 +106,70 @@ export function checkReferences(value: Post, publicRoot: boolean, owner: string 
   if (embed !== null) each(() => checkReference("embed", embed, "", max, publicRoot, owner));
   if (lock !== null) each(() => checkReference("lock", lock, "pubky", max, publicRoot, owner));
   value.attachments.forEach((a, index) => each(() => checkReference(`attachments[${index}].uri`, a.uri, "pubky or web", max, publicRoot, owner)));
-  const { cover, items } = envelopeRefs(value);
-  if (cover !== null) each(() => checkReference("cover_image", cover, "pubky or web", limits.imageUrlMaxLength, publicRoot, owner));
-  items.forEach((uri, index) => each(() => checkReference(`items[${index}].uri`, uri, "", max, publicRoot, owner)));
+  for (const ref of contentRefs(value)) each(() => checkReference(ref.field, ref.uri, ref.schemes, ref.max, publicRoot, owner));
+  if (owner !== null) {
+    const envelope = typedEnvelope(value);
+    if (envelope?.kind === "event") events.checkEventOwner(envelope.parsed, owner, each);
+  }
 }
 
-/** What the envelope of an article or a collection reads as: its cover, and the envelope or why it does not parse. */
+/** The kinds whose `content` is an envelope, each with its codec and how a refusal of it opens. */
+const ENVELOPES = {
+  article: { codec: article, prefix: "Article content must be a valid JSON envelope: " },
+  collection: { codec: collection, prefix: "Collection content must be a valid JSON envelope: " },
+  event: { codec: events.event, prefix: "Event content must be a valid JSON envelope: " },
+  rsvp: { codec: events.rsvp, prefix: "Rsvp content must be a valid JSON envelope: " },
+  availability: { codec: events.availability, prefix: "Availability content must be a valid JSON envelope: " },
+  rating: { codec: events.rating, prefix: "Rating content must be a valid JSON envelope: " },
+} as const;
+
+type EnvelopeKind = keyof typeof ENVELOPES;
+/** The envelope of each typed kind, as its codec reads it. */
+export type Envelopes = {
+  article: ArticleContent;
+  collection: CollectionContent;
+  event: events.EventContent;
+  rsvp: events.RsvpContent;
+  availability: events.AvailabilityContent;
+  rating: events.RatingContent;
+};
+const isEnvelopeKind = (kind: string): kind is EnvelopeKind => Object.hasOwn(ENVELOPES, kind);
+
+/** The codec of a typed kind's envelope, for the entry's content functions. */
+export const envelopeCodec = <K extends EnvelopeKind>(kind: K): Codec<Envelopes[K]> => ENVELOPES[kind].codec as Codec<Envelopes[K]>;
+export const envelopePrefix = (kind: EnvelopeKind): string => ENVELOPES[kind].prefix;
+export { isEnvelopeKind };
+
+/** The raw content cap of each 1.1 kind and how its refusal names the kind. The 1.0 kinds keep the order 1.0 shipped. */
+const CONTENT_CAPS = {
+  event: ["Event", limits.eventContentMaxLength],
+  rsvp: ["Rsvp", limits.rsvpContentMaxLength],
+  availability: ["Availability", limits.availabilityContentMaxLength],
+  rating: ["Rating", limits.ratingContentMaxLength],
+} as const;
+
+/** The refusal of a 1.1 kind's content over its raw cap, checked on the string before it is parsed; null within it. */
+/** Whether `kind` is a 1.1 kind, whose caps run before its references at the planner too; a 1.0 kind keeps the order 1.0 shipped. */
+export const hasEarlyBounds = (kind: string): boolean => Object.hasOwn(CONTENT_CAPS, kind);
+
+function contentCapRefusal(value: Post): ValidationError | null {
+  const { kind, content } = value;
+  if (!Object.hasOwn(CONTENT_CAPS, kind)) return null;
+  const [name, cap] = CONTENT_CAPS[kind as keyof typeof CONTENT_CAPS];
+  return codePointLen(content) > cap ? new ValidationError("length", `${name} content must be at most ${cap} code points`, "content", cap) : null;
+}
+
+function checkContentCap(value: Post): void {
+  const refusal = contentCapRefusal(value);
+  if (refusal !== null) throw refusal;
+}
+
+/** What the envelope of a typed kind reads as: its cover, and the envelope or why it does not parse. */
 interface Envelope {
   kind: string;
   content: string;
   cover: string | null;
-  parsed: ArticleContent | CollectionContent | ValidationError;
+  parsed: Envelopes[EnvelopeKind] | ValidationError;
 }
 
 // One read per post: the references, the caps and the kind's own rules all look at it
@@ -123,23 +177,24 @@ const envelopes = new WeakMap<Post, Envelope>();
 
 function envelopeOf(value: Post): Envelope | null {
   const { kind, content } = value;
-  if (kind !== "article" && kind !== "collection") return null;
+  if (!isEnvelopeKind(kind)) return null;
   const cached = envelopes.get(value);
   if (cached !== undefined && cached.kind === kind && cached.content === content) return cached;
-  // The cover is read from any object, so a cover beside a member of the wrong type still counts
-  let json: Json | undefined;
-  try {
-    json = readJson(content);
-  } catch (e) {
-    if (!(e instanceof JsonError)) throw e;
+  // An article's or a collection's cover is read from any object, so a cover beside a member of
+  // the wrong type still counts
+  let cover: Json | undefined;
+  if (kind === "article" || kind === "collection") {
+    try {
+      const json = readJson(content);
+      cover = json instanceof Map ? json.get("cover_image") : undefined;
+    } catch (e) {
+      if (!(e instanceof JsonError)) throw e;
+    }
   }
-  const cover = json instanceof Map ? json.get("cover_image") : undefined;
-  let parsed: Envelope["parsed"];
+  // Content over its kind's raw cap is never parsed: the cap is its refusal
+  let parsed: Envelope["parsed"] | null = contentCapRefusal(value);
   try {
-    parsed =
-      kind === "article"
-        ? parse(article, content, "Article content must be a valid JSON envelope: ", "content")
-        : parse(collection, content, "Collection content must be a valid JSON envelope: ", "content");
+    parsed ??= parse(ENVELOPES[kind].codec as Codec<Envelopes[EnvelopeKind]>, content, ENVELOPES[kind].prefix, "content");
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
     parsed = e;
@@ -149,8 +204,17 @@ function envelopeOf(value: Post): Envelope | null {
   return envelope;
 }
 
-/** The envelope of an article or a collection as its kind reads it, or the refusal. */
-function strictEnvelope(value: Post): ArticleContent | CollectionContent {
+type Typed = { [K in EnvelopeKind]: { kind: K; parsed: Envelopes[K] } }[EnvelopeKind];
+
+/** The envelope of a typed kind when it parsed, with its kind; null for an untyped kind or one that did not parse. */
+function typedEnvelope(value: Post): Typed | null {
+  const envelope = envelopeOf(value);
+  if (envelope === null || envelope.parsed instanceof ValidationError) return null;
+  return { kind: envelope.kind, parsed: envelope.parsed } as Typed;
+}
+
+/** The envelope of a typed kind as its kind reads it, or the refusal. */
+function strictEnvelope(value: Post): Envelopes[EnvelopeKind] {
   const { parsed } = envelopeOf(value) as Envelope;
   if (parsed instanceof ValidationError) throw parsed;
   return parsed;
@@ -159,13 +223,42 @@ function strictEnvelope(value: Post): ArticleContent | CollectionContent {
 /**
  * The references inside the envelope of an article or a collection: its cover, and a
  * collection's item URIs. Content that does not parse references nothing here; its own rule
- * refuses it after.
+ * refuses it after. The lifecycle planners read these two positions by name.
  */
 export function envelopeRefs(value: Post): { cover: string | null; items: string[] } {
   const envelope = envelopeOf(value);
   if (envelope === null) return { cover: null, items: [] };
   const items = value.kind === "collection" && !(envelope.parsed instanceof ValidationError) ? (envelope.parsed as CollectionContent).items.map((entry) => entry.uri) : [];
   return { cover: envelope.cover, items };
+}
+
+/**
+ * Every reference position inside the envelope, in the reference's order, as the gate takes
+ * them: an article's or a collection's cover and items, an event's locations, links and master,
+ * an availability's `for`. Content that does not parse references nothing.
+ */
+export function contentRefs(value: Post): events.ContentRef[] {
+  const typed = typedEnvelope(value);
+  const { cover, items } = envelopeRefs(value);
+  const refs: events.ContentRef[] = [];
+  if (cover !== null) refs.push({ field: "cover_image", uri: cover, schemes: "pubky or web", max: limits.imageUrlMaxLength });
+  items.forEach((uri, index) => refs.push({ field: `items[${index}].uri`, uri, schemes: "", max: limits.referenceUriMaxLength }));
+  if (typed === null) return refs;
+  // One at a time, never spread into an argument list: a list is as long as the caller made it
+  const inner = typed.kind === "event" ? events.eventRefs(typed.parsed) : typed.kind === "availability" ? events.availabilityRefs(typed.parsed) : [];
+  for (const ref of inner) refs.push(ref);
+  return refs;
+}
+
+/** The non-media references of a version: parent, embed, lock, and every envelope position but the cover. */
+export function otherRefs(value: Post): string[] {
+  return [value.parent, value.embed, value.lock]
+    .filter((uri): uri is string => uri !== null)
+    .concat(
+      contentRefs(value)
+        .filter((ref) => ref.field !== "cover_image")
+        .map((ref) => ref.uri),
+    );
 }
 
 /**
@@ -250,6 +343,87 @@ function checkCollection(post: Post, each: Each): void {
   });
 }
 
+function checkAttachmentCount(value: Post): void {
+  if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
+}
+
+// The raw content cap of a 1.1 kind, then the lists the gate reads: before any reference is
+// read, and the cap before the envelope is parsed
+function checkListCaps(value: Post, each: Each): void {
+  each(() => checkContentCap(value));
+  each(() => {
+    if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount)
+      fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
+  });
+  const typed = typedEnvelope(value);
+  if (typed?.kind === "event") events.checkEventCounts(typed.parsed, each);
+}
+
+/**
+ * The bounds a planner checks before it reads a reference of a 1.1 kind: the byte cap on the written form,
+ * the attachment count, a 1.1 kind's raw content cap and the list caps. Validation runs the same
+ * checks in its own order; a planner reads references before it validates, so it runs these
+ * first, and an oversized version is refused before any list inside it is walked.
+ */
+export function checkBounds(value: Post): void {
+  checkSize(utf8Len(post.codec.write(value)), limits.postMaxBytes);
+  checkAttachmentCount(value);
+  checkListCaps(value, throwing);
+}
+
+// A social post, as the gate leaves it: canonical, and a version is the gate's refusal
+function isPostReference(uri: string): boolean {
+  const split = splitPubky(canonicalPubky(uri) ?? "");
+  return split !== null && parsePath(split.path)?.kind === "post";
+}
+
+// The envelope rules of the 1.1 kinds: what the envelope may combine with, its cap, then its
+// members once it parsed, in the reference's order
+function checkTyped(post: Post, kind: "event" | "rsvp" | "availability" | "rating", each: Each): void {
+  const [name, cap] = CONTENT_CAPS[kind];
+  each(() => {
+    switch (kind) {
+      case "event":
+        if (post.parent !== null || post.embed !== null) fail("conflict", "Event posts cannot have parent or embed", post.parent !== null ? "parent" : "embed");
+        break;
+      case "rsvp":
+        if (post.parent === null) fail("conflict", "Rsvp posts must have a parent, the event they answer", "parent");
+        if (!isPostReference(post.parent)) fail("reference", `Rsvp parent must be a social post URI, the Pubky event it answers: ${post.parent}`, "parent");
+        if (post.embed !== null || post.attachments.length > 0) fail("conflict", "Rsvp posts cannot have embed or attachments", post.embed !== null ? "embed" : "attachments");
+        break;
+      case "availability":
+        if (post.parent !== null || post.embed !== null || post.attachments.length > 0)
+          fail("conflict", "Availability posts cannot have parent, embed or attachments", post.parent !== null ? "parent" : post.embed !== null ? "embed" : "attachments");
+        break;
+      case "rating":
+        if (post.parent === null) fail("conflict", "Rating posts must have a parent, the thing they rate", "parent");
+        if (post.embed !== null) fail("conflict", "Rating posts cannot have embed", "embed");
+        break;
+    }
+  });
+  each(() => {
+    if (codePointLen(post.content) > cap) fail("length", `${name} content must be at most ${cap} code points`, "content", cap);
+  });
+  // The rules below read the envelope, so they run only once it parsed
+  each(() => {
+    const envelope = strictEnvelope(post);
+    switch (kind) {
+      case "event":
+        events.checkEvent(envelope as events.EventContent, each);
+        break;
+      case "rsvp":
+        events.checkRsvp(envelope as events.RsvpContent, each);
+        break;
+      case "availability":
+        events.checkAvailability(envelope as events.AvailabilityContent, each);
+        break;
+      case "rating":
+        events.checkRating(envelope as events.RatingContent, each);
+        break;
+    }
+  });
+}
+
 export const post: Model<Post> = {
   codec: object<Post>("PostEnvelope", {
     content: string,
@@ -267,14 +441,9 @@ export const post: Model<Post> = {
     each(() => {
       if (!isKnown(postKinds, value.kind)) fail("unknown_name", "post kind is unknown", "kind");
     });
-    // A list is bounded before any of its items is read
-    each(() => {
-      if (value.attachments.length > limits.postAttachmentsMaxCount) fail("count", `Too many attachments (max: ${limits.postAttachmentsMaxCount})`, "attachments", limits.postAttachmentsMaxCount);
-    });
-    each(() => {
-      if (envelopeRefs(value).items.length > limits.collectionItemsMaxCount)
-        fail("count", `Collection cannot have more than ${limits.collectionItemsMaxCount} items`, "items", limits.collectionItemsMaxCount);
-    });
+    // A list is bounded before any of its items is read, and a 1.1 envelope before it is parsed
+    each(() => checkAttachmentCount(value));
+    checkListCaps(value, each);
     checkReferences(value, publicRoot, null, each);
     value.attachments.forEach((a, index) => {
       each(() => checkExtra(a.extra, `attachments[${index}].`));
@@ -291,6 +460,12 @@ export const post: Model<Post> = {
     }
     if (value.kind === "article") {
       checkArticle(value, each);
+      return;
+    }
+    const { kind } = value;
+    if (kind === "event" || kind === "rsvp" || kind === "availability" || kind === "rating") {
+      // Known by the test above; the open string type of a stored kind does not narrow by itself
+      checkTyped(value, kind as "event" | "rsvp" | "availability" | "rating", each);
       return;
     }
     each(() => {
@@ -407,6 +582,34 @@ export function buildPost(owner: string | null, input: unknown, each: Each = thr
     const thread = threaded(i);
     const { root, slug } = placement(i);
     return create({ content, kind, ...thread, extra: new Map() }, root, slug);
+  }
+  if (kind === "event") {
+    const i = inputOf(input, "input", ["kind", ...events.EVENT_MEMBERS, "attachments", "lock", "root", "slug"], each);
+    const envelope = events.eventFromInput(i, each);
+    const thread = threaded(i);
+    const { root, slug } = placement(i);
+    return create({ content: events.event.write(envelope), kind, parent: null, embed: null, attachments: thread.attachments, lock: thread.lock, extra: new Map() }, root, slug);
+  }
+  if (kind === "rsvp") {
+    const i = inputOf(input, "input", ["kind", "parent", "status", "recurrenceId", "guests", "note", "root", "slug"], each);
+    const envelope = events.rsvpFromInput(i, each);
+    const parent = str(i.parent, "input.parent");
+    const { root, slug } = placement(i);
+    return create({ content: events.rsvp.write(envelope), kind, parent, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
+  }
+  if (kind === "availability") {
+    const i = inputOf(input, "input", ["kind", ...events.AVAILABILITY_MEMBERS, "root", "slug"], each);
+    const envelope = events.availabilityFromInput(i, each);
+    const { root, slug } = placement(i);
+    return create({ content: events.availability.write(envelope), kind, parent: null, embed: null, attachments: [], lock: null, extra: new Map() }, root, slug);
+  }
+  if (kind === "rating") {
+    const i = inputOf(input, "input", ["kind", "parent", "rating", "text", "attachments", "root", "slug"], each);
+    const envelope = events.ratingFromInput(i, each);
+    const parent = str(i.parent, "input.parent");
+    const thread = threaded(i);
+    const { root, slug } = placement(i);
+    return create({ content: events.rating.write(envelope), kind, parent, embed: null, attachments: thread.attachments, lock: null, extra: new Map() }, root, slug);
   }
   if (kind === "collection") {
     const i = inputOf(input, "input", ["kind", "name", "description", "items", "cover_image", "layout", "root", "slug"], each);

@@ -72,8 +72,17 @@ describe("pubky-social-specs", () => {
           "buildTag",
           "buildUri",
           "buildUser",
+          "attendancePolicies",
           "collectionLayouts",
           "createMediaHasher",
+          "eventStatuses",
+          "geoUri",
+          "isGeoUri",
+          "osmUrl",
+          "parseOsmUrl",
+          "recurrenceFrequencies",
+          "rsvpStatuses",
+          "weekdays",
           "dateToMicros",
           "decodeContent",
           "decodeObject",
@@ -133,7 +142,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(limits.postNoteContentMaxLength, 2000);
       assert.strictEqual(limits.maxFileSizeBytes, 100 * 1024 * 1024);
       assert.ok(validMimeTypes.includes("image/png"));
-      assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection"]);
+      assert.deepStrictEqual(postKinds, ["note", "article", "image", "video", "link", "file", "collection", "event", "rsvp", "availability", "rating"]);
       assert.ok(Object.isFrozen(limits) && Object.isFrozen(limits.tagInvalidChars) && Object.isFrozen(postKinds) && Object.isFrozen(validMimeTypes));
       assert.deepStrictEqual([feedReaches.length, feedLayouts.length, feedSorts.length, collectionLayouts.length], [6, 5, 2, 3]);
     });
@@ -172,7 +181,7 @@ describe("pubky-social-specs", () => {
       assert.notStrictEqual(feedId({ ...feed.object, feed: { ...feed.object.feed, content: "podcast" } }), feed.id);
       assert.match(encodeContent({ name: "abc", description: null, items: [], cover_image: null, layout: "carousel" }), /"layout":"carousel"/);
       refuses(() => buildFeed(OTTO, { name: "n", icon: "a", reach: "all", layout: "list", sort: "recent", content: "vdeo" }), "Validation Error: Invalid content kind: vdeo");
-      misuse(() => encodeContent({ body: "no title" }), /content must be an article envelope, with a title, or a collection envelope, with a name/);
+      misuse(() => encodeContent({ body: "no title" }), /content must be an envelope of an article, a collection, an event/);
       misuse(() => setClock(T0), /nowMs must be a function/);
       setClock(() => T0 + 0.5);
       misuse(() => buildFollow(OTTO, RIO), /the clock given to setClock must be returning an integer of milliseconds/);

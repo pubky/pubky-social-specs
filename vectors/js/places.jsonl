@@ -1,0 +1,400 @@
+{"q":{"op":"isGeoUri","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"-CX A%8["}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"c:\u0000"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[0,117.99200000000002,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,117.992"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e+300,-180"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"\f..YXxİC0\tBA ["}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org//007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,0.125,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0.125,0.125"}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,0.125,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":1,"object":"node"}}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"Yc8?910ya9Aé\fX c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:91,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/?mlat=46&mlon=8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo: XAé%,.C1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,180.000004,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90.000004,46.00547"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,0.125,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"/9C X~éZ B88ß"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"18-cYzaazb"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0,0,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://openstreetmap.org/way/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:X[X,y,1xBZ"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-72.876,46.00547,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-72.876,46.00547"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/?mlat=46&mlon=8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"\u000b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:9_ yzc,#\réß"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://openstreetmap.org/way/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/1111111111111111111/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:c\\Xé,\\XC C"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:x,a"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"Ａ0X\fX Y zB@CY\\　A8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,1e-7,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:91,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/0?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e+300,0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"y001ZXzAyA1..cx8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"AyaZ,1by\u0000bYBbBßxb"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:8.462000000000003,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,0.125,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.00547,0.125"}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,1e+300,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/1111111111111111111"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,180,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"pubky://pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy/priv/social/v1/posts/0035QZDG3ZQ00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,46.00547,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46,46"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/007#y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,0,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org//007"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,1e+300,3]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,180.000005,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[54.30600000000001,0.125,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/1111111111111111111?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,1e-7,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:0,-1e-320"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/007/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"​c/8KZb"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180.000005,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"Z😀  1ax8~{yC"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"ax0b\n "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-85.271,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-85.271,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,0.125,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,0.125"}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-1e-320,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.005,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":".1%9X"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180.000004,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,0.125,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0.13"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/111111111111111111"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-81.483,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-81.483"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180.000005,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/way/481516234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90.000004,0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.125,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[54.959,46.00547,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[-76.37,180.000005,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-76,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/way/481516234/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90.000004,1e+300"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"Xyİ8 yyBaY["}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,0,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0,180.000004,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/111111111111111111"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,180.000004"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"pubky://pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:C~1B,"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/#y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,0,0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,1e-7,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.125,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/481516234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":481516234,"object":"way"}}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,1e-7,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"\u001f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,1e-7,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000005,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/007"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/71101"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:\nxb,#é8x_b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-A,\rCéBy"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,46.00547,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,46"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-180,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,0,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:cZ,\nK#11"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,0.125,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:Az,C"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,180.000004,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,1e-7,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0.125,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/way/481516234/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":" İ　A{b\u000b9x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,46.00547,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,46.005"}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,46.00547,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[-17.36,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-17.36,180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":",:a"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/774920#y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:Ax[8Zz,Y_ZByZ"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:xAYCc,Z\\AA"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-0.125,-1e-320"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[0,1e+300,0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"0 zYzbX @"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"y}\tZ0CZX\nz"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:AB088,c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,0,0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/111111111111111111/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"8?0yB#\"𐐀1XA8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"pubkypxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy/pub/social/v1/profile.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e-7,-180"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,180.000004,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:0.125,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"\"1\u000bY byaY19[cY,a%yBA"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[9.489000000000004,0.125,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:9.49,0.13"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:{,yXX["}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:/X_,BC"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,-1e-320,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,1e+300,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180,2]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-29.205,0.125"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[-81.151,180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e+300,1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:91,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"z?9y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180.000004,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"xZ..8y?Yc_"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"}abé\u000bxx    z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e-7,1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-0.125,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[90,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,180.000005,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"y1? 8#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,0,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user//"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/481516234/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"?x_%"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"Zz@x1Y😀B𐐀b \\"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo: ,.0b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,1e-7,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.12,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-122.315,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-122"}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180.000005,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[0,0.125,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0.13"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:-0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,1e+300,2]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000005,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"A"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,46.00547,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0.125,46.00547"}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.125,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,0.125,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"　z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way//"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,0.125,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":1,"object":"node"}}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:zＡ1Za,aA0x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90,-0.125"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"geoUri","args":[{"j":"[90,1e-7,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,-1e-320,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000005,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-1e-320,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":" xa0﻿.."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-0.125,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"  1\u000b{zB  aＡy1A: cc"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"B{Z　81xyA,b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://openstreetmap.org/way/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,-180,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,-180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:Xaé90K,AXé z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.125,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/-1/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/-1/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"09aZ"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:\fbＡC {,bZ10ca"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/007?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-19.488,180,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-19.49,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90,1e+300"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,-0.125,0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"0Z,"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"Z/\faC,Cz"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90,0,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://openstreetmap.org/way/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org//0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/197394"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,-156.357,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/way/481516234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-90,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/481516234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":481516234,"object":"way"}}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"\n{aaC\n .."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"\rZBx\r\n18"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"\u000b\rXBac0ß~x0ZA\u001fXéZ "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-90,-35.19200000000001"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/007#y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90.000004,1e+300"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org//"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"C8AB0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"%Ａ1?C18xBé~0CyYé"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,1e+300,3]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":" :"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"nostr:xc\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:0,1XC8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/450972/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/-1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,0.125,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0.125"}}
+{"q":{"op":"geoUri","args":[{"j":"[0,0,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:-90,180.000005"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[74.18700000000001,-1e-320,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:74.187,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[0,-180,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,-180"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"pubkypxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy/pub/social/v1/profile.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:91,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-1e-320,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,116.19600000000003,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,116"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.0,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:}Ａ1c9,b#."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,0,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,180.000004,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,180.000005,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:　ZxB,yéZx"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90.000005,1e+300"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[-90,-0.125,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-90,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"AB ZYba#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:,z \\/%"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/945266"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":945266,"object":"relation"}}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:YB,\u000bX..Z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,180,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,46.00547,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,46"}}
+{"q":{"op":"geoUri","args":[{"j":"[90,-180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-180"}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,-0.125,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"Bcc9X?y\ny\u0000aAyAaa1A-"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/-1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180.000004,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[0,1e+300,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000004,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,0.125,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0.13"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,0,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.00547,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90,180.000004,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://example.com/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90,-1e-320,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"80%ayb"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"𐐀9x-{0%\u001f\"0?y9{"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-2.0690000000000026,-0.125,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[90,-1e-320,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,0.125,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,0"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"%0cA90𐐀y9xyy 9"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/Way//"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,180.000004,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:91,8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"yzb😀é:-X a"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://meet.jit.si/room"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,46.00547,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.00547,46.00547"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90,1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"Y8\nccc"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:C1cz,1 \tß1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-0.125,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.00547,-0.125"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[-1e-320,-0.125,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,-0.125"}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/-1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://openstreetmap.org/way/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"?\\Zc1xxx"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org///"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e+300,0,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,1e-7,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"y8\t11 CbA0_C- bBCCz"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-162.761,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-162.761"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46,8;u=35"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/481516234"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":481516234,"object":"way"}}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/0#y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,180.000005,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,180.000004,0]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,180"}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,-180,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"geoUri","args":[{"j":"[0,1e+300,2]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/user/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[0.125,1e-7,6]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI carries at most 5 fraction digits","last":0}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:axß,czA"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,-0.125,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,-0.125"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:,"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"c a9110%10"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":" Cx1az09Y"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[0,180,5]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:0,180"}}
+{"q":{"op":"isGeoUri","args":[{"s":"　,\tBK1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"\\0ac"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000004,1e+300,0]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/way/0/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"\u0000\"8 x_𐐀"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"8 BYİaB9\tA ﻿"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[46.00547,1e-7,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:46.01,0"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"　éYCy\t0  zca@"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://www.openstreetmap.org/?mlat=46&mlon=8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"geoUri","args":[{"j":"[23.816000000000003,-0.125,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:23.816,-0.125"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:1e+300,0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:46.00547,8.95186"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":true}}
+{"q":{"op":"isGeoUri","args":[{"s":"https://osm.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[1e-7,1e+300,5]"}],"now":1790000000000000,"last":0},"a":{"err":"Validation Error: a geo URI needs a latitude within 90 and a longitude within 180 degrees","last":0}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/relation/1111111111111111111?x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"09\fyYY~@A"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"geoUri","args":[{"j":"[90.000005,1e-7,3]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:90,0"}}
+{"q":{"op":"geoUri","args":[{"j":"[-0.125,19.38900000000001,2]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"geo:-0.12,19.39"}}
+{"q":{"op":"isGeoUri","args":[{"s":"geo:90,1e-7"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"ßCCc:cé8AaYb91zZ"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"parseOsmUrl","args":[{"s":"https://www.openstreetmap.org/node/1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":{"id":1,"object":"node"}}}
+{"q":{"op":"isGeoUri","args":[{"s":"CZ@ ?b["}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":false}}

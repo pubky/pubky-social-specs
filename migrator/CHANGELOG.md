@@ -4,6 +4,12 @@
 exactly that version of it. Its promises about the stored bytes are the data model's, in the
 `pubky-social-specs` changelog.
 
+## Unreleased
+
+The next release is 1.1.0-alpha.1, with `pubky-social-specs` 1.1.0-alpha.1. The transforms are
+unchanged: the 0.x data model has none of the 1.1 kinds, and `transform_rev` stays 3. The wasm is
+the 1.1 crate, so a migrated post is read back through the 1.1 reader.
+
 ## 1.0.0-rc.1
 
 ### API
