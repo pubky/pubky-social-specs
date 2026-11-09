@@ -59,6 +59,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::ops::Range;
 
 /// The revision of these transforms, recorded by a finished run. Bump it when a transform
 /// changes what it writes: a tree recorded under a lower revision is walked again, which picks
@@ -66,7 +67,12 @@ use std::fmt;
 /// Revision 2: the transforms read through the frozen 0.x reader, which writes a `[DELETED]`
 /// profile as `anonymous` and a few objects revision 1 skipped or spelled otherwise.
 /// Revision 3: a feed with the `cards` layout is carried, where revision 2 skipped it.
-pub const TRANSFORM_REV: u32 = 3;
+/// Revision 4: an article's first attachment moves into the cover only when the body does not
+/// reference slot 0, and the body's `attachment:{n}` references follow it down one slot;
+/// revision 3 promoted it regardless and left every reference one slot off. The bump walks a
+/// revision 3 tree again; by the never-rewrite rule above it does not repair an article
+/// revision 3 wrote, it only stops writing more of them.
+pub const TRANSFORM_REV: u32 = 4;
 
 /// Why an object did not migrate. Categories, not messages, so a run can count them.
 #[non_exhaustive]
@@ -558,15 +564,21 @@ fn transform_post(
         PubkySocialPostKind::Article => match article_text(&post.content) {
             (Some(title), body, cover) => {
                 let mut references = references;
-                // An envelope cover wins. Otherwise the first attachment was the cover by
-                // convention, but only an image can be one: it moves into the envelope
-                // without its file name, and anything else stays an attachment
-                let cover = match cover {
-                    Some(uri) => Some(rewrite(&uri)),
+                // An envelope cover wins, and the body's slots index `attachments` as they
+                // are. Otherwise the first attachment was the cover by convention, but only
+                // an image can be one, and only when the body does not reference slot 0,
+                // where it is inline media instead: it moves into the envelope without its
+                // file name, every inline reference follows it down one slot, and anything
+                // else stays an attachment
+                let (cover, body) = match cover {
+                    Some(uri) => (Some(rewrite(&uri)), body),
                     None if references.first().is_some_and(|r| r.image) => {
-                        Some(references.remove(0).uri)
+                        match body_after_cover_promotion(&body) {
+                            Some(body) => (Some(references.remove(0).uri), body),
+                            None => (None, body),
+                        }
                     }
-                    None => None,
+                    None => (None, body),
                 };
                 PubkySocialPost::new_article(
                     title,
@@ -656,6 +668,73 @@ fn article_title(raw: &str) -> Option<String> {
         .collect();
     let title = truncated.trim_end_matches(is_frozen_whitespace);
     (!title.is_empty()).then(|| title.to_string())
+}
+
+/// The slot the inline reference grammar of an article body names at `index`, when a markdown
+/// destination starts there, with the byte range of its digits.
+///
+/// The data model gives the body no grammar: the references are the 0.x pubky.app composer's,
+/// `![alt](attachment:{n})`, where `n` is a slot of `attachments` in base 10 with no sign and
+/// no leading zero (pubky-app `articleInlineMedia.ts`, `ATTACHMENT_REF_PATTERN`,
+/// `^attachment:(0|[1-9][0-9]*)$` over the destination). This is that grammar, read where a
+/// destination sits: after `](`, past optional whitespace, in angle brackets or not, ending at
+/// the `>` that closes the brackets, the `)` that closes the link, or the whitespace before a
+/// title. The composer writes images only; a link `[text](attachment:{n})` is counted here on
+/// purpose, since a hand-typed link to a slot keeps that file reachable: a link to slot 0
+/// blocks the promotion, and a link to `n >= 1` is renumbered where the app's reader, which
+/// resolves images and reference-style definitions alone, would have left the bytes as they
+/// were. The body is not parsed as markdown, so a literal inside a code span or fence counts
+/// too; a slot of more than 18 digits does not, nor does a reference-style definition or an
+/// entity-escaped slot. The premise there is the app's composer, `serializeArticleBody`, which
+/// writes neither; the app's own slot-0 rule counts both, so a body written another way may
+/// name slot 0 in a form this does not see. Anything else is text and stays as written.
+fn article_reference_at(body: &str, index: usize) -> Option<(Range<usize>, u64)> {
+    const SCHEME: &str = "attachment:";
+    let rest = body.get(index..)?.strip_prefix("](")?;
+    let rest = rest.trim_start_matches([' ', '\t', '\n', '\r']);
+    let (bracketed, rest) = match rest.strip_prefix('<') {
+        Some(rest) => (true, rest),
+        None => (false, rest),
+    };
+    let digits_at = body.len() - rest.len() + SCHEME.len();
+    let rest = rest.strip_prefix(SCHEME)?;
+    let len = rest.bytes().take_while(u8::is_ascii_digit).count();
+    let digits = &rest[..len];
+    if digits.is_empty() || len > 18 || (digits.starts_with('0') && len > 1) {
+        return None;
+    }
+    let ends = match (bracketed, rest[len..].chars().next()) {
+        (true, Some('>')) => true,
+        (false, Some(c)) => matches!(c, ')' | ' ' | '\t' | '\n' | '\r'),
+        _ => false,
+    };
+    if !ends {
+        return None;
+    }
+    Some((digits_at..digits_at + len, digits.parse().ok()?))
+}
+
+/// Every inline reference of an article body, in order, by [`article_reference_at`].
+fn article_references(body: &str) -> impl Iterator<Item = (Range<usize>, u64)> + '_ {
+    body.match_indices("](")
+        .filter_map(|(index, _)| article_reference_at(body, index))
+}
+
+/// The body as it reads once `attachments[0]` has moved into the cover: every inline
+/// reference `attachment:{n}` respelled `attachment:{n-1}`, everything else byte for byte.
+/// `None` when the body references slot 0, which is then inline media and no cover, so nothing
+/// moves.
+fn body_after_cover_promotion(body: &str) -> Option<String> {
+    let mut out = String::with_capacity(body.len());
+    let mut copied = 0;
+    for (digits, slot) in article_references(body) {
+        let slot = slot.checked_sub(1)?;
+        out.push_str(&body[copied..digits.start]);
+        out.push_str(&slot.to_string());
+        copied = digits.end;
+    }
+    out.push_str(&body[copied..]);
+    Some(out)
 }
 
 /// A v0 collection envelope, in the reader's own model, which it already read it through:
@@ -1305,6 +1384,262 @@ mod tests {
         assert_eq!(article_title(" \t "), None);
         // U+200B is not whitespace, so it is a title
         assert_eq!(article_title("\u{200B}"), Some("\u{200B}".into()));
+    }
+
+    #[test]
+    fn article_references_follow_the_composer_grammar() {
+        let slots = |body: &str| {
+            article_references(body)
+                .map(|(_, slot)| slot)
+                .collect::<Vec<_>>()
+        };
+        // The forms the composer writes: bare, with a title, in angle brackets, padded
+        assert_eq!(slots("![a](attachment:0)"), vec![0]);
+        assert_eq!(slots("![a](attachment:12 \"t\")"), vec![12]);
+        assert_eq!(slots("![a](attachment:3 't')"), vec![3]);
+        assert_eq!(slots("![a](<attachment:4>)"), vec![4]);
+        assert_eq!(slots("![a]( attachment:5 )"), vec![5]);
+        assert_eq!(slots("![a](\nattachment:6\n)"), vec![6]);
+        // A link indexes the same array as an image
+        assert_eq!(slots("[the file](attachment:7)"), vec![7]);
+        assert_eq!(
+            slots("x ![a](attachment:1) y ![b](attachment:2) ![a](attachment:1)"),
+            vec![1, 2, 1]
+        );
+        // The longest slot: 18 digits
+        assert_eq!(
+            slots("![a](attachment:123456789012345678)"),
+            vec![123_456_789_012_345_678]
+        );
+        // Spellings the grammar refuses are text
+        for text in [
+            "![a](attachment:01)",
+            "![a](Attachment:0)",
+            "![a](attachment: 0)",
+            "![a](attachment:0x)",
+            "![a](attachment:0/)",
+            "![a](attachment:-1)",
+            "![a](attachment:+1)",
+            "![a](attachment:1.5)",
+            "![a](attachment:)",
+            "![a](attachments:0)",
+            "![a](<attachment:0 >)",
+            "![a](< attachment:0>)",
+            "![a](<attachment:0)",
+            "![a](attachment:0>)",
+            "![a](attachment:0",
+            "![a] (attachment:0)",
+            "attachment:0",
+            "![a](attachment:0000000000000000001)",
+            "![a](attachment:1234567890123456789)",
+            "](",
+            "",
+        ] {
+            assert_eq!(slots(text), Vec::<u64>::new(), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn promotion_renumbers_every_reference_and_nothing_else() {
+        let body = "# T\n\n![one](attachment:1)\n\ntext ![two](attachment:2 \"title\") and \
+                    ![one](<attachment:1>)\n\n`![c](attachment:9)` [doc](attachment:10)\n\n\
+                    attachment:3 ![x](attachment:01) \u{3000}";
+        assert_eq!(
+            body_after_cover_promotion(body).unwrap(),
+            "# T\n\n![one](attachment:0)\n\ntext ![two](attachment:1 \"title\") and \
+             ![one](<attachment:0>)\n\n`![c](attachment:8)` [doc](attachment:9)\n\n\
+             attachment:3 ![x](attachment:01) \u{3000}"
+        );
+        assert_eq!(
+            body_after_cover_promotion("no references"),
+            Some("no references".into())
+        );
+        assert_eq!(body_after_cover_promotion(""), Some(String::new()));
+        // A reference to slot 0 stops the promotion wherever it is, a code fence included:
+        // the body is not parsed as markdown, and the error is on the side of leaving the
+        // first attachment where the body can still reach it
+        assert_eq!(
+            body_after_cover_promotion("![a](attachment:1) ![b](attachment:0)"),
+            None
+        );
+        assert_eq!(
+            body_after_cover_promotion("```\n![a](attachment:0)\n```"),
+            None
+        );
+    }
+
+    /// The pdf of the vectors, so a context can hold an image and a document.
+    const PDF_HASH: &str = "94DQ3E6D2D3QYMXJR8S3D0P130";
+
+    /// A context with an image File at `TS` and a pdf File at `TS2`.
+    fn ctx_with_media() -> MigrationCtx {
+        let file = |name: &str, hash: &str, content_type: &str| {
+            serde_json::to_vec(&serde_json::json!({
+                "name": name,
+                "created_at": 1727740800000000i64,
+                "src": format!("pubky://{OWNER}/pub/pubky.app/blobs/{hash}"),
+                "content_type": content_type,
+                "size": 20,
+            }))
+            .unwrap()
+        };
+        let mut ctx = ctx();
+        ctx.read_v0_file(TS, &file("photo.png", HASH, "image/png"))
+            .unwrap();
+        ctx.read_v0_file(TS2, &file("report.pdf", PDF_HASH, "application/pdf"))
+            .unwrap();
+        ctx
+    }
+
+    /// A v0 long post with this content and these attachments, as the v1 post it migrates to,
+    /// with the article envelope parsed into `content`.
+    fn migrated_long_post(ctx: &MigrationCtx, content: &str, attachments: &[&str]) -> Value {
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "content": content,
+            "kind": "long",
+            "parent": null,
+            "embed": null,
+            "attachments": attachments,
+        }))
+        .unwrap();
+        let migrated = transform("pub/pubky.app/posts/0034A0X7NJ52G", &bytes, ctx).unwrap();
+        let mut written: Value = serde_json::from_slice(&migrated.writes[0].1).unwrap();
+        assert_eq!(written["kind"], "article");
+        let envelope: Value = serde_json::from_str(written["content"].as_str().unwrap()).unwrap();
+        written["content"] = envelope;
+        written
+    }
+
+    fn envelope(title: &str, body: &str, cover: Option<&str>) -> String {
+        let mut envelope = serde_json::json!({ "title": title, "body": body });
+        if let Some(cover) = cover {
+            envelope["cover_image"] = cover.into();
+        }
+        envelope.to_string()
+    }
+
+    #[test]
+    fn an_image_first_attachment_becomes_the_cover_and_the_references_follow_it() {
+        let ctx = ctx_with_media();
+        let image = format!("pubky://{OWNER}/pub/pubky.app/files/{TS}");
+        let pdf = format!("pubky://{OWNER}/pub/pubky.app/files/{TS2}");
+        let body = "Intro\n\n![one](attachment:1)\n\n[the report](attachment:2 \"pdf\")\n\n\
+                    ![one again](<attachment:1>)";
+        let written = migrated_long_post(
+            &ctx,
+            &envelope("With a cover", body, None),
+            &[&image, &pdf, "https://example.com/y.png"],
+        );
+        assert_eq!(
+            written["content"]["cover_image"],
+            format!("pubky://{OWNER}/pub/social/v1/files/{HASH}.png")
+        );
+        assert_eq!(
+            written["content"]["body"],
+            "Intro\n\n![one](attachment:0)\n\n[the report](attachment:1 \"pdf\")\n\n\
+             ![one again](<attachment:0>)"
+        );
+        assert_eq!(
+            written["attachments"],
+            serde_json::json!([
+                { "uri": format!("pubky://{OWNER}/pub/social/v1/files/{PDF_HASH}.pdf"), "name": "report.pdf" },
+                { "uri": "https://example.com/y.png" },
+            ])
+        );
+
+        // A plain-text long post takes the same path: its title is its first line
+        let written = migrated_long_post(
+            &ctx,
+            "First line\n\n![p](attachment:1) ![p](attachment:1)",
+            &[&image],
+        );
+        assert_eq!(written["content"]["title"], "First line");
+        assert_eq!(
+            written["content"]["body"],
+            "First line\n\n![p](attachment:0) ![p](attachment:0)"
+        );
+        assert!(written["content"]["cover_image"].is_string());
+        assert_eq!(written["attachments"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn a_body_that_references_slot_zero_keeps_its_image_inline_and_has_no_cover() {
+        let ctx = ctx_with_media();
+        let image = format!("pubky://{OWNER}/pub/pubky.app/files/{TS}");
+        let pdf = format!("pubky://{OWNER}/pub/pubky.app/files/{TS2}");
+        for body in [
+            "![hero](attachment:0)\n\n[the report](attachment:1)",
+            // Only the one reference and nothing else
+            "![](attachment:0)",
+            // Slot 0 named after a higher slot
+            "![r](attachment:1) ![h](attachment:0)",
+        ] {
+            let written =
+                migrated_long_post(&ctx, &envelope("Inline", body, None), &[&image, &pdf]);
+            assert!(
+                written["content"]["cover_image"].is_null(),
+                "{body}: {written}"
+            );
+            assert_eq!(written["content"]["body"], body);
+            assert_eq!(written["attachments"].as_array().unwrap().len(), 2);
+            assert_eq!(
+                written["attachments"][0]["uri"],
+                format!("pubky://{OWNER}/pub/social/v1/files/{HASH}.png")
+            );
+            assert_eq!(written["attachments"][0]["name"], "photo.png");
+        }
+    }
+
+    #[test]
+    fn an_envelope_cover_leaves_the_references_as_written() {
+        let ctx = ctx_with_media();
+        let image = format!("pubky://{OWNER}/pub/pubky.app/files/{TS}");
+        let pdf = format!("pubky://{OWNER}/pub/pubky.app/files/{TS2}");
+        let body = "![a](attachment:0) ![b](attachment:1) ![c](attachment:2)";
+        let written = migrated_long_post(
+            &ctx,
+            &envelope("Envelope cover", body, Some(&image)),
+            &[&image, &pdf],
+        );
+        assert_eq!(
+            written["content"]["cover_image"],
+            format!("pubky://{OWNER}/pub/social/v1/files/{HASH}.png")
+        );
+        assert_eq!(written["content"]["body"], body);
+        assert_eq!(written["attachments"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn references_past_the_end_are_renumbered_like_any_other() {
+        let ctx = ctx_with_media();
+        let image = format!("pubky://{OWNER}/pub/pubky.app/files/{TS}");
+        let written = migrated_long_post(
+            &ctx,
+            &envelope("Dangling", "![x](attachment:1) ![y](attachment:7)", None),
+            &[&image],
+        );
+        assert!(written["content"]["cover_image"].is_string());
+        assert_eq!(
+            written["content"]["body"],
+            "![x](attachment:0) ![y](attachment:6)"
+        );
+        assert_eq!(written["attachments"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn a_non_image_first_attachment_is_never_promoted_and_the_references_stay() {
+        let ctx = ctx_with_media();
+        let image = format!("pubky://{OWNER}/pub/pubky.app/files/{TS}");
+        let pdf = format!("pubky://{OWNER}/pub/pubky.app/files/{TS2}");
+        let written = migrated_long_post(
+            &ctx,
+            &envelope("Document first", "![fig](attachment:1)", None),
+            &[&pdf, &image],
+        );
+        assert!(written["content"]["cover_image"].is_null());
+        assert_eq!(written["content"]["body"], "![fig](attachment:1)");
+        assert_eq!(written["attachments"].as_array().unwrap().len(), 2);
+        assert_eq!(written["attachments"][0]["name"], "report.pdf");
     }
 
     /// A TimestampId from before October 2024, which the 0.x reader refuses.

@@ -4,6 +4,18 @@
 exactly that version of it. Its promises about the stored bytes are the data model's, in the
 `pubky-social-specs` changelog.
 
+## Unreleased
+
+### Stored bytes
+
+- `transformRev` is 4: the article transform promotes the first attachment to the cover only when
+  the body does not reference `attachment:0`, and renumbers the body's inline references when it
+  does promote (the `pubky-social-specs` changelog has the rule). The scan is textual: an
+  `attachment:{n}` literal inside a code span or fence blocks the promotion when it names slot 0
+  and is renumbered otherwise. A tree whose flag records revision 3 is walked again, which picks
+  up what revision 3 skipped; nothing already written is rewritten, so an article rc.1 wrote
+  keeps its bytes. That is the never-rewrite policy, not a repair.
+
 ## 1.0.0-rc.1
 
 ### API
