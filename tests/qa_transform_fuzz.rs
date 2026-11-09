@@ -675,6 +675,80 @@ struct Case {
     seed: u64,
 }
 
+/// The article oracle: a 0.x long post's body passes through untouched unless its first
+/// attachment became the cover, and then the body named no slot 0 and every reference moved
+/// down one. `slots` is a second reading of the composer's grammar, kept apart from the
+/// transform's on purpose.
+fn check_article(bytes: &[u8], written: &Value, fail: &mut impl FnMut(String)) {
+    // Both sides carry the article as a JSON envelope in the `content` string
+    let envelope = |post: &Value| {
+        post["content"]
+            .as_str()
+            .and_then(|content| serde_json::from_str::<Value>(content).ok())
+    };
+    let Ok(v0) = serde_json::from_slice::<Value>(bytes) else {
+        return;
+    };
+    if written["kind"] != "article" {
+        return;
+    }
+    let (Some(v0), Some(v1)) = (envelope(&v0), envelope(written)) else {
+        return;
+    };
+    let (Some(before), Some(after)) = (v0["body"].as_str(), v1["body"].as_str()) else {
+        return;
+    };
+    let promoted = !v0["cover_image"].is_string() && v1["cover_image"].is_string();
+    if !promoted {
+        if before != after {
+            fail("article body changed without a promotion".into());
+        }
+        return;
+    }
+    let (from, to) = (slots(before), slots(after));
+    if from.contains(&0) {
+        fail("promoted over a reference to slot 0".into());
+    }
+    let moved = from.len() == to.len()
+        && from
+            .iter()
+            .zip(&to)
+            .all(|(f, t)| f.checked_sub(1) == Some(*t));
+    if !moved {
+        fail(format!(
+            "references {from:?} became {to:?}, not one slot down"
+        ));
+    }
+}
+
+/// The slots an article body references: `attachment:{n}` as a markdown destination, `n` in
+/// base 10 with no sign or leading zero and at most 18 digits.
+fn slots(body: &str) -> Vec<u64> {
+    const WS: [char; 4] = [' ', '\t', '\n', '\r'];
+    body.match_indices("attachment:")
+        .filter_map(|(at, scheme)| {
+            let before = &body[..at];
+            let (bracketed, before) = match before.strip_suffix('<') {
+                Some(before) => (true, before),
+                None => (false, before),
+            };
+            if !before.trim_end_matches(WS).ends_with("](") {
+                return None;
+            }
+            let rest = &body[at + scheme.len()..];
+            let len = rest.bytes().take_while(u8::is_ascii_digit).count();
+            let digits = &rest[..len];
+            let ends = match (bracketed, rest[len..].chars().next()) {
+                (true, Some('>')) => true,
+                (false, Some(c)) => c == ')' || WS.contains(&c),
+                _ => false,
+            };
+            let well_formed = ends && len <= 18 && (digits == "0" || !digits.starts_with('0'));
+            well_formed.then(|| digits.parse().ok()).flatten()
+        })
+        .collect()
+}
+
 fn check_case(
     Case { kind, case, seed }: Case,
     path: &str,
@@ -756,6 +830,9 @@ fn check_case(
                     fail(format!("write {out_path} is not JSON"));
                     continue;
                 };
+                if kind.starts_with("post_") {
+                    check_article(bytes, &value, &mut fail);
+                }
                 let mut all = vec![];
                 strings(&value, &mut all);
                 for s in all {

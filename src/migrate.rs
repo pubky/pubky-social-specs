@@ -69,7 +69,9 @@ use std::ops::Range;
 /// Revision 3: a feed with the `cards` layout is carried, where revision 2 skipped it.
 /// Revision 4: an article's first attachment moves into the cover only when the body does not
 /// reference slot 0, and the body's `attachment:{n}` references follow it down one slot;
-/// revision 3 promoted it regardless and left every reference one slot off.
+/// revision 3 promoted it regardless and left every reference one slot off. The bump walks a
+/// revision 3 tree again; by the never-rewrite rule above it does not repair an article
+/// revision 3 wrote, it only stops writing more of them.
 pub const TRANSFORM_REV: u32 = 4;
 
 /// Why an object did not migrate. Categories, not messages, so a run can count them.
@@ -677,10 +679,15 @@ fn article_title(raw: &str) -> Option<String> {
 /// `^attachment:(0|[1-9][0-9]*)$` over the destination). This is that grammar, read where a
 /// destination sits: after `](`, past optional whitespace, in angle brackets or not, ending at
 /// the `>` that closes the brackets, the `)` that closes the link, or the whitespace before a
-/// title. Links and images alike, since both index the same array. The body is not parsed as
-/// markdown, so a literal inside a code span or fence counts too; a slot of more than 18
-/// digits does not, nor does a reference-style definition or an entity-escaped slot, which the
-/// composer refused to publish. Anything else is text and stays as written.
+/// title. The composer writes images only; a link `[text](attachment:{n})` is counted here on
+/// purpose, since a hand-typed link to a slot keeps that file reachable: a link to slot 0
+/// blocks the promotion, and a link to `n >= 1` is renumbered where the app's reader, which
+/// resolves images and reference-style definitions alone, would have left the bytes as they
+/// were. The body is not parsed as markdown, so a literal inside a code span or fence counts
+/// too; a slot of more than 18 digits does not, nor does a reference-style definition or an
+/// entity-escaped slot. The premise there is the app's composer, `serializeArticleBody`, which
+/// writes neither; the app's own slot-0 rule counts both, so a body written another way may
+/// name slot 0 in a form this does not see. Anything else is text and stays as written.
 fn article_reference_at(body: &str, index: usize) -> Option<(Range<usize>, u64)> {
     const SCHEME: &str = "attachment:";
     let rest = body.get(index..)?.strip_prefix("](")?;

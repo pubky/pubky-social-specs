@@ -126,8 +126,10 @@ hex) and `data/remap_report.json`:
   written again, left as they are
 - `incomplete_users`: production keys the manifest marks `complete: false`
 
-No article in the 2026-09-30 corpus carries a `cover_image` (140 articles), so the article cover
-rewrite changes nothing in that replica.
+No article in the 2026-09-30 corpus carries an envelope `cover_image` (140 articles), so the
+rewrite of that URI changes nothing in the replica. The promotion of a first attachment that is an
+image into the cover, with the body's `attachment:{n}` references renumbered, applies to whichever
+of the 140 have an image at slot 0 and no reference to it.
 
 ## Seed, run and verify
 

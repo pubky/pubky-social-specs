@@ -1719,6 +1719,102 @@
           }
         ]
       }
+    },
+    {
+      "name": "long post: with no attachments there is nothing to promote, so a reference past the end stays as written and dangling",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ536",
+        "body": {
+          "content": "{\"title\": \"No attachments\", \"body\": \"![x](attachment:1)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": []
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ536/0034A0X7NJ536.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "No attachments",
+                "body": "![x](attachment:1)"
+              },
+              "attachments": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a null attachments member is no attachment, so nothing is promoted and the reference stays as written",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53W",
+        "body": {
+          "content": "{\"title\": \"Null attachments\", \"body\": \"![x](attachment:1)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": null
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53W/0034A0X7NJ53W.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Null attachments",
+                "body": "![x](attachment:1)"
+              },
+              "attachments": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a slot of two digits moves down one like any other, across the digit boundary and within it",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53Y",
+        "body": {
+          "content": "{\"title\": \"Two digits\", \"body\": \"![a](attachment:1) ![b](attachment:10) ![c](attachment:11)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53Y/0034A0X7NJ53Y.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Two digits",
+                "body": "![a](attachment:0) ![b](attachment:9) ![c](attachment:10)",
+                "cover_image": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                }
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }

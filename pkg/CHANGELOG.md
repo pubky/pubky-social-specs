@@ -31,9 +31,13 @@ These follow the crate, which changes with them:
   that attachment is an image and the body does not reference `attachment:0`, which is inline
   media there and no cover. When it promotes, every inline reference `attachment:{n}` of the body
   is respelled `attachment:{n-1}`, so each still names the file it did; everything else in the
-  body keeps its bytes. 1.0.0-rc.1 promoted the first image regardless and left the references
-  one slot off. `transform_rev` is 4, so a tree migrated under rc.1 is walked again; a walk never
-  rewrites a 1.x object that exists, so an article rc.1 wrote keeps its bytes.
+  body keeps its bytes. The scan is textual, so an `attachment:{n}` literal inside a code span
+  or fence counts too: it blocks the promotion when it names slot 0 and is renumbered otherwise,
+  where the app's reader, which walks the markdown tree, saw no reference. 1.0.0-rc.1 promoted
+  the first image regardless and left the references one slot off. `transform_rev` is 4, so a
+  tree migrated under rc.1 is walked again, which picks up what rc.1 skipped; a walk never
+  rewrites a 1.x object that exists, so an article rc.1 wrote keeps its bytes. That is the
+  never-rewrite policy, not a repair.
 
 ## 1.0.0-rc.1
 
