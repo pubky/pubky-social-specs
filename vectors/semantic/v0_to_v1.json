@@ -1442,6 +1442,283 @@
       "expected": {
         "skip": "invalid"
       }
+    },
+    {
+      "name": "long post: the first attachment is an image the body does not reference, so it becomes the cover and every inline reference follows it down one slot, in each spelling the composer wrote",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ538",
+        "body": {
+          "content": "{\"title\": \"Cover and inline media\", \"body\": \"Intro\\n\\n![one](attachment:1)\\n\\nSee [the report](attachment:2 \\\"the pdf\\\").\\n\\n![one again](<attachment:1>)\\n\\n![two](attachment:3)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000008",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004",
+            "https://example.com/y.png"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ538/0034A0X7NJ538.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Cover and inline media",
+                "body": "Intro\n\n![one](attachment:0)\n\nSee [the report](attachment:1 \"the pdf\").\n\n![one again](<attachment:0>)\n\n![two](attachment:2)",
+                "cover_image": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/MBJ45JZNRNPZJEEJM8B6B7EZS8.png",
+                  "name": "padded.png"
+                },
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                },
+                {
+                  "uri": "https://example.com/y.png"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a body that references attachment:0 has inline media there and no cover, so the first image stays an attachment with its name and nothing is renumbered",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53A",
+        "body": {
+          "content": "{\"title\": \"Inline hero\", \"body\": \"![hero](attachment:0)\\n\\n[the report](attachment:1)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53A/0034A0X7NJ53A.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Inline hero",
+                "body": "![hero](attachment:0)\n\n[the report](attachment:1)"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png",
+                  "name": "photo.png"
+                },
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: an envelope cover_image leaves the body's references as written, since they index the attachments as they are",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53C",
+        "body": {
+          "content": "{\"title\": \"Envelope cover\", \"body\": \"![a](attachment:0) ![b](attachment:1)\", \"cover_image\": \"pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000008\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53C/0034A0X7NJ53C.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Envelope cover",
+                "body": "![a](attachment:0) ![b](attachment:1)",
+                "cover_image": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/MBJ45JZNRNPZJEEJM8B6B7EZS8.png"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png",
+                  "name": "photo.png"
+                },
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a body that is one reference to attachment:0 and nothing else keeps its only image inline",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53E",
+        "body": {
+          "content": "{\"title\": \"Only an image\", \"body\": \"![](attachment:0)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53E/0034A0X7NJ53E.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Only an image",
+                "body": "![](attachment:0)"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png",
+                  "name": "photo.png"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a reference past the end of the attachments is renumbered like any other and stays dangling",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53G",
+        "body": {
+          "content": "{\"title\": \"Dangling\", \"body\": \"![x](attachment:1) ![y](attachment:7)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53G/0034A0X7NJ53G.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Dangling",
+                "body": "![x](attachment:0) ![y](attachment:6)",
+                "cover_image": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"
+              },
+              "attachments": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: a first attachment that is not an image is never promoted, so the references stay as written",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53J",
+        "body": {
+          "content": "{\"title\": \"Document first\", \"body\": \"![fig](attachment:1)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53J/0034A0X7NJ53J.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Document first",
+                "body": "![fig](attachment:1)"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                },
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png",
+                  "name": "photo.png"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "long post: spellings outside the reference grammar are text, so they neither hold slot 0 nor move when the first image becomes the cover",
+      "kind": "post",
+      "input": {
+        "path": "pub/pubky.app/posts/0034A0X7NJ53T",
+        "body": {
+          "content": "{\"title\": \"Spellings\", \"body\": \"![a](attachment:01) ![b](Attachment:0) ![c](attachment:0x) ![d](attachments:0) attachment:0 `![e](attachment:1)` ![f](attachment:1)\"}",
+          "kind": "long",
+          "parent": null,
+          "embed": null,
+          "attachments": [
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000000",
+            "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/pubky.app/files/0033000000004"
+          ]
+        }
+      },
+      "expected": {
+        "writes": [
+          {
+            "path": "pub/social/v1/posts/0034A0X7NJ53T/0034A0X7NJ53T.json",
+            "body": {
+              "kind": "article",
+              "content": {
+                "title": "Spellings",
+                "body": "![a](attachment:01) ![b](Attachment:0) ![c](attachment:0x) ![d](attachments:0) attachment:0 `![e](attachment:0)` ![f](attachment:0)",
+                "cover_image": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/AKSZ57W2RFKHV1EHK007FQQ8TW.png"
+              },
+              "attachments": [
+                {
+                  "uri": "pubky://operrr8wsbpr3ue9d4qj41ge1kcc6r7fdiy6o3ugjrrhi4y77rdo/pub/social/v1/files/94DQ3E6D2D3QYMXJR8S3D0P130.pdf",
+                  "name": "report.pdf"
+                }
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }

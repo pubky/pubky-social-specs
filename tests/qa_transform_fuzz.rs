@@ -361,6 +361,31 @@ fn embed(rng: &mut Rng, fx: &Fixture) -> Option<Value> {
     )
 }
 
+/// Inline media references in an article body: the slots the 0.x composer wrote, in each
+/// spelling it wrote them, and spellings around the grammar, some in a code fence.
+fn references(rng: &mut Rng) -> String {
+    if rng.chance(50) {
+        return String::new();
+    }
+    (0..1 + rng.below(4))
+        .map(|_| {
+            let slot = if rng.chance(80) {
+                rng.below(12).to_string()
+            } else {
+                rng.pick(&["01", "0x", "-1", "", " 1", "99999999999999999999"])
+                    .to_string()
+            };
+            match rng.below(5) {
+                0 => format!("\n![a](attachment:{slot})"),
+                1 => format!("\n![a](<attachment:{slot}>)"),
+                2 => format!("\n[d](attachment:{slot} \"t\")"),
+                3 => format!(" ![a]( attachment:{slot} )"),
+                _ => format!("\n```\n![a](attachment:{slot})\n```"),
+            }
+        })
+        .collect()
+}
+
 fn gen_post(rng: &mut Rng, fx: &Fixture, kind: &str) -> (String, Vec<u8>) {
     let id = timestamp_id(rng, fx);
     let content = match kind {
@@ -368,14 +393,20 @@ fn gen_post(rng: &mut Rng, fx: &Fixture, kind: &str) -> (String, Vec<u8>) {
             0 | 1 => {
                 let mut env = serde_json::Map::new();
                 env.insert("title".into(), json!(text(rng, &[100, 120])));
-                env.insert("body".into(), json!(text(rng, &[50_000, 2000])));
+                let body = format!("{}{}", text(rng, &[50_000, 2000]), references(rng));
+                env.insert("body".into(), json!(body));
                 if rng.chance(50) {
                     env.insert("cover_image".into(), json!(url(rng, fx)));
                 }
                 serde_json::to_string(&env).unwrap()
             }
-            2 => format!("{}\n{}", text(rng, &[100, 101]), text(rng, &[49_000])),
-            _ => text(rng, &[50_000]),
+            2 => format!(
+                "{}\n{}{}",
+                text(rng, &[100, 101]),
+                text(rng, &[49_000]),
+                references(rng)
+            ),
+            _ => format!("{}{}", text(rng, &[50_000]), references(rng)),
         },
         "collection" => {
             let count = if rng.chance(80) {

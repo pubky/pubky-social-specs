@@ -21,6 +21,20 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
+## Unreleased
+
+### Stored bytes
+
+These follow the crate, which changes with them:
+
+- The migration of a 0.x article promotes its first attachment to the `cover_image` only when
+  that attachment is an image and the body does not reference `attachment:0`, which is inline
+  media there and no cover. When it promotes, every inline reference `attachment:{n}` of the body
+  is respelled `attachment:{n-1}`, so each still names the file it did; everything else in the
+  body keeps its bytes. 1.0.0-rc.1 promoted the first image regardless and left the references
+  one slot off. `transform_rev` is 4, so a tree migrated under rc.1 is walked again; a walk never
+  rewrites a 1.x object that exists, so an article rc.1 wrote keeps its bytes.
+
 ## 1.0.0-rc.1
 
 ### API

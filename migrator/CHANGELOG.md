@@ -4,6 +4,15 @@
 exactly that version of it. Its promises about the stored bytes are the data model's, in the
 `pubky-social-specs` changelog.
 
+## Unreleased
+
+### Stored bytes
+
+- `transformRev` is 4: the article transform promotes the first attachment to the cover only when
+  the body does not reference `attachment:0`, and renumbers the body's inline references when it
+  does promote (the `pubky-social-specs` changelog has the rule). A tree whose flag records
+  revision 3 is walked again; nothing already written is rewritten.
+
 ## 1.0.0-rc.1
 
 ### API
