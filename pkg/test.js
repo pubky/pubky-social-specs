@@ -3,6 +3,7 @@
 // the shapes of arguments and results, values no JSON holds, the clock, the errors.
 
 import assert from "assert";
+import fs from "node:fs";
 import vm from "node:vm";
 import * as specs from "./dist/index.js";
 import { setClock } from "./dist/testing.js";
@@ -16,6 +17,9 @@ const {
   feedReaches,
   feedLayouts,
   feedSorts,
+  feedTargets,
+  resourceFamilies,
+  resourceFamilyRootTypes,
   collectionLayouts,
   decodeObject,
   encodeObject,
@@ -86,6 +90,7 @@ describe("pubky-social-specs", () => {
           "feedPaths",
           "feedReaches",
           "feedSorts",
+          "feedTargets",
           "hashMedia",
           "idMicros",
           "isPubkyUrl",
@@ -104,6 +109,8 @@ describe("pubky-social-specs", () => {
           "planPublish",
           "planUnpublish",
           "postKinds",
+          "resourceFamilies",
+          "resourceFamilyRootTypes",
           "toPath",
           "toUrl",
           "tryDecodeContent",
@@ -382,7 +389,7 @@ describe("pubky-social-specs", () => {
       const body = `{"feed":{"tags":["rust"],"domain_tags":["dev"],"reach":"wot","layout":"columns","sort":"recent","content":null},"name":"Rust","icon":"crab","created_at":${T0 * 1000}}`;
       assert.strictEqual(text(rust.body), body);
       assert.deepStrictEqual(decodeObject(rust.url, utf8(body)).object, {
-        feed: { tags: ["rust"], domain_tags: ["dev"], reach: "wot", layout: "columns", sort: "recent", content: null },
+        feed: { tags: ["rust"], domain_tags: ["dev"], reach: "wot", layout: "columns", sort: "recent", content: null, target: null },
         name: "Rust",
         icon: "crab",
         created_at: T0 * 1000,
@@ -395,6 +402,92 @@ describe("pubky-social-specs", () => {
           ["recent", "popularity"],
         ],
       );
+    });
+
+    it("names the resource families and their root types as the crate does", () => {
+      const table = JSON.parse(fs.readFileSync(new URL("../vectors/semantic/resource_families.json", import.meta.url), "utf8"));
+      assert.deepStrictEqual([...resourceFamilies], Object.keys(table));
+      assert.deepStrictEqual(Object.keys(resourceFamilyRootTypes), Object.keys(table));
+      for (const family of resourceFamilies) assert.deepStrictEqual([...resourceFamilyRootTypes[family]], table[family]);
+      assert.ok(Object.isFrozen(resourceFamilies) && Object.isFrozen(resourceFamilyRootTypes) && Object.isFrozen(resourceFamilyRootTypes.music));
+    });
+
+    it("a feed of external resources has its own id, and a post feed keeps the one it had", () => {
+      assert.deepStrictEqual(feedTargets, ["posts", "resources"]);
+      // Ids 1.0.0-rc.1, which had no target, gave these filters; neither an absent target nor "posts" moves them
+      const music = { name: "Music", icon: "music", reach: "all", layout: "columns", sort: "recent", tags: ["music"] };
+      for (const [input, id] of [
+        [music, "C7PHA9M1X90SH1H2X2YPGY9QW4"],
+        [{ name: "x", icon: "a", reach: "all", layout: "columns", sort: "recent" }, "96WQS9A0JPXNBAKR4GY7FBT458"],
+        [{ name: "x", icon: "a", reach: "all", layout: "columns", sort: "recent", content: "link" }, "TSMT23MF0717S1Y389AH13KFMR"],
+        [{ name: "x", icon: "a", reach: "following", layout: "list", sort: "popularity", tags: ["a", "b"], domain_tags: ["x"] }, "TXS1GDBJ56JZ10R30VP33FQVPR"],
+        [{ name: "x", icon: "a", reach: "wot", layout: "visual", sort: "recent", content: "image", tags: ["music", "video"] }, "QWRTXFXGWMX6DJ44D7X96F7VZW"],
+      ]) {
+        for (const target of [undefined, null, "posts"]) {
+          const built = buildFeed(OTTO, target === undefined ? input : { ...input, target });
+          assert.strictEqual(built.id, id);
+          assert.strictEqual(built.object.feed.target, null);
+          assert.ok(!text(built.body).includes("target"), text(built.body));
+        }
+      }
+      // A stored "posts" reads at the post feed's path as that feed
+      const posts = buildFeed(OTTO, music);
+      const spelled = { ...posts.object, feed: { ...posts.object.feed, target: "posts" } };
+      assert.strictEqual(feedId(spelled), posts.id);
+      assert.strictEqual(decodeObject(posts.url, encodeObject(posts.url, spelled)).object.feed.target, "posts");
+
+      // resources: "resources:" in front of the six segments, so blake3("resources:all:columns:recent::music:")
+      const resources = buildFeed(OTTO, { ...music, target: "resources" });
+      assert.strictEqual(resources.id, "D41H1J8VKZ4JDSKYADR4WGAQB4");
+      assert.strictEqual(resources.path, "/priv/social/v1/feeds/D41H1J8VKZ4JDSKYADR4WGAQB4.json");
+      assert.strictEqual(feedId(resources.object), resources.id);
+      const body = `{"feed":{"tags":["music"],"reach":"all","layout":"columns","sort":"recent","content":null,"target":"resources"},"name":"Music","icon":"music","created_at":${T0 * 1000}}`;
+      assert.strictEqual(text(resources.body), body);
+      // Read at its own URL, written back to the same bytes; at the post feed's URL refused, never read as that feed
+      const read = decodeObject(resources.url, utf8(body));
+      assert.strictEqual(read.object.feed.target, "resources");
+      assert.strictEqual(text(encodeObject(resources.url, read.object)), body);
+      refuses(() => decodeObject(posts.url, utf8(body)), `Validation Error: Invalid ID: expected ${resources.id}, found ${posts.id}`);
+      assert.strictEqual(tryDecodeObject(posts.url, utf8(body)).error.code, "id");
+      refuses(() => encodeObject(posts.url, read.object), /^Validation Error: Invalid ID/);
+
+      // A target this version does not know is refused on read, like a reach, a layout or a sort
+      const events = body.replace('"resources"', '"events"');
+      for (const url of [resources.url, posts.url]) {
+        const e = caught(() => decodeObject(url, utf8(events)));
+        assert.deepStrictEqual([e.code, e.field, e.message], ["unknown_name", "target", "Validation Error: feed target is unknown"]);
+      }
+      refuses(() => buildFeed(OTTO, { ...music, target: "events" }), "Validation Error: Invalid feed target: events");
+      misuse(() => buildFeed(OTTO, { ...music, target: 1 }), /input\.target must be a string/);
+      // and $unknown cannot carry it past the rules
+      misuse(() => feedId({ ...posts.object, feed: { ...posts.object.feed, $unknown: '{"target":"resources"}' } }), /without the known member target/);
+
+      // A resources feed lists one resource family, or every one; never a post kind, and no domain tags
+      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "link" }), "Validation Error: Invalid resource family: link");
+      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "poll" }), "Validation Error: Invalid resource family: poll");
+      refuses(() => buildFeed(OTTO, { ...music, target: "resources", domain_tags: ["dev"] }), "Validation Error: A resources feed cannot filter by domain_tags");
+      const unknownFamily = caught(() => decodeObject(resources.url, utf8(body.replace('"content":null', '"content":"link"'))));
+      assert.deepStrictEqual([unknownFamily.code, unknownFamily.field, unknownFamily.message], ["unknown_name", "content", "Validation Error: feed resource family is unknown"]);
+      const musicResources = buildFeed(OTTO, { ...music, target: "resources", content: "music" });
+      // blake3("resources:all:columns:recent:music:music:"): the family takes the content segment
+      assert.strictEqual(musicResources.id, "5P5SE7RGEQY7Y9SMFWQW1NBBP8");
+      assert.strictEqual(text(musicResources.body), body.replace('"content":null', '"content":"music"'));
+      assert.strictEqual(decodeObject(musicResources.url, musicResources.body).object.feed.content, "music");
+      // A post feed naming "music" keeps what 1.0.0-rc.1 gave it: an unknown post kind with its own id
+      const musicPosts = { ...posts.object, feed: { ...posts.object.feed, content: "music" } };
+      assert.strictEqual(feedId(musicPosts), "6FDXEC941FXXGPXPJ1K8V19J54");
+      refuses(() => buildFeed(OTTO, { ...music, content: "music" }), "Validation Error: Invalid content kind: music");
+      assert.strictEqual(new Set([musicResources.id, resources.id, posts.id, feedId(musicPosts)]).size, 4);
+      for (const family of resourceFamilies) {
+        const built = buildFeed(OTTO, { ...music, target: "resources", content: family });
+        assert.strictEqual(decodeObject(built.url, built.body).object.feed.content, family);
+      }
+
+      // A suffix would collide: a valid older feed spells "all:columns:recent::music::resources". The prefix does not
+      const forged = { ...posts.object, feed: { ...posts.object.feed, tags: null, domain_tags: ["resources"], content: ":music" } };
+      assert.ok(feedId(forged) !== resources.id && feedId(forged) !== posts.id);
+      // and no older feed's id input starts with "resources:", since a reach of that name is refused
+      refuses(() => feedId({ ...posts.object, feed: { ...posts.object.feed, reach: "resources" } }), "Validation Error: feed reach is unknown");
     });
 
     it("media goes by the hash of its bytes, from the bytes or from an id hashed elsewhere", () => {

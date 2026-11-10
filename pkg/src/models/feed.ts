@@ -7,7 +7,26 @@ import { asciiFold, codePointLen, compareBytes, frozenTrim } from "../text.js";
 import { type OwnerPath, socialPath } from "../path.js";
 import { checkExtra, checkSafeInt, type Model, validate } from "./common.js";
 import { checkLabel, foldLabel } from "./label.js";
-import { feedLayout, type FeedLayout, feedLayouts, feedReach, type FeedReach, feedReaches, feedSort, type FeedSort, feedSorts, isKnown, known, postKind, type PostKind, postKinds } from "./kinds.js";
+import {
+  feedLayout,
+  type FeedLayout,
+  feedLayouts,
+  feedReach,
+  type FeedReach,
+  feedReaches,
+  feedSort,
+  type FeedSort,
+  feedSorts,
+  feedTarget,
+  type FeedTarget,
+  feedTargets,
+  isKnown,
+  known,
+  postKind,
+  type PostKind,
+  postKinds,
+  resourceFamilies,
+} from "./kinds.js";
 
 export interface FeedConfig extends Extra {
   /** The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. */
@@ -20,8 +39,10 @@ export interface FeedConfig extends Extra {
   layout: FeedLayout;
   /** The order of the posts, one of `feedSorts`. A name this version does not know is refused on read. */
   sort: FeedSort;
-  /** The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; null for every kind. */
+  /** The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed the one resource family shown, one of `resourceFamilies`. Null for every kind. */
   content: PostKind | null;
+  /** What the feed lists, one of `feedTargets`; null for posts, the default, which a writer never stores. `resources` takes a `content` of `resourceFamilies` only and no `domain_tags`. A name this version does not know is refused on read. */
+  target: FeedTarget | null;
 }
 
 export interface Feed extends Extra {
@@ -57,11 +78,14 @@ function checkIcon(icon: string | null): void {
   for (const c of icon) if (!/^[a-z0-9-]$/.test(c)) fail("format", `Feed icon '${icon}' contains invalid character: ${c}`, "icon");
 }
 
-// The id is the filter alone, so name and icon change without moving the feed
+// The id is the filter alone, so name and icon change without moving the feed. A target other
+// than posts goes in front of the six segments: every older preimage starts with a reach, and
+// no reach is a target's name, so no older feed shares an id with a new one
 function idOf(value: Feed): string {
   const f = value.feed;
   const joined = (tags: string[] | null) => tags?.join(",") ?? "";
-  return hashText(`${f.reach}:${f.layout}:${f.sort}:${f.content ?? ""}:${joined(f.tags)}:${joined(f.domain_tags)}`);
+  const filter = `${f.reach}:${f.layout}:${f.sort}:${f.content ?? ""}:${joined(f.tags)}:${joined(f.domain_tags)}`;
+  return hashText(f.target === null || f.target === "posts" ? filter : `${f.target}:${filter}`);
 }
 
 const config = object<FeedConfig>("PubkySocialFeedConfig", {
@@ -71,6 +95,7 @@ const config = object<FeedConfig>("PubkySocialFeedConfig", {
   layout: feedLayout,
   sort: feedSort,
   content: option(postKind),
+  target: omitted(feedTarget),
 });
 
 export const feed: Model<Feed> = {
@@ -78,7 +103,8 @@ export const feed: Model<Feed> = {
   maxBytes: limits.objectMaxBytes,
   check(value, id, _publicRoot, each) {
     const f = value.feed;
-    // reach, layout and sort define the feed; an unknown content filter only means no filter
+    // reach, layout, sort and target define the feed; an unknown post kind only means no filter, while a
+    // resources feed's family is one of a closed list
     each(() => {
       if (!isKnown(feedReaches, f.reach)) fail("unknown_name", "feed reach is unknown", "reach");
     });
@@ -88,9 +114,19 @@ export const feed: Model<Feed> = {
     each(() => {
       if (!isKnown(feedSorts, f.sort)) fail("unknown_name", "feed sort is unknown", "sort");
     });
+    each(() => {
+      if (f.target !== null && !isKnown(feedTargets, f.target)) fail("unknown_name", "feed target is unknown", "target");
+    });
     each(() => checkExtra(f.extra, "feed."));
     each(() => checkTagList(f.tags, "tags"));
     each(() => checkTagList(f.domain_tags, "domain_tags"));
+    // An external resource has a family, not a post kind, and its links carry no domain tags
+    each(() => {
+      if (f.target === "resources" && f.content !== null && !isKnown(resourceFamilies, f.content)) fail("unknown_name", "feed resource family is unknown", "content");
+    });
+    each(() => {
+      if (f.target === "resources" && f.domain_tags !== null) fail("conflict", "A resources feed cannot filter by domain_tags", "domain_tags");
+    });
     each(() => checkExtra(value.extra));
     each(() => {
       if (frozenTrim(value.name) === "") fail("blank", "Feed name cannot be empty", "name");
@@ -126,11 +162,11 @@ function filter(tags: string[] | null, field: string): string[] | null {
   return [...new Set(tags.map(foldLabel))].sort(compareBytes);
 }
 
-/** A feed at its private path. The builder folds and sorts the filter and trims the name. */
+/** A feed at its private path. The builder folds and sorts the filter, trims the name and stores no `target` for posts. */
 export function buildFeed(owner: string | null, input: unknown, each: Each = throwing) {
   if (owner !== null) checkPublicKey(owner);
   const { str, opt, items } = inputReads(each);
-  const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "name", "icon"], each);
+  const i = inputOf(input, "input", ["tags", "domain_tags", "reach", "layout", "sort", "content", "target", "name", "icon"], each);
   const tag = (js: unknown, at: string) => string.parse(js, at);
   const givenTags = items(i.tags, "input.tags", tag);
   const givenDomainTags = items(i.domain_tags, "input.domain_tags", tag);
@@ -141,10 +177,20 @@ export function buildFeed(owner: string | null, input: unknown, each: Each = thr
   const reachName = str(i.reach, "input.reach", "all");
   const layoutName = str(i.layout, "input.layout", "columns");
   const sortName = str(i.sort, "input.sort", "recent");
-  const content = contentName === null ? null : member<PostKind | null>(each, () => known(postKinds, "content kind", contentName, "content"), null);
+  const targetName = opt(i.target, "input.target", "posts");
+  // A resources feed names a resource family where a post feed names a post kind
+  const content =
+    contentName === null
+      ? null
+      : member<PostKind | null>(
+          each,
+          () => (targetName === "resources" ? known(resourceFamilies, "resource family", contentName, "content") : known(postKinds, "content kind", contentName, "content")),
+          null,
+        );
   const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", reachName, "reach"), "all");
   const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", layoutName, "layout"), "columns");
   const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", sortName, "sort"), "recent");
+  const target = targetName === null ? null : member<FeedTarget | null>(each, () => known(feedTargets, "feed target", targetName, "target"), null);
   const tags = member(each, () => filter(givenTags, "tags"), null);
   const domainTags = member(each, () => filter(givenDomainTags, "domain_tags"), null);
   // The config is checked as the builder makes it, before the feed's own rules run it again:
@@ -152,7 +198,7 @@ export function buildFeed(owner: string | null, input: unknown, each: Each = thr
   each(() => checkTagList(tags, "tags"));
   each(() => checkTagList(domainTags, "domain_tags"));
   const value: Feed = {
-    feed: { tags, domain_tags: domainTags, reach, layout, sort, content, extra: new Map() },
+    feed: { tags, domain_tags: domainTags, reach, layout, sort, content, target: target === "posts" ? null : target, extra: new Map() },
     name: frozenTrim(name),
     icon: asciiFold(frozenTrim(icon)),
     created_at: nowMicros(),

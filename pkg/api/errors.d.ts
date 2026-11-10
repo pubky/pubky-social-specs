@@ -12,7 +12,7 @@ export declare const PREFIX = "Validation Error: ";
  * - `format`: text is not spelled the one way the model accepts (a key, an id, a tag, a slug);
  * - `id`: an id does not match its object, or its time is out of bounds;
  * - `reference`: a URI in a reference position is refused;
- * - `unknown_name`: a kind, reach, layout or sort this version does not know;
+ * - `unknown_name`: a kind, reach, layout, sort, target or resource family this version does not know;
  * - `unsafe_integer`: an integer a JS number cannot hold exactly;
  * - `path`: a URL or path names no object of the kind asked for;
  * - `conflict`: members or arguments that cannot go together;

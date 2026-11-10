@@ -21,6 +21,41 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
+## Unreleased
+
+### API
+
+- New: a feed's `target`, one of `feedTargets` (`posts`, `resources`), in `buildFeed`'s input and
+  on the stored `FeedConfig`, with the types `FeedTarget` and `KnownFeedTarget`. A decoded feed
+  carries `target: null` for posts.
+- New: `resourceFamilies` (`music`, `video`, `podcast`, `place`, `event`, `book`, `article`,
+  `software`), `KnownResourceFamily` and `resourceFamilyRootTypes`, the schema.org types each
+  family stands for. A resources feed's `content` is one of them or null, and `buildFeed` takes one
+  there with `target: "resources"`.
+- New refusals: `feed target is unknown` (`unknown_name`, field `target`) and `feed resource family
+  is unknown` (`unknown_name`, field `content`) on a read, `Invalid feed target: …` and `Invalid
+  resource family: …` from the builder, and `A resources feed cannot filter by domain_tags`
+  (`conflict`).
+- Crate: `PubkySocialFeedConfig` gains the public field `target`, so code that builds the config as
+  a struct literal must now set it (`target: None` for posts); `PubkySocialFeedConfig::new` is
+  unchanged and `with_target` sets it. New: `PubkySocialFeedTarget`, `PubkySocialResourceFamily`
+  (`ALL`, `root_types()`) and `PubkySocialFeedConfig::resource_family()`.
+
+### Stored bytes
+
+- A feed may list external resources: `"target":"resources"` in its `feed`. Its id hashes
+  `resources:` in front of the six segments of the filter, so it never takes the id or the path of
+  the post feed with the same filter. Posts is the default and is stored as no member: every feed
+  written before keeps its bytes and its id, and a builder never writes `"target":"posts"`. A
+  stored `"posts"` reads as written and has the id of a feed without the member.
+- A resources feed's `content` is a resource family, in the content segment of its id: music
+  resources, every resource and music posts are three feeds with three ids.
+- A read refuses a target this version does not know, as it refuses an unknown reach, layout or
+  sort, and refuses a resources feed whose `content` is no resource family or that has a
+  `domain_tags` filter. A 1.0.0-rc.1 reader
+  refuses a resources feed at its URL, since the id it derives leaves the target out; one that
+  decodes the bytes with no URL reads the post feed of the same filter (see the README).
+
 ## 1.0.0
 
 ### API

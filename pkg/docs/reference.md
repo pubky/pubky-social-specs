@@ -225,7 +225,8 @@ The filter of a feed, which is its identity.
 | `reach` | `"following" \| "followers" \| "friends" \| "all" \| "wot" \| "me"` |  | Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. |
 | `layout` | `"list" \| "visual" \| "columns" \| "wide" \| "cards"` |  | How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. |
 | `sort` | `"recent" \| "popularity"` |  | The order of the posts, one of `feedSorts`: `recent` or `popularity`. |
-| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; null for every kind. |
+| `target` | `"posts" \| "resources"` | yes | What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of `resourceFamilies` or none, and no `domain_tags`. |
+| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed the one resource family shown, one of `resourceFamilies`. Null for every kind. |
 | `tags` | `string[]` | yes | The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. |
 | `domain_tags` | `string[]` | yes | The domain labels a post's links must carry, with the rules of `tags`; null for no domain filter. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
@@ -245,7 +246,7 @@ rule does not.
 | `format` | text is not spelled the one way the model accepts (a key, an id, a tag, a slug) |
 | `id` | an id does not match its object, or its time is out of bounds |
 | `reference` | a URI in a reference position is refused |
-| `unknown_name` | a kind, reach, layout or sort this version does not know |
+| `unknown_name` | a kind, reach, layout, sort, target or resource family this version does not know |
 | `unsafe_integer` | an integer a JS number cannot hold exactly |
 | `path` | a URL or path names no object of the kind asked for |
 | `conflict` | members or arguments that cannot go together |

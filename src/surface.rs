@@ -22,9 +22,10 @@ use crate::{
     list_prefix_builder, mime, private_list_prefix_builder, Listing, ObjectKind, ParsedUri,
     PubkyId, PubkySocialAttachment, PubkySocialBookmark, PubkySocialCollectionItem,
     PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout,
-    PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFile, PubkySocialFollow, PubkySocialMute,
-    PubkySocialObject, PubkySocialPost, PubkySocialPostKind, PubkySocialTag, PubkySocialUser,
-    PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
+    PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFeedTarget, PubkySocialFile,
+    PubkySocialFollow, PubkySocialMute, PubkySocialObject, PubkySocialPost, PubkySocialPostKind,
+    PubkySocialResourceFamily, PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource,
+    StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -287,6 +288,8 @@ struct FeedInput {
     sort: String,
     #[serde(default)]
     content: Option<String>,
+    #[serde(default)]
+    target: Option<String>,
     name: String,
     icon: String,
 }
@@ -695,18 +698,31 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "createFeed" => {
             let owner = PubkyId::try_from(a.s()?)?;
             let i: FeedInput = a.parsed()?;
+            // A resources feed names a resource family where a post feed names a post kind
+            let is_resources = i.target.as_deref() == Some("resources");
             let content = i
                 .content
-                .map(|c| PubkySocialPostKind::from_str(&c))
+                .map(|c| {
+                    if is_resources {
+                        PubkySocialResourceFamily::from_str(&c).map(PubkySocialPostKind::from)
+                    } else {
+                        PubkySocialPostKind::from_str(&c)
+                    }
+                })
                 .transpose()?;
-            let config = PubkySocialFeedConfig::new(
-                i.tags,
-                i.domain_tags,
-                PubkySocialFeedReach::from_str(&i.reach)?,
-                PubkySocialFeedLayout::from_str(&i.layout)?,
-                PubkySocialFeedSort::from_str(&i.sort)?,
-                content,
-            )?;
+            // Every name before the filter lists, as the package judges them
+            let reach = PubkySocialFeedReach::from_str(&i.reach)?;
+            let layout = PubkySocialFeedLayout::from_str(&i.layout)?;
+            let sort = PubkySocialFeedSort::from_str(&i.sort)?;
+            let target = i
+                .target
+                .map(|t| PubkySocialFeedTarget::from_str(&t))
+                .transpose()?;
+            let mut config =
+                PubkySocialFeedConfig::new(i.tags, i.domain_tags, reach, layout, sort, content)?;
+            if let Some(target) = target {
+                config = config.with_target(target);
+            }
             let feed = PubkySocialFeed::new(config, i.name, i.icon);
             // derive_id validates the feed first
             let id = feed.derive_id()?;

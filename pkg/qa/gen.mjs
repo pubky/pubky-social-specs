@@ -392,6 +392,16 @@ const feedInput = (r) => {
   if (r.chance(0.4)) o.content = r.pick([null, "note", "article", "collection", "short", "unknown"]);
   return o;
 };
+// The feed family only, so the other families keep their requests: a target, and for resources
+// mostly a resource family or none, and no domain tags
+const targeted = (r, o) => {
+  if (r.chance(0.4)) o.target = r.pick([null, "posts", "resources", "resources", "resources", "events"]);
+  if (o.target === "resources" && r.chance(0.7)) {
+    o.content = r.pick([null, "music", "video", "place", "event", "book", "software", "podcast", "article", "note", "poll"]);
+    delete o.domain_tags;
+  }
+  return o;
+};
 const feedIdText = (f) => {
   try {
     return feedIdOfText(f);
@@ -399,12 +409,16 @@ const feedIdText = (f) => {
     return "0".repeat(26);
   }
 };
-const feedIdOfText = (f) => hashOfText(`${f.feed.reach}:${f.feed.layout}:${f.feed.sort}:${f.feed.content ?? ""}:${(f.feed.tags ?? []).join(",")}:${(f.feed.domain_tags ?? []).join(",")}`);
-const storedFeed = (r) => {
-  const i = feedInput(r);
+const feedIdOfText = (f) => {
+  const filter = `${f.feed.reach}:${f.feed.layout}:${f.feed.sort}:${f.feed.content ?? ""}:${(f.feed.tags ?? []).join(",")}:${(f.feed.domain_tags ?? []).join(",")}`;
+  return hashOfText(f.feed.target == null || f.feed.target === "posts" ? filter : `${f.feed.target}:${filter}`);
+};
+const storedFeed = (r, target = false) => {
+  const i = target ? targeted(r, feedInput(r)) : feedInput(r);
   const sorted = (tags) => (tags && r.chance(0.8) ? [...new Set(tags.map((t) => t.trim().toLowerCase()))].sort() : tags);
   const f = { feed: { tags: sorted(i.tags ?? null), reach: i.reach, layout: i.layout, sort: i.sort, content: i.content ?? null }, name: i.name, created_at: raw(stamp(r)) };
   if (i.domain_tags !== undefined) f.feed.domain_tags = sorted(i.domain_tags);
+  if (i.target !== undefined) f.feed.target = i.target;
   if (r.chance(0.8)) f.icon = i.icon;
   if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));
   return f;
@@ -715,10 +729,10 @@ export const families = {
   },
   feed: (r) =>
     r.pick([
-      () => request("createFeed", s(key(r)), { j: JSON.stringify(feedInput(r)) }),
+      () => request("createFeed", s(key(r)), { j: JSON.stringify(targeted(r, feedInput(r))) }),
       () => request("feedPaths", s(r.pick([hashIdText(r), hashIdText(r), "~" + hashIdText(r), "_x", ""]))),
       () => {
-        const f = storedFeed(r);
+        const f = storedFeed(r, true);
         const id = r.chance(0.85) && f.feed && typeof f.feed === "object" ? feedIdText(f) : hashIdText(r);
         const text = withRaw(stored(r, f));
         return r.chance(0.7) ? request("decode", s(`pubky://${OWNER}/${r.pick(["priv", "priv", "pub"])}/social/v1/feeds/${id}.json`), { j: text }) : request("feedId", { j: text });

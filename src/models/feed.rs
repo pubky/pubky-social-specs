@@ -76,6 +76,89 @@ wire_names!(PubkySocialFeedSort {
     Popularity => "popularity",
 });
 
+/// What a feed lists. `Posts` is the default and is stored as no member at all, so every feed
+/// written before the member existed keeps its bytes and its id. `Resources` lists the external
+/// links people tag, which are no posts: such a feed has no content kind and no domain filter.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(from = "String", into = "String")]
+#[non_exhaustive]
+pub enum PubkySocialFeedTarget {
+    Posts,
+    Resources,
+    Unknown(String),
+}
+
+wire_names!(PubkySocialFeedTarget {
+    Posts => "posts",
+    Resources => "resources",
+});
+
+/// The kind of external resource a feed of [`PubkySocialFeedTarget::Resources`] may list instead
+/// of every kind. It is stored in the feed's `content`, where a post feed names a post kind, so it
+/// takes the content segment of the id. A closed list: a resources feed naming another is refused.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(from = "String", into = "String")]
+#[non_exhaustive]
+pub enum PubkySocialResourceFamily {
+    Music,
+    Video,
+    Podcast,
+    Place,
+    Event,
+    Book,
+    Article,
+    Software,
+    Unknown(String),
+}
+
+wire_names!(PubkySocialResourceFamily {
+    Music => "music",
+    Video => "video",
+    Podcast => "podcast",
+    Place => "place",
+    Event => "event",
+    Book => "book",
+    Article => "article",
+    Software => "software",
+});
+
+impl PubkySocialResourceFamily {
+    /// Every family this version knows, in their order.
+    pub const ALL: [PubkySocialResourceFamily; 8] = [
+        Self::Music,
+        Self::Video,
+        Self::Podcast,
+        Self::Place,
+        Self::Event,
+        Self::Book,
+        Self::Article,
+        Self::Software,
+    ];
+
+    /// The schema.org types the family stands for: a resource is of the family when its type is
+    /// one of these or a subtype of one. Empty for a family this version does not know.
+    pub fn root_types(&self) -> &'static [&'static str] {
+        match self {
+            Self::Music => &["MusicRecording", "MusicPlaylist", "MusicGroup"],
+            Self::Video => &["VideoObject", "Movie", "TVSeries"],
+            Self::Podcast => &["PodcastSeries", "PodcastEpisode"],
+            Self::Place => &["Place"],
+            Self::Event => &["Event"],
+            Self::Book => &["Book"],
+            Self::Article => &["Article"],
+            Self::Software => &["SoftwareApplication", "SoftwareSourceCode"],
+            Self::Unknown(_) => &[],
+        }
+    }
+}
+
+/// A family as a feed stores it: in `content`, spelled as its wire name.
+impl From<PubkySocialResourceFamily> for PubkySocialPostKind {
+    fn from(family: PubkySocialResourceFamily) -> Self {
+        PubkySocialPostKind::from(family.wire_name().to_string())
+    }
+}
+
 /// Configuration object for the feed. The whole of a feed's identity: two feeds with the
 /// same config are the same feed, whatever they are named.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -91,6 +174,12 @@ pub struct PubkySocialFeedConfig {
     pub layout: PubkySocialFeedLayout,
     pub sort: PubkySocialFeedSort,
     pub content: Option<PubkySocialPostKind>,
+    /// What the feed lists; `None` is posts. A resources feed's `content` is a
+    /// [`PubkySocialResourceFamily`] spelled as its wire name, or `None` for every family. A writer stores `None` for posts, see
+    /// [`PubkySocialFeedConfig::with_target`]; a stored `"posts"` reads as written and derives the
+    /// same id as `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<PubkySocialFeedTarget>,
     /// Unknown members, preserved on rewrite; see the module contract in `models/mod.rs`.
     /// Outside the id input, which reads named fields only.
     #[serde(flatten)]
@@ -120,8 +209,29 @@ impl PubkySocialFeedConfig {
             layout,
             sort,
             content,
+            target: None,
             extra: Default::default(),
         })
+    }
+
+    /// The config listing `target`. Posts, the default, is stored as no member, so the bytes
+    /// and the id of a post feed are the ones it had before the member existed. The rules of a
+    /// target (a resources feed has no content kind and no domain filter) are checked with the
+    /// rest of the feed, by [`PubkySocialFeed::derive_id`].
+    pub fn with_target(mut self, target: PubkySocialFeedTarget) -> Self {
+        self.target = (target != PubkySocialFeedTarget::Posts).then_some(target);
+        self
+    }
+
+    /// The resource family a resources feed lists, read from `content`; `None` for every family
+    /// and for a post feed.
+    pub fn resource_family(&self) -> Option<PubkySocialResourceFamily> {
+        if self.target != Some(PubkySocialFeedTarget::Resources) {
+            return None;
+        }
+        self.content
+            .as_ref()
+            .map(|c| PubkySocialResourceFamily::from(c.wire_name().to_string()))
     }
 }
 
@@ -234,7 +344,7 @@ impl Validatable for PubkySocialFeedConfig {
         _id: Option<&str>,
         _ctx: &ValidationCtx,
     ) -> Result<(), ValidationError> {
-        // reach, layout and sort define the feed, so an unknown value rejects it.
+        // reach, layout, sort and target define the feed, so an unknown value rejects it.
         // An unknown content filter only degrades to "no filter", so it passes.
         if !self.reach.is_known() {
             return Err("Validation Error: feed reach is unknown".into());
@@ -245,12 +355,34 @@ impl Validatable for PubkySocialFeedConfig {
         if !self.sort.is_known() {
             return Err("Validation Error: feed sort is unknown".into());
         }
+        if self.target.as_ref().is_some_and(|t| !t.is_known()) {
+            return Err("Validation Error: feed target is unknown".into());
+        }
         check_extra(
             &self.extra,
-            &["tags", "domain_tags", "reach", "layout", "sort", "content"],
+            &[
+                "tags",
+                "domain_tags",
+                "reach",
+                "layout",
+                "sort",
+                "content",
+                "target",
+            ],
         )?;
         validate_tag_list(&self.tags, "tags")?;
         validate_tag_list(&self.domain_tags, "domain_tags")?;
+        // An external resource has a family, not a post kind, and its links carry no domain tags
+        if self.target == Some(PubkySocialFeedTarget::Resources) {
+            if self.resource_family().is_some_and(|f| !f.is_known()) {
+                return Err("Validation Error: feed resource family is unknown".into());
+            }
+            if self.domain_tags.is_some() {
+                return Err(
+                    "Validation Error: A resources feed cannot filter by domain_tags".into(),
+                );
+            }
+        }
 
         Ok(())
     }
@@ -389,13 +521,24 @@ impl HashId for PubkySocialFeed {
     /// printable token: '-' would collide with the legal label `["-"]`. `name`, `icon`,
     /// `created_at` and `extra` stay outside: a feed is what it filters, not how it looks.
     ///
+    /// A target other than posts goes in front, "{target}:" and then the six segments, so a
+    /// post feed, whose target is stored as no member, keeps the id it had before the member
+    /// existed. A prefix, never a suffix: every older id input starts with a reach, a valid
+    /// feed's reach is a known one and no reach is a target's name, while the last segment ends
+    /// in a domain label anyone can choose (`content: ":music"` with `domain_tags: ["resources"]`
+    /// would spell a suffix).
+    ///
     /// Writers go through [`PubkySocialFeed::derive_id`], which validates the config first. A
     /// name this version does not know is spelled as it was read, so it derives the writer's id.
     fn get_id_data(&self) -> String {
         let list =
             |l: &Option<Vec<String>>| l.as_ref().map_or_else(String::new, |list| list.join(","));
+        let target = match &self.feed.target {
+            None | Some(PubkySocialFeedTarget::Posts) => String::new(),
+            Some(target) => format!("{}:", target.wire_name()),
+        };
         format!(
-            "{}:{}:{}:{}:{}:{}",
+            "{target}{}:{}:{}:{}:{}:{}",
             self.feed.reach.wire_name(),
             self.feed.layout.wire_name(),
             self.feed.sort.wire_name(),
@@ -491,6 +634,31 @@ impl FromStr for PubkySocialFeedSort {
     }
 }
 
+impl FromStr for PubkySocialResourceFamily {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match PubkySocialResourceFamily::from(s.to_string()) {
+            PubkySocialResourceFamily::Unknown(_) => {
+                Err(format!("Validation Error: Invalid resource family: {}", s))
+            }
+            family => Ok(family),
+        }
+    }
+}
+
+impl FromStr for PubkySocialFeedTarget {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "posts" => Ok(PubkySocialFeedTarget::Posts),
+            "resources" => Ok(PubkySocialFeedTarget::Resources),
+            _ => Err(format!("Validation Error: Invalid feed target: {}", s)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -521,6 +689,7 @@ mod tests {
             layout,
             sort,
             content,
+            target: None,
             extra: Default::default(),
         }
     }
@@ -1272,5 +1441,315 @@ mod tests {
         assert_eq!(f.icon, Some("bitcoin".to_string()));
         let now = timestamp();
         assert!(f.created_at <= now && f.created_at >= now - 1_000_000);
+    }
+
+    /// The music feed of the audit, as a post feed and as a resources feed.
+    fn music(target: PubkySocialFeedTarget) -> PubkySocialFeed {
+        let config = PubkySocialFeedConfig::new(
+            Some(vec!["music".into()]),
+            None,
+            R::All,
+            L::Columns,
+            S::Recent,
+            None,
+        )
+        .unwrap()
+        .with_target(target);
+        PubkySocialFeed::new(config, "Music".into(), "music".into())
+    }
+
+    #[test]
+    fn test_a_post_feed_keeps_the_id_it_had_before_target() {
+        use PubkySocialPostKind as K;
+        // Ids as 1.0.0-rc.1, which had no target, derived them for these filters
+        for (config, id_data, id) in [
+            (
+                (
+                    Some(vec!["music"]),
+                    None,
+                    R::All,
+                    L::Columns,
+                    S::Recent,
+                    None,
+                ),
+                "all:columns:recent::music:",
+                "C7PHA9M1X90SH1H2X2YPGY9QW4",
+            ),
+            (
+                (None, None, R::All, L::Columns, S::Recent, None),
+                "all:columns:recent:::",
+                "96WQS9A0JPXNBAKR4GY7FBT458",
+            ),
+            (
+                (None, None, R::All, L::Columns, S::Recent, Some(K::Link)),
+                "all:columns:recent:link::",
+                "TSMT23MF0717S1Y389AH13KFMR",
+            ),
+            (
+                (
+                    Some(vec!["a", "b"]),
+                    Some(vec!["x"]),
+                    R::Following,
+                    L::List,
+                    S::Popularity,
+                    None,
+                ),
+                "following:list:popularity::a,b:x",
+                "TXS1GDBJ56JZ10R30VP33FQVPR",
+            ),
+            (
+                (
+                    Some(vec!["music", "video"]),
+                    None,
+                    R::Wot,
+                    L::Visual,
+                    S::Recent,
+                    Some(K::Image),
+                ),
+                "wot:visual:recent:image:music,video:",
+                "QWRTXFXGWMX6DJ44D7X96F7VZW",
+            ),
+        ] {
+            let (tags, domain_tags, reach, layout, sort, content) = config;
+            let plain = feed(stored(tags, domain_tags, reach, layout, sort, content));
+            assert_eq!(plain.get_id_data(), id_data);
+            assert_eq!(plain.derive_id().unwrap(), id);
+            // A stored "posts" is the same feed: it derives the same id and validates there
+            let mut posts = plain.clone();
+            posts.feed.target = Some(PubkySocialFeedTarget::Posts);
+            assert_eq!(posts.derive_id().unwrap(), id);
+            assert!(posts.validate(Some(id), &PRIV_CTX).is_ok());
+            // and the builder never writes it
+            let built = plain.feed.clone().with_target(PubkySocialFeedTarget::Posts);
+            assert_eq!(built.target, None);
+            let bytes = serde_json::to_string(&built).unwrap();
+            assert!(!bytes.contains("target"), "{bytes}");
+        }
+    }
+
+    #[test]
+    fn test_a_resources_feed_prefixes_its_id_input() {
+        let posts = music(PubkySocialFeedTarget::Posts);
+        let resources = music(PubkySocialFeedTarget::Resources);
+        assert_eq!(
+            resources.get_id_data(),
+            "resources:all:columns:recent::music:"
+        );
+        // blake3("resources:all:columns:recent::music:")[..16] in Crockford
+        assert_eq!(resources.derive_id().unwrap(), "D41H1J8VKZ4JDSKYADR4WGAQB4");
+        assert_eq!(posts.derive_id().unwrap(), "C7PHA9M1X90SH1H2X2YPGY9QW4");
+        // The path is the feeds leaf of every feed, under its own id
+        assert_eq!(
+            PubkySocialFeed::create_path(&resources.create_id()),
+            "/priv/social/v1/feeds/D41H1J8VKZ4JDSKYADR4WGAQB4.json"
+        );
+    }
+
+    #[test]
+    fn test_a_resources_feed_reads_at_its_own_path_only() {
+        let resources = music(PubkySocialFeedTarget::Resources);
+        let blob = serde_json::to_vec(&resources).unwrap();
+        let text = String::from_utf8(blob.clone()).unwrap();
+        assert!(
+            text.starts_with(r#"{"feed":{"tags":["music"],"reach":"all","layout":"columns","sort":"recent","content":null,"target":"resources"},"#),
+            "{text}"
+        );
+        let id = resources.create_id();
+        let read = <PubkySocialFeed as Validatable>::try_from(&blob, &id, &PRIV_CTX).unwrap();
+        assert_eq!(read, resources);
+        // The bytes it reads are the bytes it writes back
+        assert_eq!(serde_json::to_vec(&read).unwrap(), blob);
+        // At the path of the post feed with the same filter it is refused, not read as that feed
+        let e = <PubkySocialFeed as Validatable>::try_from(
+            &blob,
+            "C7PHA9M1X90SH1H2X2YPGY9QW4",
+            &PRIV_CTX,
+        )
+        .unwrap_err();
+        assert!(e.contains("Invalid ID"), "{e}");
+    }
+
+    #[test]
+    fn test_an_unknown_target_is_refused_on_read() {
+        let blob = br#"{"feed":{"tags":null,"reach":"all","layout":"columns","sort":"recent","content":null,"target":"events"},"name":"x","icon":"a","created_at":1}"#;
+        let f: PubkySocialFeed = serde_json::from_slice(blob).unwrap();
+        assert_eq!(
+            f.feed.target,
+            Some(PubkySocialFeedTarget::Unknown("events".into()))
+        );
+        for id in ["96WQS9A0JPXNBAKR4GY7FBT458", "8Z8CWH8NVYQY39ZEBFGKQWWEKG"] {
+            let e = <PubkySocialFeed as Validatable>::try_from(blob, id, &PRIV_CTX).unwrap_err();
+            assert_eq!(e, "Validation Error: feed target is unknown");
+        }
+        assert_eq!(
+            f.derive_id().unwrap_err(),
+            "Validation Error: feed target is unknown"
+        );
+        assert_eq!(
+            PubkySocialFeedTarget::from_str("events").unwrap_err(),
+            "Validation Error: Invalid feed target: events"
+        );
+    }
+
+    #[test]
+    fn test_a_resources_feed_lists_one_family_or_every_one_and_has_no_domain_filter() {
+        use PubkySocialResourceFamily as F;
+        let with_family = |family: PubkySocialPostKind| {
+            let mut f = music(PubkySocialFeedTarget::Resources);
+            f.feed.content = Some(family);
+            f
+        };
+        // A family takes the content segment, so music resources, every resource and music posts
+        // are three feeds
+        let music_resources = with_family(F::Music.into());
+        assert_eq!(music_resources.feed.resource_family(), Some(F::Music));
+        assert_eq!(
+            music_resources.get_id_data(),
+            "resources:all:columns:recent:music:music:"
+        );
+        // blake3("resources:all:columns:recent:music:music:")[..16] in Crockford
+        assert_eq!(
+            music_resources.derive_id().unwrap(),
+            "5P5SE7RGEQY7Y9SMFWQW1NBBP8"
+        );
+        let every_resource = music(PubkySocialFeedTarget::Resources);
+        assert_eq!(every_resource.feed.resource_family(), None);
+        assert_eq!(
+            every_resource.derive_id().unwrap(),
+            "D41H1J8VKZ4JDSKYADR4WGAQB4"
+        );
+        // A post feed naming "music" keeps what 1.0.0-rc.1 gave it: an unknown post kind, its id
+        let music_posts = {
+            let mut f = music(PubkySocialFeedTarget::Posts);
+            f.feed.content = Some(PubkySocialPostKind::from("music".to_string()));
+            f
+        };
+        assert_eq!(music_posts.feed.resource_family(), None);
+        assert_eq!(
+            music_posts.derive_id().unwrap(),
+            "6FDXEC941FXXGPXPJ1K8V19J54"
+        );
+
+        // Every family round-trips through the stored bytes at its own id
+        for family in F::ALL {
+            let f = with_family(family.clone().into());
+            let id = f.derive_id().unwrap();
+            let blob = serde_json::to_vec(&f).unwrap();
+            let read = <PubkySocialFeed as Validatable>::try_from(&blob, &id, &PRIV_CTX).unwrap();
+            assert_eq!(read.feed.resource_family(), Some(family));
+            assert_eq!(serde_json::to_vec(&read).unwrap(), blob);
+        }
+
+        // A post kind, or any name off the list, is refused on a resources feed
+        for content in [
+            PubkySocialPostKind::Link,
+            PubkySocialPostKind::from("poll".to_string()),
+        ] {
+            assert_eq!(
+                with_family(content).derive_id().unwrap_err(),
+                "Validation Error: feed resource family is unknown"
+            );
+        }
+        assert_eq!(
+            F::from_str("poll").unwrap_err(),
+            "Validation Error: Invalid resource family: poll"
+        );
+        let mut with_domains = music(PubkySocialFeedTarget::Resources);
+        with_domains.feed.domain_tags = Some(vec!["dev".into()]);
+        assert_eq!(
+            with_domains.derive_id().unwrap_err(),
+            "Validation Error: A resources feed cannot filter by domain_tags"
+        );
+        // A post feed keeps both
+        let mut post = music(PubkySocialFeedTarget::Posts);
+        post.feed.content = Some(PubkySocialPostKind::Link);
+        post.feed.domain_tags = Some(vec!["dev".into()]);
+        assert!(post.derive_id().is_ok());
+    }
+
+    #[test]
+    fn test_resource_families_and_their_root_types_are_the_shared_table() {
+        let table: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!(
+            "../../vectors/semantic/resource_families.json"
+        ))
+        .unwrap();
+        // The map reads sorted (the package test checks the order)
+        let names: Vec<&str> = table.keys().map(String::as_str).collect();
+        let mut ours: Vec<&str> = PubkySocialResourceFamily::ALL
+            .iter()
+            .map(|f| f.wire_name())
+            .collect();
+        ours.sort_unstable();
+        assert_eq!(names, ours);
+        for family in PubkySocialResourceFamily::ALL {
+            let roots: Vec<&str> = table[family.wire_name()]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap())
+                .collect();
+            assert_eq!(roots, family.root_types(), "{}", family.wire_name());
+            assert_eq!(
+                PubkySocialResourceFamily::from_str(family.wire_name()).unwrap(),
+                family
+            );
+        }
+        assert!(PubkySocialResourceFamily::Unknown("other".into())
+            .root_types()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_no_older_feed_spells_the_id_input_of_a_resources_feed() {
+        let resources = music(PubkySocialFeedTarget::Resources);
+        // A valid older feed whose id input is the music filter with ":resources" after it: an
+        // unknown content kind is kept as written and a domain label is anyone's choice
+        let forged = feed(stored(
+            None,
+            Some(vec!["resources"]),
+            R::All,
+            L::Columns,
+            S::Recent,
+            Some(PubkySocialPostKind::Unknown(":music".into())),
+        ));
+        assert!(validate(&forged).is_ok());
+        assert_eq!(forged.get_id_data(), "all:columns:recent::music::resources");
+        assert_eq!(
+            forged.get_id_data(),
+            format!(
+                "{}:resources",
+                music(PubkySocialFeedTarget::Posts).get_id_data()
+            )
+        );
+        assert_ne!(forged.create_id(), resources.create_id());
+        // An older id input starts with a reach, and a reach named like a target is refused
+        let e = feed(stored(
+            Some(vec!["music"]),
+            None,
+            R::Unknown("resources".into()),
+            L::Columns,
+            S::Recent,
+            None,
+        ))
+        .derive_id()
+        .unwrap_err();
+        assert_eq!(e, "Validation Error: feed reach is unknown");
+    }
+
+    #[test]
+    fn test_target_wire_names() {
+        for t in [
+            PubkySocialFeedTarget::Posts,
+            PubkySocialFeedTarget::Resources,
+            PubkySocialFeedTarget::Unknown("events".into()),
+        ] {
+            assert_eq!(
+                serde_json::to_value(&t).unwrap().as_str().unwrap(),
+                t.wire_name()
+            );
+            if t.is_known() {
+                assert_eq!(PubkySocialFeedTarget::from_str(t.wire_name()).unwrap(), t);
+            }
+        }
     }
 }

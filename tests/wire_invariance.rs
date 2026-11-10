@@ -113,6 +113,7 @@ fn feed_config() -> PubkySocialFeedConfig {
         layout: PubkySocialFeedLayout::Columns,
         sort: PubkySocialFeedSort::Recent,
         content: Some(PubkySocialPostKind::Note),
+        target: None,
         extra: Default::default(),
     }
 }
@@ -132,6 +133,7 @@ fn feed_legacy() -> PubkySocialFeed {
             layout: PubkySocialFeedLayout::List,
             sort: PubkySocialFeedSort::Popularity,
             content: None,
+            target: None,
             extra: Default::default(),
         },
         name: "All".into(),

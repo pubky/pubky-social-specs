@@ -45,7 +45,8 @@ pub use models::deletion::{deletion_paths, Listing};
 pub use models::feed::{
     feed_paths, plan_feed_delete, plan_feed_publish, plan_feed_unpublish, FeedDeletePlan,
     FeedPaths, FeedPublishPlan, FeedUnpublishPlan, PubkySocialFeed, PubkySocialFeedConfig,
-    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort,
+    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFeedTarget,
+    PubkySocialResourceFamily,
 };
 pub use models::file::{CreatedFile, PubkySocialFile, VALID_MIME_TYPES};
 pub use models::follow::PubkySocialFollow;
