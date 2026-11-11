@@ -486,6 +486,7 @@ describe("pubky-social-specs", () => {
       assert.deepStrictEqual([postKind.code, postKind.field, postKind.message], ["format", "content", "Validation Error: Feed resource type 'link' is not a schema.org type name"]);
       const songs = buildFeed(OTTO, { ...music, target: "resources", content: "MusicRecording" });
       // blake3("resources:all:columns:recent:MusicRecording:music:"): the types take the content segment
+      assert.strictEqual(songs.id, "33BN1J3Z0K9HWVJ0S4NG873Y4R");
       assert.strictEqual(songs.id, feedId({ ...resources.object, feed: { ...resources.object.feed, content: "MusicRecording" } }));
       assert.strictEqual(text(songs.body), body.replace('"content":null', '"content":"MusicRecording"'));
       assert.strictEqual(decodeObject(songs.url, songs.body).object.feed.content, "MusicRecording");
@@ -494,11 +495,14 @@ describe("pubky-social-specs", () => {
       // One set of types is one feed, whatever order the caller gave
       const albumsAndSongs = buildFeed(OTTO, { ...music, target: "resources", content: "MusicRecording,MusicAlbum,MusicRecording" });
       assert.strictEqual(albumsAndSongs.object.feed.content, "MusicAlbum,MusicRecording");
+      // blake3("resources:all:columns:recent:MusicAlbum,MusicRecording:music:")
+      assert.strictEqual(albumsAndSongs.id, "W08646R2D8VBVGZ6WMXV86AGQG");
       assert.strictEqual(albumsAndSongs.id, buildFeed(OTTO, { ...music, target: "resources", content: "MusicAlbum,MusicRecording" }).id);
       assert.deepStrictEqual(feedResourceTypes(albumsAndSongs.object.feed), ["MusicAlbum", "MusicRecording"]);
       // A post feed naming "MusicRecording" keeps what 1.0.0-rc.1 gave it: an unknown post kind with its own id
       const songPosts = { ...posts.object, feed: { ...posts.object.feed, content: "MusicRecording" } };
       assert.strictEqual(feedResourceTypes(songPosts.feed), null);
+      assert.strictEqual(feedId(songPosts), "Y62T3RNH68JPZF4C3WEYY66618");
       refuses(() => buildFeed(OTTO, { ...music, content: "MusicRecording" }), "Validation Error: Invalid content kind: MusicRecording");
       assert.strictEqual(new Set([songs.id, albumsAndSongs.id, resources.id, posts.id, feedId(songPosts)]).size, 5);
 

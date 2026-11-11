@@ -1616,6 +1616,8 @@ mod tests {
             "resources:all:columns:recent:MusicRecording:music:"
         );
         let songs_id = songs.derive_id().unwrap();
+        // blake3("resources:all:columns:recent:MusicRecording:music:")[..16] in Crockford
+        assert_eq!(songs_id, "33BN1J3Z0K9HWVJ0S4NG873Y4R");
         let every_resource = music(PubkySocialFeedTarget::Resources);
         assert_eq!(every_resource.feed.resource_types(), None);
         assert_eq!(
@@ -1629,11 +1631,15 @@ mod tests {
         };
         assert_eq!(songs_posts.feed.resource_types(), None);
         let posts_id = songs_posts.derive_id().unwrap();
+        // blake3("all:columns:recent:MusicRecording:music:"): an unknown post kind, as 1.0.0-rc.1 had it
+        assert_eq!(posts_id, "Y62T3RNH68JPZF4C3WEYY66618");
         assert_ne!(songs_id, posts_id);
         assert_ne!(songs_id, every_resource.derive_id().unwrap());
 
         // A list is one content segment, and round-trips through the stored bytes at its own id
         let eating = with_types("FoodEstablishment,Restaurant");
+        // blake3("resources:all:columns:recent:FoodEstablishment,Restaurant:music:")
+        assert_eq!(eating.derive_id().unwrap(), "6KHSJG4TBFADVN49X67HCJA7WM");
         assert_eq!(
             eating.get_id_data(),
             "resources:all:columns:recent:FoodEstablishment,Restaurant:music:"
