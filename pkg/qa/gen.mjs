@@ -393,11 +393,61 @@ const feedInput = (r) => {
   return o;
 };
 // The feed family only, so the other families keep their requests: a target, and for resources
-// mostly a resource family or none, and no domain tags
+// mostly a list of schema.org types or none, and no domain tags
+const RESOURCE_TYPES = [
+  "MusicRecording",
+  "MusicAlbum",
+  "MusicGroup",
+  "Event",
+  "Place",
+  "Restaurant",
+  "FoodEstablishment",
+  "Book",
+  "3DModel",
+  "A0",
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A5",
+  "A6",
+  "A7",
+  "A8",
+  "A9",
+];
+const resourceTypeList = (r) =>
+  r.pick([
+    () => null,
+    () => r.pick(RESOURCE_TYPES),
+    () => Array.from({ length: 1 + r.below(12) }, () => r.pick(RESOURCE_TYPES)).join(","),
+    () =>
+      r.pick([
+        "music",
+        "note",
+        "poll",
+        "",
+        "Event,",
+        ",Place",
+        "Event, Place",
+        "Music Recording",
+        "Music_Group",
+        "schema:Event",
+        "Événement",
+        "Event,Event",
+        "Place,Event",
+        "Ab,AB",
+        "0",
+        "A".repeat(65),
+        "A".repeat(64),
+        "é".repeat(70),
+      ]),
+    // past the caps: 12 distinct names, a name of 65
+    () => r.pick(["A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,B0,B1", "B1,B0,A9,A8,A7,A6,A5,A4,A3,A2,A1,A0", `Event,${"A".repeat(65)}`, "A".repeat(65)]),
+  ])();
 const targeted = (r, o) => {
   if (r.chance(0.4)) o.target = r.pick([null, "posts", "resources", "resources", "resources", "events"]);
   if (o.target === "resources" && r.chance(0.7)) {
-    o.content = r.pick([null, "music", "video", "place", "event", "book", "software", "podcast", "article", "note", "poll"]);
+    o.content = resourceTypeList(r);
     delete o.domain_tags;
   }
   return o;
@@ -419,6 +469,10 @@ const storedFeed = (r, target = false) => {
   const f = { feed: { tags: sorted(i.tags ?? null), reach: i.reach, layout: i.layout, sort: i.sort, content: i.content ?? null }, name: i.name, created_at: raw(stamp(r)) };
   if (i.domain_tags !== undefined) f.feed.domain_tags = sorted(i.domain_tags);
   if (i.target !== undefined) f.feed.target = i.target;
+  // A resources feed's type list, mostly as the builder stores it, so reads also get past that rule
+  if (i.target === "resources" && typeof f.feed.content === "string" && r.chance(0.8)) {
+    f.feed.content = [...new Set(f.feed.content.split(","))].sort().join(",");
+  }
   if (r.chance(0.8)) f.icon = i.icon;
   if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));
   return f;

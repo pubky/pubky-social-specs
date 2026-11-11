@@ -41,6 +41,10 @@ export const limits = /* @__PURE__ */ Object.freeze({
   feedIconMaxLength: 50,
   /** The longest feed name, in code points: 100. */
   feedNameMaxLength: 100,
+  /** The longest schema.org type name in a resources feed's `content`, in code points: 64. */
+  feedResourceTypeMaxLength: 64,
+  /** The most schema.org types in a resources feed's `content`, in items: 10. */
+  feedResourceTypesMaxCount: 10,
   /** The most labels in a feed's `tags`, and in its `domain_tags`, in items: 5. */
   feedTagsMaxCount: 5,
   /** The longest profile `image` and article or collection `cover_image`, in code points: 300. */

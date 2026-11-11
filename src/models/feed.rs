@@ -78,7 +78,8 @@ wire_names!(PubkySocialFeedSort {
 
 /// What a feed lists. `Posts` is the default and is stored as no member at all, so every feed
 /// written before the member existed keeps its bytes and its id. `Resources` lists the external
-/// links people tag, which are no posts: such a feed has no content kind and no domain filter.
+/// links people tag, which are no posts: such a feed has no post kind (its `content` lists
+/// schema.org types) and no domain filter.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
 #[non_exhaustive]
@@ -93,70 +94,84 @@ wire_names!(PubkySocialFeedTarget {
     Resources => "resources",
 });
 
-/// The kind of external resource a feed of [`PubkySocialFeedTarget::Resources`] may list instead
-/// of every kind. It is stored in the feed's `content`, where a post feed names a post kind, so it
-/// takes the content segment of the id. A closed list: a resources feed naming another is refused.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(from = "String", into = "String")]
-#[non_exhaustive]
-pub enum PubkySocialResourceFamily {
-    Music,
-    Video,
-    Podcast,
-    Place,
-    Event,
-    Book,
-    Article,
-    Software,
-    Unknown(String),
+/// Whether `name` is spelled as a schema.org type name: an ASCII capital letter or digit, then
+/// ASCII letters and digits (`MusicRecording`, `Restaurant`, `3DModel`). Only the spelling is
+/// checked: which types exist, and which are subtypes of which, is the index's business, so a
+/// type schema.org adds later is still a name.
+fn is_resource_type_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+        && chars.all(|c| c.is_ascii_alphanumeric())
 }
 
-wire_names!(PubkySocialResourceFamily {
-    Music => "music",
-    Video => "video",
-    Podcast => "podcast",
-    Place => "place",
-    Event => "event",
-    Book => "book",
-    Article => "article",
-    Software => "software",
-});
+/// A resources feed's `content` from a caller's list: schema.org type names separated by
+/// commas, with no spaces. The builder writes them deduplicated and sorted by code point, so one
+/// set of types is one feed with one id. A name that is not spelled as a type name or is longer
+/// than `feed_resource_type_max_length`, or more than `feed_resource_types_max_count` types, is
+/// refused. It comes back as the `content` a feed stores, which holds a post kind on a post feed,
+/// so as [`PubkySocialPostKind`]'s open variant.
+pub fn feed_resource_types(list: &str) -> Result<PubkySocialPostKind, String> {
+    let mut types = BTreeSet::new();
+    for name in list.split(',') {
+        if code_point_len(name) > VALIDATION_LIMITS.feed_resource_type_max_length {
+            return Err(resource_type_too_long());
+        }
+        if !is_resource_type_name(name) {
+            return Err(format!("Validation Error: Invalid resource type: {name}"));
+        }
+        types.insert(name);
+    }
+    if types.len() > VALIDATION_LIMITS.feed_resource_types_max_count {
+        return Err(format!(
+            "Validation Error: A resources feed cannot list more than {} types",
+            VALIDATION_LIMITS.feed_resource_types_max_count
+        ));
+    }
+    Ok(PubkySocialPostKind::from(
+        types.into_iter().collect::<Vec<_>>().join(","),
+    ))
+}
 
-impl PubkySocialResourceFamily {
-    /// Every family this version knows, in their order.
-    pub const ALL: [PubkySocialResourceFamily; 8] = [
-        Self::Music,
-        Self::Video,
-        Self::Podcast,
-        Self::Place,
-        Self::Event,
-        Self::Book,
-        Self::Article,
-        Self::Software,
-    ];
+/// The refusal of a name past `feed_resource_type_max_length`; it does not quote the name, which
+/// can be as long as the object.
+fn resource_type_too_long() -> String {
+    format!(
+        "Validation Error: Feed resource type names cannot be longer than {} characters",
+        VALIDATION_LIMITS.feed_resource_type_max_length
+    )
+}
 
-    /// The schema.org types the family stands for: a resource is of the family when its type is
-    /// one of these or a subtype of one. Empty for a family this version does not know.
-    pub fn root_types(&self) -> &'static [&'static str] {
-        match self {
-            Self::Music => &["MusicRecording", "MusicPlaylist", "MusicGroup"],
-            Self::Video => &["VideoObject", "Movie", "TVSeries"],
-            Self::Podcast => &["PodcastSeries", "PodcastEpisode"],
-            Self::Place => &["Place"],
-            Self::Event => &["Event"],
-            Self::Book => &["Book"],
-            Self::Article => &["Article"],
-            Self::Software => &["SoftwareApplication", "SoftwareSourceCode"],
-            Self::Unknown(_) => &[],
+/// A stored type list must be what [`feed_resource_types`] writes: every name spelled as a
+/// schema.org type name within the length cap, within the count cap, and strictly increasing,
+/// which is deduplicated and sorted in one check. Anything else is refused rather than repaired,
+/// so one set of types keeps one id.
+fn validate_resource_types(content: &str) -> Result<(), String> {
+    let types: Vec<&str> = content.split(',').collect();
+    for name in &types {
+        if code_point_len(name) > VALIDATION_LIMITS.feed_resource_type_max_length {
+            return Err(resource_type_too_long());
+        }
+        if !is_resource_type_name(name) {
+            return Err(format!(
+                "Validation Error: Feed resource type '{name}' is not a schema.org type name"
+            ));
         }
     }
-}
-
-/// A family as a feed stores it: in `content`, spelled as its wire name.
-impl From<PubkySocialResourceFamily> for PubkySocialPostKind {
-    fn from(family: PubkySocialResourceFamily) -> Self {
-        PubkySocialPostKind::from(family.wire_name().to_string())
+    if types.len() > VALIDATION_LIMITS.feed_resource_types_max_count {
+        return Err(format!(
+            "Validation Error: A resources feed cannot list more than {} types",
+            VALIDATION_LIMITS.feed_resource_types_max_count
+        ));
     }
+    if !types.windows(2).all(|w| w[0] < w[1]) {
+        return Err(
+            "Validation Error: Feed resource types must be stored deduplicated and sorted by code point"
+                .into(),
+        );
+    }
+    Ok(())
 }
 
 /// Configuration object for the feed. The whole of a feed's identity: two feeds with the
@@ -173,9 +188,13 @@ pub struct PubkySocialFeedConfig {
     pub reach: PubkySocialFeedReach,
     pub layout: PubkySocialFeedLayout,
     pub sort: PubkySocialFeedSort,
+    /// The one post kind a post feed shows, or a newer writer's name kept as written; on a
+    /// resources feed its schema.org types, comma-separated and sorted (`MusicAlbum,MusicRecording`,
+    /// see [`feed_resource_types`]). `None` for every kind.
     pub content: Option<PubkySocialPostKind>,
-    /// What the feed lists; `None` is posts. A resources feed's `content` is a
-    /// [`PubkySocialResourceFamily`] spelled as its wire name, or `None` for every family. A writer stores `None` for posts, see
+    /// What the feed lists; `None` is posts. A resources feed's `content` is a list of up to
+    /// ten schema.org type names (see [`feed_resource_types`]), or `None` for every type. A
+    /// writer stores `None` for posts, see
     /// [`PubkySocialFeedConfig::with_target`]; a stored `"posts"` reads as written and derives the
     /// same id as `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -216,22 +235,24 @@ impl PubkySocialFeedConfig {
 
     /// The config listing `target`. Posts, the default, is stored as no member, so the bytes
     /// and the id of a post feed are the ones it had before the member existed. The rules of a
-    /// target (a resources feed has no content kind and no domain filter) are checked with the
+    /// target (a resources feed has no post kind, its `content` lists schema.org types, and no
+    /// domain filter) are checked with the
     /// rest of the feed, by [`PubkySocialFeed::derive_id`].
     pub fn with_target(mut self, target: PubkySocialFeedTarget) -> Self {
         self.target = (target != PubkySocialFeedTarget::Posts).then_some(target);
         self
     }
 
-    /// The resource family a resources feed lists, read from `content`; `None` for every family
-    /// and for a post feed.
-    pub fn resource_family(&self) -> Option<PubkySocialResourceFamily> {
+    /// The schema.org types a resources feed lists, read from the `content` of a decoded or built
+    /// feed (one that passed validation); `None` for every type and for a post feed. A resource is
+    /// listed when its type is one of these or a subtype of one, as the index reads it.
+    pub fn resource_types(&self) -> Option<Vec<&str>> {
         if self.target != Some(PubkySocialFeedTarget::Resources) {
             return None;
         }
         self.content
             .as_ref()
-            .map(|c| PubkySocialResourceFamily::from(c.wire_name().to_string()))
+            .map(|c| c.wire_name().split(',').collect())
     }
 }
 
@@ -372,10 +393,11 @@ impl Validatable for PubkySocialFeedConfig {
         )?;
         validate_tag_list(&self.tags, "tags")?;
         validate_tag_list(&self.domain_tags, "domain_tags")?;
-        // An external resource has a family, not a post kind, and its links carry no domain tags
+        // An external resource has a schema.org type, not a post kind, and its links carry no
+        // domain tags
         if self.target == Some(PubkySocialFeedTarget::Resources) {
-            if self.resource_family().is_some_and(|f| !f.is_known()) {
-                return Err("Validation Error: feed resource family is unknown".into());
+            if let Some(content) = &self.content {
+                validate_resource_types(content.wire_name())?;
             }
             if self.domain_tags.is_some() {
                 return Err(
@@ -630,19 +652,6 @@ impl FromStr for PubkySocialFeedSort {
             "recent" => Ok(PubkySocialFeedSort::Recent),
             "popularity" => Ok(PubkySocialFeedSort::Popularity),
             _ => Err(format!("Validation Error: Invalid feed sort: {}", s)),
-        }
-    }
-}
-
-impl FromStr for PubkySocialResourceFamily {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match PubkySocialResourceFamily::from(s.to_string()) {
-            PubkySocialResourceFamily::Unknown(_) => {
-                Err(format!("Validation Error: Invalid resource family: {}", s))
-            }
-            family => Ok(family),
         }
     }
 }
@@ -1592,68 +1601,104 @@ mod tests {
     }
 
     #[test]
-    fn test_a_resources_feed_lists_one_family_or_every_one_and_has_no_domain_filter() {
-        use PubkySocialResourceFamily as F;
-        let with_family = |family: PubkySocialPostKind| {
+    fn test_a_resources_feed_lists_schema_org_types_or_every_one_and_has_no_domain_filter() {
+        let with_types = |content: &str| {
             let mut f = music(PubkySocialFeedTarget::Resources);
-            f.feed.content = Some(family);
+            f.feed.content = Some(PubkySocialPostKind::from(content.to_string()));
             f
         };
-        // A family takes the content segment, so music resources, every resource and music posts
-        // are three feeds
-        let music_resources = with_family(F::Music.into());
-        assert_eq!(music_resources.feed.resource_family(), Some(F::Music));
+        // The types take the content segment, so songs, every resource and posts of an unknown
+        // kind of that name are three feeds
+        let songs = with_types("MusicRecording");
+        assert_eq!(songs.feed.resource_types(), Some(vec!["MusicRecording"]));
         assert_eq!(
-            music_resources.get_id_data(),
-            "resources:all:columns:recent:music:music:"
+            songs.get_id_data(),
+            "resources:all:columns:recent:MusicRecording:music:"
         );
-        // blake3("resources:all:columns:recent:music:music:")[..16] in Crockford
-        assert_eq!(
-            music_resources.derive_id().unwrap(),
-            "5P5SE7RGEQY7Y9SMFWQW1NBBP8"
-        );
+        let songs_id = songs.derive_id().unwrap();
         let every_resource = music(PubkySocialFeedTarget::Resources);
-        assert_eq!(every_resource.feed.resource_family(), None);
+        assert_eq!(every_resource.feed.resource_types(), None);
         assert_eq!(
             every_resource.derive_id().unwrap(),
             "D41H1J8VKZ4JDSKYADR4WGAQB4"
         );
-        // A post feed naming "music" keeps what 1.0.0-rc.1 gave it: an unknown post kind, its id
-        let music_posts = {
+        let songs_posts = {
             let mut f = music(PubkySocialFeedTarget::Posts);
-            f.feed.content = Some(PubkySocialPostKind::from("music".to_string()));
+            f.feed.content = Some(PubkySocialPostKind::from("MusicRecording".to_string()));
             f
         };
-        assert_eq!(music_posts.feed.resource_family(), None);
-        assert_eq!(
-            music_posts.derive_id().unwrap(),
-            "6FDXEC941FXXGPXPJ1K8V19J54"
-        );
+        assert_eq!(songs_posts.feed.resource_types(), None);
+        let posts_id = songs_posts.derive_id().unwrap();
+        assert_ne!(songs_id, posts_id);
+        assert_ne!(songs_id, every_resource.derive_id().unwrap());
 
-        // Every family round-trips through the stored bytes at its own id
-        for family in F::ALL {
-            let f = with_family(family.clone().into());
+        // A list is one content segment, and round-trips through the stored bytes at its own id
+        let eating = with_types("FoodEstablishment,Restaurant");
+        assert_eq!(
+            eating.get_id_data(),
+            "resources:all:columns:recent:FoodEstablishment,Restaurant:music:"
+        );
+        assert_eq!(
+            eating.feed.resource_types(),
+            Some(vec!["FoodEstablishment", "Restaurant"])
+        );
+        for f in [songs, eating, with_types("3DModel")] {
             let id = f.derive_id().unwrap();
             let blob = serde_json::to_vec(&f).unwrap();
             let read = <PubkySocialFeed as Validatable>::try_from(&blob, &id, &PRIV_CTX).unwrap();
-            assert_eq!(read.feed.resource_family(), Some(family));
+            assert_eq!(read.feed.resource_types(), f.feed.resource_types());
             assert_eq!(serde_json::to_vec(&read).unwrap(), blob);
         }
 
-        // A post kind, or any name off the list, is refused on a resources feed
-        for content in [
-            PubkySocialPostKind::Link,
-            PubkySocialPostKind::from("poll".to_string()),
+        // A post kind or a family name is no type name, and a stored list is the builder's
+        let ten = "A0,A1,A2,A3,A4,A5,A6,A7,A8,A9";
+        let long = "A".repeat(65);
+        assert!(with_types(ten).derive_id().is_ok());
+        for (content, error) in [
+            (
+                "link",
+                "Feed resource type 'link' is not a schema.org type name",
+            ),
+            (
+                "music",
+                "Feed resource type 'music' is not a schema.org type name",
+            ),
+            ("", "Feed resource type '' is not a schema.org type name"),
+            (
+                "Event,",
+                "Feed resource type '' is not a schema.org type name",
+            ),
+            (
+                "Event, Place",
+                "Feed resource type ' Place' is not a schema.org type name",
+            ),
+            (
+                "Music-Group",
+                "Feed resource type 'Music-Group' is not a schema.org type name",
+            ),
+            (
+                long.as_str(),
+                "Feed resource type names cannot be longer than 64 characters",
+            ),
+            (
+                "A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,B0",
+                "A resources feed cannot list more than 10 types",
+            ),
+            (
+                "Restaurant,FoodEstablishment",
+                "Feed resource types must be stored deduplicated and sorted by code point",
+            ),
+            (
+                "Event,Event",
+                "Feed resource types must be stored deduplicated and sorted by code point",
+            ),
         ] {
             assert_eq!(
-                with_family(content).derive_id().unwrap_err(),
-                "Validation Error: feed resource family is unknown"
+                with_types(content).derive_id().unwrap_err(),
+                format!("Validation Error: {error}"),
+                "{content}"
             );
         }
-        assert_eq!(
-            F::from_str("poll").unwrap_err(),
-            "Validation Error: Invalid resource family: poll"
-        );
         let mut with_domains = music(PubkySocialFeedTarget::Resources);
         with_domains.feed.domain_tags = Some(vec!["dev".into()]);
         assert_eq!(
@@ -1668,35 +1713,40 @@ mod tests {
     }
 
     #[test]
-    fn test_resource_families_and_their_root_types_are_the_shared_table() {
-        let table: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!(
-            "../../vectors/semantic/resource_families.json"
-        ))
-        .unwrap();
-        // The map reads sorted (the package test checks the order)
-        let names: Vec<&str> = table.keys().map(String::as_str).collect();
-        let mut ours: Vec<&str> = PubkySocialResourceFamily::ALL
-            .iter()
-            .map(|f| f.wire_name())
-            .collect();
-        ours.sort_unstable();
-        assert_eq!(names, ours);
-        for family in PubkySocialResourceFamily::ALL {
-            let roots: Vec<&str> = table[family.wire_name()]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_str().unwrap())
-                .collect();
-            assert_eq!(roots, family.root_types(), "{}", family.wire_name());
-            assert_eq!(
-                PubkySocialResourceFamily::from_str(family.wire_name()).unwrap(),
-                family
-            );
+    fn test_resource_type_lists_are_the_shared_table() {
+        let table: serde_json::Value =
+            serde_json::from_str(include_str!("../../vectors/semantic/resource_types.json"))
+                .unwrap();
+        assert_eq!(
+            table["max_count"].as_u64().unwrap() as usize,
+            VALIDATION_LIMITS.feed_resource_types_max_count
+        );
+        assert_eq!(
+            table["max_length"].as_u64().unwrap() as usize,
+            VALIDATION_LIMITS.feed_resource_type_max_length
+        );
+        let text = |v: &serde_json::Value| v.as_str().map(str::to_string);
+        for case in table["build"].as_array().unwrap() {
+            let given = case[0].as_str().unwrap();
+            let got = feed_resource_types(given).map(|c| c.wire_name().to_string());
+            match (text(&case[1]), text(&case[2])) {
+                (Some(content), None) => assert_eq!(got, Ok(content), "{given}"),
+                (None, Some(error)) => {
+                    assert_eq!(got, Err(format!("Validation Error: {error}")), "{given}")
+                }
+                _ => panic!("bad case {case}"),
+            }
         }
-        assert!(PubkySocialResourceFamily::Unknown("other".into())
-            .root_types()
-            .is_empty());
+        for case in table["read"].as_array().unwrap() {
+            let content = case[0].as_str().unwrap();
+            let got = validate_resource_types(content);
+            match text(&case[1]) {
+                None => assert_eq!(got, Ok(()), "{content}"),
+                Some(error) => {
+                    assert_eq!(got, Err(format!("Validation Error: {error}")), "{content}")
+                }
+            }
+        }
     }
 
     #[test]

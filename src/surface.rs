@@ -24,8 +24,7 @@ use crate::{
     PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout,
     PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFeedTarget, PubkySocialFile,
     PubkySocialFollow, PubkySocialMute, PubkySocialObject, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialResourceFamily, PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource,
-    StableId, Visibility, PUB_CTX,
+    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource, StableId, Visibility, PUB_CTX,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -698,13 +697,13 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "createFeed" => {
             let owner = PubkyId::try_from(a.s()?)?;
             let i: FeedInput = a.parsed()?;
-            // A resources feed names a resource family where a post feed names a post kind
+            // A resources feed names schema.org types where a post feed names a post kind
             let is_resources = i.target.as_deref() == Some("resources");
             let content = i
                 .content
                 .map(|c| {
                     if is_resources {
-                        PubkySocialResourceFamily::from_str(&c).map(PubkySocialPostKind::from)
+                        crate::feed_resource_types(&c)
                     } else {
                         PubkySocialPostKind::from_str(&c)
                     }

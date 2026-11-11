@@ -18,8 +18,7 @@ const {
   feedLayouts,
   feedSorts,
   feedTargets,
-  resourceFamilies,
-  resourceFamilyRootTypes,
+  feedResourceTypes,
   collectionLayouts,
   decodeObject,
   encodeObject,
@@ -89,6 +88,7 @@ describe("pubky-social-specs", () => {
           "feedLayouts",
           "feedPaths",
           "feedReaches",
+          "feedResourceTypes",
           "feedSorts",
           "feedTargets",
           "hashMedia",
@@ -109,8 +109,6 @@ describe("pubky-social-specs", () => {
           "planPublish",
           "planUnpublish",
           "postKinds",
-          "resourceFamilies",
-          "resourceFamilyRootTypes",
           "toPath",
           "toUrl",
           "tryDecodeContent",
@@ -404,12 +402,30 @@ describe("pubky-social-specs", () => {
       );
     });
 
-    it("names the resource families and their root types as the crate does", () => {
-      const table = JSON.parse(fs.readFileSync(new URL("../vectors/semantic/resource_families.json", import.meta.url), "utf8"));
-      assert.deepStrictEqual([...resourceFamilies], Object.keys(table));
-      assert.deepStrictEqual(Object.keys(resourceFamilyRootTypes), Object.keys(table));
-      for (const family of resourceFamilies) assert.deepStrictEqual([...resourceFamilyRootTypes[family]], table[family]);
-      assert.ok(Object.isFrozen(resourceFamilies) && Object.isFrozen(resourceFamilyRootTypes) && Object.isFrozen(resourceFamilyRootTypes.music));
+    it("takes and stores a resources feed's schema.org types as the crate does", () => {
+      const table = JSON.parse(fs.readFileSync(new URL("../vectors/semantic/resource_types.json", import.meta.url), "utf8"));
+      assert.strictEqual(limits.feedResourceTypesMaxCount, table.max_count);
+      assert.strictEqual(limits.feedResourceTypeMaxLength, table.max_length);
+      const base = { name: "x", icon: "a", reach: "all", layout: "columns", sort: "recent", target: "resources" };
+      // The crate has no codes, so only the package reads the code column; a cap refusal names its limit
+      const limitOf = { count: table.max_count, length: table.max_length };
+      for (const [given, content, error, code] of table.build) {
+        if (error === null) assert.strictEqual(buildFeed(OTTO, { ...base, content: given }).object.feed.content, content, given);
+        else {
+          const e = caught(() => buildFeed(OTTO, { ...base, content: given }));
+          assert.deepStrictEqual([e.code, e.field, e.message, e.limit], [code, "content", `Validation Error: ${error}`, limitOf[code]], given);
+        }
+      }
+      const every = buildFeed(OTTO, base);
+      for (const [content, error, code] of table.read) {
+        const body = text(every.body).replace('"content":null', `"content":${JSON.stringify(content)}`);
+        const url = `pubky://${OTTO}/priv/social/v1/feeds/${error === null ? feedId({ ...every.object, feed: { ...every.object.feed, content } }) : every.id}.json`;
+        if (error === null) assert.strictEqual(decodeObject(url, utf8(body)).object.feed.content, content);
+        else {
+          const e = caught(() => decodeObject(url, utf8(body)));
+          assert.deepStrictEqual([e.code, e.field, e.message, e.limit], [code, "content", `Validation Error: ${error}`, limitOf[code]], content);
+        }
+      }
     });
 
     it("a feed of external resources has its own id, and a post feed keeps the one it had", () => {
@@ -462,26 +478,29 @@ describe("pubky-social-specs", () => {
       // and $unknown cannot carry it past the rules
       misuse(() => feedId({ ...posts.object, feed: { ...posts.object.feed, $unknown: '{"target":"resources"}' } }), /without the known member target/);
 
-      // A resources feed lists one resource family, or every one; never a post kind, and no domain tags
-      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "link" }), "Validation Error: Invalid resource family: link");
-      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "poll" }), "Validation Error: Invalid resource family: poll");
+      // A resources feed lists schema.org types, or every type; never a post kind, and no domain tags
+      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "link" }), "Validation Error: Invalid resource type: link");
+      refuses(() => buildFeed(OTTO, { ...music, target: "resources", content: "music" }), "Validation Error: Invalid resource type: music");
       refuses(() => buildFeed(OTTO, { ...music, target: "resources", domain_tags: ["dev"] }), "Validation Error: A resources feed cannot filter by domain_tags");
-      const unknownFamily = caught(() => decodeObject(resources.url, utf8(body.replace('"content":null', '"content":"link"'))));
-      assert.deepStrictEqual([unknownFamily.code, unknownFamily.field, unknownFamily.message], ["unknown_name", "content", "Validation Error: feed resource family is unknown"]);
-      const musicResources = buildFeed(OTTO, { ...music, target: "resources", content: "music" });
-      // blake3("resources:all:columns:recent:music:music:"): the family takes the content segment
-      assert.strictEqual(musicResources.id, "5P5SE7RGEQY7Y9SMFWQW1NBBP8");
-      assert.strictEqual(text(musicResources.body), body.replace('"content":null', '"content":"music"'));
-      assert.strictEqual(decodeObject(musicResources.url, musicResources.body).object.feed.content, "music");
-      // A post feed naming "music" keeps what 1.0.0-rc.1 gave it: an unknown post kind with its own id
-      const musicPosts = { ...posts.object, feed: { ...posts.object.feed, content: "music" } };
-      assert.strictEqual(feedId(musicPosts), "6FDXEC941FXXGPXPJ1K8V19J54");
-      refuses(() => buildFeed(OTTO, { ...music, content: "music" }), "Validation Error: Invalid content kind: music");
-      assert.strictEqual(new Set([musicResources.id, resources.id, posts.id, feedId(musicPosts)]).size, 4);
-      for (const family of resourceFamilies) {
-        const built = buildFeed(OTTO, { ...music, target: "resources", content: family });
-        assert.strictEqual(decodeObject(built.url, built.body).object.feed.content, family);
-      }
+      const postKind = caught(() => decodeObject(resources.url, utf8(body.replace('"content":null', '"content":"link"'))));
+      assert.deepStrictEqual([postKind.code, postKind.field, postKind.message], ["format", "content", "Validation Error: Feed resource type 'link' is not a schema.org type name"]);
+      const songs = buildFeed(OTTO, { ...music, target: "resources", content: "MusicRecording" });
+      // blake3("resources:all:columns:recent:MusicRecording:music:"): the types take the content segment
+      assert.strictEqual(songs.id, feedId({ ...resources.object, feed: { ...resources.object.feed, content: "MusicRecording" } }));
+      assert.strictEqual(text(songs.body), body.replace('"content":null', '"content":"MusicRecording"'));
+      assert.strictEqual(decodeObject(songs.url, songs.body).object.feed.content, "MusicRecording");
+      assert.deepStrictEqual(feedResourceTypes(songs.object.feed), ["MusicRecording"]);
+      assert.strictEqual(feedResourceTypes(resources.object.feed), null);
+      // One set of types is one feed, whatever order the caller gave
+      const albumsAndSongs = buildFeed(OTTO, { ...music, target: "resources", content: "MusicRecording,MusicAlbum,MusicRecording" });
+      assert.strictEqual(albumsAndSongs.object.feed.content, "MusicAlbum,MusicRecording");
+      assert.strictEqual(albumsAndSongs.id, buildFeed(OTTO, { ...music, target: "resources", content: "MusicAlbum,MusicRecording" }).id);
+      assert.deepStrictEqual(feedResourceTypes(albumsAndSongs.object.feed), ["MusicAlbum", "MusicRecording"]);
+      // A post feed naming "MusicRecording" keeps what 1.0.0-rc.1 gave it: an unknown post kind with its own id
+      const songPosts = { ...posts.object, feed: { ...posts.object.feed, content: "MusicRecording" } };
+      assert.strictEqual(feedResourceTypes(songPosts.feed), null);
+      refuses(() => buildFeed(OTTO, { ...music, content: "MusicRecording" }), "Validation Error: Invalid content kind: MusicRecording");
+      assert.strictEqual(new Set([songs.id, albumsAndSongs.id, resources.id, posts.id, feedId(songPosts)]).size, 5);
 
       // A suffix would collide: a valid older feed spells "all:columns:recent::music::resources". The prefix does not
       const forged = { ...posts.object, feed: { ...posts.object.feed, tags: null, domain_tags: ["resources"], content: ":music" } };

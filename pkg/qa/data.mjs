@@ -36,6 +36,8 @@ const LIMIT_DOCS = {
   collectionNameMinLength: "The shortest collection name",
   feedIconMaxLength: "The longest feed icon name",
   feedNameMaxLength: "The longest feed name",
+  feedResourceTypeMaxLength: "The longest schema.org type name in a resources feed's `content`",
+  feedResourceTypesMaxCount: "The most schema.org types in a resources feed's `content`",
   feedTagsMaxCount: "The most labels in a feed's `tags`, and in its `domain_tags`",
   imageUrlMaxLength: "The longest profile `image` and article or collection `cover_image`",
   maxFileSizeBytes: "The largest media file, 100 MiB",

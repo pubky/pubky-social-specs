@@ -25,6 +25,8 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `collectionNameMinLength` | 1 | code points | The shortest collection name. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
+| `feedResourceTypeMaxLength` | 64 | code points | The longest schema.org type name in a resources feed's `content`. |
+| `feedResourceTypesMaxCount` | 10 | items | The most schema.org types in a resources feed's `content`. |
 | `feedTagsMaxCount` | 5 | items | The most labels in a feed's `tags`, and in its `domain_tags`. |
 | `imageUrlMaxLength` | 300 | code points | The longest profile `image` and article or collection `cover_image`. |
 | `maxFileSizeBytes` | 104857600 | bytes | The largest media file, 100 MiB. |
@@ -225,8 +227,8 @@ The filter of a feed, which is its identity.
 | `reach` | `"following" \| "followers" \| "friends" \| "all" \| "wot" \| "me"` |  | Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. |
 | `layout` | `"list" \| "visual" \| "columns" \| "wide" \| "cards"` |  | How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. |
 | `sort` | `"recent" \| "popularity"` |  | The order of the posts, one of `feedSorts`: `recent` or `popularity`. |
-| `target` | `"posts" \| "resources"` | yes | What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of `resourceFamilies` or none, and no `domain_tags`. |
-| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed the one resource family shown, one of `resourceFamilies`. Null for every kind. |
+| `target` | `"posts" \| "resources"` | yes | What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of schema.org types or none, and no `domain_tags`. |
+| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed up to 10 schema.org type names, comma-separated, deduplicated and sorted by code point (`MusicAlbum,MusicRecording`). Null for every kind. |
 | `tags` | `string[]` | yes | The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. |
 | `domain_tags` | `string[]` | yes | The domain labels a post's links must carry, with the rules of `tags`; null for no domain filter. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
@@ -246,7 +248,7 @@ rule does not.
 | `format` | text is not spelled the one way the model accepts (a key, an id, a tag, a slug) |
 | `id` | an id does not match its object, or its time is out of bounds |
 | `reference` | a URI in a reference position is refused |
-| `unknown_name` | a kind, reach, layout, sort, target or resource family this version does not know |
+| `unknown_name` | a kind, reach, layout, sort or target this version does not know |
 | `unsafe_integer` | an integer a JS number cannot hold exactly |
 | `path` | a URL or path names no object of the kind asked for |
 | `conflict` | members or arguments that cannot go together |

@@ -86,6 +86,10 @@ pub struct ValidationLimits {
     pub collection_item_note_max_length: usize,
     /// Maximum number of tags allowed in a feed.
     pub feed_tags_max_count: usize,
+    /// Maximum number of schema.org types a resources feed lists in its `content`.
+    pub feed_resource_types_max_count: usize,
+    /// Maximum code points of one schema.org type name in a resources feed's `content`.
+    pub feed_resource_type_max_length: usize,
     /// Maximum feed name length in characters.
     pub feed_name_max_length: usize,
     /// Maximum length of a feed icon name in characters.
@@ -135,6 +139,8 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     collection_items_max_count: 100,
     collection_item_note_max_length: 1000,
     feed_tags_max_count: 5,
+    feed_resource_types_max_count: 10,
+    feed_resource_type_max_length: 64,
     feed_name_max_length: 100,
     feed_icon_max_length: 50,
     bookmark_target_uri_max_bytes: 187,

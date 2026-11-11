@@ -1,6 +1,6 @@
 import type * as feeds from "./models/feed.js";
 import type * as graph from "./models/graph.js";
-import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownFeedTarget, KnownPostKind, KnownResourceFamily } from "./models/kinds.js";
+import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownFeedTarget, KnownPostKind } from "./models/kinds.js";
 import type * as posts from "./models/post.js";
 import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
@@ -117,7 +117,7 @@ export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" 
     layout: KnownFeedLayout;
     /** The order of the posts, one of `feedSorts`: `recent` or `popularity`. */
     sort: KnownFeedSort;
-    /** What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of `resourceFamilies` or none, and no `domain_tags`. */
+    /** What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of schema.org types or none, and no `domain_tags`. */
     target: KnownFeedTarget | null;
 }
 /** A saved feed, private, stored at `/priv/social/v1/feeds/{id}.json`; its published copy is the same leaf under `/pub/`. */
@@ -331,13 +331,13 @@ export interface NewFeed {
     layout: KnownFeedLayout;
     /** The order of the posts, one of `feedSorts`. */
     sort: KnownFeedSort;
-    /** The one post kind shown, one of `postKinds`; for `target: "resources"` the one resource family, one of `resourceFamilies`. Absent for every kind. */
-    content?: KnownPostKind | KnownResourceFamily | null;
+    /** The one post kind shown, one of `postKinds`; for `target: "resources"` up to 10 schema.org type names, comma-separated with no spaces (`MusicRecording,MusicAlbum`), stored deduplicated and sorted. Absent for every kind. */
+    content?: KnownPostKind | (string & {}) | null;
     /** At most 5 tag labels a post must carry, folded and sorted by the builder; absent for no tag filter, never empty. */
     tags?: string[] | null;
     /** At most 5 domain labels, with the rules of `tags`. */
     domain_tags?: string[] | null;
-    /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of `resourceFamilies` only and no `domain_tags`. */
+    /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of schema.org types only and no `domain_tags`. */
     target?: KnownFeedTarget | null;
 }
 /** What `buildFile` takes: the bytes, or the id `hashMedia` gave for them, and the declared type. */

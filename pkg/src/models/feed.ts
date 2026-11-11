@@ -25,7 +25,6 @@ import {
   postKind,
   type PostKind,
   postKinds,
-  resourceFamilies,
 } from "./kinds.js";
 
 export interface FeedConfig extends Extra {
@@ -39,9 +38,9 @@ export interface FeedConfig extends Extra {
   layout: FeedLayout;
   /** The order of the posts, one of `feedSorts`. A name this version does not know is refused on read. */
   sort: FeedSort;
-  /** The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed the one resource family shown, one of `resourceFamilies`. Null for every kind. */
+  /** The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed up to 10 schema.org type names, comma-separated, deduplicated and sorted by code point (`MusicAlbum,MusicRecording`). Null for every kind. */
   content: PostKind | null;
-  /** What the feed lists, one of `feedTargets`; null for posts, the default, which a writer never stores. `resources` takes a `content` of `resourceFamilies` only and no `domain_tags`. A name this version does not know is refused on read. */
+  /** What the feed lists, one of `feedTargets`; null for posts, the default, which a writer never stores. `resources` takes a `content` of schema.org types only and no `domain_tags`. A name this version does not know is refused on read. */
   target: FeedTarget | null;
 }
 
@@ -69,6 +68,41 @@ function checkTagList(tags: string[] | null, field: string): void {
       fail("format", `Feed config ${field} must be stored deduplicated and sorted by code point`, field);
     }
   }
+}
+
+// Spelled as a schema.org type name: an ASCII capital letter or digit, then ASCII letters and
+// digits. Only the spelling: which types exist is the index's business
+const isResourceTypeName = (name: string): boolean => /^[A-Z0-9][A-Za-z0-9]*$/.test(name);
+
+// Past the cap a name is refused without quoting it: it can be as long as the object
+const checkResourceTypeLength = (name: string): void => {
+  if (codePointLen(name) > limits.feedResourceTypeMaxLength)
+    fail("length", `Feed resource type names cannot be longer than ${limits.feedResourceTypeMaxLength} characters`, "content", limits.feedResourceTypeMaxLength);
+};
+
+// A stored type list is what the builder writes: names, within the caps, strictly increasing
+function checkResourceTypes(content: string): void {
+  const types = content.split(",");
+  for (const name of types) {
+    checkResourceTypeLength(name);
+    if (!isResourceTypeName(name)) fail("format", `Feed resource type '${name}' is not a schema.org type name`, "content");
+  }
+  if (types.length > limits.feedResourceTypesMaxCount) fail("count", `A resources feed cannot list more than ${limits.feedResourceTypesMaxCount} types`, "content", limits.feedResourceTypesMaxCount);
+  for (let i = 1; i < types.length; i++) {
+    if (compareBytes(types[i - 1] as string, types[i] as string) >= 0) fail("format", "Feed resource types must be stored deduplicated and sorted by code point", "content");
+  }
+}
+
+// A caller's list, comma-separated with no spaces, as the builder stores it: deduplicated and sorted
+function resourceTypes(list: string): string {
+  const types = new Set<string>();
+  for (const name of list.split(",")) {
+    checkResourceTypeLength(name);
+    if (!isResourceTypeName(name)) fail("format", `Invalid resource type: ${name}`, "content");
+    types.add(name);
+  }
+  if (types.size > limits.feedResourceTypesMaxCount) fail("count", `A resources feed cannot list more than ${limits.feedResourceTypesMaxCount} types`, "content", limits.feedResourceTypesMaxCount);
+  return [...types].sort(compareBytes).join(",");
 }
 
 function checkIcon(icon: string | null): void {
@@ -104,7 +138,7 @@ export const feed: Model<Feed> = {
   check(value, id, _publicRoot, each) {
     const f = value.feed;
     // reach, layout, sort and target define the feed; an unknown post kind only means no filter, while a
-    // resources feed's family is one of a closed list
+    // resources feed's content is a list of schema.org type names
     each(() => {
       if (!isKnown(feedReaches, f.reach)) fail("unknown_name", "feed reach is unknown", "reach");
     });
@@ -120,9 +154,9 @@ export const feed: Model<Feed> = {
     each(() => checkExtra(f.extra, "feed."));
     each(() => checkTagList(f.tags, "tags"));
     each(() => checkTagList(f.domain_tags, "domain_tags"));
-    // An external resource has a family, not a post kind, and its links carry no domain tags
+    // An external resource has a schema.org type, not a post kind, and its links carry no domain tags
     each(() => {
-      if (f.target === "resources" && f.content !== null && !isKnown(resourceFamilies, f.content)) fail("unknown_name", "feed resource family is unknown", "content");
+      if (f.target === "resources" && f.content !== null) checkResourceTypes(f.content);
     });
     each(() => {
       if (f.target === "resources" && f.domain_tags !== null) fail("conflict", "A resources feed cannot filter by domain_tags", "domain_tags");
@@ -178,15 +212,9 @@ export function buildFeed(owner: string | null, input: unknown, each: Each = thr
   const layoutName = str(i.layout, "input.layout", "columns");
   const sortName = str(i.sort, "input.sort", "recent");
   const targetName = opt(i.target, "input.target", "posts");
-  // A resources feed names a resource family where a post feed names a post kind
+  // A resources feed names schema.org types where a post feed names a post kind
   const content =
-    contentName === null
-      ? null
-      : member<PostKind | null>(
-          each,
-          () => (targetName === "resources" ? known(resourceFamilies, "resource family", contentName, "content") : known(postKinds, "content kind", contentName, "content")),
-          null,
-        );
+    contentName === null ? null : member<PostKind | null>(each, () => (targetName === "resources" ? resourceTypes(contentName) : known(postKinds, "content kind", contentName, "content")), null);
   const reach = member<FeedReach>(each, () => known(feedReaches, "feed reach", reachName, "reach"), "all");
   const layout = member<FeedLayout>(each, () => known(feedLayouts, "feed layout", layoutName, "layout"), "columns");
   const sort = member<FeedSort>(each, () => known(feedSorts, "feed sort", sortName, "sort"), "recent");

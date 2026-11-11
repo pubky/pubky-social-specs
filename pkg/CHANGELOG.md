@@ -28,18 +28,23 @@ again.
 - New: a feed's `target`, one of `feedTargets` (`posts`, `resources`), in `buildFeed`'s input and
   on the stored `FeedConfig`, with the types `FeedTarget` and `KnownFeedTarget`. A decoded feed
   carries `target: null` for posts.
-- New: `resourceFamilies` (`music`, `video`, `podcast`, `place`, `event`, `book`, `article`,
-  `software`), `KnownResourceFamily` and `resourceFamilyRootTypes`, the schema.org types each
-  family stands for. A resources feed's `content` is one of them or null, and `buildFeed` takes one
-  there with `target: "resources"`.
-- New refusals: `feed target is unknown` (`unknown_name`, field `target`) and `feed resource family
-  is unknown` (`unknown_name`, field `content`) on a read, `Invalid feed target: …` and `Invalid
-  resource family: …` from the builder, and `A resources feed cannot filter by domain_tags`
-  (`conflict`).
+- New: a resources feed's `content` is a list of up to 10 schema.org type names, comma-separated
+  (`MusicAlbum,MusicRecording`), or null for every type; `buildFeed` takes one there with
+  `target: "resources"` and stores it deduplicated and sorted, and `feedResourceTypes(feed)` reads
+  it back as an array. New limits `feedResourceTypesMaxCount` (10) and `feedResourceTypeMaxLength`
+  (64).
+- New refusals: `feed target is unknown` (`unknown_name`, field `target`), `Feed resource type '…'
+  is not a schema.org type name` and `Feed resource types must be stored deduplicated and sorted by
+  code point` (`format`, field `content`) on a read; `Invalid feed target: …` and `Invalid resource
+  type: …` (`format`, field `content`) from the builder; on a read and from the builder `A
+  resources feed cannot list more than 10 types` (`count`, field `content`), `Feed resource type
+  names cannot be longer than 64 characters` (`length`, field `content`) and `A resources feed
+  cannot filter by domain_tags` (`conflict`).
 - Crate: `PubkySocialFeedConfig` gains the public field `target`, so code that builds the config as
   a struct literal must now set it (`target: None` for posts); `PubkySocialFeedConfig::new` is
-  unchanged and `with_target` sets it. New: `PubkySocialFeedTarget`, `PubkySocialResourceFamily`
-  (`ALL`, `root_types()`) and `PubkySocialFeedConfig::resource_family()`.
+  unchanged and `with_target` sets it. New: `PubkySocialFeedTarget`, `feed_resource_types()` (a
+  caller's list as the stored `content`), `PubkySocialFeedConfig::resource_types()` and the limits
+  `feed_resource_types_max_count` and `feed_resource_type_max_length`.
 
 ### Stored bytes
 
@@ -48,10 +53,11 @@ again.
   the post feed with the same filter. Posts is the default and is stored as no member: every feed
   written before keeps its bytes and its id, and a builder never writes `"target":"posts"`. A
   stored `"posts"` reads as written and has the id of a feed without the member.
-- A resources feed's `content` is a resource family, in the content segment of its id: music
-  resources, every resource and music posts are three feeds with three ids.
+- A resources feed's `content` is its sorted list of schema.org types, in the content segment of
+  its id: songs, every resource and posts of an unknown kind `MusicRecording` are three feeds with
+  three ids, and one set of types is one feed whatever order a caller gave.
 - A read refuses a target this version does not know, as it refuses an unknown reach, layout or
-  sort, and refuses a resources feed whose `content` is no resource family or that has a
+  sort, and refuses a resources feed whose `content` is not a stored type list or that has a
   `domain_tags` filter. A 1.0.0-rc.1 reader
   refuses a resources feed at its URL, since the id it derives leaves the target out; one that
   decodes the bytes with no URL reads the post feed of the same filter (see the README).
