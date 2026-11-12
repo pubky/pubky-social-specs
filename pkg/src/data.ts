@@ -37,6 +37,8 @@ export const limits = /* @__PURE__ */ Object.freeze({
   collectionNameMaxLength: 100,
   /** The shortest collection name, in code points: 1. */
   collectionNameMinLength: 1,
+  /** The most schema.org types in a resources feed's `filters.exclude_types`, in items: 50. */
+  feedFilterExcludeTypesMaxCount: 50,
   /** The longest ingredient in a resources feed's `filters.ingredients`, in code points: 64. */
   feedFilterIngredientMaxLength: 64,
   /** The most ingredients in a resources feed's `filters.ingredients`, in items: 3. */
@@ -51,7 +53,7 @@ export const limits = /* @__PURE__ */ Object.freeze({
   feedIconMaxLength: 50,
   /** The longest feed name, in code points: 100. */
   feedNameMaxLength: 100,
-  /** The longest schema.org type name in a resources feed's `content`, in code points: 64. */
+  /** The longest schema.org type name in a resources feed's `content` or `filters.exclude_types`, in code points: 64. */
   feedResourceTypeMaxLength: 64,
   /** The most schema.org types in a resources feed's `content`, in items: 10. */
   feedResourceTypesMaxCount: 10,

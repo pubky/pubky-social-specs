@@ -198,6 +198,7 @@ fn validate_resource_types(content: &str) -> Result<(), String> {
 /// | `sort` | `trending`, `upcoming`, `nearest` | `sort` | `sort=trending`, `start`, `distance` |
 /// | `window` | `24h`, `7d`, `30d` | `window` | `window` |
 /// | `rows` | `links` | `rows` | no `collapse=group` (without `rows`: `collapse=group`) |
+/// | `exclude_types` | up to 50, `Article,Event` | `kind=more` (the types none of its kinds stands for) | `exclude_type` |
 ///
 /// What the values mean, as the app reads them:
 /// - Days and windows are the viewer's own: the local time zone of the device that searches,
@@ -218,9 +219,14 @@ fn validate_resource_types(content: &str) -> Result<(), String> {
 ///   events by their start.
 /// - `sort` here orders the list in place of the feed's own `sort`, which stays in the id: two
 ///   feeds that differ only in their own `sort` are two feeds even with one `filters.sort`.
+/// - `exclude_types` lists every resource whose type is none of these and no subtype of one, as
+///   the index reads it: the app's More kinds is the types its own kinds leave over. The list is
+///   the one saved, so a feed keeps it when the app's kinds change later. It goes with `content`
+///   too (those types, less these). A resource with no type yet is not listed.
 ///
 /// The rules check each value's spelling and which members go together, not that a value
-/// exists. A writer lowercases the ingredients (only ASCII capitals
+/// exists (an excluded type is spelled as a type name, not looked up). A writer lowercases the
+/// ingredients (only ASCII capitals
 /// are refused, so `Äpfel` and `äpfel` would be two feeds) and rounds `near` to 5 decimals
 /// (`Math.round(x * 1e5) / 1e5` and its shortest spelling: `47.37`, never `47.370000000000005`).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
@@ -277,6 +283,11 @@ pub struct PubkySocialFeedFilters {
     /// `links`: every link as a row, where the feed otherwise lists one row per thing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rows: Option<String>,
+    /// Schema.org types the feed leaves out, each with its subtypes: comma-separated type names
+    /// (as `content` spells them), at most `feed_filter_exclude_types_max_count`, deduplicated and
+    /// sorted by code point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclude_types: Option<String>,
     /// Unknown members: refused, see the type's doc. Kept so a read reports them.
     #[serde(flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
@@ -368,19 +379,23 @@ fn is_filter_text(text: &str) -> bool {
 }
 
 impl PubkySocialFeedFilters {
-    /// The filters as stored: the ingredients deduplicated and sorted by code point, and `None`
-    /// when no member is set, since an empty set is no filter. Every other value is kept as given
-    /// and checked by the feed's rules.
+    /// The filters as stored: the ingredients and the excluded types deduplicated and sorted by
+    /// code point, and `None` when no member is set, since an empty set is no filter. Every other
+    /// value is kept as given and checked by the feed's rules.
     pub fn canonical(mut self) -> Option<Self> {
-        if let Some(list) = &self.ingredients {
+        for list in [&mut self.ingredients, &mut self.exclude_types]
+            .into_iter()
+            .flatten()
+        {
             let items: BTreeSet<&str> = list.split(',').collect();
-            self.ingredients = Some(items.into_iter().collect::<Vec<_>>().join(","));
+            let stored = items.into_iter().collect::<Vec<_>>().join(",");
+            *list = stored;
         }
         (self != Self::default()).then_some(self)
     }
 
     /// The members that define the feed, in their stored order, `place` left out.
-    fn id_members(&self) -> [(&'static str, &Option<String>); 14] {
+    fn id_members(&self) -> [(&'static str, &Option<String>); 15] {
         [
             ("when", &self.when),
             ("from", &self.from),
@@ -396,6 +411,7 @@ impl PubkySocialFeedFilters {
             ("sort", &self.sort),
             ("window", &self.window),
             ("rows", &self.rows),
+            ("exclude_types", &self.exclude_types),
         ]
     }
 
@@ -564,6 +580,27 @@ impl PubkySocialFeedFilters {
         }
         if let Some(rows) = &self.rows {
             check(rows == "links", "rows")?;
+        }
+        if let Some(list) = &self.exclude_types {
+            let types: Vec<&str> = list.split(',').collect();
+            let max_length = limits.feed_resource_type_max_length;
+            for name in &types {
+                if code_point_len(name) > max_length {
+                    return Err(format!(
+                        "Validation Error: Resource feed filter exclude_types cannot be longer than {max_length} characters each"
+                    ));
+                }
+                check(is_resource_type_name(name), "exclude_types")?;
+            }
+            let max = limits.feed_filter_exclude_types_max_count;
+            if types.len() > max {
+                return Err(format!(
+                    "Validation Error: Resource feed filter exclude_types cannot name more than {max} types"
+                ));
+            }
+            if !types.windows(2).all(|w| w[0] < w[1]) {
+                return Err("Validation Error: Resource feed filter exclude_types must be stored deduplicated and sorted by code point".into());
+            }
         }
         Ok(())
     }
@@ -2245,6 +2282,10 @@ mod tests {
                     Some(limits.feed_filter_text_max_bytes)
                 }
                 ("count", "filters.ingredients") => Some(limits.feed_filter_ingredients_max_count),
+                ("length", "filters.exclude_types") => Some(limits.feed_resource_type_max_length),
+                ("count", "filters.exclude_types") => {
+                    Some(limits.feed_filter_exclude_types_max_count)
+                }
                 ("length" | "size" | "count", _) => panic!("no limit for {code} {field}"),
                 _ => None,
             };

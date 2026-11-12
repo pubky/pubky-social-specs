@@ -85,10 +85,12 @@ export interface FeedFilters extends Extra {
   window: string | null;
   /** `links`: every link as a row, where the feed otherwise lists one row per thing. */
   rows: string | null;
+  /** Schema.org types the feed leaves out, each with its subtypes: comma-separated type names, at most 50, deduplicated and sorted by code point (`Article,Event`). A resource with no type yet is not listed either. */
+  exclude_types: string | null;
 }
 
 /** The filter members in their stored order. */
-const FILTER_NAMES = ["when", "from", "to", "near", "radius", "place", "category", "host", "key", "remote", "closed", "ingredients", "sort", "window", "rows"] as const;
+const FILTER_NAMES = ["when", "from", "to", "near", "radius", "place", "category", "host", "key", "remote", "closed", "ingredients", "sort", "window", "rows", "exclude_types"] as const;
 type FilterName = (typeof FILTER_NAMES)[number];
 const FILTER_WHEN = ["today", "weekend", "week", "month", "past"];
 const FILTER_SORTS = ["trending", "upcoming", "nearest"];
@@ -180,6 +182,19 @@ function checkFilters(f: FeedFilters): void {
     if (f.sort !== "trending") fail("conflict", "Resource feed filter window needs sort trending", "filters.window");
   }
   if (f.rows !== null) check(f.rows === "links", "rows");
+  if (f.exclude_types !== null) {
+    const types = f.exclude_types.split(",");
+    const maxLength = limits.feedResourceTypeMaxLength;
+    const maxCount = limits.feedFilterExcludeTypesMaxCount;
+    for (const name of types) {
+      if (codePointLen(name) > maxLength) fail("length", `Resource feed filter exclude_types cannot be longer than ${maxLength} characters each`, "filters.exclude_types", maxLength);
+      check(isResourceTypeName(name), "exclude_types");
+    }
+    if (types.length > maxCount) fail("count", `Resource feed filter exclude_types cannot name more than ${maxCount} types`, "filters.exclude_types", maxCount);
+    for (let i = 1; i < types.length; i++)
+      if (compareBytes(types[i - 1] as string, types[i] as string) >= 0)
+        fail("format", "Resource feed filter exclude_types must be stored deduplicated and sorted by code point", "filters.exclude_types");
+  }
 }
 
 // The id input of the filters: the members that define the feed as one JSON object in their stored
@@ -285,6 +300,7 @@ const filtersCodec = object<FeedFilters>("PubkySocialFeedFilters", {
   sort: omitted(string),
   window: omitted(string),
   rows: omitted(string),
+  exclude_types: omitted(string),
 });
 
 const config = object<FeedConfig>("PubkySocialFeedConfig", {
@@ -362,7 +378,7 @@ export function feedId(value: Feed): string {
   return idOf(value);
 }
 
-// A caller's filters as stored: every given member a string, the ingredients deduplicated and sorted,
+// A caller's filters as stored: every given member a string, the ingredients and the excluded types deduplicated and sorted,
 // and null when none is set. A member this version does not know is kept, for the feed's rules to refuse
 function filtersInput(js: unknown): FeedFilters | null {
   if (js === null || js === undefined) return null;
@@ -382,6 +398,7 @@ function filtersInput(js: unknown): FeedFilters | null {
     out.extra.set(key, readJson(text));
   }
   if (out.ingredients !== null) out.ingredients = [...new Set(out.ingredients.split(","))].sort(compareBytes).join(",");
+  if (out.exclude_types !== null) out.exclude_types = [...new Set(out.exclude_types.split(","))].sort(compareBytes).join(",");
   return FILTER_NAMES.every((name) => out[name] === null) && out.extra.size === 0 ? null : out;
 }
 

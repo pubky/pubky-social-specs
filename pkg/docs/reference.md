@@ -23,6 +23,7 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `collectionItemsMaxCount` | 100 | items | The most items in a collection. |
 | `collectionNameMaxLength` | 100 | code points | The longest collection name. |
 | `collectionNameMinLength` | 1 | code points | The shortest collection name. |
+| `feedFilterExcludeTypesMaxCount` | 50 | items | The most schema.org types in a resources feed's `filters.exclude_types`. |
 | `feedFilterIngredientMaxLength` | 64 | code points | The longest ingredient in a resources feed's `filters.ingredients`. |
 | `feedFilterIngredientsMaxCount` | 3 | items | The most ingredients in a resources feed's `filters.ingredients`. |
 | `feedFilterPlaceMaxLength` | 120 | code points | The longest `filters.place` of a resources feed, the name of its point. |
@@ -30,7 +31,7 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `feedFilterTextMaxBytes` | 256 | bytes | The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
-| `feedResourceTypeMaxLength` | 64 | code points | The longest schema.org type name in a resources feed's `content`. |
+| `feedResourceTypeMaxLength` | 64 | code points | The longest schema.org type name in a resources feed's `content` or `filters.exclude_types`. |
 | `feedResourceTypesMaxCount` | 10 | items | The most schema.org types in a resources feed's `content`. |
 | `feedTagsMaxCount` | 5 | items | The most labels in a feed's `tags`, and in its `domain_tags`. |
 | `imageUrlMaxLength` | 300 | code points | The longest profile `image` and article or collection `cover_image`. |
@@ -260,6 +261,7 @@ The search filters of a resources feed (`FeedConfig.filters`), every value a str
 | `sort` | `string` | yes | An order in place of the feed's own `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). |
 | `window` | `string` | yes | The window `trending` counts references in: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. |
 | `rows` | `string` | yes | `links`: every link as a row, where the feed otherwise lists one row per thing. |
+| `exclude_types` | `string` | yes | Schema.org types the feed leaves out, each with its subtypes: comma-separated type names, at most 50, deduplicated and sorted by code point (`Article,Event`). A resource with no type yet is not listed either. |
 | `$unknown` (optional) | `string` |  | Always empty: a read refuses a member this version does not know. |
 
 ## Error codes

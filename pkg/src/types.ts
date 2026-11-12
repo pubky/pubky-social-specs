@@ -380,7 +380,7 @@ export interface NewFeed {
   domain_tags?: string[] | null;
   /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of schema.org types only and no `domain_tags`. */
   target?: KnownFeedTarget | null;
-  /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the ingredients. */
+  /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the ingredients and the excluded types. */
   filters?: NewFeedFilters | null;
 }
 
@@ -420,6 +420,8 @@ export interface NewFeedFilters {
   window?: string | null;
   /** `links`: every link as a row instead of one row per thing. */
   rows?: string | null;
+  /** Schema.org types to leave out, each with its subtypes: up to `feedFilterExcludeTypesMaxCount` type names, comma-separated with no spaces (`Event,Article`), stored deduplicated and sorted. The app's More kinds: the types its kinds leave over. */
+  exclude_types?: string | null;
 }
 
 /** What `buildFile` takes: the bytes, or the id `hashMedia` gave for them, and the declared type. */

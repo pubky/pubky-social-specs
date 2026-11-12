@@ -461,6 +461,19 @@ const FILTER_VALUES = {
   sort: ["trending", "upcoming", "nearest", "distance"],
   window: ["24h", "7d", "30d", "1y"],
   rows: ["links", "group"],
+  exclude_types: [
+    "Article,Event",
+    "Event,Article",
+    "Event",
+    "event",
+    "Event,Event",
+    "Event,",
+    "Music Recording",
+    Array.from({ length: 50 }, (_, i) => `T${String(i).padStart(2, "0")}`).join(","),
+    Array.from({ length: 51 }, (_, i) => `T${String(i).padStart(2, "0")}`).join(","),
+    "A".repeat(64),
+    "A".repeat(65),
+  ],
 };
 // A request takes JSON of the right types only, as for every other member; a stored feed's bytes any
 const filterSet = (r, anyJson = false) =>
@@ -516,11 +529,13 @@ const storedFeed = (r, target = false) => {
   if (i.target === "resources" && typeof f.feed.content === "string" && r.chance(0.8)) {
     f.feed.content = [...new Set(f.feed.content.split(","))].sort().join(",");
   }
-  // Filters, mostly with the ingredients as the builder stores them
+  // Filters, mostly with the ingredients and the excluded types as the builder stores them
   if (i.filters !== undefined) {
     f.feed.filters = i.filters;
-    const list = i.filters?.ingredients;
-    if (typeof list === "string" && r.chance(0.8)) f.feed.filters = { ...i.filters, ingredients: [...new Set(list.split(","))].sort().join(",") };
+    for (const name of ["ingredients", "exclude_types"]) {
+      const list = f.feed.filters?.[name];
+      if (typeof list === "string" && r.chance(0.8)) f.feed.filters = { ...f.feed.filters, [name]: [...new Set(list.split(","))].sort().join(",") };
+    }
   }
   if (r.chance(0.8)) f.icon = i.icon;
   if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));

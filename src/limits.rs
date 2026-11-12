@@ -89,7 +89,8 @@ pub struct ValidationLimits {
     pub feed_tags_max_count: usize,
     /// Maximum number of schema.org types a resources feed lists in its `content`.
     pub feed_resource_types_max_count: usize,
-    /// Maximum code points of one schema.org type name in a resources feed's `content`.
+    /// Maximum code points of one schema.org type name in a resources feed's `content` or
+    /// `filters.exclude_types`.
     pub feed_resource_type_max_length: usize,
     /// Most ingredients a resources feed's `filters.ingredients` lists (the index takes 3).
     pub feed_filter_ingredients_max_count: usize,
@@ -103,6 +104,9 @@ pub struct ValidationLimits {
     /// Maximum UTF-8 bytes of a resources feed's `filters.category` and of the value of its
     /// `filters.key` (the index takes 256).
     pub feed_filter_text_max_bytes: usize,
+    /// Most schema.org types a resources feed's `filters.exclude_types` names (the index takes
+    /// 50).
+    pub feed_filter_exclude_types_max_count: usize,
     /// Maximum feed name length in characters.
     pub feed_name_max_length: usize,
     /// Maximum length of a feed icon name in characters.
@@ -159,6 +163,7 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     feed_filter_radius_max_km: 200,
     feed_filter_place_max_length: 120,
     feed_filter_text_max_bytes: 256,
+    feed_filter_exclude_types_max_count: 50,
     feed_name_max_length: 100,
     feed_icon_max_length: 50,
     bookmark_target_uri_max_bytes: 187,

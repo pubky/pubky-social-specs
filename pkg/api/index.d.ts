@@ -218,10 +218,12 @@ export declare function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"pos
  *  `feedResourceTypeMaxLength` (`length`) or more than `feedResourceTypesMaxCount` types
  *  (`count`), `field: "content"`; for `filters`, filters on a post feed or members that cannot go
  *  together (`conflict`), a member this version does not know (`unknown_name`), a badly spelled
- *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`
- *  or an ingredient longer than `feedFilterIngredientMaxLength` (`length`), a `category` or `key`
- *  value over `feedFilterTextMaxBytes` (`size`) or more than `feedFilterIngredientsMaxCount`
- *  ingredients (`count`), `field` the member (`filters.place`) or `filters`; `ArgumentError` for a
+ *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`,
+ *  an ingredient longer than `feedFilterIngredientMaxLength` or an excluded type name longer than
+ *  `feedResourceTypeMaxLength` (`length`), a `category` or `key` value over
+ *  `feedFilterTextMaxBytes` (`size`), more than `feedFilterIngredientsMaxCount` ingredients or
+ *  `feedFilterExcludeTypesMaxCount` excluded types (`count`), `field` the member
+ *  (`filters.place`) or `filters`; `ArgumentError` for a
  *  member of the wrong type.
  *
  * @example

@@ -48,12 +48,13 @@ again.
 - New: a resources feed's search `filters`, in `buildFeed`'s input (`NewFeedFilters`) and on the
   stored `FeedConfig` (`FeedFilters`, null for none), every value a string in the app's `/search`
   vocabulary: `when`, `from`, `to`, `near`, `radius`, `place`, `category`, `host`,
-  `key`, `remote`, `closed`, `ingredients`, `sort`, `window` and `rows`. The README maps each one
-  to Pinakes `GET /v1/search` and says what it means (time zone, windows, default radius). The
-  builder sorts and deduplicates the ingredients and stores no empty set. New limits
-  `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
-  `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength` (120) and `feedFilterTextMaxBytes`
-  (256).
+  `key`, `remote`, `closed`, `ingredients`, `sort`, `window`, `rows` and `exclude_types`. The
+  README maps each one to Pinakes `GET /v1/search` and says what it means (time zone, windows,
+  default radius). The builder sorts and deduplicates the ingredients and the excluded types, and
+  stores no empty set. New limits `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
+  `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength` (120), `feedFilterTextMaxBytes`
+  (256) and `feedFilterExcludeTypesMaxCount` (50). `exclude_types` (Pinakes `exclude_type`) is
+  every type but these, each with its subtypes: the app's More kinds.
 - New refusals, on a read and from the builder: `Only a resources feed has filters` (`conflict`,
   field `filters`); `A resources feed's filters hold a member this version does not know`
   (`unknown_name`, field `filters`); `A resources feed's filters must not be empty; leave them
@@ -68,13 +69,17 @@ again.
   `filters.ingredients`); `Resource feed filter category cannot be longer than 256 bytes` and
   `Resource feed filter key cannot be longer than 256 bytes` (`size`, fields `filters.category`
   and `filters.key`); `A resources feed cannot filter by more than 3 ingredients` (`count`, field
-  `filters.ingredients`); and on a read `Resource feed filter ingredients must be stored
-  deduplicated and sorted by code point` (`format`, field `filters.ingredients`).
+  `filters.ingredients`); `Resource feed filter exclude_types cannot be longer than 64 characters
+  each` (`length`) and `Resource feed filter exclude_types cannot name more than 50 types`
+  (`count`), field `filters.exclude_types`; and on a read `Resource feed filter ingredients must
+  be stored deduplicated and sorted by code point` (`format`, field `filters.ingredients`), the
+  same for `exclude_types`.
 - Crate: `PubkySocialFeedConfig` gains the public field `filters`, so code that builds the config
   as a struct literal must now set it (`filters: None`); `with_filters` sets it. New:
   `PubkySocialFeedFilters` with `canonical()`, and the limits `feed_filter_ingredients_max_count`,
   `feed_filter_ingredient_max_length`, `feed_filter_radius_max_km`,
-  `feed_filter_place_max_length` and `feed_filter_text_max_bytes`.
+  `feed_filter_place_max_length`, `feed_filter_text_max_bytes` and
+  `feed_filter_exclude_types_max_count`.
 
 ### Stored bytes
 
@@ -99,12 +104,15 @@ again.
 - `place` only names the point and is outside the id: the same point under a new name is the same
   feed, renamed in place.
 - A read refuses a member of `filters` this version does not know, an empty set, filters on a post
-  feed and ingredients not stored sorted and deduplicated.
+  feed and ingredients or excluded types not stored sorted and deduplicated.
 - Older readers: 1.0.0-rc.1 and unreleased builds up to `f8f5a491` refuse a feed with filters at
   its URL, since the id they derive leaves the filters out; one that decodes the bytes with no URL
   reads the broader feed without them, and `feedId` points it at that feed's path. Update Nexus and
   the app's pinned copy of this package before any app writes `filters`, and decode a feed at its
-  URL. `filters` needs a release of the data model before it goes upstream.
+  URL. Builds after `f8f5a491` up to `fb76bc2b` know `filters` but not `exclude_types`: they refuse
+  a feed with it as a member they do not know (`unknown_name`), with a URL or without one, so update
+  those pins too before an app writes it. `filters` needs a release of the data model before it
+  goes upstream.
 
 ## 1.0.0
 

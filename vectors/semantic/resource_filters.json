@@ -821,6 +821,133 @@
    "format",
    "filters.when",
    null
+  ],
+  [
+   {
+    "exclude_types": "Article,Event"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "exclude_types": "Event"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "exclude_types": "3DModel,Article"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "exclude_types": "T00,T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22,T23,T24,T25,T26,T27,T28,T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42,T43,T44,T45,T46,T47,T48,T49"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "exclude_types": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "when": "week",
+    "exclude_types": "Article"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "exclude_types": "event"
+   },
+   "Resource feed filter exclude_types is not valid",
+   "format",
+   "filters.exclude_types",
+   null
+  ],
+  [
+   {
+    "exclude_types": "Event,"
+   },
+   "Resource feed filter exclude_types is not valid",
+   "format",
+   "filters.exclude_types",
+   null
+  ],
+  [
+   {
+    "exclude_types": ""
+   },
+   "Resource feed filter exclude_types is not valid",
+   "format",
+   "filters.exclude_types",
+   null
+  ],
+  [
+   {
+    "exclude_types": "Music Recording"
+   },
+   "Resource feed filter exclude_types is not valid",
+   "format",
+   "filters.exclude_types",
+   null
+  ],
+  [
+   {
+    "exclude_types": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   },
+   "Resource feed filter exclude_types cannot be longer than 64 characters each",
+   "length",
+   "filters.exclude_types",
+   64
+  ],
+  [
+   {
+    "exclude_types": "T00,T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22,T23,T24,T25,T26,T27,T28,T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42,T43,T44,T45,T46,T47,T48,T49,T50"
+   },
+   "Resource feed filter exclude_types cannot name more than 50 types",
+   "count",
+   "filters.exclude_types",
+   50
+  ],
+  [
+   {
+    "exclude_types": "Event,Article"
+   },
+   "Resource feed filter exclude_types must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.exclude_types",
+   null
+  ],
+  [
+   {
+    "exclude_types": "Event,Event"
+   },
+   "Resource feed filter exclude_types must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.exclude_types",
+   null
   ]
  ],
  "build": [
@@ -845,6 +972,14 @@
   [
    {},
    null
+  ],
+  [
+   {
+    "exclude_types": "Event,Article,Event"
+   },
+   {
+    "exclude_types": "Article,Event"
+   }
   ]
  ],
  "id": [
@@ -868,6 +1003,19 @@
     "category": "a\"b\\c"
    },
    "{\"category\":\"a\\\"b\\\\c\"}"
+  ],
+  [
+   {
+    "exclude_types": "Article,Event"
+   },
+   "{\"exclude_types\":\"Article,Event\"}"
+  ],
+  [
+   {
+    "when": "week",
+    "exclude_types": "Article"
+   },
+   "{\"when\":\"week\",\"exclude_types\":\"Article\"}"
   ]
  ],
  "order": [
