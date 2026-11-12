@@ -82,7 +82,7 @@ says.
 |---|---|---|
 | `src/data.ts` | `node qa/data.mjs` (`--check` in `npm test`) | the crate's constants, through the oracle: limits, MIME map, the characters Rust escapes. The same run writes the migrator's skip reasons and transform revision |
 | `api/*.d.ts` | copied from `dist` when an API change is meant | the declarations as last agreed; `npm run api` diffs them |
-| `vectors/js/*.jsonl` | `node qa/score.mjs --record` | the oracle's answers at a fixed seed |
+| `vectors/js/*.jsonl` | `node qa/score.mjs --record` | the oracle's answers at a fixed seed; a `<family>-<name>.jsonl` is kept from an earlier recording and never rewritten |
 
 ## I/O
 

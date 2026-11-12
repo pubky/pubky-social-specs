@@ -351,15 +351,22 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
 }
 
 /**
- * A feed at its private path. The id is derived from the filter alone (reach, layout, sort,
- * content, tags, domain tags), so two feeds with one filter are one feed whatever their names, and an
- * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
+ * A feed at its private path. The id is derived from the filter alone (target, reach, layout,
+ * sort, content, tags, domain tags, and a resources feed's `filters` but their `place`), so two
+ * feeds with one filter are one feed whatever their names, and an edited filter is a new path. A
+ * new `place` alone keeps the id: it renames the feed. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  *
  * @throws `ValidationError` for a rule of the feed (`field` the member: `tags`, `icon`, `name`) or
  *  an unknown reach, layout, sort, target or post kind (`code: "unknown_name"`); on a resources
  *  feed for a type list that is badly spelled (`format`), has a name longer than
  *  `feedResourceTypeMaxLength` (`length`) or more than `feedResourceTypesMaxCount` types
- *  (`count`), `field: "content"`; `ArgumentError` for a member of the wrong type.
+ *  (`count`), `field: "content"`; for `filters`, filters on a post feed or members that cannot go
+ *  together (`conflict`), a member this version does not know (`unknown_name`), a badly spelled
+ *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`
+ *  or an ingredient longer than `feedFilterIngredientMaxLength` (`length`), a `category` or `key`
+ *  value over `feedFilterTextMaxBytes` (`size`) or more than `feedFilterIngredientsMaxCount`
+ *  ingredients (`count`), `field` the member (`filters.place`) or `filters`; `ArgumentError` for a
+ *  member of the wrong type.
  *
  * @example
  * ```ts

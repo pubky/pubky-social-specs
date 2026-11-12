@@ -45,6 +45,36 @@ again.
   unchanged and `with_target` sets it. New: `PubkySocialFeedTarget`, `feed_resource_types()` (a
   caller's list as the stored `content`), `PubkySocialFeedConfig::resource_types()` and the limits
   `feed_resource_types_max_count` and `feed_resource_type_max_length`.
+- New: a resources feed's search `filters`, in `buildFeed`'s input (`NewFeedFilters`) and on the
+  stored `FeedConfig` (`FeedFilters`, null for none), every value a string in the app's `/search`
+  vocabulary: `when`, `from`, `to`, `near`, `radius`, `place`, `category`, `host`,
+  `key`, `remote`, `closed`, `ingredients`, `sort`, `window` and `rows`. The README maps each one
+  to Pinakes `GET /v1/search` and says what it means (time zone, windows, default radius). The
+  builder sorts and deduplicates the ingredients and stores no empty set. New limits
+  `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
+  `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength` (120) and `feedFilterTextMaxBytes`
+  (256).
+- New refusals, on a read and from the builder: `Only a resources feed has filters` (`conflict`,
+  field `filters`); `A resources feed's filters hold a member this version does not know`
+  (`unknown_name`, field `filters`); `A resources feed's filters must not be empty; leave them
+  out for none` (`blank`, field `filters`, on a read only); `Resource feed filter … is not valid`
+  (`format`, field `filters.…`, a `radius` out of 1 to 200 included, with no `limit`); `Resource
+  feed filters when and from or to cannot go together` and `Resource feed filters radius and
+  place need near` (`conflict`, field `filters`); `Resource feed filter from is after to`,
+  `Resource feed filter sort nearest needs near` and `Resource feed filter window needs sort
+  trending` (`conflict`, fields `filters.from`, `filters.sort`, `filters.window`); `Resource feed
+  filter place cannot be longer than 120 characters` and `Resource feed filter ingredients cannot
+  be longer than 64 characters each` (`length`, fields `filters.place` and
+  `filters.ingredients`); `Resource feed filter category cannot be longer than 256 bytes` and
+  `Resource feed filter key cannot be longer than 256 bytes` (`size`, fields `filters.category`
+  and `filters.key`); `A resources feed cannot filter by more than 3 ingredients` (`count`, field
+  `filters.ingredients`); and on a read `Resource feed filter ingredients must be stored
+  deduplicated and sorted by code point` (`format`, field `filters.ingredients`).
+- Crate: `PubkySocialFeedConfig` gains the public field `filters`, so code that builds the config
+  as a struct literal must now set it (`filters: None`); `with_filters` sets it. New:
+  `PubkySocialFeedFilters` with `canonical()`, and the limits `feed_filter_ingredients_max_count`,
+  `feed_filter_ingredient_max_length`, `feed_filter_radius_max_km`,
+  `feed_filter_place_max_length` and `feed_filter_text_max_bytes`.
 
 ### Stored bytes
 
@@ -61,6 +91,20 @@ again.
   `domain_tags` filter. A 1.0.0-rc.1 reader
   refuses a resources feed at its URL, since the id it derives leaves the target out; one that
   decodes the bytes with no URL reads the post feed of the same filter (see the README).
+- A resources feed may keep its search filters: `"filters":{…}` in its `feed`, after `target`.
+  They are a seventh segment of its id input, after the (empty) domain segment: one JSON object of
+  the members set, in their stored order, `place` left out. None of the six segments of a valid
+  resources feed holds a `:`, so no two feeds share an input, and the id does not depend on the
+  order the members were stored in. A resources feed without filters keeps its bytes and its id.
+- `place` only names the point and is outside the id: the same point under a new name is the same
+  feed, renamed in place.
+- A read refuses a member of `filters` this version does not know, an empty set, filters on a post
+  feed and ingredients not stored sorted and deduplicated.
+- Older readers: 1.0.0-rc.1 and unreleased builds up to `f8f5a491` refuse a feed with filters at
+  its URL, since the id they derive leaves the filters out; one that decodes the bytes with no URL
+  reads the broader feed without them, and `feedId` points it at that feed's path. Update Nexus and
+  the app's pinned copy of this package before any app writes `filters`, and decode a feed at its
+  URL. `filters` needs a release of the data model before it goes upstream.
 
 ## 1.0.0
 

@@ -289,6 +289,8 @@ struct FeedInput {
     content: Option<String>,
     #[serde(default)]
     target: Option<String>,
+    #[serde(default)]
+    filters: Option<crate::PubkySocialFeedFilters>,
     name: String,
     icon: String,
 }
@@ -721,6 +723,9 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
                 PubkySocialFeedConfig::new(i.tags, i.domain_tags, reach, layout, sort, content)?;
             if let Some(target) = target {
                 config = config.with_target(target);
+            }
+            if let Some(filters) = i.filters {
+                config = config.with_filters(filters);
             }
             let feed = PubkySocialFeed::new(config, i.name, i.icon);
             // derive_id validates the feed first

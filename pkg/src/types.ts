@@ -129,8 +129,19 @@ export interface Follow extends Open, Plain<graph.Edge> {}
 /** A mute, private, stored at `/priv/social/v1/mutes/{mutee}.json`: the path holds the muted key. */
 export interface Mute extends Open, Plain<graph.Edge> {}
 
+/**
+ * The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for
+ * not set, in the app's `/search` vocabulary. Every member but `place` is in the feed's id, and a
+ * member this version does not know is refused. The README maps each one to Pinakes
+ * `GET /v1/search`.
+ */
+export interface FeedFilters extends Open, Plain<feeds.FeedFilters> {
+  /** Always empty: a read refuses a member this version does not know. */
+  $unknown?: string;
+}
+
 /** The filter of a feed, which is its identity. */
-export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort" | "target"> {
+export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort" | "target" | "filters"> {
   /** Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. */
   reach: KnownFeedReach;
   /** How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. */
@@ -139,6 +150,8 @@ export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" 
   sort: KnownFeedSort;
   /** What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of schema.org types or none, and no `domain_tags`. */
   target: KnownFeedTarget | null;
+  /** A resources feed's search filters (`FeedFilters`); null for none, and always on a post feed. Every member but `place` is in the id. */
+  filters: FeedFilters | null;
 }
 
 /** A saved feed, private, stored at `/priv/social/v1/feeds/{id}.json`; its published copy is the same leaf under `/pub/`. */
@@ -367,6 +380,46 @@ export interface NewFeed {
   domain_tags?: string[] | null;
   /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of schema.org types only and no `domain_tags`. */
   target?: KnownFeedTarget | null;
+  /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the ingredients. */
+  filters?: NewFeedFilters | null;
+}
+
+/**
+ * The search filters of a resources feed as `buildFeed` takes them, in the app's `/search`
+ * vocabulary (`FeedFilters` is what a decoded feed holds); absent for not set. Only spellings and
+ * combinations are checked: lowercase the ingredients and round `near` to 5 decimals first.
+ */
+export interface NewFeedFilters {
+  /** A calendar window of start times from now: `today`, `weekend`, `week`, `month` or `past`. Not with `from` or `to`. */
+  when?: string | null;
+  /** The first day of a window of days, `YYYY-MM-DD`. */
+  from?: string | null;
+  /** The last day of a window of days, `YYYY-MM-DD`, the whole day included; not before `from`. */
+  to?: string | null;
+  /** Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero (`47.37,8.54`): round with `Math.round(x * 1e5) / 1e5`. */
+  near?: string | null;
+  /** The distance around `near` in whole kilometres, 1 to `feedFilterRadiusMaxKm`; 10 km without. Leave 10 out: a stored default is in the id, so it is another feed. */
+  radius?: string | null;
+  /** The name of the place `near` is, trimmed, at most `feedFilterPlaceMaxLength` code points. Outside the id: a new name renames the feed. */
+  place?: string | null;
+  /** One category as the index spells it (`amenity/cafe`). */
+  category?: string | null;
+  /** One service: the links' host in lower case (`open.spotify.com`). */
+  host?: string | null;
+  /** One identifier, `<namespace>:<value>` (`isbn:9780140328721`). */
+  key?: string | null;
+  /** Job postings that may (`yes`) or may not (`no`) be done remotely. */
+  remote?: string | null;
+  /** `yes`: also job postings past their closing date. */
+  closed?: string | null;
+  /** Recipes with every one of up to `feedFilterIngredientsMaxCount` ingredients, comma-separated, each lower case and at most `feedFilterIngredientMaxLength` code points. */
+  ingredients?: string | null;
+  /** An order in place of the feed's `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). */
+  sort?: string | null;
+  /** The window of `trending`: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. Leave `7d` out: a stored default is in the id, so it is another feed. */
+  window?: string | null;
+  /** `links`: every link as a row instead of one row per thing. */
+  rows?: string | null;
 }
 
 /** What `buildFile` takes: the bytes, or the id `hashMedia` gave for them, and the declared type. */

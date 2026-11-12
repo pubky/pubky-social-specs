@@ -444,14 +444,56 @@ const resourceTypeList = (r) =>
     // past the caps: 12 distinct names, a name of 65
     () => r.pick(["A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,B0,B1", "B1,B0,A9,A8,A7,A6,A5,A4,A3,A2,A1,A0", `Event,${"A".repeat(65)}`, "A".repeat(65)]),
   ])();
-const targeted = (r, o) => {
+// A resources feed's search filters: mostly valid members, each rule's edges, and what breaks one
+const FILTER_VALUES = {
+  when: ["today", "weekend", "week", "month", "past", "upcoming", "Week", ""],
+  from: ["2026-11-01", "2024-02-29", "2025-02-29", "2026-13-01", "2026-1-01", "0999-12-31"],
+  to: ["2026-11-30", "2026-10-31", "9999-12-31", "2026-11-31"],
+  near: ["47.37,8.54", "-33.86785,151.20732", "0,0", "90,-180", "47.370,8.54", "-0,8", "91,8", "47, 8", "47.123456,8"],
+  radius: ["10", "200", "1", "0", "201", "010", "x"],
+  place: ["Zürich", " Zürich", "", "Z".repeat(120), "Z".repeat(121), "a\u0007b"],
+  category: ["amenity/cafe", "/cafe", "a,b", "amenity/cafe ", "\u00a0cafe", "é".repeat(128), "é".repeat(129)],
+  host: ["open.spotify.com", "Open.spotify.com", "localhost", "-a.com", "a..com"],
+  key: ["isbn:9780140328721", "doi:10.1038/nphys1170", "ISBN:978", "isbn:", "tel:1", "isbn:978 014", `isbn:${"9".repeat(256)}`, `isbn:${"9".repeat(257)}`],
+  remote: ["yes", "no", "true"],
+  closed: ["yes", "no"],
+  ingredients: ["chickpeas,lemon", "lemon,chickpeas", "egg", "Egg", "egg,egg", "a,b,c,d", "egg,", "all-purpose flour", "a".repeat(64), "a".repeat(65), `egg,${"é".repeat(65)}`, "é".repeat(64)],
+  sort: ["trending", "upcoming", "nearest", "distance"],
+  window: ["24h", "7d", "30d", "1y"],
+  rows: ["links", "group"],
+};
+// A request takes JSON of the right types only, as for every other member; a stored feed's bytes any
+const filterSet = (r, anyJson = false) =>
+  r.pick([
+    () => ({}),
+    () => ({ colour: "red", when: "week" }),
+    () => ({ when: null }),
+    () => (anyJson ? r.pick(["week", 7, ["week"]]) : { rows: "links" }),
+    () => {
+      const f = {};
+      for (const [name, values] of Object.entries(FILTER_VALUES)) {
+        // Mostly the first, valid, values, so whole sets get past every rule
+        if (r.chance(0.25)) f[name] = r.chance(0.7) ? values[0] : r.pick(values);
+      }
+      if (r.chance(0.1)) f.near = anyJson ? r.pick([7, null]) : null;
+      return f;
+    },
+  ])();
+const targeted = (r, o, anyJson = false) => {
   if (r.chance(0.4)) o.target = r.pick([null, "posts", "resources", "resources", "resources", "events"]);
   if (o.target === "resources" && r.chance(0.7)) {
     o.content = resourceTypeList(r);
     delete o.domain_tags;
+    if (r.chance(0.5)) o.filters = filterSet(r, anyJson);
   }
   return o;
 };
+// The id input of a filter set as the crate writes it, `place` left out
+const filtersIdOf = (f) =>
+  `{${Object.keys(FILTER_VALUES)
+    .filter((name) => name !== "place" && typeof f[name] === "string")
+    .map((name) => `"${name}":${JSON.stringify(f[name])}`)
+    .join(",")}}`;
 const feedIdText = (f) => {
   try {
     return feedIdOfText(f);
@@ -461,10 +503,11 @@ const feedIdText = (f) => {
 };
 const feedIdOfText = (f) => {
   const filter = `${f.feed.reach}:${f.feed.layout}:${f.feed.sort}:${f.feed.content ?? ""}:${(f.feed.tags ?? []).join(",")}:${(f.feed.domain_tags ?? []).join(",")}`;
-  return hashOfText(f.feed.target == null || f.feed.target === "posts" ? filter : `${f.feed.target}:${filter}`);
+  const filters = f.feed.target === "resources" && f.feed.filters != null && typeof f.feed.filters === "object" ? `:${filtersIdOf(f.feed.filters)}` : "";
+  return hashOfText(f.feed.target == null || f.feed.target === "posts" ? filter : `${f.feed.target}:${filter}${filters}`);
 };
 const storedFeed = (r, target = false) => {
-  const i = target ? targeted(r, feedInput(r)) : feedInput(r);
+  const i = target ? targeted(r, feedInput(r), true) : feedInput(r);
   const sorted = (tags) => (tags && r.chance(0.8) ? [...new Set(tags.map((t) => t.trim().toLowerCase()))].sort() : tags);
   const f = { feed: { tags: sorted(i.tags ?? null), reach: i.reach, layout: i.layout, sort: i.sort, content: i.content ?? null }, name: i.name, created_at: raw(stamp(r)) };
   if (i.domain_tags !== undefined) f.feed.domain_tags = sorted(i.domain_tags);
@@ -472,6 +515,12 @@ const storedFeed = (r, target = false) => {
   // A resources feed's type list, mostly as the builder stores it, so reads also get past that rule
   if (i.target === "resources" && typeof f.feed.content === "string" && r.chance(0.8)) {
     f.feed.content = [...new Set(f.feed.content.split(","))].sort().join(",");
+  }
+  // Filters, mostly with the ingredients as the builder stores them
+  if (i.filters !== undefined) {
+    f.feed.filters = i.filters;
+    const list = i.filters?.ingredients;
+    if (typeof list === "string" && r.chance(0.8)) f.feed.filters = { ...i.filters, ingredients: [...new Set(list.split(","))].sort().join(",") };
   }
   if (r.chance(0.8)) f.icon = i.icon;
   if (r.chance(0.2)) f.feed = JSON.parse(spoilSafe(r, f.feed));

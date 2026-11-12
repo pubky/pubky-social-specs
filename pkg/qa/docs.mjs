@@ -32,7 +32,7 @@ const limitRows = checker.getPropertiesOfType(limitsType).map((p) => {
 const mapped = new Map(MIME_TO_EXT);
 const mimeRows = [...new Set([...validMimeTypes, ...mapped.keys()])].sort().map((type) => `| \`${type}\` | \`.${mapped.get(type) ?? "bin"}\` |`);
 
-const OBJECTS = ["User", "UserLink", "Post", "Attachment", "ArticleContent", "CollectionContent", "CollectionItem", "Tag", "Bookmark", "Follow", "Mute", "Feed", "FeedConfig"];
+const OBJECTS = ["User", "UserLink", "Post", "Attachment", "ArticleContent", "CollectionContent", "CollectionItem", "Tag", "Bookmark", "Follow", "Mute", "Feed", "FeedConfig", "FeedFilters"];
 const limitValues = new Set(Object.values(limits).filter((v) => typeof v === "number"));
 const claims = [];
 // Every bound a doc states is a limit of the model; "0.x" and "1.x" are epochs, "0-9" a range
@@ -73,7 +73,7 @@ if (claims.length > 0) {
 
 // The codes and their meaning, from the doc of `ErrorCode` itself
 const errorDoc = ts.displayPartsToString(exported.get("ErrorCode").getDocumentationComment(checker));
-const codeRows = [...errorDoc.matchAll(/^- `(\w+)`: (.+?)(?=\n- |\n*$)/gms)].map(([, code, text]) => `| \`${code}\` | ${cell(text.replace(/\s+/g, " ").trim().replace(/[;.]$/, ""))} |`);
+const codeRows = [...errorDoc.matchAll(/^- `(\w+)`: (.+?)(?=\n- |\s*(?![\s\S]))/gms)].map(([, code, text]) => `| \`${code}\` | ${cell(text.replace(/\s+/g, " ").trim().replace(/[;.]$/, ""))} |`);
 const union = checker.getDeclaredTypeOfSymbol(exported.get("ErrorCode"));
 const codes = union.types.map((t) => t.value).sort();
 const listed = codeRows.map((row) => /^\| `(\w+)`/.exec(row)[1]).sort();

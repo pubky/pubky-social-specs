@@ -174,6 +174,401 @@ fn validate_resource_types(content: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The filters of a resources feed's search, all optional and every value a string: `None` is
+/// "not set". The values are the app's `/search` vocabulary, not the index's, with stricter
+/// rules; a client turns them into a Pinakes `GET /v1/search` as below. A member a
+/// client does not know is refused, as an unknown reach is, since each one changes what the feed
+/// lists. A stored set is what [`PubkySocialFeedFilters::canonical`] writes, so one set of filters
+/// has one spelling and one id; `place` names the point and stays outside the id, as the feed's
+/// name does.
+///
+/// | Member | Value | App `/search` URL | Pinakes `GET /v1/search` |
+/// |---|---|---|---|
+/// | `when` | `today`, `weekend`, `week`, `month`, `past` | `when` | `from` and `to`, see below |
+/// | `from`, `to` | `YYYY-MM-DD` | `when=dates`, `from`, `to` | `from`, `to` (RFC 3339) |
+/// | `near` | `lat,lon` | `near` | `near` |
+/// | `radius` | whole km | `radius` | `radius` in metres (km × 1000) |
+/// | `place` | a name | `place` | not sent |
+/// | `category` | `amenity/cafe` | `category` | `category` |
+/// | `host` | `open.spotify.com` | `service` | `host` |
+/// | `key` | `isbn:9780140328721` | `id` | `key` |
+/// | `remote` | `yes`, `no` | `remote` | `remote=true`, `remote=false` |
+/// | `closed` | `yes` | `closed=1` | `closed=true` |
+/// | `ingredients` | `chickpeas,lemon` | `ingredient` | `ingredient` |
+/// | `sort` | `trending`, `upcoming`, `nearest` | `sort` | `sort=trending`, `start`, `distance` |
+/// | `window` | `24h`, `7d`, `30d` | `window` | `window` |
+/// | `rows` | `links` | `rows` | no `collapse=group` (without `rows`: `collapse=group`) |
+///
+/// What the values mean, as the app reads them:
+/// - Days and windows are the viewer's own: the local time zone of the device that searches,
+///   sent to Pinakes as UTC instants (`now` as `now`).
+/// - `when` is a calendar window from now, not a rolling one: `today` up to the end of today,
+///   `week` up to the end of Sunday (weeks run Monday to Sunday), `month` up to the end of the
+///   month's last day, `weekend` from Saturday's start (or now, once it is the weekend) to the end
+///   of Sunday, `past` up to now (`to=now`).
+/// - `from` is the start of its day and `to` the end of its day, so `to` includes its whole day.
+///   Either alone leaves the window open on the other side. Without `when`, `from` and `to` the
+///   filters set no window, and a saved feed lists as the app does: a feed whose `content` is
+///   `Event` (or its subtypes) from now on (its Upcoming), any other feed with no window.
+/// - Without `radius` the distance is 10 km. Without `window`, `trending` counts 7 days. A writer
+///   leaves these defaults out, as the app does: `radius: "10"` or `window: "7d"` is valid, but a
+///   stored default is in the id, so it would make a second feed of the same search.
+/// - `sort: upcoming` orders by start time, soonest first. With no `when`, `from` or `to` it
+///   lists from now on; otherwise their window applies, so `when: past` with `upcoming` lists past
+///   events by their start.
+/// - `sort` here orders the list in place of the feed's own `sort`, which stays in the id: two
+///   feeds that differ only in their own `sort` are two feeds even with one `filters.sort`.
+///
+/// The rules check each value's spelling and which members go together, not that a value
+/// exists. A writer lowercases the ingredients (only ASCII capitals
+/// are refused, so `Äpfel` and `äpfel` would be two feeds) and rounds `near` to 5 decimals
+/// (`Math.round(x * 1e5) / 1e5` and its shortest spelling: `47.37`, never `47.370000000000005`).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct PubkySocialFeedFilters {
+    /// A start-time window from now: `today`, `weekend`, `week`, `month`, or `past` (up to now).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
+    /// The first day of a window of days (`YYYY-MM-DD`), with or without `to`; never with `when`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    /// The last day of a window of days (`YYYY-MM-DD`), not before `from`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<String>,
+    /// Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub near: Option<String>,
+    /// The distance around `near` in whole kilometres, 1 to `feed_filter_radius_max_km`; 10 km
+    /// without.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<String>,
+    /// The name of the place `near` is, as shown: 1 to `feed_filter_place_max_length` code
+    /// points, trimmed. Outside the id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<String>,
+    /// One category, as the index spells it (OpenStreetMap's `amenity/cafe`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    /// One service: the links' host in lower case (`open.spotify.com`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// One identifier the resources carry, `<namespace>:<value>` (`isbn:9780140328721`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// Job postings that may (`yes`) or may not (`no`) be done remotely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote: Option<String>,
+    /// `yes`: also job postings past their closing date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closed: Option<String>,
+    /// Recipes with every one of these ingredients: comma-separated, at most
+    /// `feed_filter_ingredients_max_count` of at most `feed_filter_ingredient_max_length` code
+    /// points each, deduplicated and sorted by code point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingredients: Option<String>,
+    /// An order in place of the feed's own `sort`, which stays in the id: `trending`, `upcoming` (by
+    /// start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest`
+    /// (with `near`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort: Option<String>,
+    /// The window `trending` counts references in: `24h`, `7d` or `30d`; 7 days without.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<String>,
+    /// `links`: every link as a row, where the feed otherwise lists one row per thing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<String>,
+    /// Unknown members: refused, see the type's doc. Kept so a read reports them.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The windows `when` names.
+const FILTER_WHEN: &[&str] = &["today", "weekend", "week", "month", "past"];
+/// The orders `sort` names.
+const FILTER_SORTS: &[&str] = &["trending", "upcoming", "nearest"];
+/// The windows of `trending`.
+const FILTER_WINDOWS: &[&str] = &["24h", "7d", "30d"];
+/// The identifier namespaces `key` takes, as the index reads them.
+const FILTER_KEY_NAMESPACES: &[&str] = &[
+    "mbid", "wikidata", "isrc", "upc", "gtin", "isbn", "imdb", "podcast", "osm", "doi",
+];
+
+fn filter_invalid(name: &str) -> String {
+    format!("Validation Error: Resource feed filter {name} is not valid")
+}
+
+/// A member's text over its cap: `unit` is `characters` (code points) or `bytes`.
+fn filter_too_long(name: &str, max: usize, unit: &str) -> String {
+    format!("Validation Error: Resource feed filter {name} cannot be longer than {max} {unit}")
+}
+
+/// A day `YYYY-MM-DD` of the years 1000 to 9999 that exists in the calendar.
+fn is_filter_day(day: &str) -> bool {
+    let b = day.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let digits = |r: std::ops::Range<usize>| -> Option<u32> {
+        b[r].iter().try_fold(0u32, |n, c| {
+            c.is_ascii_digit().then(|| n * 10 + u32::from(c - b'0'))
+        })
+    };
+    let (Some(year), Some(month), Some(date)) = (digits(0..4), digits(5..7), digits(8..10)) else {
+        return false;
+    };
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    year >= 1000 && (1..=days).contains(&date)
+}
+
+/// A coordinate as the builder spells it: an optional `-`, an integer part with no leading zero,
+/// at most 5 decimals with no trailing zero, never a negative zero; its value within `bound`.
+fn is_filter_degree(text: &str, bound: f64) -> bool {
+    let digits = text.strip_prefix('-').unwrap_or(text);
+    let (whole, fraction) = digits.split_once('.').unwrap_or((digits, ""));
+    let whole_ok = !whole.is_empty()
+        && whole.len() <= 3
+        && whole.bytes().all(|c| c.is_ascii_digit())
+        && (whole == "0" || !whole.starts_with('0'));
+    let fraction_ok = !digits.contains('.')
+        || (!fraction.is_empty()
+            && fraction.len() <= 5
+            && fraction.bytes().all(|c| c.is_ascii_digit())
+            && !fraction.ends_with('0'));
+    if !whole_ok || !fraction_ok {
+        return false;
+    }
+    let value: f64 = digits.parse().unwrap_or(f64::INFINITY);
+    !(text.starts_with('-') && value == 0.0) && value <= bound
+}
+
+/// A host as the index takes it: lower-case DNS labels, at least two, at most 253 characters.
+fn is_filter_host(host: &str) -> bool {
+    host.len() <= 253
+        && host.split('.').count() >= 2
+        && host.split('.').all(|label| {
+            (1..=63).contains(&label.len())
+                && label
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+        })
+}
+
+/// Text with no control character and no `,`, not empty; its length is checked on its own.
+fn is_filter_text(text: &str) -> bool {
+    !text.is_empty() && !text.chars().any(|c| c.is_control() || c == ',')
+}
+
+impl PubkySocialFeedFilters {
+    /// The filters as stored: the ingredients deduplicated and sorted by code point, and `None`
+    /// when no member is set, since an empty set is no filter. Every other value is kept as given
+    /// and checked by the feed's rules.
+    pub fn canonical(mut self) -> Option<Self> {
+        if let Some(list) = &self.ingredients {
+            let items: BTreeSet<&str> = list.split(',').collect();
+            self.ingredients = Some(items.into_iter().collect::<Vec<_>>().join(","));
+        }
+        (self != Self::default()).then_some(self)
+    }
+
+    /// The members that define the feed, in their stored order, `place` left out.
+    fn id_members(&self) -> [(&'static str, &Option<String>); 14] {
+        [
+            ("when", &self.when),
+            ("from", &self.from),
+            ("to", &self.to),
+            ("near", &self.near),
+            ("radius", &self.radius),
+            ("category", &self.category),
+            ("host", &self.host),
+            ("key", &self.key),
+            ("remote", &self.remote),
+            ("closed", &self.closed),
+            ("ingredients", &self.ingredients),
+            ("sort", &self.sort),
+            ("window", &self.window),
+            ("rows", &self.rows),
+        ]
+    }
+
+    /// The id input of the filters: the members that define the feed as one JSON object, in their
+    /// stored order, each value a JSON string (`{"when":"week","near":"47.37,8.54"}`).
+    fn id_data(&self) -> String {
+        let members: Vec<String> = self
+            .id_members()
+            .into_iter()
+            .filter_map(|(name, value)| {
+                value.as_ref().map(|v| {
+                    format!(
+                        "\"{name}\":{}",
+                        serde_json::to_string(v).unwrap_or_default()
+                    )
+                })
+            })
+            .collect();
+        format!("{{{}}}", members.join(","))
+    }
+
+    /// The rules of a stored set, in member order, the first broken one reported.
+    fn validate(&self) -> Result<(), String> {
+        let limits = &VALIDATION_LIMITS;
+        if !self.extra.is_empty() {
+            return Err(
+                "Validation Error: A resources feed's filters hold a member this version does not know"
+                    .into(),
+            );
+        }
+        if *self == Self::default() {
+            return Err(
+                "Validation Error: A resources feed's filters must not be empty; leave them out for none"
+                    .into(),
+            );
+        }
+        let check = |ok: bool, name: &str| {
+            if ok {
+                Ok(())
+            } else {
+                Err(filter_invalid(name))
+            }
+        };
+        if let Some(when) = &self.when {
+            check(FILTER_WHEN.contains(&when.as_str()), "when")?;
+        }
+        if let Some(from) = &self.from {
+            check(is_filter_day(from), "from")?;
+        }
+        if let Some(to) = &self.to {
+            check(is_filter_day(to), "to")?;
+        }
+        if self.when.is_some() && (self.from.is_some() || self.to.is_some()) {
+            return Err(
+                "Validation Error: Resource feed filters when and from or to cannot go together"
+                    .into(),
+            );
+        }
+        if let (Some(from), Some(to)) = (&self.from, &self.to) {
+            if from > to {
+                return Err("Validation Error: Resource feed filter from is after to".into());
+            }
+        }
+        if let Some(near) = &self.near {
+            let ok = near.split_once(',').is_some_and(|(lat, lon)| {
+                is_filter_degree(lat, 90.0) && is_filter_degree(lon, 180.0)
+            });
+            check(ok, "near")?;
+        }
+        if let Some(radius) = &self.radius {
+            let ok = !radius.starts_with('0')
+                && radius.len() <= 3
+                && radius.bytes().all(|c| c.is_ascii_digit())
+                && radius
+                    .parse::<usize>()
+                    .is_ok_and(|km| (1..=limits.feed_filter_radius_max_km).contains(&km));
+            check(ok, "radius")?;
+        }
+        if let Some(place) = &self.place {
+            let ok = !place.is_empty()
+                && frozen_trim(place) == place
+                && !place.chars().any(char::is_control);
+            check(ok, "place")?;
+            let max = limits.feed_filter_place_max_length;
+            if code_point_len(place) > max {
+                return Err(filter_too_long("place", max, "characters"));
+            }
+        }
+        if self.near.is_none() && (self.radius.is_some() || self.place.is_some()) {
+            return Err(
+                "Validation Error: Resource feed filters radius and place need near".into(),
+            );
+        }
+        if let Some(category) = &self.category {
+            let ok = is_filter_text(category)
+                && frozen_trim(category) == category
+                && !category.starts_with('/');
+            check(ok, "category")?;
+            let max = limits.feed_filter_text_max_bytes;
+            if category.len() > max {
+                return Err(filter_too_long("category", max, "bytes"));
+            }
+        }
+        if let Some(host) = &self.host {
+            check(is_filter_host(host), "host")?;
+        }
+        if let Some(key) = &self.key {
+            let value = key.split_once(':').and_then(|(namespace, value)| {
+                FILTER_KEY_NAMESPACES.contains(&namespace).then_some(value)
+            });
+            check(
+                value.is_some_and(|v| is_filter_text(v) && !v.contains(' ')),
+                "key",
+            )?;
+            let max = limits.feed_filter_text_max_bytes;
+            if value.is_some_and(|v| v.len() > max) {
+                return Err(filter_too_long("key", max, "bytes"));
+            }
+        }
+        if let Some(remote) = &self.remote {
+            check(remote == "yes" || remote == "no", "remote")?;
+        }
+        if let Some(closed) = &self.closed {
+            check(closed == "yes", "closed")?;
+        }
+        if let Some(list) = &self.ingredients {
+            let items: Vec<&str> = list.split(',').collect();
+            // At most 64 code points is at most 256 bytes: an ingredient has no byte cap of its own
+            for item in &items {
+                let ok = is_filter_text(item)
+                    && frozen_trim(item) == *item
+                    && !item.bytes().any(|c| c.is_ascii_uppercase());
+                check(ok, "ingredients")?;
+                let max = limits.feed_filter_ingredient_max_length;
+                if code_point_len(item) > max {
+                    return Err(format!(
+                        "Validation Error: Resource feed filter ingredients cannot be longer than {max} characters each"
+                    ));
+                }
+            }
+            if items.len() > limits.feed_filter_ingredients_max_count {
+                return Err(format!(
+                    "Validation Error: A resources feed cannot filter by more than {} ingredients",
+                    limits.feed_filter_ingredients_max_count
+                ));
+            }
+            if !items.windows(2).all(|w| w[0] < w[1]) {
+                return Err("Validation Error: Resource feed filter ingredients must be stored deduplicated and sorted by code point".into());
+            }
+        }
+        if let Some(sort) = &self.sort {
+            check(FILTER_SORTS.contains(&sort.as_str()), "sort")?;
+            if sort == "nearest" && self.near.is_none() {
+                return Err(
+                    "Validation Error: Resource feed filter sort nearest needs near".into(),
+                );
+            }
+        }
+        if let Some(window) = &self.window {
+            check(FILTER_WINDOWS.contains(&window.as_str()), "window")?;
+            if self.sort.as_deref() != Some("trending") {
+                return Err(
+                    "Validation Error: Resource feed filter window needs sort trending".into(),
+                );
+            }
+        }
+        if let Some(rows) = &self.rows {
+            check(rows == "links", "rows")?;
+        }
+        Ok(())
+    }
+}
+
 /// Configuration object for the feed. The whole of a feed's identity: two feeds with the
 /// same config are the same feed, whatever they are named.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -199,6 +594,11 @@ pub struct PubkySocialFeedConfig {
     /// same id as `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<PubkySocialFeedTarget>,
+    /// A resources feed's search filters (see [`PubkySocialFeedFilters`]); `None` for none, and
+    /// always on a post feed. Set with [`PubkySocialFeedConfig::with_filters`].
+    /// Boxed: most feeds have none, and the set is the largest member of a config.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Box<PubkySocialFeedFilters>>,
     /// Unknown members, preserved on rewrite; see the module contract in `models/mod.rs`.
     /// Outside the id input, which reads named fields only.
     #[serde(flatten)]
@@ -229,6 +629,7 @@ impl PubkySocialFeedConfig {
             sort,
             content,
             target: None,
+            filters: None,
             extra: Default::default(),
         })
     }
@@ -240,6 +641,15 @@ impl PubkySocialFeedConfig {
     /// rest of the feed, by [`PubkySocialFeed::derive_id`].
     pub fn with_target(mut self, target: PubkySocialFeedTarget) -> Self {
         self.target = (target != PubkySocialFeedTarget::Posts).then_some(target);
+        self
+    }
+
+    /// The config with a resources feed's search filters, as stored
+    /// ([`PubkySocialFeedFilters::canonical`]: no member set is no filters). Their rules, and that
+    /// only a resources feed has them, are checked with the rest of the feed, by
+    /// [`PubkySocialFeed::derive_id`].
+    pub fn with_filters(mut self, filters: PubkySocialFeedFilters) -> Self {
+        self.filters = filters.canonical().map(Box::new);
         self
     }
 
@@ -389,6 +799,7 @@ impl Validatable for PubkySocialFeedConfig {
                 "sort",
                 "content",
                 "target",
+                "filters",
             ],
         )?;
         validate_tag_list(&self.tags, "tags")?;
@@ -404,6 +815,14 @@ impl Validatable for PubkySocialFeedConfig {
                     "Validation Error: A resources feed cannot filter by domain_tags".into(),
                 );
             }
+        }
+        // Search filters are a resources feed's: a post feed has the post kind and tags only
+        if let Some(filters) = &self.filters {
+            if self.target != Some(PubkySocialFeedTarget::Resources) {
+                return Err("Validation Error: Only a resources feed has filters".into());
+            }
+            check_extra(&filters.extra, &[])?;
+            filters.validate()?;
         }
 
         Ok(())
@@ -550,6 +969,12 @@ impl HashId for PubkySocialFeed {
     /// in a domain label anyone can choose (`content: ":music"` with `domain_tags: ["resources"]`
     /// would spell a suffix).
     ///
+    /// A resources feed with filters adds them as a seventh segment, after a ':' that follows the
+    /// (always empty) domain segment: "{target}:{six segments}:{filters}", the filters one JSON
+    /// object (see [`PubkySocialFeedFilters`]). A resources feed without filters keeps the id it had
+    /// before they existed, and no two resources feeds share an input: none of the six segments of
+    /// a valid one holds a ':', so the seventh starts after the sixth ':' exactly.
+    ///
     /// Writers go through [`PubkySocialFeed::derive_id`], which validates the config first. A
     /// name this version does not know is spelled as it was read, so it derives the writer's id.
     fn get_id_data(&self) -> String {
@@ -559,8 +984,14 @@ impl HashId for PubkySocialFeed {
             None | Some(PubkySocialFeedTarget::Posts) => String::new(),
             Some(target) => format!("{}:", target.wire_name()),
         };
+        let filters = match (&self.feed.target, &self.feed.filters) {
+            (Some(PubkySocialFeedTarget::Resources), Some(filters)) => {
+                format!(":{}", filters.id_data())
+            }
+            _ => String::new(),
+        };
         format!(
-            "{target}{}:{}:{}:{}:{}:{}",
+            "{target}{}:{}:{}:{}:{}:{}{filters}",
             self.feed.reach.wire_name(),
             self.feed.layout.wire_name(),
             self.feed.sort.wire_name(),
@@ -699,6 +1130,7 @@ mod tests {
             sort,
             content,
             target: None,
+            filters: None,
             extra: Default::default(),
         }
     }
@@ -1753,6 +2185,159 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The music feed of the audit as a resources feed, with these stored filters.
+    fn filtered(filters: serde_json::Value) -> PubkySocialFeed {
+        let mut f = music(PubkySocialFeedTarget::Resources);
+        f.feed.filters = Some(Box::new(serde_json::from_value(filters).unwrap()));
+        f
+    }
+
+    #[test]
+    fn test_resource_feed_filters_are_the_shared_table() {
+        let table: serde_json::Value =
+            serde_json::from_str(include_str!("../../vectors/semantic/resource_filters.json"))
+                .unwrap();
+        let limits = &VALIDATION_LIMITS;
+        for case in table["read"].as_array().unwrap() {
+            let got = filtered(case[0].clone()).derive_id().map(|_| ());
+            let (code, field, limit) = (case[2].as_str(), case[3].as_str(), case[4].as_u64());
+            let Some(error) = case[1].as_str() else {
+                assert_eq!(got, Ok(()), "{}", case[0]);
+                assert!(code.is_none() && field.is_none() && limit.is_none());
+                continue;
+            };
+            assert_eq!(
+                got,
+                Err(format!("Validation Error: {error}")),
+                "{}",
+                case[0]
+            );
+            // The package's code, field and limit of the refusal: the field names a member the
+            // message names too, and a limit is the crate's and stated in the message
+            let code = code.unwrap();
+            assert!(
+                [
+                    "blank",
+                    "unknown_name",
+                    "format",
+                    "conflict",
+                    "length",
+                    "size",
+                    "count"
+                ]
+                .contains(&code),
+                "{code}"
+            );
+            let field = field.unwrap();
+            if let Some(name) = field.strip_prefix("filters.") {
+                let none = PubkySocialFeedFilters::default();
+                assert!(name == "place" || none.id_members().iter().any(|(m, _)| *m == name));
+                assert!(error.contains(name), "{error} names {name}");
+            } else {
+                assert_eq!(field, "filters");
+            }
+            let bound = match (code, field) {
+                ("length", "filters.place") => Some(limits.feed_filter_place_max_length),
+                ("length", "filters.ingredients") => Some(limits.feed_filter_ingredient_max_length),
+                ("size", "filters.category" | "filters.key") => {
+                    Some(limits.feed_filter_text_max_bytes)
+                }
+                ("count", "filters.ingredients") => Some(limits.feed_filter_ingredients_max_count),
+                ("length" | "size" | "count", _) => panic!("no limit for {code} {field}"),
+                _ => None,
+            };
+            assert_eq!(limit, bound.map(|b| b as u64), "{}", case[0]);
+            if let Some(bound) = bound {
+                assert!(error.contains(&format!(" {bound} ")), "{error}");
+            }
+        }
+        for case in table["build"].as_array().unwrap() {
+            let given: PubkySocialFeedFilters = serde_json::from_value(case[0].clone()).unwrap();
+            let stored = given.canonical().map(|f| serde_json::to_value(f).unwrap());
+            assert_eq!(
+                stored,
+                case[1].as_object().map(|o| o.clone().into()),
+                "{}",
+                case[0]
+            );
+        }
+        for case in table["id"].as_array().unwrap() {
+            let f = filtered(case[0].clone());
+            assert_eq!(
+                f.get_id_data(),
+                format!(
+                    "resources:all:columns:recent::music::{}",
+                    case[1].as_str().unwrap()
+                )
+            );
+        }
+        // Stored bytes with the members in any order read at one id, whatever the place
+        for case in table["order"].as_array().unwrap() {
+            let (segment, id) = (case[2].as_str().unwrap(), case[3].as_str().unwrap());
+            for stored in [&case[0], &case[1]] {
+                let stored = stored.as_str().unwrap();
+                let blob = format!(
+                    r#"{{"feed":{{"tags":["music"],"reach":"all","layout":"columns","sort":"recent","content":null,"target":"resources","filters":{stored}}},"name":"Music","icon":"music","created_at":1700000000000000}}"#
+                );
+                let read =
+                    <PubkySocialFeed as Validatable>::try_from(blob.as_bytes(), id, &PRIV_CTX)
+                        .unwrap();
+                assert_eq!(
+                    read.get_id_data(),
+                    format!("resources:all:columns:recent::music::{segment}")
+                );
+                let given: PubkySocialFeedFilters = serde_json::from_str(stored).unwrap();
+                let mut built = music(PubkySocialFeedTarget::Resources);
+                built.feed = built.feed.with_filters(given);
+                assert_eq!(built.derive_id().unwrap(), id);
+            }
+        }
+    }
+
+    #[test]
+    fn test_resource_feed_filters_have_their_own_id_and_stay_off_post_feeds() {
+        let plain = music(PubkySocialFeedTarget::Resources);
+        let week = filtered(serde_json::json!({ "when": "week", "near": "47.37,8.54" }));
+        assert_eq!(
+            week.get_id_data(),
+            r#"resources:all:columns:recent::music::{"when":"week","near":"47.37,8.54"}"#
+        );
+        let id = week.derive_id().unwrap();
+        assert_ne!(id, plain.derive_id().unwrap());
+        // blake3 of the input above, [..16] in Crockford
+        assert_eq!(id, "RE5P1W2E45KJMZP1FSCTSG1YT0");
+        // The point's name is no filter: same id, kept in the bytes
+        let named = filtered(
+            serde_json::json!({ "when": "week", "near": "47.37,8.54", "place": "Zürich" }),
+        );
+        assert_eq!(named.derive_id().unwrap(), id);
+        let blob = serde_json::to_vec(&named).unwrap();
+        let text = String::from_utf8(blob.clone()).unwrap();
+        assert!(
+            text.contains(r#""target":"resources","filters":{"when":"week","near":"47.37,8.54","place":"Zürich"}"#),
+            "{text}"
+        );
+        let read = <PubkySocialFeed as Validatable>::try_from(&blob, &id, &PRIV_CTX).unwrap();
+        assert_eq!(read, named);
+        assert_eq!(serde_json::to_vec(&read).unwrap(), blob);
+        // Without filters a resources feed keeps the bytes and the id it had
+        assert!(!serde_json::to_string(&plain).unwrap().contains("filters"));
+        assert_eq!(plain.derive_id().unwrap(), "D41H1J8VKZ4JDSKYADR4WGAQB4");
+        // A post feed has none
+        let mut post = music(PubkySocialFeedTarget::Posts);
+        post.feed.filters = week.feed.filters.clone();
+        assert_eq!(
+            post.derive_id().unwrap_err(),
+            "Validation Error: Only a resources feed has filters"
+        );
+        // The builder stores no empty set
+        let built = plain
+            .feed
+            .clone()
+            .with_filters(PubkySocialFeedFilters::default());
+        assert_eq!(built.filters, None);
     }
 
     #[test]

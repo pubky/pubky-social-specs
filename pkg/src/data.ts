@@ -37,6 +37,16 @@ export const limits = /* @__PURE__ */ Object.freeze({
   collectionNameMaxLength: 100,
   /** The shortest collection name, in code points: 1. */
   collectionNameMinLength: 1,
+  /** The longest ingredient in a resources feed's `filters.ingredients`, in code points: 64. */
+  feedFilterIngredientMaxLength: 64,
+  /** The most ingredients in a resources feed's `filters.ingredients`, in items: 3. */
+  feedFilterIngredientsMaxCount: 3,
+  /** The longest `filters.place` of a resources feed, the name of its point, in code points: 120. */
+  feedFilterPlaceMaxLength: 120,
+  /** The largest `filters.radius` of a resources feed, in kilometres. */
+  feedFilterRadiusMaxKm: 200,
+  /** The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`, in bytes: 256. */
+  feedFilterTextMaxBytes: 256,
   /** The longest feed icon name, in code points: 50. */
   feedIconMaxLength: 50,
   /** The longest feed name, in code points: 100. */

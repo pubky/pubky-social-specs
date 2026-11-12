@@ -1,0 +1,887 @@
+{
+ "about": "A resources feed's search filters as stored. read: [filters, the refusal without its 'Validation Error: ' prefix or null, its code, its field, its limit]; build: [given, as stored or null for none]; id: [filters, their id input segment]; order: [stored filters as JSON text in a scrambled member order, the same with only place changed, their id input segment, the id of the music resources feed with them]. Read by the crate's and the package's tests.",
+ "read": [
+  [
+   {
+    "when": "week"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "when": "today",
+    "near": "47.37,8.54",
+    "radius": "10",
+    "place": "Zürich"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "from": "2026-11-01",
+    "to": "2026-11-30"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "from": "2026-11-01"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "to": "2024-02-29"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "near": "-33.86785,151.20732",
+    "sort": "nearest"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "near": "0,0"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "near": "90,-180"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "category": "amenity/cafe"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "host": "open.spotify.com"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "key": "isbn:9780140328721"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "key": "doi:10.1038/nphys1170"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "remote": "yes",
+    "closed": "yes"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "remote": "no"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "ingredients": "chickpeas,lemon"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "ingredients": "all-purpose flour"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "sort": "trending",
+    "window": "24h"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "sort": "upcoming"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "rows": "links"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {},
+   "A resources feed's filters must not be empty; leave them out for none",
+   "blank",
+   "filters",
+   null
+  ],
+  [
+   {
+    "when": null
+   },
+   "A resources feed's filters must not be empty; leave them out for none",
+   "blank",
+   "filters",
+   null
+  ],
+  [
+   {
+    "colour": "red"
+   },
+   "A resources feed's filters hold a member this version does not know",
+   "unknown_name",
+   "filters",
+   null
+  ],
+  [
+   {
+    "when": "week",
+    "colour": "red"
+   },
+   "A resources feed's filters hold a member this version does not know",
+   "unknown_name",
+   "filters",
+   null
+  ],
+  [
+   {
+    "when": "upcoming"
+   },
+   "Resource feed filter when is not valid",
+   "format",
+   "filters.when",
+   null
+  ],
+  [
+   {
+    "when": "Week"
+   },
+   "Resource feed filter when is not valid",
+   "format",
+   "filters.when",
+   null
+  ],
+  [
+   {
+    "from": "2026-02-30"
+   },
+   "Resource feed filter from is not valid",
+   "format",
+   "filters.from",
+   null
+  ],
+  [
+   {
+    "from": "2026-1-01"
+   },
+   "Resource feed filter from is not valid",
+   "format",
+   "filters.from",
+   null
+  ],
+  [
+   {
+    "to": "0999-01-01"
+   },
+   "Resource feed filter to is not valid",
+   "format",
+   "filters.to",
+   null
+  ],
+  [
+   {
+    "to": "2025-02-29"
+   },
+   "Resource feed filter to is not valid",
+   "format",
+   "filters.to",
+   null
+  ],
+  [
+   {
+    "when": "week",
+    "from": "2026-11-01"
+   },
+   "Resource feed filters when and from or to cannot go together",
+   "conflict",
+   "filters",
+   null
+  ],
+  [
+   {
+    "from": "2026-11-30",
+    "to": "2026-11-01"
+   },
+   "Resource feed filter from is after to",
+   "conflict",
+   "filters.from",
+   null
+  ],
+  [
+   {
+    "near": "47.37"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47.370,8.54"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47.123456,8.5"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "-0,8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "047,8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "91,8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47,180.5"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47, 8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "+47,8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47.,8"
+   },
+   "Resource feed filter near is not valid",
+   "format",
+   "filters.near",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "radius": "0"
+   },
+   "Resource feed filter radius is not valid",
+   "format",
+   "filters.radius",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "radius": "010"
+   },
+   "Resource feed filter radius is not valid",
+   "format",
+   "filters.radius",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "radius": "201"
+   },
+   "Resource feed filter radius is not valid",
+   "format",
+   "filters.radius",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "radius": "200"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "place": " Zürich"
+   },
+   "Resource feed filter place is not valid",
+   "format",
+   "filters.place",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "place": ""
+   },
+   "Resource feed filter place is not valid",
+   "format",
+   "filters.place",
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "place": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+   },
+   "Resource feed filter place cannot be longer than 120 characters",
+   "length",
+   "filters.place",
+   120
+  ],
+  [
+   {
+    "near": "47,8",
+    "place": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "near": "47,8",
+    "place": "Zürich\u0007"
+   },
+   "Resource feed filter place is not valid",
+   "format",
+   "filters.place",
+   null
+  ],
+  [
+   {
+    "radius": "10"
+   },
+   "Resource feed filters radius and place need near",
+   "conflict",
+   "filters",
+   null
+  ],
+  [
+   {
+    "place": "Zürich"
+   },
+   "Resource feed filters radius and place need near",
+   "conflict",
+   "filters",
+   null
+  ],
+  [
+   {
+    "category": "/cafe"
+   },
+   "Resource feed filter category is not valid",
+   "format",
+   "filters.category",
+   null
+  ],
+  [
+   {
+    "category": "a,b"
+   },
+   "Resource feed filter category is not valid",
+   "format",
+   "filters.category",
+   null
+  ],
+  [
+   {
+    "category": "a\u0007b"
+   },
+   "Resource feed filter category is not valid",
+   "format",
+   "filters.category",
+   null
+  ],
+  [
+   {
+    "category": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+   },
+   "Resource feed filter category cannot be longer than 256 bytes",
+   "size",
+   "filters.category",
+   256
+  ],
+  [
+   {
+    "category": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "category": "amenity/cafe "
+   },
+   "Resource feed filter category is not valid",
+   "format",
+   "filters.category",
+   null
+  ],
+  [
+   {
+    "category": " amenity/cafe"
+   },
+   "Resource feed filter category is not valid",
+   "format",
+   "filters.category",
+   null
+  ],
+  [
+   {
+    "host": "Open.spotify.com"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "localhost"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "-a.com"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "a..com"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "key": "isbn"
+   },
+   "Resource feed filter key is not valid",
+   "format",
+   "filters.key",
+   null
+  ],
+  [
+   {
+    "key": "ISBN:978"
+   },
+   "Resource feed filter key is not valid",
+   "format",
+   "filters.key",
+   null
+  ],
+  [
+   {
+    "key": "isbn:"
+   },
+   "Resource feed filter key is not valid",
+   "format",
+   "filters.key",
+   null
+  ],
+  [
+   {
+    "key": "isbn:978 014"
+   },
+   "Resource feed filter key is not valid",
+   "format",
+   "filters.key",
+   null
+  ],
+  [
+   {
+    "key": "tel:123"
+   },
+   "Resource feed filter key is not valid",
+   "format",
+   "filters.key",
+   null
+  ],
+  [
+   {
+    "key": "isbn:9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "key": "isbn:99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+   },
+   "Resource feed filter key cannot be longer than 256 bytes",
+   "size",
+   "filters.key",
+   256
+  ],
+  [
+   {
+    "remote": "true"
+   },
+   "Resource feed filter remote is not valid",
+   "format",
+   "filters.remote",
+   null
+  ],
+  [
+   {
+    "closed": "no"
+   },
+   "Resource feed filter closed is not valid",
+   "format",
+   "filters.closed",
+   null
+  ],
+  [
+   {
+    "ingredients": "Egg"
+   },
+   "Resource feed filter ingredients is not valid",
+   "format",
+   "filters.ingredients",
+   null
+  ],
+  [
+   {
+    "ingredients": "egg,"
+   },
+   "Resource feed filter ingredients is not valid",
+   "format",
+   "filters.ingredients",
+   null
+  ],
+  [
+   {
+    "ingredients": " egg"
+   },
+   "Resource feed filter ingredients is not valid",
+   "format",
+   "filters.ingredients",
+   null
+  ],
+  [
+   {
+    "ingredients": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "ingredients": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "ingredients": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "Resource feed filter ingredients cannot be longer than 64 characters each",
+   "length",
+   "filters.ingredients",
+   64
+  ],
+  [
+   {
+    "ingredients": "egg,ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+   },
+   "Resource feed filter ingredients cannot be longer than 64 characters each",
+   "length",
+   "filters.ingredients",
+   64
+  ],
+  [
+   {
+    "ingredients": "a,b,c,d"
+   },
+   "A resources feed cannot filter by more than 3 ingredients",
+   "count",
+   "filters.ingredients",
+   3
+  ],
+  [
+   {
+    "ingredients": "egg,egg"
+   },
+   "Resource feed filter ingredients must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.ingredients",
+   null
+  ],
+  [
+   {
+    "ingredients": "lemon,chickpeas"
+   },
+   "Resource feed filter ingredients must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.ingredients",
+   null
+  ],
+  [
+   {
+    "sort": "distance"
+   },
+   "Resource feed filter sort is not valid",
+   "format",
+   "filters.sort",
+   null
+  ],
+  [
+   {
+    "sort": "nearest"
+   },
+   "Resource feed filter sort nearest needs near",
+   "conflict",
+   "filters.sort",
+   null
+  ],
+  [
+   {
+    "window": "7d"
+   },
+   "Resource feed filter window needs sort trending",
+   "conflict",
+   "filters.window",
+   null
+  ],
+  [
+   {
+    "sort": "upcoming",
+    "window": "7d"
+   },
+   "Resource feed filter window needs sort trending",
+   "conflict",
+   "filters.window",
+   null
+  ],
+  [
+   {
+    "sort": "trending",
+    "window": "1y"
+   },
+   "Resource feed filter window is not valid",
+   "format",
+   "filters.window",
+   null
+  ],
+  [
+   {
+    "rows": "group"
+   },
+   "Resource feed filter rows is not valid",
+   "format",
+   "filters.rows",
+   null
+  ],
+  [
+   {
+    "when": "never",
+    "rows": "group"
+   },
+   "Resource feed filter when is not valid",
+   "format",
+   "filters.when",
+   null
+  ]
+ ],
+ "build": [
+  [
+   {
+    "ingredients": "lemon,chickpeas,lemon"
+   },
+   {
+    "ingredients": "chickpeas,lemon"
+   }
+  ],
+  [
+   {
+    "when": "week",
+    "near": "47.37,8.54"
+   },
+   {
+    "when": "week",
+    "near": "47.37,8.54"
+   }
+  ],
+  [
+   {},
+   null
+  ]
+ ],
+ "id": [
+  [
+   {
+    "when": "week"
+   },
+   "{\"when\":\"week\"}"
+  ],
+  [
+   {
+    "near": "47.37,8.54",
+    "radius": "10",
+    "place": "Zürich",
+    "sort": "nearest"
+   },
+   "{\"near\":\"47.37,8.54\",\"radius\":\"10\",\"sort\":\"nearest\"}"
+  ],
+  [
+   {
+    "category": "a\"b\\c"
+   },
+   "{\"category\":\"a\\\"b\\\\c\"}"
+  ]
+ ],
+ "order": [
+  [
+   "{\"rows\":\"links\",\"window\":\"30d\",\"place\":\"Zürich HB\",\"ingredients\":\"chickpeas,lemon\",\"closed\":\"yes\",\"key\":\"isbn:9780140328721\",\"to\":\"2026-12-31\",\"sort\":\"trending\",\"remote\":\"yes\",\"host\":\"open.spotify.com\",\"category\":\"amenity/cafe\",\"radius\":\"50\",\"near\":\"47.37802,8.54019\",\"from\":\"2026-12-01\"}",
+   "{\"near\":\"47.37802,8.54019\",\"category\":\"amenity/cafe\",\"rows\":\"links\",\"place\":\"Zurich main station\",\"to\":\"2026-12-31\",\"window\":\"30d\",\"key\":\"isbn:9780140328721\",\"radius\":\"50\",\"closed\":\"yes\",\"from\":\"2026-12-01\",\"host\":\"open.spotify.com\",\"sort\":\"trending\",\"remote\":\"yes\",\"ingredients\":\"chickpeas,lemon\"}",
+   "{\"from\":\"2026-12-01\",\"to\":\"2026-12-31\",\"near\":\"47.37802,8.54019\",\"radius\":\"50\",\"category\":\"amenity/cafe\",\"host\":\"open.spotify.com\",\"key\":\"isbn:9780140328721\",\"remote\":\"yes\",\"closed\":\"yes\",\"ingredients\":\"chickpeas,lemon\",\"sort\":\"trending\",\"window\":\"30d\",\"rows\":\"links\"}",
+   "RG765Y1NKA0ESM5X92D06JG3Y8"
+  ],
+  [
+   "{\"sort\":\"upcoming\",\"place\":\"Bern\",\"when\":\"weekend\",\"near\":\"46.948,7.4474\"}",
+   "{\"near\":\"46.948,7.4474\",\"when\":\"weekend\",\"place\":\"Berne\",\"sort\":\"upcoming\"}",
+   "{\"when\":\"weekend\",\"near\":\"46.948,7.4474\",\"sort\":\"upcoming\"}",
+   "G6CMKW5X201NZHMPACKRD81GEM"
+  ]
+ ]
+}

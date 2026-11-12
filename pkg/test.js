@@ -6,6 +6,7 @@ import assert from "assert";
 import fs from "node:fs";
 import vm from "node:vm";
 import * as specs from "./dist/index.js";
+import { hashText } from "./dist/ids.js";
 import { setClock } from "./dist/testing.js";
 import { OTTO, RIO, T0, caught, misuse, refuses, text, utf8 } from "./core.fixture.js";
 
@@ -387,7 +388,7 @@ describe("pubky-social-specs", () => {
       const body = `{"feed":{"tags":["rust"],"domain_tags":["dev"],"reach":"wot","layout":"columns","sort":"recent","content":null},"name":"Rust","icon":"crab","created_at":${T0 * 1000}}`;
       assert.strictEqual(text(rust.body), body);
       assert.deepStrictEqual(decodeObject(rust.url, utf8(body)).object, {
-        feed: { tags: ["rust"], domain_tags: ["dev"], reach: "wot", layout: "columns", sort: "recent", content: null, target: null },
+        feed: { tags: ["rust"], domain_tags: ["dev"], reach: "wot", layout: "columns", sort: "recent", content: null, target: null, filters: null },
         name: "Rust",
         icon: "crab",
         created_at: T0 * 1000,
@@ -426,6 +427,63 @@ describe("pubky-social-specs", () => {
           assert.deepStrictEqual([e.code, e.field, e.message, e.limit], [code, "content", `Validation Error: ${error}`, limitOf[code]], content);
         }
       }
+    });
+
+    it("takes and stores a resources feed's filters as the crate does", () => {
+      const table = JSON.parse(fs.readFileSync(new URL("../vectors/semantic/resource_filters.json", import.meta.url), "utf8"));
+      const base = { name: "x", icon: "a", reach: "all", layout: "columns", sort: "recent", tags: ["music"], target: "resources" };
+      const every = buildFeed(OTTO, base);
+      const withFilters = (filters) => text(every.body).replace('"target":"resources"', `"target":"resources","filters":${JSON.stringify(filters)}`);
+      for (const [filters, error, code, field, limit] of table.read) {
+        const body = withFilters(filters);
+        if (error === null) {
+          // As stored: the builder writes the same bytes, which read back at its id unchanged
+          const built = buildFeed(OTTO, { ...base, filters });
+          assert.strictEqual(text(built.body), body, JSON.stringify(filters));
+          const read = decodeObject(built.url, built.body);
+          assert.strictEqual(text(encodeObject(built.url, read.object)), body, JSON.stringify(filters));
+          assert.strictEqual(feedId(read.object), built.id);
+        } else {
+          const e = caught(() => decodeObject(`pubky://${OTTO}/priv/social/v1/feeds/${every.id}.json`, utf8(body)));
+          // The code, the field and the limit the package promises, besides the crate's message
+          const refusal = (x) => [x.message, x.code, x.field ?? null, x.limit ?? null];
+          assert.deepStrictEqual(refusal(e), [`Validation Error: ${error}`, code, field, limit], JSON.stringify(filters));
+          // The builder refuses the same set, as the crate's does
+          const b = Object.values(filters).some((v) => v !== null) && !error.includes("deduplicated") ? caught(() => buildFeed(OTTO, { ...base, filters })) : null;
+          // (it stores no empty set, and sorts the ingredients itself)
+          if (b !== null) assert.deepStrictEqual(refusal(b), [`Validation Error: ${error}`, code, field, limit], JSON.stringify(filters));
+        }
+      }
+      for (const [given, stored] of table.build) {
+        const built = buildFeed(OTTO, { ...base, filters: given });
+        assert.deepStrictEqual(built.object.feed.filters === null ? null : Object.fromEntries(Object.entries(built.object.feed.filters).filter(([k, v]) => v !== null && k !== "$unknown")), stored);
+      }
+      for (const [filters, segment] of table.id) {
+        const built = buildFeed(OTTO, { ...base, filters });
+        assert.strictEqual(built.id, hashText(`resources:all:columns:recent::music::${segment}`), JSON.stringify(filters));
+      }
+      // Stored bytes with the members in any order read at one id, whatever the place
+      for (const [stored, renamed, segment, id] of table.order) {
+        assert.strictEqual(hashText(`resources:all:columns:recent::music::${segment}`), id);
+        for (const filters of [stored, renamed]) {
+          const body = withFilters(JSON.parse(filters));
+          assert.ok(body.includes(`"filters":${filters}`), body);
+          const read = decodeObject(`pubky://${OTTO}/priv/social/v1/feeds/${id}.json`, utf8(body));
+          assert.strictEqual(feedId(read.object), id);
+          assert.strictEqual(buildFeed(OTTO, { ...base, filters: JSON.parse(filters) }).id, id);
+        }
+      }
+      // An unknown member left undefined is absent, as a known one is; one that is no JSON is a misuse
+      assert.strictEqual(buildFeed(OTTO, { ...base, filters: { colour: undefined, when: "week" } }).id, buildFeed(OTTO, { ...base, filters: { when: "week" } }).id);
+      misuse(() => buildFeed(OTTO, { ...base, filters: { colour: () => 1 } }), /input\.filters\.colour must be a JSON value/);
+      misuse(() => buildFeed(OTTO, { ...base, filters: { colour: 1n } }), /input\.filters\.colour must be a JSON value/);
+      // Without filters the feed keeps its id; a post feed has none
+      assert.strictEqual(buildFeed(OTTO, { ...base, filters: {} }).id, every.id);
+      const post = caught(() => buildFeed(OTTO, { ...base, target: "posts", filters: { when: "week" } }));
+      assert.strictEqual(post.message, "Validation Error: Only a resources feed has filters");
+      assert.strictEqual(limits.feedFilterIngredientsMaxCount, 3);
+      assert.strictEqual(limits.feedFilterIngredientMaxLength, 64);
+      assert.strictEqual(limits.feedFilterRadiusMaxKm, 200);
     });
 
     it("a feed of external resources has its own id, and a post feed keeps the one it had", () => {

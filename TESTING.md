@@ -42,7 +42,10 @@ request alone and a recorded request replays to the same answer.
 - **Recorded vectors** (`vectors/js/<family>.jsonl`): 400 requests per family with the oracle's
   answers, read by both sides. `tests/surface_vectors.rs` fails when the crate no longer gives
   them, and the scoreboard fails when the package does not. Regenerate with
-  `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour.
+  `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour. A
+  `<family>-<name>.jsonl` file is a set kept from an earlier recording (`feed-unfiltered.jsonl`:
+  the feeds as recorded before a resources feed had filters, which keep their bytes and ids); it
+  is replayed by both sides and never rewritten.
 - **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh
   requests per family, the oracle answers them, and the package has to answer the same: stored
   bytes compared as bytes, a refusal by its message. `--family post --fuzz 1000000 --seed 3`

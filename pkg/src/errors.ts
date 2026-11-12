@@ -6,14 +6,17 @@ export const PREFIX = "Validation Error: ";
  * What kind of rule a `ValidationError` names, stable across releases where the message text is
  * not:
  * - `json`: the bytes, or an envelope inside them, are not JSON of the stored shape;
- * - `size`: an object or a file is over its byte cap, `limit` in bytes;
+ * - `size`: an object or a file is over its byte cap, or text over a cap in bytes (a resources
+ *   feed's `filters.category`, the value of `filters.key`), `limit` in bytes;
  * - `length`: text is outside its bounds, `limit` the bound it broke, in code points;
  * - `count`: a list has more items than `limit`;
  * - `blank`: text, a list or a file is empty or whitespace only;
- * - `format`: text is not spelled the one way the model accepts (a key, an id, a tag, a slug);
+ * - `format`: text is not spelled the one way the model accepts (a key, an id, a tag, a slug), or
+ *   a number held as text is out of its range (a resources feed's `filters.radius`, no `limit`);
  * - `id`: an id does not match its object, or its time is out of bounds;
  * - `reference`: a URI in a reference position is refused;
- * - `unknown_name`: a kind, reach, layout, sort or target this version does not know;
+ * - `unknown_name`: a kind, reach, layout, sort or target this version does not know, or a member
+ *   of a resources feed's `filters` this version does not know;
  * - `unsafe_integer`: an integer a JS number cannot hold exactly;
  * - `path`: a URL or path names no object of the kind asked for;
  * - `conflict`: members or arguments that cannot go together;

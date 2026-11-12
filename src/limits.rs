@@ -2,7 +2,8 @@
 //!
 //! These constants are the single source of truth for client-side validation.
 //! Every `*_max_length` counts Unicode code points. Byte-denominated caps are the two object
-//! size caps, the media size cap and `bookmark_target_uri_max_bytes`.
+//! size caps, the media size cap, `bookmark_target_uri_max_bytes` and
+//! `feed_filter_text_max_bytes`.
 //!
 //! # Examples
 //! Serialize the bundled limits for client consumption.
@@ -90,6 +91,18 @@ pub struct ValidationLimits {
     pub feed_resource_types_max_count: usize,
     /// Maximum code points of one schema.org type name in a resources feed's `content`.
     pub feed_resource_type_max_length: usize,
+    /// Most ingredients a resources feed's `filters.ingredients` lists (the index takes 3).
+    pub feed_filter_ingredients_max_count: usize,
+    /// Maximum code points of one ingredient in a resources feed's `filters.ingredients` (the
+    /// index takes 64).
+    pub feed_filter_ingredient_max_length: usize,
+    /// Largest `filters.radius` of a resources feed, in kilometres (the index takes 200 km).
+    pub feed_filter_radius_max_km: usize,
+    /// Maximum code points of a resources feed's `filters.place`, the name of its point.
+    pub feed_filter_place_max_length: usize,
+    /// Maximum UTF-8 bytes of a resources feed's `filters.category` and of the value of its
+    /// `filters.key` (the index takes 256).
+    pub feed_filter_text_max_bytes: usize,
     /// Maximum feed name length in characters.
     pub feed_name_max_length: usize,
     /// Maximum length of a feed icon name in characters.
@@ -141,6 +154,11 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     feed_tags_max_count: 5,
     feed_resource_types_max_count: 10,
     feed_resource_type_max_length: 64,
+    feed_filter_ingredients_max_count: 3,
+    feed_filter_ingredient_max_length: 64,
+    feed_filter_radius_max_km: 200,
+    feed_filter_place_max_length: 120,
+    feed_filter_text_max_bytes: 256,
     feed_name_max_length: 100,
     feed_icon_max_length: 50,
     bookmark_target_uri_max_bytes: 187,
