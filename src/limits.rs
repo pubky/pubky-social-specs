@@ -107,6 +107,8 @@ pub struct ValidationLimits {
     /// Most schema.org types a resources feed's `filters.exclude_types` names (the index takes
     /// 50).
     pub feed_filter_exclude_types_max_count: usize,
+    /// Most hosts a resources feed's `filters.host` lists (the index takes 10).
+    pub feed_filter_hosts_max_count: usize,
     /// Maximum feed name length in characters.
     pub feed_name_max_length: usize,
     /// Maximum length of a feed icon name in characters.
@@ -164,6 +166,7 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     feed_filter_place_max_length: 120,
     feed_filter_text_max_bytes: 256,
     feed_filter_exclude_types_max_count: 50,
+    feed_filter_hosts_max_count: 10,
     feed_name_max_length: 100,
     feed_icon_max_length: 50,
     bookmark_target_uri_max_bytes: 187,

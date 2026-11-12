@@ -453,7 +453,19 @@ const FILTER_VALUES = {
   radius: ["10", "200", "1", "0", "201", "010", "x"],
   place: ["Zürich", " Zürich", "", "Z".repeat(120), "Z".repeat(121), "a\u0007b"],
   category: ["amenity/cafe", "/cafe", "a,b", "amenity/cafe ", "\u00a0cafe", "é".repeat(128), "é".repeat(129)],
-  host: ["open.spotify.com", "Open.spotify.com", "localhost", "-a.com", "a..com"],
+  host: [
+    "open.spotify.com",
+    "Open.spotify.com",
+    "localhost",
+    "-a.com",
+    "a..com",
+    "open.spotify.com,www.deezer.com",
+    "www.deezer.com,open.spotify.com",
+    "open.spotify.com,open.spotify.com",
+    "open.spotify.com,",
+    "a.com,b.com,c.com,d.com,e.com,f.com,g.com,h.com,i.com,j.com",
+    "a.com,b.com,c.com,d.com,e.com,f.com,g.com,h.com,i.com,j.com,k.com",
+  ],
   key: ["isbn:9780140328721", "doi:10.1038/nphys1170", "ISBN:978", "isbn:", "tel:1", "isbn:978 014", `isbn:${"9".repeat(256)}`, `isbn:${"9".repeat(257)}`],
   remote: ["yes", "no", "true"],
   closed: ["yes", "no"],
@@ -529,10 +541,10 @@ const storedFeed = (r, target = false) => {
   if (i.target === "resources" && typeof f.feed.content === "string" && r.chance(0.8)) {
     f.feed.content = [...new Set(f.feed.content.split(","))].sort().join(",");
   }
-  // Filters, mostly with the ingredients and the excluded types as the builder stores them
+  // Filters, mostly with the hosts, the ingredients and the excluded types as the builder stores them
   if (i.filters !== undefined) {
     f.feed.filters = i.filters;
-    for (const name of ["ingredients", "exclude_types"]) {
+    for (const name of ["host", "ingredients", "exclude_types"]) {
       const list = f.feed.filters?.[name];
       if (typeof list === "string" && r.chance(0.8)) f.feed.filters = { ...f.feed.filters, [name]: [...new Set(list.split(","))].sort().join(",") };
     }

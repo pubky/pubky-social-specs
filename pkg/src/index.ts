@@ -365,10 +365,10 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
  *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`,
  *  an ingredient longer than `feedFilterIngredientMaxLength` or an excluded type name longer than
  *  `feedResourceTypeMaxLength` (`length`), a `category` or `key` value over
- *  `feedFilterTextMaxBytes` (`size`), more than `feedFilterIngredientsMaxCount` ingredients or
- *  `feedFilterExcludeTypesMaxCount` excluded types (`count`), `field` the member
- *  (`filters.place`) or `filters`; `ArgumentError` for a
- *  member of the wrong type.
+ *  `feedFilterTextMaxBytes` (`size`), more than `feedFilterHostsMaxCount` hosts,
+ *  `feedFilterIngredientsMaxCount` ingredients or `feedFilterExcludeTypesMaxCount` excluded types
+ *  (`count`), `field` the member (`filters.place`) or `filters`; `ArgumentError` for a member of
+ *  the wrong type.
  *
  * @example
  * ```ts

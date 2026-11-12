@@ -450,7 +450,7 @@ describe("pubky-social-specs", () => {
           assert.deepStrictEqual(refusal(e), [`Validation Error: ${error}`, code, field, limit], JSON.stringify(filters));
           // The builder refuses the same set, as the crate's does
           const b = Object.values(filters).some((v) => v !== null) && !error.includes("deduplicated") ? caught(() => buildFeed(OTTO, { ...base, filters })) : null;
-          // (it stores no empty set, and sorts the ingredients itself)
+          // (it stores no empty set, and sorts the hosts and ingredients itself)
           if (b !== null) assert.deepStrictEqual(refusal(b), [`Validation Error: ${error}`, code, field, limit], JSON.stringify(filters));
         }
       }
@@ -481,6 +481,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(buildFeed(OTTO, { ...base, filters: {} }).id, every.id);
       const post = caught(() => buildFeed(OTTO, { ...base, target: "posts", filters: { when: "week" } }));
       assert.strictEqual(post.message, "Validation Error: Only a resources feed has filters");
+      assert.strictEqual(limits.feedFilterHostsMaxCount, 10);
       assert.strictEqual(limits.feedFilterIngredientsMaxCount, 3);
       assert.strictEqual(limits.feedFilterIngredientMaxLength, 64);
       assert.strictEqual(limits.feedFilterRadiusMaxKm, 200);

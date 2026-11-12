@@ -35,6 +35,7 @@ const LIMIT_DOCS = {
   collectionNameMaxLength: "The longest collection name",
   collectionNameMinLength: "The shortest collection name",
   feedFilterExcludeTypesMaxCount: "The most schema.org types in a resources feed's `filters.exclude_types`",
+  feedFilterHostsMaxCount: "The most hosts in a resources feed's `filters.host`",
   feedFilterIngredientMaxLength: "The longest ingredient in a resources feed's `filters.ingredients`",
   feedFilterIngredientsMaxCount: "The most ingredients in a resources feed's `filters.ingredients`",
   feedFilterPlaceMaxLength: "The longest `filters.place` of a resources feed, the name of its point",

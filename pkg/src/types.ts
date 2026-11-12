@@ -380,7 +380,7 @@ export interface NewFeed {
   domain_tags?: string[] | null;
   /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of schema.org types only and no `domain_tags`. */
   target?: KnownFeedTarget | null;
-  /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the ingredients and the excluded types. */
+  /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the hosts, the ingredients and the excluded types. */
   filters?: NewFeedFilters | null;
 }
 
@@ -404,7 +404,7 @@ export interface NewFeedFilters {
   place?: string | null;
   /** One category as the index spells it (`amenity/cafe`). */
   category?: string | null;
-  /** One service: the links' host in lower case (`open.spotify.com`). */
+  /** Services, any of them: up to `feedFilterHostsMaxCount` hosts in lower case, comma-separated (`open.spotify.com,www.deezer.com`). */
   host?: string | null;
   /** One identifier, `<namespace>:<value>` (`isbn:9780140328721`). */
   key?: string | null;

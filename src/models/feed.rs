@@ -190,7 +190,7 @@ fn validate_resource_types(content: &str) -> Result<(), String> {
 /// | `radius` | whole km | `radius` | `radius` in metres (km × 1000) |
 /// | `place` | a name | `place` | not sent |
 /// | `category` | `amenity/cafe` | `category` | `category` |
-/// | `host` | `open.spotify.com` | `service` | `host` |
+/// | `host` | up to 10, any of them, `open.spotify.com,www.deezer.com` | `service` | `host` |
 /// | `key` | `isbn:9780140328721` | `id` | `key` |
 /// | `remote` | `yes`, `no` | `remote` | `remote=true`, `remote=false` |
 /// | `closed` | `yes` | `closed=1` | `closed=true` |
@@ -255,7 +255,9 @@ pub struct PubkySocialFeedFilters {
     /// One category, as the index spells it (OpenStreetMap's `amenity/cafe`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
-    /// One service: the links' host in lower case (`open.spotify.com`).
+    /// Services, any of them: the links' hosts in lower case, comma-separated, at most
+    /// `feed_filter_hosts_max_count`, deduplicated and sorted by code point
+    /// (`open.spotify.com,www.deezer.com`). One host is a list of one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// One identifier the resources carry, `<namespace>:<value>` (`isbn:9780140328721`).
@@ -379,13 +381,17 @@ fn is_filter_text(text: &str) -> bool {
 }
 
 impl PubkySocialFeedFilters {
-    /// The filters as stored: the ingredients and the excluded types deduplicated and sorted by
-    /// code point, and `None` when no member is set, since an empty set is no filter. Every other
-    /// value is kept as given and checked by the feed's rules.
+    /// The filters as stored: the hosts, the ingredients and the excluded types deduplicated and
+    /// sorted by code point, and `None` when no member is set, since an empty set is no filter.
+    /// Every other value is kept as given and checked by the feed's rules.
     pub fn canonical(mut self) -> Option<Self> {
-        for list in [&mut self.ingredients, &mut self.exclude_types]
-            .into_iter()
-            .flatten()
+        for list in [
+            &mut self.host,
+            &mut self.ingredients,
+            &mut self.exclude_types,
+        ]
+        .into_iter()
+        .flatten()
         {
             let items: BTreeSet<&str> = list.split(',').collect();
             let stored = items.into_iter().collect::<Vec<_>>().join(",");
@@ -515,8 +521,20 @@ impl PubkySocialFeedFilters {
                 return Err(filter_too_long("category", max, "bytes"));
             }
         }
-        if let Some(host) = &self.host {
-            check(is_filter_host(host), "host")?;
+        if let Some(list) = &self.host {
+            let items: Vec<&str> = list.split(',').collect();
+            for item in &items {
+                check(is_filter_host(item), "host")?;
+            }
+            if items.len() > limits.feed_filter_hosts_max_count {
+                return Err(format!(
+                    "Validation Error: A resources feed cannot filter by more than {} hosts",
+                    limits.feed_filter_hosts_max_count
+                ));
+            }
+            if !items.windows(2).all(|w| w[0] < w[1]) {
+                return Err("Validation Error: Resource feed filter host must be stored deduplicated and sorted by code point".into());
+            }
         }
         if let Some(key) = &self.key {
             let value = key.split_once(':').and_then(|(namespace, value)| {
@@ -2282,6 +2300,7 @@ mod tests {
                     Some(limits.feed_filter_text_max_bytes)
                 }
                 ("count", "filters.ingredients") => Some(limits.feed_filter_ingredients_max_count),
+                ("count", "filters.host") => Some(limits.feed_filter_hosts_max_count),
                 ("length", "filters.exclude_types") => Some(limits.feed_resource_type_max_length),
                 ("count", "filters.exclude_types") => {
                     Some(limits.feed_filter_exclude_types_max_count)

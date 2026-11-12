@@ -50,8 +50,10 @@ again.
   vocabulary: `when`, `from`, `to`, `near`, `radius`, `place`, `category`, `host`,
   `key`, `remote`, `closed`, `ingredients`, `sort`, `window`, `rows` and `exclude_types`. The
   README maps each one to Pinakes `GET /v1/search` and says what it means (time zone, windows,
-  default radius). The builder sorts and deduplicates the ingredients and the excluded types, and
-  stores no empty set. New limits `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
+  default radius). The builder sorts and deduplicates the hosts, the ingredients and the excluded
+  types, and stores no empty set. `host` lists up to 10 services, any of them
+  (`open.spotify.com,www.deezer.com`). New limits `feedFilterHostsMaxCount` (10),
+  `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
   `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength` (120), `feedFilterTextMaxBytes`
   (256) and `feedFilterExcludeTypesMaxCount` (50). `exclude_types` (Pinakes `exclude_type`) is
   every type but these, each with its subtypes: the app's More kinds.
@@ -68,17 +70,18 @@ again.
   be longer than 64 characters each` (`length`, fields `filters.place` and
   `filters.ingredients`); `Resource feed filter category cannot be longer than 256 bytes` and
   `Resource feed filter key cannot be longer than 256 bytes` (`size`, fields `filters.category`
-  and `filters.key`); `A resources feed cannot filter by more than 3 ingredients` (`count`, field
-  `filters.ingredients`); `Resource feed filter exclude_types cannot be longer than 64 characters
+  and `filters.key`); `A resources feed cannot filter by more than 3 ingredients` and `A resources
+  feed cannot filter by more than 10 hosts` (`count`, fields `filters.ingredients` and
+  `filters.host`); `Resource feed filter exclude_types cannot be longer than 64 characters
   each` (`length`) and `Resource feed filter exclude_types cannot name more than 50 types`
   (`count`), field `filters.exclude_types`; and on a read `Resource feed filter ingredients must
   be stored deduplicated and sorted by code point` (`format`, field `filters.ingredients`), the
-  same for `exclude_types`.
+  same for `exclude_types` and `host`.
 - Crate: `PubkySocialFeedConfig` gains the public field `filters`, so code that builds the config
   as a struct literal must now set it (`filters: None`); `with_filters` sets it. New:
-  `PubkySocialFeedFilters` with `canonical()`, and the limits `feed_filter_ingredients_max_count`,
-  `feed_filter_ingredient_max_length`, `feed_filter_radius_max_km`,
-  `feed_filter_place_max_length`, `feed_filter_text_max_bytes` and
+  `PubkySocialFeedFilters` with `canonical()`, and the limits `feed_filter_hosts_max_count`,
+  `feed_filter_ingredients_max_count`, `feed_filter_ingredient_max_length`,
+  `feed_filter_radius_max_km`, `feed_filter_place_max_length`, `feed_filter_text_max_bytes` and
   `feed_filter_exclude_types_max_count`.
 
 ### Stored bytes
@@ -104,7 +107,10 @@ again.
 - `place` only names the point and is outside the id: the same point under a new name is the same
   feed, renamed in place.
 - A read refuses a member of `filters` this version does not know, an empty set, filters on a post
-  feed and ingredients or excluded types not stored sorted and deduplicated.
+  feed and hosts, ingredients or excluded types not stored sorted and deduplicated.
+- `host` is a list: one host is stored as before (`open.spotify.com`), so a feed saved by a build
+  that took one host keeps its bytes and its id. Builds up to `66da5342` refuse a feed of several
+  hosts (`Resource feed filter host is not valid`).
 - Older readers: 1.0.0-rc.1 and unreleased builds up to `f8f5a491` refuse a feed with filters at
   its URL, since the id they derive leaves the filters out; one that decodes the bytes with no URL
   reads the broader feed without them, and `feedId` points it at that feed's path. Update Nexus and

@@ -24,6 +24,7 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `collectionNameMaxLength` | 100 | code points | The longest collection name. |
 | `collectionNameMinLength` | 1 | code points | The shortest collection name. |
 | `feedFilterExcludeTypesMaxCount` | 50 | items | The most schema.org types in a resources feed's `filters.exclude_types`. |
+| `feedFilterHostsMaxCount` | 10 | items | The most hosts in a resources feed's `filters.host`. |
 | `feedFilterIngredientMaxLength` | 64 | code points | The longest ingredient in a resources feed's `filters.ingredients`. |
 | `feedFilterIngredientsMaxCount` | 3 | items | The most ingredients in a resources feed's `filters.ingredients`. |
 | `feedFilterPlaceMaxLength` | 120 | code points | The longest `filters.place` of a resources feed, the name of its point. |
@@ -253,7 +254,7 @@ The search filters of a resources feed (`FeedConfig.filters`), every value a str
 | `radius` | `string` | yes | The distance around `near` in whole kilometres, 1 to 200; 10 km without. |
 | `place` | `string` | yes | The name of the place `near` is, as shown: trimmed, at most 120 code points. Outside the id, so a new name renames the feed. |
 | `category` | `string` | yes | One category as the index spells it (`amenity/cafe`), trimmed, at most 256 bytes. |
-| `host` | `string` | yes | One service: the links' host in lower case (`open.spotify.com`). |
+| `host` | `string` | yes | Services, any of them: the links' hosts in lower case, comma-separated, at most 10, deduplicated and sorted by code point (`open.spotify.com,www.deezer.com`). One host is a list of one. |
 | `key` | `string` | yes | One identifier the resources carry, `<namespace>:<value>` (`isbn:9780140328721`), the value at most 256 bytes. |
 | `remote` | `string` | yes | Job postings that may (`yes`) or may not (`no`) be done remotely. |
 | `closed` | `string` | yes | `yes`: also job postings past their closing date. |

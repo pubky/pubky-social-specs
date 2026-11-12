@@ -98,6 +98,24 @@
   ],
   [
    {
+    "host": "open.spotify.com,www.deezer.com"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "host": "h0.example.com,h1.example.com,h2.example.com,h3.example.com,h4.example.com,h5.example.com,h6.example.com,h7.example.com,h8.example.com,open.spotify.com"
+   },
+   null,
+   null,
+   null,
+   null
+  ],
+  [
+   {
     "key": "isbn:9780140328721"
    },
    null,
@@ -587,6 +605,60 @@
   ],
   [
    {
+    "host": "open.spotify.com,"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "open.spotify.com,Www.deezer.com"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "open.spotify.com, www.deezer.com"
+   },
+   "Resource feed filter host is not valid",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "h0.example.com,h1.example.com,h2.example.com,h3.example.com,h4.example.com,h5.example.com,h6.example.com,h7.example.com,h8.example.com,h9.example.com,open.spotify.com"
+   },
+   "A resources feed cannot filter by more than 10 hosts",
+   "count",
+   "filters.host",
+   10
+  ],
+  [
+   {
+    "host": "open.spotify.com,open.spotify.com"
+   },
+   "Resource feed filter host must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
+    "host": "www.deezer.com,open.spotify.com"
+   },
+   "Resource feed filter host must be stored deduplicated and sorted by code point",
+   "format",
+   "filters.host",
+   null
+  ],
+  [
+   {
     "key": "isbn"
    },
    "Resource feed filter key is not valid",
@@ -961,6 +1033,14 @@
   ],
   [
    {
+    "host": "www.deezer.com,open.spotify.com,www.deezer.com"
+   },
+   {
+    "host": "open.spotify.com,www.deezer.com"
+   }
+  ],
+  [
+   {
     "when": "week",
     "near": "47.37,8.54"
    },
@@ -1016,6 +1096,12 @@
     "exclude_types": "Article"
    },
    "{\"when\":\"week\",\"exclude_types\":\"Article\"}"
+  ],
+  [
+   {
+    "host": "open.spotify.com,www.deezer.com"
+   },
+   "{\"host\":\"open.spotify.com,www.deezer.com\"}"
   ]
  ],
  "order": [
