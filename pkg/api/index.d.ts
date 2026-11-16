@@ -208,7 +208,7 @@ export declare function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"pos
 } | null): T.BuiltPost;
 /**
  * A feed at its private path. The id is derived from the filter alone (target, reach, layout,
- * sort, content, tags, domain tags, and a resources feed's `filters` but their `place`), so two
+ * sort, content, tags, domain tags, and a resources feed's `filters` except `place`), so two
  * feeds with one filter are one feed whatever their names, and an edited filter is a new path. A
  * new `place` alone keeps the id: it renames the feed. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  *
@@ -216,7 +216,8 @@ export declare function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"pos
  *  an unknown reach, layout, sort, target or post kind (`code: "unknown_name"`); on a resources
  *  feed for a type list that is badly spelled (`format`), has a name longer than
  *  `feedResourceTypeMaxLength` (`length`) or more than `feedResourceTypesMaxCount` types
- *  (`count`), `field: "content"`; for `filters`, filters on a post feed or members that cannot go
+ *  (`count`), `field: "content"`; a resources feed with `domain_tags` (`conflict`,
+ *  `field: "domain_tags"`); for `filters`, filters on a post feed or members that cannot go
  *  together (`conflict`), a member this version does not know (`unknown_name`), a badly spelled
  *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`,
  *  an ingredient longer than `feedFilterIngredientMaxLength` or an excluded type name longer than
@@ -253,7 +254,7 @@ export declare function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.
 export declare function feedId(feed: T.Feed): string;
 /**
  * The schema.org types a resources feed lists, read from the `content` of a decoded or built feed:
- * a resource is listed when its type is one of them or a subtype of one, as the index reads it.
+ * a resource is listed when its type is one of them or a subtype of one, as the indexer reads it.
  * Null for every type, and for a feed of posts.
  *
  * @example

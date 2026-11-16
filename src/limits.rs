@@ -92,22 +92,20 @@ pub struct ValidationLimits {
     /// Maximum code points of one schema.org type name in a resources feed's `content` or
     /// `filters.exclude_types`.
     pub feed_resource_type_max_length: usize,
-    /// Most ingredients a resources feed's `filters.ingredients` lists (the index takes 3).
+    /// Most ingredients a resources feed's `filters.ingredients` lists.
     pub feed_filter_ingredients_max_count: usize,
-    /// Maximum code points of one ingredient in a resources feed's `filters.ingredients` (the
-    /// index takes 64).
+    /// Maximum code points of one ingredient in a resources feed's `filters.ingredients`.
     pub feed_filter_ingredient_max_length: usize,
-    /// Largest `filters.radius` of a resources feed, in kilometres (the index takes 200 km).
+    /// Largest `filters.radius` of a resources feed, in kilometres.
     pub feed_filter_radius_max_km: usize,
     /// Maximum code points of a resources feed's `filters.place`, the name of its point.
     pub feed_filter_place_max_length: usize,
     /// Maximum UTF-8 bytes of a resources feed's `filters.category` and of the value of its
-    /// `filters.key` (the index takes 256).
+    /// `filters.key`.
     pub feed_filter_text_max_bytes: usize,
-    /// Most schema.org types a resources feed's `filters.exclude_types` names (the index takes
-    /// 50).
+    /// Most schema.org types a resources feed's `filters.exclude_types` names.
     pub feed_filter_exclude_types_max_count: usize,
-    /// Most hosts a resources feed's `filters.host` lists (the index takes 10).
+    /// Most hosts a resources feed's `filters.host` lists.
     pub feed_filter_hosts_max_count: usize,
     /// Maximum feed name length in characters.
     pub feed_name_max_length: usize,

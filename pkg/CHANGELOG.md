@@ -1,6 +1,8 @@
 # Changelog
 
-A release makes two promises, and each entry below lists its changes under both.
+A release makes two promises, and each entry below lists its changes under both. This changelog
+also covers the `pubky-social-specs` crate on crates.io; an entry that starts with "Crate:" is a
+change to its Rust API.
 
 ## What a release promises
 
@@ -27,59 +29,56 @@ again.
 
 - New: a feed's `target`, one of `feedTargets` (`posts`, `resources`), in `buildFeed`'s input and
   on the stored `FeedConfig`, with the types `FeedTarget` and `KnownFeedTarget`. A decoded feed
-  carries `target: null` for posts.
+  carries `target: null` when it stores none; a stored `"posts"` decodes as `"posts"` and has the
+  same id.
 - New: a resources feed's `content` is a list of up to 10 schema.org type names, comma-separated
-  (`MusicAlbum,MusicRecording`), or null for every type; `buildFeed` takes one there with
+  (`MusicAlbum,MusicRecording`), or null for every type. `buildFeed` takes one there with
   `target: "resources"` and stores it deduplicated and sorted, and `feedResourceTypes(feed)` reads
   it back as an array. New limits `feedResourceTypesMaxCount` (10) and `feedResourceTypeMaxLength`
   (64).
-- New refusals: `feed target is unknown` (`unknown_name`, field `target`), `Feed resource type '…'
-  is not a schema.org type name` and `Feed resource types must be stored deduplicated and sorted by
-  code point` (`format`, field `content`) on a read; `Invalid feed target: …` and `Invalid resource
-  type: …` (`format`, field `content`) from the builder; on a read and from the builder `A
-  resources feed cannot list more than 10 types` (`count`, field `content`), `Feed resource type
-  names cannot be longer than 64 characters` (`length`, field `content`) and `A resources feed
-  cannot filter by domain_tags` (`conflict`).
-- Crate: `PubkySocialFeedConfig` gains the public field `target`, so code that builds the config as
-  a struct literal must now set it (`target: None` for posts); `PubkySocialFeedConfig::new` is
-  unchanged and `with_target` sets it. New: `PubkySocialFeedTarget`, `feed_resource_types()` (a
-  caller's list as the stored `content`), `PubkySocialFeedConfig::resource_types()` and the limits
-  `feed_resource_types_max_count` and `feed_resource_type_max_length`.
 - New: a resources feed's search `filters`, in `buildFeed`'s input (`NewFeedFilters`) and on the
-  stored `FeedConfig` (`FeedFilters`, null for none), every value a string in the app's `/search`
-  vocabulary: `when`, `from`, `to`, `near`, `radius`, `place`, `category`, `host`,
-  `key`, `remote`, `closed`, `ingredients`, `sort`, `window`, `rows` and `exclude_types`. The
-  README maps each one to Pinakes `GET /v1/search` and says what it means (time zone, windows,
-  default radius). The builder sorts and deduplicates the hosts, the ingredients and the excluded
-  types, and stores no empty set. `host` lists up to 10 services, any of them
-  (`open.spotify.com,www.deezer.com`). New limits `feedFilterHostsMaxCount` (10),
-  `feedFilterIngredientsMaxCount` (3), `feedFilterIngredientMaxLength` (64),
-  `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength` (120), `feedFilterTextMaxBytes`
-  (256) and `feedFilterExcludeTypesMaxCount` (50). `exclude_types` (Pinakes `exclude_type`) is
-  every type but these, each with its subtypes: the app's More kinds.
-- New refusals, on a read and from the builder: `Only a resources feed has filters` (`conflict`,
-  field `filters`); `A resources feed's filters hold a member this version does not know`
-  (`unknown_name`, field `filters`); `A resources feed's filters must not be empty; leave them
-  out for none` (`blank`, field `filters`, on a read only); `Resource feed filter … is not valid`
-  (`format`, field `filters.…`, a `radius` out of 1 to 200 included, with no `limit`); `Resource
-  feed filters when and from or to cannot go together` and `Resource feed filters radius and
-  place need near` (`conflict`, field `filters`); `Resource feed filter from is after to`,
-  `Resource feed filter sort nearest needs near` and `Resource feed filter window needs sort
-  trending` (`conflict`, fields `filters.from`, `filters.sort`, `filters.window`); `Resource feed
-  filter place cannot be longer than 120 characters` and `Resource feed filter ingredients cannot
-  be longer than 64 characters each` (`length`, fields `filters.place` and
-  `filters.ingredients`); `Resource feed filter category cannot be longer than 256 bytes` and
-  `Resource feed filter key cannot be longer than 256 bytes` (`size`, fields `filters.category`
-  and `filters.key`); `A resources feed cannot filter by more than 3 ingredients` and `A resources
-  feed cannot filter by more than 10 hosts` (`count`, fields `filters.ingredients` and
-  `filters.host`); `Resource feed filter exclude_types cannot be longer than 64 characters
-  each` (`length`) and `Resource feed filter exclude_types cannot name more than 50 types`
-  (`count`), field `filters.exclude_types`; and on a read `Resource feed filter ingredients must
-  be stored deduplicated and sorted by code point` (`format`, field `filters.ingredients`), the
-  same for `exclude_types` and `host`.
-- Crate: `PubkySocialFeedConfig` gains the public field `filters`, so code that builds the config
-  as a struct literal must now set it (`filters: None`); `with_filters` sets it. New:
-  `PubkySocialFeedFilters` with `canonical()`, and the limits `feed_filter_hosts_max_count`,
+  stored `FeedConfig` (`FeedFilters`, null for none), every value a string: `when`, `from`, `to`,
+  `near`, `radius`, `place`, `category`, `host`, `key`, `remote`, `closed`, `ingredients`, `sort`,
+  `window`, `rows` and `exclude_types`. The README says what each one means. The builder sorts and
+  deduplicates the hosts, the ingredients and the excluded types, and stores no empty set. New
+  limits `feedFilterHostsMaxCount` (10), `feedFilterIngredientsMaxCount` (3),
+  `feedFilterIngredientMaxLength` (64), `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength`
+  (120), `feedFilterTextMaxBytes` (256) and `feedFilterExcludeTypesMaxCount` (50).
+- New refusals:
+  - on a read: `feed target is unknown` (`unknown_name`, field `target`); `Feed resource type '…'
+    is not a schema.org type name` and `Feed resource types must be stored deduplicated and sorted
+    by code point` (`format`, field `content`); `A resources feed's filters must not be empty;
+    leave them out for none` (`blank`, field `filters`); `Resource feed filter host must be stored
+    deduplicated and sorted by code point` (`format`, field `filters.host`), and the same for
+    `ingredients` and `exclude_types`;
+  - from the builder: `Invalid feed target: …` (`unknown_name`, field `target`) and `Invalid
+    resource type: …` (`format`, field `content`);
+  - on a read and from the builder: `A resources feed cannot list more than 10 types` (`count`,
+    field `content`); `Feed resource type names cannot be longer than 64 characters` (`length`,
+    field `content`); `A resources feed cannot filter by domain_tags` (`conflict`, field
+    `domain_tags`); `Only a resources feed has filters` (`conflict`, field `filters`); `A resources
+    feed's filters hold a member this version does not know` (`unknown_name`, field `filters`);
+    `Resource feed filter … is not valid` (`format`, field `filters.…`, among them a `radius`
+    outside 1 to 200, with no `limit`); `Resource feed filters when and from or to cannot go
+    together` and `Resource feed filters radius and place need near` (`conflict`, field `filters`);
+    `Resource feed filter from is after to`, `Resource feed filter sort nearest needs near` and
+    `Resource feed filter window needs sort trending` (`conflict`, fields `filters.from`,
+    `filters.sort`, `filters.window`); `Resource feed filter place cannot be longer than 120
+    characters`, `Resource feed filter ingredients cannot be longer than 64 characters each` and
+    `Resource feed filter exclude_types cannot be longer than 64 characters each` (`length`, fields
+    `filters.place`, `filters.ingredients`, `filters.exclude_types`); `Resource feed filter
+    category cannot be longer than 256 bytes` and `Resource feed filter key cannot be longer than
+    256 bytes` (`size`, fields `filters.category`, `filters.key`); `A resources feed cannot filter
+    by more than 10 hosts`, `A resources feed cannot filter by more than 3 ingredients` and
+    `Resource feed filter exclude_types cannot name more than 50 types` (`count`, fields
+    `filters.host`, `filters.ingredients`, `filters.exclude_types`).
+- Crate: `PubkySocialFeedConfig` gains the public fields `target` and `filters`, so code that
+  builds the config as a struct literal must now set them (`target: None, filters: None` for a
+  post feed); `PubkySocialFeedConfig::new` is unchanged, and `with_target` and `with_filters` set
+  them. New: `PubkySocialFeedTarget`, `PubkySocialFeedFilters` with `canonical()`,
+  `feed_resource_types()` (a caller's list as the stored `content`),
+  `PubkySocialFeedConfig::resource_types()`, and the limits `feed_resource_types_max_count`,
+  `feed_resource_type_max_length`, `feed_filter_hosts_max_count`,
   `feed_filter_ingredients_max_count`, `feed_filter_ingredient_max_length`,
   `feed_filter_radius_max_km`, `feed_filter_place_max_length`, `feed_filter_text_max_bytes` and
   `feed_filter_exclude_types_max_count`.
@@ -88,37 +87,38 @@ again.
 
 - A feed may list external resources: `"target":"resources"` in its `feed`. Its id hashes
   `resources:` in front of the six segments of the filter, so it never takes the id or the path of
-  the post feed with the same filter. Posts is the default and is stored as no member: every feed
-  written before keeps its bytes and its id, and a builder never writes `"target":"posts"`. A
-  stored `"posts"` reads as written and has the id of a feed without the member.
+  the post feed with the same filter. Posts is the default and is stored as no member, so a post
+  feed keeps its bytes and its id, and a builder never writes `"target":"posts"`. A stored
+  `"posts"` reads as written and has the id of a feed without the member. A read refuses a target
+  this version does not know, as it refuses an unknown reach, layout or sort.
 - A resources feed's `content` is its sorted list of schema.org types, in the content segment of
   its id: songs, every resource and posts of an unknown kind `MusicRecording` are three feeds with
-  three ids, and one set of types is one feed whatever order a caller gave.
-- A read refuses a target this version does not know, as it refuses an unknown reach, layout or
-  sort, and refuses a resources feed whose `content` is not a stored type list or that has a
-  `domain_tags` filter. A 1.0.0-rc.1 reader
-  refuses a resources feed at its URL, since the id it derives leaves the target out; one that
-  decodes the bytes with no URL reads the post feed of the same filter (see the README).
+  three ids, and one set of types is one feed whatever order a caller gave. A read refuses a
+  resources feed whose `content` is not a stored type list or that has a `domain_tags` filter.
 - A resources feed may keep its search filters: `"filters":{…}` in its `feed`, after `target`.
   They are a seventh segment of its id input, after the (empty) domain segment: one JSON object of
-  the members set, in their stored order, `place` left out. None of the six segments of a valid
-  resources feed holds a `:`, so no two feeds share an input, and the id does not depend on the
-  order the members were stored in. A resources feed without filters keeps its bytes and its id.
-- `place` only names the point and is outside the id: the same point under a new name is the same
-  feed, renamed in place.
-- A read refuses a member of `filters` this version does not know, an empty set, filters on a post
-  feed and hosts, ingredients or excluded types not stored sorted and deduplicated.
-- `host` is a list: one host is stored as before (`open.spotify.com`), so a feed saved by a build
-  that took one host keeps its bytes and its id. Builds up to `66da5342` refuse a feed of several
-  hosts (`Resource feed filter host is not valid`).
-- Older readers: 1.0.0-rc.1 and unreleased builds up to `f8f5a491` refuse a feed with filters at
-  its URL, since the id they derive leaves the filters out; one that decodes the bytes with no URL
-  reads the broader feed without them, and `feedId` points it at that feed's path. Update Nexus and
-  the app's pinned copy of this package before any app writes `filters`, and decode a feed at its
-  URL. Builds after `f8f5a491` up to `fb76bc2b` know `filters` but not `exclude_types`: they refuse
-  a feed with it as a member they do not know (`unknown_name`), with a URL or without one, so update
-  those pins too before an app writes it. `filters` needs a release of the data model before it
-  goes upstream.
+  the members set, `place` left out, in the fixed order `when`, `from`, `to`, `near`, `radius`,
+  `category`, `host`, `key`, `remote`, `closed`, `ingredients`, `sort`, `window`, `rows`,
+  `exclude_types` (the order a builder writes), whatever order they are stored in. None of the six
+  segments of a valid resources feed holds a `:`, so no two feeds share an input. A resources feed
+  without filters has no seventh segment. `place` only names the point: the same point under a new
+  name is the same feed, renamed in place. A stored default (`radius: "10"`, `window: "7d"`) is a
+  second feed with its own id. `host` is always a list, of one host or up to 10.
+- `filters` is a closed set, an exception to the forward-compatibility rules: a read refuses a
+  member or a value this version does not know, because a reader that ignored it would list a
+  different feed. So a later release that adds a member or a value to `filters` makes deployed
+  readers skip the feeds that use it. A read also refuses an empty set, filters on a post feed, and
+  hosts, ingredients or excluded types not stored sorted and deduplicated.
+- Older readers: a 1.0.0-rc.1 reader refuses a resources feed, with or without `filters`, when it
+  reads the feed at its URL, because the id it derives has neither the `resources:` prefix nor the
+  filters segment. Such a reader, decoding the bytes without a URL, has no id to check. It reads the
+  post feed with the same six segments, keeping `target` and `filters` as unknown members, and
+  `feedId` points it at that post feed's path. Update indexers and clients before any client
+  writes a resources feed, and always decode a feed at its URL.
+- A feed written by 1.0.0-rc.1 that carried `target` or `filters` in its `feed` as an unknown
+  member is read by the new rules now: its id and its validity change. This is an exception to
+  the promise above that a release reads what an earlier release wrote and derives every id the
+  same way. Deliberate extensions belong under `ext`.
 
 ## 1.0.0
 

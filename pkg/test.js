@@ -473,6 +473,22 @@ describe("pubky-social-specs", () => {
           assert.strictEqual(buildFeed(OTTO, { ...base, filters: JSON.parse(filters) }).id, id);
         }
       }
+      // The rules of target, domain_tags and filters together, on a whole stored feed
+      const withConfig = (bytes, config) => JSON.stringify({ ...JSON.parse(text(bytes)), feed: config });
+      for (const [config, error, code, field] of table.config) {
+        if (error === null) {
+          // As stored: the builder writes this config, which reads back at its id unchanged
+          const built = buildFeed(OTTO, { name: "x", icon: "a", ...config });
+          const body = withConfig(built.body, config);
+          assert.strictEqual(text(built.body), body, JSON.stringify(config));
+          const read = decodeObject(built.url, built.body);
+          assert.strictEqual(text(encodeObject(built.url, read.object)), body, JSON.stringify(config));
+          assert.strictEqual(feedId(read.object), built.id);
+        } else {
+          const e = caught(() => decodeObject(`pubky://${OTTO}/priv/social/v1/feeds/${every.id}.json`, utf8(withConfig(every.body, config))));
+          assert.deepStrictEqual([e.message, e.code, e.field ?? null], [`Validation Error: ${error}`, code, field], JSON.stringify(config));
+        }
+      }
       // An unknown member left undefined is absent, as a known one is; one that is no JSON is a misuse
       assert.strictEqual(buildFeed(OTTO, { ...base, filters: { colour: undefined, when: "week" } }).id, buildFeed(OTTO, { ...base, filters: { when: "week" } }).id);
       misuse(() => buildFeed(OTTO, { ...base, filters: { colour: () => 1 } }), /input\.filters\.colour must be a JSON value/);

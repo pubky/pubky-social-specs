@@ -47,7 +47,7 @@ export const limits = /* @__PURE__ */ Object.freeze({
   feedFilterIngredientsMaxCount: 3,
   /** The longest `filters.place` of a resources feed, the name of its point, in code points: 120. */
   feedFilterPlaceMaxLength: 120,
-  /** The largest `filters.radius` of a resources feed, in kilometres. */
+  /** The largest `filters.radius` of a resources feed, in km: 200. */
   feedFilterRadiusMaxKm: 200,
   /** The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`, in bytes: 256. */
   feedFilterTextMaxBytes: 256,

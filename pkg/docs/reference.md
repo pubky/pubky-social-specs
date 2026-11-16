@@ -28,7 +28,7 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `feedFilterIngredientMaxLength` | 64 | code points | The longest ingredient in a resources feed's `filters.ingredients`. |
 | `feedFilterIngredientsMaxCount` | 3 | items | The most ingredients in a resources feed's `filters.ingredients`. |
 | `feedFilterPlaceMaxLength` | 120 | code points | The longest `filters.place` of a resources feed, the name of its point. |
-| `feedFilterRadiusMaxKm` | 200 |  | The largest `filters.radius` of a resources feed, in kilometres. |
+| `feedFilterRadiusMaxKm` | 200 | km | The largest `filters.radius` of a resources feed. |
 | `feedFilterTextMaxBytes` | 256 | bytes | The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
@@ -243,7 +243,7 @@ The filter of a feed, which is its identity.
 
 ### FeedFilters
 
-The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for not set, in the app's `/search` vocabulary. Every member but `place` is in the feed's id, and a member this version does not know is refused. The README maps each one to Pinakes `GET /v1/search`.
+The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for not set. Every member but `place` is in the feed's id. The members and their values are a closed set: a member or a value this version does not know rejects the feed, as an unknown reach does, so a later release that adds one makes deployed readers skip the feeds that use it. This is an exception to the forward-compatibility contract. A stored default (`radius: "10"`, `window: "7d"`) is a second feed with its own id. The README gives each member's meaning.
 
 | member | type | null | meaning |
 |---|---|---|---|
@@ -251,14 +251,14 @@ The search filters of a resources feed (`FeedConfig.filters`), every value a str
 | `from` | `string` | yes | The first day of a window of days, `YYYY-MM-DD`, from its start in the viewer's time zone. |
 | `to` | `string` | yes | The last day of a window of days, `YYYY-MM-DD`, to its end (the whole day included); not before `from`. |
 | `near` | `string` | yes | Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero (`47.37,8.54`). |
-| `radius` | `string` | yes | The distance around `near` in whole kilometres, 1 to 200; 10 km without. |
+| `radius` | `string` | yes | The distance around `near` in whole kilometres, 1 to 200; 10 km without. Only with `near`. |
 | `place` | `string` | yes | The name of the place `near` is, as shown: trimmed, at most 120 code points. Outside the id, so a new name renames the feed. |
-| `category` | `string` | yes | One category as the index spells it (`amenity/cafe`), trimmed, at most 256 bytes. |
+| `category` | `string` | yes | One category, by convention an OpenStreetMap `key/value` (`amenity/cafe`), trimmed, at most 256 bytes. |
 | `host` | `string` | yes | Services, any of them: the links' hosts in lower case, comma-separated, at most 10, deduplicated and sorted by code point (`open.spotify.com,www.deezer.com`). One host is a list of one. |
 | `key` | `string` | yes | One identifier the resources carry, `<namespace>:<value>` (`isbn:9780140328721`), the value at most 256 bytes. |
 | `remote` | `string` | yes | Job postings that may (`yes`) or may not (`no`) be done remotely. |
 | `closed` | `string` | yes | `yes`: also job postings past their closing date. |
-| `ingredients` | `string` | yes | Recipes with every one of these ingredients: comma-separated, at most 3 of at most 64 code points each, lower case, deduplicated and sorted by code point. |
+| `ingredients` | `string` | yes | Recipes with every one of these ingredients: comma-separated, at most 3 of at most 64 code points each, with no ASCII capital letter (lowercase them first: `Äpfel` and `äpfel` are two feeds), deduplicated and sorted by code point. |
 | `sort` | `string` | yes | An order in place of the feed's own `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). |
 | `window` | `string` | yes | The window `trending` counts references in: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. |
 | `rows` | `string` | yes | `links`: every link as a row, where the feed otherwise lists one row per thing. |
@@ -280,7 +280,7 @@ rule does not.
 | `format` | text is not spelled the one way the model accepts (a key, an id, a tag, a slug), or a number held as text is out of its range (a resources feed's `filters.radius`, no `limit`) |
 | `id` | an id does not match its object, or its time is out of bounds |
 | `reference` | a URI in a reference position is refused |
-| `unknown_name` | a kind, reach, layout, sort or target this version does not know, or a member of a resources feed's `filters` this version does not know |
+| `unknown_name` | a kind, reach, layout, sort, target or root this version does not know, or a member of a resources feed's `filters` this version does not know |
 | `unsafe_integer` | an integer a JS number cannot hold exactly |
 | `path` | a URL or path names no object of the kind asked for |
 | `conflict` | members or arguments that cannot go together |

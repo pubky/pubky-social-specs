@@ -69,12 +69,13 @@ crate does, word for word, and `vectors.test.js` holds it to that.
 
   ```sh
   cargo build --release --features __surface --bin surface_oracle
-  cd pkg && node qa/score.mjs --record     # rewrites vectors/js/*.jsonl
+  cd pkg && node qa/score.mjs --record     # rewrites vectors/js/<family>.jsonl
   cargo test --features __surface --test surface_vectors
   node qa/data.mjs                         # when a constant moved
   ```
 
-  Review the vector diff: every changed row should be explained by the crate change.
+  A kept `<family>-<name>.jsonl` is replayed, never rewritten. Review the vector diff: every
+  changed row should be explained by the crate change.
 - A change of the stored format (paths, bytes, the migration flag) is a crate change and a
   migration question first. Write it up before touching code.
 

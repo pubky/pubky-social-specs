@@ -41,6 +41,20 @@
 //!
 //! A derived id holds on read too: a value this version does not know keeps
 //! its spelling, so a reader rebuilds the writer's id input around it.
+//!
+//! Exception: a member that changes what a feed lists (`feed.target`,
+//! `feed.filters`) takes part in the feed's id. A reader older than the
+//! member derives another id for a feed that sets it (a target other than
+//! posts, any filters), refuses the feed at its URL and skips it, as it skips
+//! an object with an unknown primary enum. A feed written before the member
+//! existed that carried it as an unknown member is read by the member's rules,
+//! so its id and its validity change. Inside `filters`, a member or a value
+//! this version does not know rejects the feed, as an unknown reach does,
+//! because a reader that ignored it would list a different feed. So a later
+//! release that adds a member or a value to `filters` makes deployed readers
+//! skip the feeds that use it. No reach is ever spelled like a target, since a
+//! target's name goes in front of an id input that otherwise starts with the
+//! reach.
 
 use crate::uri::media_stem;
 

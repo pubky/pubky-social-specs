@@ -20,7 +20,7 @@ const exported = new Map(checker.getExportsOfModule(checker.getSymbolAtLocation(
 const doc = (symbol) => ts.displayPartsToString(symbol.getDocumentationComment(checker)).replace(/\s+/g, " ").trim();
 const cell = (text) => text.replaceAll("|", "\\|");
 
-const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : "");
+const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : name.endsWith("Km") ? "km" : "");
 const limitsType = checker.getTypeOfSymbolAtLocation(exported.get("limits"), exported.get("limits").valueDeclaration);
 const limitRows = checker.getPropertiesOfType(limitsType).map((p) => {
   const value = limits[p.name];

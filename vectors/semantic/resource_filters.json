@@ -1,5 +1,5 @@
 {
- "about": "A resources feed's search filters as stored. read: [filters, the refusal without its 'Validation Error: ' prefix or null, its code, its field, its limit]; build: [given, as stored or null for none]; id: [filters, their id input segment]; order: [stored filters as JSON text in a scrambled member order, the same with only place changed, their id input segment, the id of the music resources feed with them]. Read by the crate's and the package's tests.",
+ "about": "A resources feed's search filters as stored. read: [filters, the refusal without its 'Validation Error: ' prefix or null, its code, its field, its limit]; build: [given, as stored or null for none]; id: [filters, their id input segment]; order: [stored filters as JSON text in a scrambled member order, the same with only place changed, their id input segment, the id of the music resources feed with them]. config: [a stored feed config, the refusal without its 'Validation Error: ' prefix or null, its code, its field], for the rules of target, domain_tags and filters together, in their order. Read by the crate's and the package's tests.",
  "read": [
   [
    {
@@ -1116,6 +1116,185 @@
    "{\"near\":\"46.948,7.4474\",\"when\":\"weekend\",\"place\":\"Berne\",\"sort\":\"upcoming\"}",
    "{\"when\":\"weekend\",\"near\":\"46.948,7.4474\",\"sort\":\"upcoming\"}",
    "G6CMKW5X201NZHMPACKRD81GEM"
+  ]
+ ],
+ "config": [
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": "MusicAlbum,MusicRecording",
+    "target": "resources",
+    "filters": {
+     "when": "week"
+    }
+   },
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": "Event",
+    "target": "resources",
+    "filters": {
+     "near": "47.37,8.54",
+     "sort": "nearest"
+    }
+   },
+   null,
+   null,
+   null
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "filters": {
+     "when": "week"
+    }
+   },
+   "Only a resources feed has filters",
+   "conflict",
+   "filters"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "posts",
+    "filters": {
+     "when": "week"
+    }
+   },
+   "Only a resources feed has filters",
+   "conflict",
+   "filters"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": "note",
+    "filters": {
+     "when": "week"
+    }
+   },
+   "Only a resources feed has filters",
+   "conflict",
+   "filters"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "posts",
+    "filters": {}
+   },
+   "Only a resources feed has filters",
+   "conflict",
+   "filters"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "domain_tags": [
+     "dev"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "resources"
+   },
+   "A resources feed cannot filter by domain_tags",
+   "conflict",
+   "domain_tags"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "domain_tags": [
+     "dev"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "resources",
+    "filters": {
+     "colour": "x"
+    }
+   },
+   "A resources feed cannot filter by domain_tags",
+   "conflict",
+   "domain_tags"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "videos"
+   },
+   "feed target is unknown",
+   "unknown_name",
+   "target"
+  ],
+  [
+   {
+    "tags": [
+     "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": null,
+    "target": "videos",
+    "filters": {
+     "when": "week"
+    }
+   },
+   "feed target is unknown",
+   "unknown_name",
+   "target"
   ]
  ]
 }

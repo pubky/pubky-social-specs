@@ -4,11 +4,12 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use pubky_social_specs::{
-    create_bookmark, ParsedUri, PubkyId, PubkySocialAttachment, PubkySocialBookmark,
-    PubkySocialCollectionContent, PubkySocialCollectionItem, PubkySocialCollectionLayout,
-    PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedLayout, PubkySocialFeedReach,
-    PubkySocialFeedSort, PubkySocialFollow, PubkySocialMute, PubkySocialPost, PubkySocialPostKind,
-    PubkySocialTag, PubkySocialUser, PubkySocialUserLink, Resource, Visibility, VALIDATION_LIMITS,
+    create_bookmark, feed_resource_types, ParsedUri, PubkyId, PubkySocialAttachment,
+    PubkySocialBookmark, PubkySocialCollectionContent, PubkySocialCollectionItem,
+    PubkySocialCollectionLayout, PubkySocialFeed, PubkySocialFeedConfig, PubkySocialFeedFilters,
+    PubkySocialFeedLayout, PubkySocialFeedReach, PubkySocialFeedSort, PubkySocialFeedTarget,
+    PubkySocialFollow, PubkySocialMute, PubkySocialPost, PubkySocialPostKind, PubkySocialTag,
+    PubkySocialUser, PubkySocialUserLink, Resource, Visibility, VALIDATION_LIMITS,
 };
 use serde::Serialize;
 
@@ -145,6 +146,35 @@ fn feed_legacy() -> PubkySocialFeed {
     }
 }
 
+/// A resources feed with schema.org types and search filters, `place` among them.
+fn feed_resources_filtered() -> PubkySocialFeed {
+    let filters = PubkySocialFeedFilters {
+        when: Some("week".into()),
+        near: Some("47.37,8.54".into()),
+        radius: Some("25".into()),
+        place: Some("Zürich".into()),
+        host: Some("open.spotify.com,www.deezer.com".into()),
+        sort: Some("upcoming".into()),
+        ..Default::default()
+    };
+    let config = PubkySocialFeedConfig {
+        tags: Some(vec!["music".into()]),
+        domain_tags: None,
+        reach: PubkySocialFeedReach::All,
+        layout: PubkySocialFeedLayout::Columns,
+        sort: PubkySocialFeedSort::Recent,
+        content: Some(feed_resource_types("MusicRecording,MusicEvent").unwrap()),
+        target: None,
+        filters: None,
+        extra: Default::default(),
+    }
+    .with_target(PubkySocialFeedTarget::Resources)
+    .with_filters(filters);
+    let mut f = PubkySocialFeed::new(config, "Concerts".into(), "music".into());
+    f.created_at = TS;
+    f
+}
+
 // Media has no entry here any more: the v0 File-metadata JSON model is deleted (its `name`
 // relocated to attachment `name`, its `content_type`, `src` and `size` dissolved), and the one
 // media object's wire form is raw bytes with no JSON serialization surface, so there is nothing
@@ -241,6 +271,11 @@ fn pinned() -> Vec<(&'static str, String, &'static str)> {
             r#"{"feed":{"tags":null,"reach":"all","layout":"list","sort":"popularity","content":null},"name":"All","created_at":1727740800000000}"#,
         ),
         (
+            "feed_resources_filtered",
+            json(&feed_resources_filtered()),
+            r#"{"feed":{"tags":["music"],"reach":"all","layout":"columns","sort":"recent","content":"MusicEvent,MusicRecording","target":"resources","filters":{"when":"week","near":"47.37,8.54","radius":"25","place":"Zürich","host":"open.spotify.com,www.deezer.com","sort":"upcoming"}},"name":"Concerts","icon":"music","created_at":1727740800000000}"#,
+        ),
+        (
             "collection_with_layout",
             json(&collection_with_layout()),
             r#"{"name":"Photos","description":"mine","items":[{"uri":"pubky://{PK}/pub/pubky.app/posts/0032SSN7Q4EVG","note":"first"}],"cover_image":"pubky://{PK}/pub/pubky.app/files/0032SSN7Q4EVG","layout":"visual"}"#,
@@ -263,6 +298,19 @@ fn wire_bytes_are_unchanged() {
     for (name, actual, expected) in pinned() {
         assert_eq!(actual, expected.replace("{PK}", PK), "{name}");
     }
+}
+
+/// The id of a resources feed with filters is its path, so it is pinned with its bytes: the
+/// `resources:` prefix, the six segments, then the filters, all but `place`, as a seventh.
+#[test]
+fn a_resources_feed_with_filters_keeps_its_id() {
+    // blake3("resources:all:columns:recent:MusicEvent,MusicRecording:music::{\"when\":\"week\",
+    // \"near\":\"47.37,8.54\",\"radius\":\"25\",\"host\":\"open.spotify.com,www.deezer.com\",
+    // \"sort\":\"upcoming\"}")[..16] in Crockford
+    assert_eq!(
+        feed_resources_filtered().derive_id().unwrap(),
+        "CVXP7BH66XK2326M27YEXPKVYM"
+    );
 }
 
 fn pk() -> PubkyId {

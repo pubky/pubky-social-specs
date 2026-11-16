@@ -39,7 +39,7 @@ const LIMIT_DOCS = {
   feedFilterIngredientMaxLength: "The longest ingredient in a resources feed's `filters.ingredients`",
   feedFilterIngredientsMaxCount: "The most ingredients in a resources feed's `filters.ingredients`",
   feedFilterPlaceMaxLength: "The longest `filters.place` of a resources feed, the name of its point",
-  feedFilterRadiusMaxKm: "The largest `filters.radius` of a resources feed, in kilometres",
+  feedFilterRadiusMaxKm: "The largest `filters.radius` of a resources feed",
   feedFilterTextMaxBytes: "The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`",
   feedIconMaxLength: "The longest feed icon name",
   feedNameMaxLength: "The longest feed name",
@@ -66,7 +66,7 @@ const LIMIT_DOCS = {
   userNameMinLength: "The shortest profile name",
   userStatusMaxLength: "The longest profile status",
 };
-const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : null);
+const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : name.endsWith("Km") ? "km" : null);
 const undocumented = Object.keys(data.limits).filter((name) => !Object.hasOwn(LIMIT_DOCS, name));
 if (undocumented.length > 0) {
   console.error(`limits with no line in qa/data.mjs LIMIT_DOCS: ${undocumented.join(", ")}`);

@@ -131,9 +131,11 @@ export interface Mute extends Open, Plain<graph.Edge> {}
 
 /**
  * The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for
- * not set, in the app's `/search` vocabulary. Every member but `place` is in the feed's id, and a
- * member this version does not know is refused. The README maps each one to Pinakes
- * `GET /v1/search`.
+ * not set. Every member but `place` is in the feed's id. The members and their values are a closed
+ * set: a member or a value this version does not know rejects the feed, as an unknown reach does,
+ * so a later release that adds one makes deployed readers skip the feeds that use it. This is an
+ * exception to the forward-compatibility contract. A stored default (`radius: "10"`,
+ * `window: "7d"`) is a second feed with its own id. The README gives each member's meaning.
  */
 export interface FeedFilters extends Open, Plain<feeds.FeedFilters> {
   /** Always empty: a read refuses a member this version does not know. */
@@ -385,9 +387,9 @@ export interface NewFeed {
 }
 
 /**
- * The search filters of a resources feed as `buildFeed` takes them, in the app's `/search`
- * vocabulary (`FeedFilters` is what a decoded feed holds); absent for not set. Only spellings and
- * combinations are checked: lowercase the ingredients and round `near` to 5 decimals first.
+ * The search filters of a resources feed as `buildFeed` takes them (`FeedFilters` is what a decoded
+ * feed holds); absent for not set. Only spellings and combinations are checked: lowercase the
+ * ingredients and round `near` to 5 decimals first.
  */
 export interface NewFeedFilters {
   /** A calendar window of start times from now: `today`, `weekend`, `week`, `month` or `past`. Not with `from` or `to`. */
@@ -398,11 +400,11 @@ export interface NewFeedFilters {
   to?: string | null;
   /** Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero (`47.37,8.54`): round with `Math.round(x * 1e5) / 1e5`. */
   near?: string | null;
-  /** The distance around `near` in whole kilometres, 1 to `feedFilterRadiusMaxKm`; 10 km without. Leave 10 out: a stored default is in the id, so it is another feed. */
+  /** The distance around `near` in whole kilometres, 1 to `feedFilterRadiusMaxKm`; 10 km without. Leave 10 out: a stored default is a second feed with its own id. */
   radius?: string | null;
   /** The name of the place `near` is, trimmed, at most `feedFilterPlaceMaxLength` code points. Outside the id: a new name renames the feed. */
   place?: string | null;
-  /** One category as the index spells it (`amenity/cafe`). */
+  /** One category, by convention an OpenStreetMap `key/value` (`amenity/cafe`). */
   category?: string | null;
   /** Services, any of them: up to `feedFilterHostsMaxCount` hosts in lower case, comma-separated (`open.spotify.com,www.deezer.com`). */
   host?: string | null;
@@ -412,15 +414,15 @@ export interface NewFeedFilters {
   remote?: string | null;
   /** `yes`: also job postings past their closing date. */
   closed?: string | null;
-  /** Recipes with every one of up to `feedFilterIngredientsMaxCount` ingredients, comma-separated, each lower case and at most `feedFilterIngredientMaxLength` code points. */
+  /** Recipes with every one of up to `feedFilterIngredientsMaxCount` ingredients, comma-separated, each with no ASCII capital letter (lowercase them first: `Äpfel` and `äpfel` are two feeds) and at most `feedFilterIngredientMaxLength` code points. */
   ingredients?: string | null;
   /** An order in place of the feed's `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). */
   sort?: string | null;
-  /** The window of `trending`: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. Leave `7d` out: a stored default is in the id, so it is another feed. */
+  /** The window of `trending`: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. Leave `7d` out: a stored default is a second feed with its own id. */
   window?: string | null;
   /** `links`: every link as a row instead of one row per thing. */
   rows?: string | null;
-  /** Schema.org types to leave out, each with its subtypes: up to `feedFilterExcludeTypesMaxCount` type names, comma-separated with no spaces (`Event,Article`), stored deduplicated and sorted. The app's More kinds: the types its kinds leave over. */
+  /** Schema.org types to leave out, each with its subtypes: up to `feedFilterExcludeTypesMaxCount` type names, comma-separated with no spaces (`Event,Article`), stored deduplicated and sorted. A resource with no type is left out too. */
   exclude_types?: string | null;
 }
 

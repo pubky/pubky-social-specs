@@ -89,7 +89,15 @@ export type FeedReach = OrNewer<KnownFeedReach>;
 export type FeedLayout = OrNewer<KnownFeedLayout>;
 /** A feed sort as the model holds it before its rules run; a stored feed holds a known one. */
 export type FeedSort = OrNewer<KnownFeedSort>;
-/** A feed target as the model holds it before its rules run; a stored feed holds a known one. */
+/**
+ * A feed target as the model holds it before its rules run; a stored feed holds a known one. The
+ * target changes what a feed lists, so it is in the feed's id, and one this version does not know
+ * rejects the feed, as an unknown reach does. A reader older than the member derives another id
+ * for a resources feed, refuses it at its URL and skips it, as it skips a feed with an unknown
+ * primary enum: an exception to the forward-compatibility contract, under which a newer member
+ * never breaks an older reader. No reach is ever spelled like a target, since a target's name goes
+ * in front of an id input that otherwise starts with the reach.
+ */
 export type FeedTarget = OrNewer<KnownFeedTarget>;
 /** A collection layout as a read can hold it: a known one, or a newer writer's name kept as written. */
 export type CollectionLayout = OrNewer<KnownCollectionLayout>;

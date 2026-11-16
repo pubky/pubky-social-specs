@@ -76,10 +76,17 @@ wire_names!(PubkySocialFeedSort {
     Popularity => "popularity",
 });
 
-/// What a feed lists. `Posts` is the default and is stored as no member at all, so every feed
-/// written before the member existed keeps its bytes and its id. `Resources` lists the external
-/// links people tag, which are no posts: such a feed has no post kind (its `content` lists
-/// schema.org types) and no domain filter.
+/// What a feed lists. `Posts` is the default and is stored as no member at all, so a post feed has
+/// the bytes and the id of a feed that names no target. `Resources` lists the external links
+/// people tag, which are no posts: such a feed has no post kind (its `content` lists schema.org
+/// types) and no domain filter.
+///
+/// The target changes what a feed lists, so it is in the feed's id, and a target this version
+/// does not know rejects the feed, as an unknown reach does. A reader older than the member
+/// derives another id for a resources feed, refuses it at its URL and skips it, as it skips a feed
+/// with an unknown primary enum: an exception to the forward-compatibility contract, under which a
+/// newer member never breaks an older reader. No reach is ever spelled like a target, since a
+/// target's name goes in front of an id input that otherwise starts with the reach.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(from = "String", into = "String")]
 #[non_exhaustive]
@@ -96,7 +103,7 @@ wire_names!(PubkySocialFeedTarget {
 
 /// Whether `name` is spelled as a schema.org type name: an ASCII capital letter or digit, then
 /// ASCII letters and digits (`MusicRecording`, `Restaurant`, `3DModel`). Only the spelling is
-/// checked: which types exist, and which are subtypes of which, is the index's business, so a
+/// checked: which types exist, and which are subtypes of which, is the indexer's business, so a
 /// type schema.org adds later is still a name.
 fn is_resource_type_name(name: &str) -> bool {
     let mut chars = name.chars();
@@ -175,60 +182,54 @@ fn validate_resource_types(content: &str) -> Result<(), String> {
 }
 
 /// The filters of a resources feed's search, all optional and every value a string: `None` is
-/// "not set". The values are the app's `/search` vocabulary, not the index's, with stricter
-/// rules; a client turns them into a Pinakes `GET /v1/search` as below. A member a
-/// client does not know is refused, as an unknown reach is, since each one changes what the feed
-/// lists. A stored set is what [`PubkySocialFeedFilters::canonical`] writes, so one set of filters
-/// has one spelling and one id; `place` names the point and stays outside the id, as the feed's
-/// name does.
+/// "not set". Every member but `place` changes what the feed lists or how, so it is in the feed's
+/// id (see [`PubkySocialFeed::derive_id`]); `place` only names the `near` point.
 ///
-/// | Member | Value | App `/search` URL | Pinakes `GET /v1/search` |
-/// |---|---|---|---|
-/// | `when` | `today`, `weekend`, `week`, `month`, `past` | `when` | `from` and `to`, see below |
-/// | `from`, `to` | `YYYY-MM-DD` | `when=dates`, `from`, `to` | `from`, `to` (RFC 3339) |
-/// | `near` | `lat,lon` | `near` | `near` |
-/// | `radius` | whole km | `radius` | `radius` in metres (km × 1000) |
-/// | `place` | a name | `place` | not sent |
-/// | `category` | `amenity/cafe` | `category` | `category` |
-/// | `host` | up to 10, any of them, `open.spotify.com,www.deezer.com` | `service` | `host` |
-/// | `key` | `isbn:9780140328721` | `id` | `key` |
-/// | `remote` | `yes`, `no` | `remote` | `remote=true`, `remote=false` |
-/// | `closed` | `yes` | `closed=1` | `closed=true` |
-/// | `ingredients` | `chickpeas,lemon` | `ingredient` | `ingredient` |
-/// | `sort` | `trending`, `upcoming`, `nearest` | `sort` | `sort=trending`, `start`, `distance` |
-/// | `window` | `24h`, `7d`, `30d` | `window` | `window` |
-/// | `rows` | `links` | `rows` | no `collapse=group` (without `rows`: `collapse=group`) |
-/// | `exclude_types` | up to 50, `Article,Event` | `kind=more` (the types none of its kinds stands for) | `exclude_type` |
+/// The members and their values are a closed set. A member or a value this version does not know
+/// rejects the feed, as an unknown reach does, because a reader that ignored it would list a
+/// different feed. This is an exception to the forward-compatibility contract, under which an
+/// unknown member is kept and an unknown filter value degrades to no filter: a later release that
+/// adds a member or a value here makes deployed readers skip the feeds that use it.
 ///
-/// What the values mean, as the app reads them:
-/// - Days and windows are the viewer's own: the local time zone of the device that searches,
-///   sent to Pinakes as UTC instants (`now` as `now`).
-/// - `when` is a calendar window from now, not a rolling one: `today` up to the end of today,
-///   `week` up to the end of Sunday (weeks run Monday to Sunday), `month` up to the end of the
-///   month's last day, `weekend` from Saturday's start (or now, once it is the weekend) to the end
-///   of Sunday, `past` up to now (`to=now`).
-/// - `from` is the start of its day and `to` the end of its day, so `to` includes its whole day.
-///   Either alone leaves the window open on the other side. Without `when`, `from` and `to` the
-///   filters set no window, and a saved feed lists as the app does: a feed whose `content` is
-///   `Event` (or its subtypes) from now on (its Upcoming), any other feed with no window.
-/// - Without `radius` the distance is 10 km. Without `window`, `trending` counts 7 days. A writer
-///   leaves these defaults out, as the app does: `radius: "10"` or `window: "7d"` is valid, but a
-///   stored default is in the id, so it would make a second feed of the same search.
-/// - `sort: upcoming` orders by start time, soonest first. With no `when`, `from` or `to` it
-///   lists from now on; otherwise their window applies, so `when: past` with `upcoming` lists past
-///   events by their start.
-/// - `sort` here orders the list in place of the feed's own `sort`, which stays in the id: two
-///   feeds that differ only in their own `sort` are two feeds even with one `filters.sort`.
-/// - `exclude_types` lists every resource whose type is none of these and no subtype of one, as
-///   the index reads it: the app's More kinds is the types its own kinds leave over. The list is
-///   the one saved, so a feed keeps it when the app's kinds change later. It goes with `content`
-///   too (those types, less these). A resource with no type yet is not listed.
+/// A stored set is what [`PubkySocialFeedFilters::canonical`] writes: the hosts, the ingredients
+/// and the excluded types deduplicated and sorted by code point, and no empty set. Every other
+/// value is kept as given, so a stored default (`radius: "10"`, `window: "7d"`) is a second feed
+/// with its own id, beside the feed that leaves it out. A writer leaves the defaults out.
 ///
-/// The rules check each value's spelling and which members go together, not that a value
-/// exists (an excluded type is spelled as a type name, not looked up). A writer lowercases the
-/// ingredients (only ASCII capitals
-/// are refused, so `Äpfel` and `äpfel` would be two feeds) and rounds `near` to 5 decimals
-/// (`Math.round(x * 1e5) / 1e5` and its shortest spelling: `47.37`, never `47.370000000000005`).
+/// | Member | Value | Meaning |
+/// |---|---|---|
+/// | `when` | `today`, `weekend`, `week`, `month`, `past` | Resources whose start falls in that calendar window from now (see below). Not with `from` or `to`. |
+/// | `from`, `to` | `YYYY-MM-DD` | Resources whose start falls between the start of `from` and the end of `to`, so `to` includes its whole day; either alone leaves the other side open. `from` is not after `to`. |
+/// | `near` | `lat,lon` | Within `radius` km of the point. |
+/// | `radius` | 1 to `feed_filter_radius_max_km` | Kilometres around `near`, 10 when absent. Only with `near`. |
+/// | `place` | text, up to `feed_filter_place_max_length` code points | The display name of the `near` point. Outside the id. Only with `near`. |
+/// | `category` | text up to `feed_filter_text_max_bytes` bytes, by convention an OpenStreetMap `key/value` (`amenity/cafe`) | Resources of this category. |
+/// | `host` | up to `feed_filter_hosts_max_count` hosts (`open.spotify.com,www.deezer.com`) | Resources with a link whose host is any of these. |
+/// | `key` | `<namespace>:<value>`, the namespace one of `mbid`, `wikidata`, `isrc`, `upc`, `gtin`, `isbn`, `imdb`, `podcast`, `osm`, `doi` | Resources carrying this identifier (`isbn:9780140328721`). |
+/// | `remote` | `yes`, `no` | Job postings that can (`yes`) or cannot (`no`) be done remotely. |
+/// | `closed` | `yes` | Also job postings past their closing date. |
+/// | `ingredients` | up to `feed_filter_ingredients_max_count` (`chickpeas,lemon`) | Recipes with every one of these ingredients. |
+/// | `sort` | `trending`, `upcoming`, `nearest` | The order, in place of the feed's own `sort`: `trending` the most referenced in `window` first, `upcoming` the soonest start first, `nearest` the closest to `near` first (only with `near`). |
+/// | `window` | `24h`, `7d`, `30d` | The window `trending` counts references in, `7d` when absent. Only with `sort` `trending`. |
+/// | `rows` | `links` | One row per link instead of one row per resource. |
+/// | `exclude_types` | up to `feed_filter_exclude_types_max_count` schema.org type names (`Article,Event`) | Leaves out resources of these types or their subtypes, and resources with no type. |
+///
+/// - Days and windows are in the viewer's time zone. `when` is a calendar window from now, not a
+///   rolling one: `today` to the end of today, `week` to the end of Sunday (weeks run Monday to
+///   Sunday), `month` to the end of the month's last day, `weekend` from Saturday's start (or now,
+///   once it is the weekend) to the end of Sunday, `past` up to now.
+/// - With no `when`, `from` or `to`, a feed whose `content` is `Event` or a subtype of it lists
+///   from now on, and so does `sort: upcoming`; any other feed has no time window. With a window,
+///   `upcoming` orders inside it, so `when: past` with `upcoming` lists past events by their start.
+/// - `sort` orders in place of the feed's own `sort`, which stays in the id: two feeds that differ
+///   only in their own `sort` are two feeds, even with one `filters.sort`.
+/// - `exclude_types` goes with `content` too: those types, less these.
+///
+/// The rules check each value's spelling and which members go together, not that a value exists
+/// (an excluded type is spelled as a type name, not looked up). Lists are comma-separated, with no
+/// space around a comma. A writer lowercases the ingredients (only ASCII capitals are refused, so
+/// `Äpfel` and `äpfel` would be two feeds) and rounds `near` to 5 decimals in its shortest
+/// spelling (`Math.round(x * 1e5) / 1e5`: `47.37`, never `47.370000000000005`).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PubkySocialFeedFilters {
@@ -252,7 +253,7 @@ pub struct PubkySocialFeedFilters {
     /// points, trimmed. Outside the id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<String>,
-    /// One category, as the index spells it (OpenStreetMap's `amenity/cafe`).
+    /// One category, by convention an OpenStreetMap `key/value` (`amenity/cafe`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     /// Services, any of them: the links' hosts in lower case, comma-separated, at most
@@ -301,7 +302,7 @@ const FILTER_WHEN: &[&str] = &["today", "weekend", "week", "month", "past"];
 const FILTER_SORTS: &[&str] = &["trending", "upcoming", "nearest"];
 /// The windows of `trending`.
 const FILTER_WINDOWS: &[&str] = &["24h", "7d", "30d"];
-/// The identifier namespaces `key` takes, as the index reads them.
+/// The identifier namespaces `key` takes.
 const FILTER_KEY_NAMESPACES: &[&str] = &[
     "mbid", "wikidata", "isrc", "upc", "gtin", "isbn", "imdb", "podcast", "osm", "doi",
 ];
@@ -361,7 +362,7 @@ fn is_filter_degree(text: &str, bound: f64) -> bool {
     !(text.starts_with('-') && value == 0.0) && value <= bound
 }
 
-/// A host as the index takes it: lower-case DNS labels, at least two, at most 253 characters.
+/// A host: lower-case DNS labels, at least two, at most 253 characters.
 fn is_filter_host(host: &str) -> bool {
     host.len() <= 253
         && host.split('.').count() >= 2
@@ -400,7 +401,7 @@ impl PubkySocialFeedFilters {
         (self != Self::default()).then_some(self)
     }
 
-    /// The members that define the feed, in their stored order, `place` left out.
+    /// The members that define the feed, in their fixed order, `place` left out.
     fn id_members(&self) -> [(&'static str, &Option<String>); 15] {
         [
             ("when", &self.when),
@@ -422,7 +423,7 @@ impl PubkySocialFeedFilters {
     }
 
     /// The id input of the filters: the members that define the feed as one JSON object, in their
-    /// stored order, each value a JSON string (`{"when":"week","near":"47.37,8.54"}`).
+    /// fixed order, each value a JSON string (`{"when":"week","near":"47.37,8.54"}`).
     fn id_data(&self) -> String {
         let members: Vec<String> = self
             .id_members()
@@ -689,11 +690,10 @@ impl PubkySocialFeedConfig {
         })
     }
 
-    /// The config listing `target`. Posts, the default, is stored as no member, so the bytes
-    /// and the id of a post feed are the ones it had before the member existed. The rules of a
-    /// target (a resources feed has no post kind, its `content` lists schema.org types, and no
-    /// domain filter) are checked with the
-    /// rest of the feed, by [`PubkySocialFeed::derive_id`].
+    /// The config listing `target`. Posts, the default, is stored as no member, so a post feed
+    /// has the bytes and the id of a feed that names no target. The rules of a target (a
+    /// resources feed has no post kind, its `content` lists schema.org types, and no domain
+    /// filter) are checked with the rest of the feed, by [`PubkySocialFeed::derive_id`].
     pub fn with_target(mut self, target: PubkySocialFeedTarget) -> Self {
         self.target = (target != PubkySocialFeedTarget::Posts).then_some(target);
         self
@@ -710,7 +710,7 @@ impl PubkySocialFeedConfig {
 
     /// The schema.org types a resources feed lists, read from the `content` of a decoded or built
     /// feed (one that passed validation); `None` for every type and for a post feed. A resource is
-    /// listed when its type is one of these or a subtype of one, as the index reads it.
+    /// listed when its type is one of these or a subtype of one, as the indexer reads it.
     pub fn resource_types(&self) -> Option<Vec<&str>> {
         if self.target != Some(PubkySocialFeedTarget::Resources) {
             return None;
@@ -1018,17 +1018,17 @@ impl HashId for PubkySocialFeed {
     /// `created_at` and `extra` stay outside: a feed is what it filters, not how it looks.
     ///
     /// A target other than posts goes in front, "{target}:" and then the six segments, so a
-    /// post feed, whose target is stored as no member, keeps the id it had before the member
-    /// existed. A prefix, never a suffix: every older id input starts with a reach, a valid
+    /// post feed, whose target is stored as no member, has the id of a feed that names no target.
+    /// A prefix, never a suffix: every id input of a post feed starts with a reach, a valid
     /// feed's reach is a known one and no reach is a target's name, while the last segment ends
     /// in a domain label anyone can choose (`content: ":music"` with `domain_tags: ["resources"]`
     /// would spell a suffix).
     ///
     /// A resources feed with filters adds them as a seventh segment, after a ':' that follows the
     /// (always empty) domain segment: "{target}:{six segments}:{filters}", the filters one JSON
-    /// object (see [`PubkySocialFeedFilters`]). A resources feed without filters keeps the id it had
-    /// before they existed, and no two resources feeds share an input: none of the six segments of
-    /// a valid one holds a ':', so the seventh starts after the sixth ':' exactly.
+    /// object (see [`PubkySocialFeedFilters`]). A resources feed without filters has no seventh
+    /// segment, and no two resources feeds share an input: none of the six segments of a valid one
+    /// holds a ':', so the seventh starts after the sixth ':' exactly.
     ///
     /// Writers go through [`PubkySocialFeed::derive_id`], which validates the config first. A
     /// name this version does not know is spelled as it was read, so it derives the writer's id.
@@ -1939,7 +1939,7 @@ mod tests {
         assert!(f.created_at <= now && f.created_at >= now - 1_000_000);
     }
 
-    /// The music feed of the audit, as a post feed and as a resources feed.
+    /// A music feed, as a post feed and as a resources feed.
     fn music(target: PubkySocialFeedTarget) -> PubkySocialFeed {
         let config = PubkySocialFeedConfig::new(
             Some(vec!["music".into()]),
@@ -2242,7 +2242,7 @@ mod tests {
         }
     }
 
-    /// The music feed of the audit as a resources feed, with these stored filters.
+    /// A music feed as a resources feed, with these stored filters.
     fn filtered(filters: serde_json::Value) -> PubkySocialFeed {
         let mut f = music(PubkySocialFeedTarget::Resources);
         f.feed.filters = Some(Box::new(serde_json::from_value(filters).unwrap()));
@@ -2353,6 +2353,38 @@ mod tests {
                 built.feed = built.feed.with_filters(given);
                 assert_eq!(built.derive_id().unwrap(), id);
             }
+        }
+        // The rules of target, domain_tags and filters together, on a whole stored feed
+        for case in table["config"].as_array().unwrap() {
+            let feed: PubkySocialFeed = serde_json::from_value(serde_json::json!({
+                "feed": case[0],
+                "name": "Music",
+                "icon": "music",
+                "created_at": 1_700_000_000_000_000_i64,
+            }))
+            .unwrap();
+            let got = feed.derive_id();
+            let (code, field) = (case[2].as_str(), case[3].as_str());
+            let Some(error) = case[1].as_str() else {
+                assert!(code.is_none() && field.is_none());
+                let id = got.unwrap_or_else(|e| panic!("{e}: {}", case[0]));
+                // As stored: the config writes back as the table spells it
+                assert_eq!(serde_json::to_value(&feed.feed).unwrap(), case[0]);
+                let blob = serde_json::to_vec(&feed).unwrap();
+                <PubkySocialFeed as Validatable>::try_from(&blob, &id, &PRIV_CTX).unwrap();
+                continue;
+            };
+            assert_eq!(
+                got,
+                Err(format!("Validation Error: {error}")),
+                "{}",
+                case[0]
+            );
+            // The package's code and field: a member the message names
+            assert!(["conflict", "unknown_name"].contains(&code.unwrap()));
+            let field = field.unwrap();
+            assert!(["filters", "domain_tags", "target"].contains(&field));
+            assert!(error.contains(field), "{error} names {field}");
         }
     }
 

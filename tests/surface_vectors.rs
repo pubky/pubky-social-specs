@@ -1,8 +1,8 @@
 //! The recorded surface answers (`vectors/js/*.jsonl`) are what the crate answers now.
 //!
 //! The TypeScript package is tested against these files, so a change of behaviour here that
-//! leaves them stale would pass on both sides. Regenerate with
-//! `cd pkg && node qa/score.mjs --record`.
+//! leaves them stale would pass on both sides. `cd pkg && node qa/score.mjs --record` rewrites
+//! `vectors/js/<family>.jsonl`; a kept `<family>-<name>.jsonl` is replayed, never rewritten.
 #![cfg(feature = "__surface")]
 
 use pubky_social_specs::surface::{call, Arg, Env};
