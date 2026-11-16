@@ -26,19 +26,21 @@ const bundled = async (file, names, define = {}) => {
 };
 
 const PROBES = [
-  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]
+  // [entry, what is imported, gzipped budget in bytes, what must not be in the bundle]. The
+  // resources feed rules add about 2.5 to 3 KB to the entries that carry the feed rules
   ["index.js", "{ buildUri }", 3_200, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ parseUri }", 17_000, ["Too many attachments", "WebAssembly"]],
   ["index.js", "{ limits }", 1_000, ["blake3", "WebAssembly"]],
   ["index.js", "{ buildPost }", 20_000, ["WebAssembly"]],
-  ["index.js", "{ decodeObject }", 22_000, ["WebAssembly"]],
+  ["index.js", "{ decodeObject }", 24_500, ["WebAssembly"]],
   ["index.js", "{ validatePost }", 17_000, ["WebAssembly"]],
-  ["index.js", "* as all", 30_000, ["WebAssembly"]],
+  ["index.js", "* as all", 32_500, ["WebAssembly"]],
   ["testing.js", "{ setClock }", 1_000, ["WebAssembly", "Too many attachments"]],
-  ["testing.js", "* as all", 22_000, ["WebAssembly"]],
-  ["client/index.js", "{ createSocialClient }", 29_000, ["WebAssembly"]],
-  // pubky-social-migrator, with the public entry of the core it calls bundled in
-  ["migrator/index.js", "* as all", 360_000, []],
+  ["testing.js", "* as all", 25_000, ["WebAssembly"]],
+  ["client/index.js", "{ createSocialClient }", 31_500, ["WebAssembly"]],
+  // pubky-social-migrator, with the public entry of the core it calls bundled in (its wasm carries
+  // the crate's feed rules, about 25 KB of them)
+  ["migrator/index.js", "* as all", 385_000, []],
   ["migrator/adapters/pubky-sdk.js", "* as all", 5_000, ["WebAssembly"]],
 ];
 

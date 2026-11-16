@@ -140,6 +140,7 @@ const hostile = () => [
 const post = api.buildPost(OWNER, { content: "hello", root: "private", slug: "draft" });
 const user = api.buildUser(OWNER, { name: "Alice" });
 const feed = api.buildFeed(OWNER, { name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent" });
+const resourcesFeed = api.buildFeed(OWNER, { name: "Songs", icon: "music", reach: "all", layout: "columns", sort: "recent", target: "resources", content: "MusicRecording" });
 const article = api.buildPost(OWNER, { kind: "article", title: "T", body: "B" });
 const file = new Uint8Array([1, 2, 3, 4, 5]);
 const fileAt = api.buildFile(OWNER, { bytes: file, type: "image/png" });
@@ -156,6 +157,7 @@ const calls = {
   buildFeed: [OWNER, { name: "Feed", icon: "star", reach: "all", layout: "columns", sort: "recent", tags: ["rust"] }],
   feedId: [feed.object],
   feedPaths: [feed.id],
+  feedResourceTypes: [resourcesFeed.object],
   buildTag: [OWNER, api.buildUri(OTHER, "user"), "friend"],
   buildBookmark: [OWNER, api.buildUri(OTHER, "user")],
   buildFollow: [OWNER, OTHER],
