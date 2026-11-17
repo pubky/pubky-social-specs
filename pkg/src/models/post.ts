@@ -41,9 +41,9 @@ export interface Post extends Extra {
 export interface ArticleContent extends Extra {
   /** The title, trimmed by the builder: 1 to 100 code points, not blank, no control character but tab, newline and carriage return. */
   title: string;
-  /** The text, Markdown by convention: at most 50000 code points, no control character but tab, newline and carriage return. */
+  /** The text, Markdown by convention: at most 50000 code points, no control character but tab, newline and carriage return. By the same convention `![alt](attachment:{n})` shows the post's `attachments[n]`, whatever its media type: `n` counts from zero, in decimal digits with no sign and no leading zero. */
   body: string;
-  /** A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. */
+  /** A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. The cover lives here, not among the post's `attachments`. */
   cover_image: string | null;
 }
 
