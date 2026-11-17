@@ -673,7 +673,8 @@ fn article_title(raw: &str) -> Option<String> {
 /// The slot the inline reference grammar of an article body names at `index`, when a markdown
 /// destination starts there, with the byte range of its digits.
 ///
-/// The data model gives the body no grammar: the references are the 0.x pubky.app composer's,
+/// The data model states the references as a convention and checks none of it (the docs of
+/// `PubkySocialArticleContent::body`): they are the 0.x pubky.app composer's,
 /// `![alt](attachment:{n})`, where `n` is a slot of `attachments` in base 10 with no sign and
 /// no leading zero (pubky-app `articleInlineMedia.ts`, `ATTACHMENT_REF_PATTERN`,
 /// `^attachment:(0|[1-9][0-9]*)$` over the destination). This is that grammar, read where a
