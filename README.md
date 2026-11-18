@@ -113,7 +113,7 @@ git tag v1.0.0-rc.1 && git push origin v1.0.0-rc.1
 
 The Release workflow runs every CI workflow again and refuses a tag that does not match both versions or that is not on `v1` or `main`. Then it publishes to crates.io and npm, the core before the migrator, and opens a GitHub release with both npm tarballs attached. A version with a `-` in it goes out under the npm `next` tag and is marked as a prerelease; any other version goes to `latest`. There are no registry tokens anywhere, both registries trust this workflow through GitHub OIDC.
 
-A prerelease tag like `v1.0.0-rc.1` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that. Whoever approves the `release` environment has to confirm those before approving a stable tag.
+A prerelease tag like `v1.0.0-rc.1` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that and nobody approves the run, so pushing the stable tag is the confirmation: check those first.
 
 The crates.io and npm jobs run in parallel. If npm fails after the crate already went out, open the run and use Re-run failed jobs, which picks up the tarballs uploaded earlier in the same run and skips a package already published at that version. Re-run all jobs would fail trying to publish the crate a second time.
 
@@ -125,7 +125,7 @@ In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_
 
 The repository has to be `pubky/pubky-social-specs` before anything else, so rename it first if it still has the old name. Until then the npm publish fails, because npm requires `repository.url` in each `package.json` to match the repository the workflow runs in.
 
-Then create an environment called `release` in the repository settings. Add required reviewers to it, and under Deployment branches and tags pick Selected with the tag rule `v*`. A repository ruleset limiting who can create `v*` tags belongs next to it. The registries accept any run of `release.yml` in the `release` environment whatever ref it started from, so these rules are what keep someone with write access from publishing a modified workflow off a branch.
+Then create an environment called `release` in the repository settings, and under Deployment branches and tags pick Selected with the tag rule `v*`. It has no required reviewers, so a `v*` tag publishes as soon as it is pushed. A repository ruleset limiting who can create `v*` tags belongs next to it. The registries accept any run of `release.yml` in the `release` environment whatever ref it started from, so these rules are what keep someone with write access from publishing a modified workflow off a branch.
 
 A trusted publisher can only be added to a package that already exists, on both registries, so the very first version of each goes out by hand from a clean checkout:
 
@@ -146,6 +146,10 @@ Do not push a `v` tag for that version, the workflow would try to publish it aga
 | Environment | `release` |
 
 On npmjs.com the same form has Allowed actions. `npm stage publish` is always allowed, and a trusted publisher created after September 3, 2026 allows only that by default. Enable `npm publish` there too, because the workflow publishes directly. With the default left in place the npm job fails, possibly after the crate already went out to crates.io.
+
+npm expires a trusted publisher that has not published anything within 48 hours of being created, and the job then fails with `ENEEDAUTH`. Add it right before the first tagged release; an expired one has to be deleted and created again.
+
+The hand-published first version takes npm's `latest` whatever `--tag` says, and the workflow moves `latest` only for a stable version. Until `v1.0.0`, point it at each prerelease by hand: `npm dist-tag add <package>@<version> latest`, for both packages.
 
 Both registries match on the repository name, and npm also checks it against `repository.url` in each `package.json`. Renaming the GitHub repository again later means updating both entries and that field.
 
