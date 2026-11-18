@@ -138,8 +138,8 @@ The envelope of an article, inside its post's `content`: read it with `decodeCon
 | member | type | null | meaning |
 |---|---|---|---|
 | `title` | `string` |  | The title, trimmed by the builder: 1 to 100 code points, not blank, no control character but tab, newline and carriage return. |
-| `body` | `string` |  | The text, Markdown by convention: at most 50000 code points, no control character but tab, newline and carriage return. |
-| `cover_image` | `string` | yes | A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. |
+| `body` | `string` |  | The text, Markdown by convention: at most 50000 code points, no control character but tab, newline and carriage return. By the same convention `![alt](attachment:{n})` shows the post's `attachments[n]`, whatever its media type: `n` counts from zero, in decimal digits with no sign and no leading zero. |
+| `cover_image` | `string` | yes | A canonical `pubky`, `http` or `https` URI of an image, at most 300 code points; null for none. The cover lives here, not among the post's `attachments`. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
 
 ### CollectionContent

@@ -38,6 +38,12 @@ These follow the crate, which changes with them:
   tree migrated under rc.1 is walked again, which picks up what rc.1 skipped; a walk never
   rewrites a 1.x object that exists, so an article rc.1 wrote keeps its bytes. That is the
   never-rewrite policy, not a repair.
+- The docs now state the convention those references follow, on `ArticleContent` (and so in
+  `docs/reference.md`) and on the crate's `PubkySocialArticleContent`: in an article's `body`,
+  `![alt](attachment:{n})` shows the post's `attachments[n]`, whatever its media type, with `n`
+  counted from zero, and the cover lives in `cover_image`, not among the `attachments`. No bytes
+  change with it and the data model checks none of it: what a reader shows for a slot that is
+  not there is the app's to decide.
 
 ## 1.0.0-rc.1
 

@@ -21,10 +21,12 @@ use super::super::PubkySocialPost;
 pub struct PubkySocialArticleContent {
     /// Trimmed by the builder; `[1, article_title_max_length]` code points.
     pub title: String,
-    /// Markdown; at most `article_body_max_length` code points.
+    /// Markdown; at most `article_body_max_length` code points. By convention
+    /// `![alt](attachment:{n})` shows `attachments[n]` of the post, whatever its media type:
+    /// `n` counts from zero, in decimal digits with no sign and no leading zero.
     pub body: String,
     /// Optional cover, a canonical pubky or web URI of at most `image_url_max_length`
-    /// code points.
+    /// code points. The cover lives here, not among the post's `attachments`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover_image: Option<String>,
     /// Unknown members, preserved on rewrite; see the module contract in `models/mod.rs`.
