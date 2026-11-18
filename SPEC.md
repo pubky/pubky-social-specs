@@ -281,6 +281,11 @@ carry `parent`, `embed` and `attachments`.
 extensions and render anything else as text. Renderers never execute raw HTML, and link only to
 `http`, `https`, `pubky` and `mailto` destinations.
 
+By convention, `![alt](attachment:{n})` in the `body` shows the post's `attachments[n]`, whatever
+its media type. `n` counts from zero and is written in decimal digits, with no sign and no
+leading zero. The cover is `cover_image`, not one of the `attachments`. The data model checks
+none of this: what a reader shows for a slot that is not there is the app's to decide.
+
 **Example**
 
 `/pub/social/v1/posts/0034GTJ9NFM00/0034GTJ9NFM00-on-pubky.json`

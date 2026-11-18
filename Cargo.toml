@@ -25,7 +25,8 @@ exclude = [
 ]
 
 [package.metadata.docs.rs]
-all-features = true
+# The public features only: the `__` ones are internal and stay out of the published docs
+features = ["openapi", "migrator"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [lib]

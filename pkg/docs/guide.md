@@ -107,7 +107,7 @@ console.log(edited.editId > article.editId); // true
 
 ## Editing an object
 
-To change a stored object, decode it, change it, and encode it.
+To change a stored object, decode it, change it, and encode it. That rewrites the file where it is. A post is the exception: a version file is written once and never changed, so an edit is `editPost`, which writes a new version at a new path ([Posts: publish, unpublish and delete](#posts-publish-unpublish-and-delete)).
 
 ```js
 import { buildUser, decodeObject, encodeObject, toPath } from "pubky-social-specs";

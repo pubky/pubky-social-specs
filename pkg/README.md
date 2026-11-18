@@ -78,6 +78,7 @@ console.log(writes.map((w) => w.path));
 
 - `decodeObject(url, bytes, kind)` returns the object, typed, or throws a `ValidationError`. Other people's data can be anything, so `tryDecodeObject` returns the error instead of throwing it.
 - To change an object, decode it, change it, and write `encodeObject(url, object)`. Never `JSON.stringify` it yourself: members a newer client added travel in `$unknown`, and only the package writes them back as they were.
+- A post is the exception. A version file is written once and never changed, so an edit goes through `editPost`, which writes a new version at a new path. The guide covers both under [Editing an object](docs/guide.md#editing-an-object).
 - `validatePost`, `validateUser`, `validateFeed` and `validateTag` check a form and return every issue; `postSchema` and the other `*Schema` exports are the same checks as [Standard Schema](https://standardschema.dev) objects.
 
 ## The client

@@ -29,7 +29,8 @@ cp package/dist/glue* dist/
 With the Rust toolchain, `npm run build` in either package builds both; it wipes both `dist`
 first. Never run
 `wasm-pack build --out-dir pkg` by hand: it overwrites `package.json`. A release `dist` is built
-only in CI, from the pinned toolchain, and a job rebuilds it from the tag and compares.
+only in CI, from the pinned toolchain. A job rebuilds it from the tag and compares, but does not
+run by itself after a release yet: `RELEASING.md` at the repository root says why.
 
 ## The checks
 

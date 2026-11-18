@@ -51,6 +51,8 @@ console.log(report.status); // done: an empty 0.x tree migrates at once
 
 `mode: "dry"` reads and counts exactly as a run does, and writes nothing.
 
+**A rescan does not repair.** `rescan: true`, `--rescan` on the CLI, walks the 0.x tree of a finished migration again and copies what an earlier run skipped. It never rewrites a 1.x object that already exists, so an object an older release migrated differently keeps the bytes that release wrote, and an object the owner deleted since is not brought back.
+
 ## The report
 
 - `status`: `done`, `already_migrated`, `incomplete` (run again), `paused` or `aborted`.

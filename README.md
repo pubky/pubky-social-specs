@@ -9,13 +9,17 @@ Rust types, builders, and validation for the Pubky social data model: profiles, 
 
 This is the **1.x** data model. Objects live under `/pub/social/v1/`, readable by anyone, and `/priv/social/v1/`, readable by the owner and the apps the owner granted. It replaces the 0.x layout of [`pubky-app-specs`](https://crates.io/crates/pubky-app-specs), under `/pub/pubky.app/`.
 
+> **Release status:** `1.0.0` is not published yet; current releases are release candidates.
+>
 > **Stability:** within 1.x the stored models only grow. Every 1.x release reads what any earlier 1.x release wrote, derives every id the same way, and writes back the members a newer writer added untouched. A change that cannot be made that way goes to `social/v2`.
 
 ## Installation
 
 ```bash
-cargo add pubky-social-specs
+cargo add pubky-social-specs serde_json
 ```
+
+`serde_json` is for the examples below.
 
 ## Quick start
 
@@ -80,7 +84,7 @@ Every `Validatable` rejection starts with `Validation Error: `, and the npm pack
 
 ## Reading 0.x data
 
-`legacy_v0` is the 0.x reader, frozen at the 0.8.0 pin: that release's parser, read models and validation copied unchanged, so an object 0.x accepted or rejected keeps the same answer forever. Hand `legacy_v0::PubkyAppObject::from_uri` a stored URI and the bytes and it answers what 0.8.0 answered. The 0.x layout is described in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V0.md).
+`legacy_v0` is the 0.x reader, frozen at the 0.8.0 pin: that release's parser, read models and validation, copied with the few differences its module documentation lists. Apart from those, an object 0.x accepted or rejected keeps the same answer forever: hand `legacy_v0::PubkyAppObject::from_uri` a stored URI and the bytes and it answers what 0.8.0 answered. The 0.x layout is described in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V0.md).
 
 `stable_id` keys a stored path the same under either epoch, so a migrated object indexes in place rather than twice. Tags, bookmarks and feeds are the exception, see [Relationship to 0.x](https://github.com/pubky/pubky-social-specs/blob/v1/SPEC.md#relationship-to-0x):
 

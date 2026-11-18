@@ -1,6 +1,6 @@
 # How the migration works
 
-The [README](../README.md) covers running a migration. This document is the engine's contract in full: what a run does to each object, what it never does, the report, the port a host implements, the SDK adapter and the CLI. The design notes are in [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+The [README](../README.md) covers running a migration. This document is the engine's contract in full: what a run does to each object, what it never does, the report, the port a host implements, the SDK adapter and the CLI. The design notes are in [`ARCHITECTURE.md`](https://github.com/pubky/pubky-social-specs/blob/v1/migrator/ARCHITECTURE.md).
 
 ## What a run does
 

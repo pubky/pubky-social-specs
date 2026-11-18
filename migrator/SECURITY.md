@@ -14,9 +14,16 @@ at one version.
 
 ## Verifying a release
 
-Releases are published from GitHub Actions with npm provenance, `dist` is built only in CI from a
-pinned toolchain, and a workflow rebuilds it from the tag and compares it with the published
-tarball. `npm audit signatures` checks the provenance of an installed copy. The wasm is embedded
+Releases are published from GitHub Actions with npm provenance, and `dist` is built only in CI
+from a pinned toolchain. The exception is every version before `1.0.0-rc.2`: those were published
+by hand, to register the package for trusted publishing, and carry no provenance.
+`npm audit signatures` checks the provenance of an installed copy.
+
+A workflow rebuilds `dist` from the tag and compares it with the published tarball. It does not
+run by itself after a release yet; [`RELEASING.md`](https://github.com/pubky/pubky-social-specs/blob/v1/RELEASING.md#after-the-tag) says why.
+For `1.0.0-rc.2` the same comparison was made by hand, and both packages matched.
+
+The wasm is embedded
 in `dist/glue.js` with its SHA-256, which the loader (`src/wasm.ts`) checks before compiling it.
 Under the `workerd` condition the bundler compiles the shipped `dist/glue.wasm` at deploy time, so
 the module arrives compiled and the digest check, which needs bytes, is the bundler's.
