@@ -52,6 +52,7 @@ dist/wasm.d.ts
 dist/wasm.d.ts.map
 dist/wasm.js
 dist/wasm.js.map
+docs/engine.md
 package.json
 src/adapters/pubky-sdk.ts
 src/bytes.ts

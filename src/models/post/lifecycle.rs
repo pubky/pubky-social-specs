@@ -15,8 +15,7 @@ use crate::uri::{is_valid_label, parse_version_leaf};
 use serde::Serialize;
 
 /// Publish: media copies first, then the post PUT. Skip-if-exists on a copy is the caller's,
-/// since existence proves completion. The public leaf carries no slug: the slug is private
-/// decoration on a draft, and the public spelling is the plain `{editId}.json`.
+/// since existence proves completion. The public leaf is the private one, slug included.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishPlan {
@@ -24,7 +23,7 @@ pub struct PublishPlan {
     pub media_copies: Vec<(String, String)>,
     /// The chosen version with its private media references respelled under `pub`.
     pub rewritten_post_json: String,
-    /// `/pub/social/v1/posts/{id}/{editId}.json`.
+    /// `/pub/social/v1/posts/{id}/{editId}[-{slug}].json`.
     pub dest_path: String,
 }
 

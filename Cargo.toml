@@ -1,9 +1,9 @@
 [package]
 name = "pubky-social-specs"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 edition = "2021"
 rust-version = "1.89"
-description = "Pubky social data models with validation, sanitization, and URI helpers"
+description = "Pubky social data models with builders, validation, and URI helpers"
 readme = "README.md"
 homepage = "https://pubky.app"
 repository = "https://github.com/pubky/pubky-social-specs"
@@ -17,6 +17,11 @@ exclude = [
     "package-lock.json",
     "pkg",
     "src/bin",
+    "tests",
+    "tools",
+    "vectors",
+    "RELEASING.md",
+    "TESTING.md",
 ]
 
 [package.metadata.docs.rs]
@@ -33,15 +38,15 @@ required-features = ["migrator"]
 
 [[bin]]
 name = "surface_oracle"
-required-features = ["surface"]
+required-features = ["__surface"]
 
 [[bin]]
 name = "replay_remap"
-required-features = ["replay"]
+required-features = ["__replay"]
 
 [[bin]]
 name = "replay_verify"
-required-features = ["replay"]
+required-features = ["__replay"]
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
@@ -72,15 +77,16 @@ tokio = { version = "1.52.3", features = ["full"] }
 anyhow = "1.0.100"
 
 [features]
-openapi = ["utoipa"]
+openapi = ["dep:utoipa"]
 # The v0 to v1 transforms. Off by default for the crate: only a client that runs the
 # migration needs them. The npm package is built with them, since it is that client.
 migrator = []
+# The two below are internal to this repository's tooling and carry no stability promise.
 # The JS surface answered natively, with the clock given by the caller: what the TypeScript
 # package is checked against.
-surface = ["migrator"]
+__surface = ["migrator"]
 # The replay tooling under tools/replay: the migrator plus the key derivation of the replica.
-replay = ["migrator", "dep:ed25519-dalek"]
+__replay = ["migrator", "dep:ed25519-dalek"]
 
 [profile.release]
 opt-level = "z"   # Requests maximum optimization for binary size (“z” stands for “size”), rather than speed.

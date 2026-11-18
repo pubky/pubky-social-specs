@@ -2,7 +2,7 @@
 //! to write out.
 //!
 //! Every transform works from the object the frozen 0.x reader returns for the path, at the
-//! path's own id: [`legacy_v0::V0Object::from_resource`], the read an indexer takes,
+//! path's own id: the [`legacy_v0`] object enum's `from_resource`, the read an indexer takes,
 //! typed and sanitized as the reader stored it. An object is skipped when the frozen 0.x
 //! reader refuses it: `malformed` when the JSON parser cannot read the bytes at all, `shape`
 //! when the reader cannot read them into its model, `invalid` when it reads them and its rules
@@ -453,7 +453,7 @@ impl Rewritten {
 // ---- reading v0 bytes ----
 
 /// The object the frozen 0.x reader stores for bytes at an id: its own `try_from`, the call
-/// [`legacy_v0::V0Object::from_resource`] makes for the path. The reader reports a
+/// the [`legacy_v0`] object enum's `from_resource` makes for the path. The reader reports a
 /// refusal as a message only, so its first step is retaken on refusal to tell the JSON
 /// parser's, the model's and the rules' refusals apart.
 fn read_v0<T: legacy_v0::V0Validatable>(bytes: &[u8], id: &str) -> Result<T, Skipped> {
@@ -912,7 +912,7 @@ fn classify(owner: &PubkyId, v0_path: &str) -> Result<legacy_v0::Resource, Skipp
 }
 
 /// Reads the object through the frozen 0.x reader at the path's id, as
-/// [`legacy_v0::V0Object::from_resource`] does, and transforms what it stored.
+/// the [`legacy_v0`] object enum's `from_resource` does, and transforms what it stored.
 fn transform_resource(
     resource: legacy_v0::Resource,
     v0_bytes: &[u8],

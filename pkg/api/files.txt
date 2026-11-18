@@ -147,6 +147,7 @@ dist/validate.d.ts
 dist/validate.d.ts.map
 dist/validate.js
 dist/validate.js.map
+docs/guide.md
 docs/reference.md
 example.js
 package.json

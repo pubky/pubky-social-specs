@@ -1,0 +1,337 @@
+# Guide
+
+This guide picks up where the [README](../README.md) stops. Every block runs as pasted, against the in-memory homeserver of `pubky-social-specs/testing`, like the README's.
+
+## Coming from pubky-app-specs
+
+This package replaces [`pubky-app-specs`](https://www.npmjs.com/package/pubky-app-specs) 0.x. It is not a drop-in upgrade: the old package writes the 0.x layout under `/pub/pubky.app/`, and this one writes 1.x under `/pub/social/v1/` and `/priv/social/v1/`, with new object shapes. Switch once the indexer your app reads from reads 1.x, and move each user's existing data with [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator).
+
+There is no builder object and no wasm to load: every function is plain and synchronous, and every builder takes the owner as its first argument.
+
+| `pubky-app-specs` 0.x | `pubky-social-specs` 1.x |
+|---|---|
+| `new PubkySpecsBuilder(pubkyId)` | nothing: pass the owner to each builder |
+| `specs.createUser(name, bio, image, links, status)` | `buildUser(owner, { name, bio, image, links, status })` |
+| `specs.createPost(content, kind, parent, embed, attachments, lock)` | `buildPost(owner, { content, kind, parent, embed, attachments, lock })`. Kinds `short` and `long` are `note` and `article`, `embed` is a URI string, and an attachment is `{ uri, alt?, name? }` |
+| a `long` post with a hand-written `{ title, body }` | `buildPost(owner, { kind: "article", title, body, cover_image })` |
+| `specs.createCollectionPost(name, description, items, coverImage, layout)` | `buildPost(owner, { kind: "collection", name, description, items, cover_image, layout })`, each item `{ uri, note? }` |
+| `specs.editPost(originalPost, postId, newContent)` | `editPost(owner, headUrl, { ...post, content })`, which writes a new version and leaves the old one |
+| `specs.createFile(name, src, contentType, size)` and `specs.createBlob(bytes)` | `buildFile(owner, { bytes, type })`, one object; the name goes on the attachment |
+| `specs.createTag(uri, label)` | `buildTag(owner, uri, label)` |
+| `specs.createBookmark(uri)` | `buildBookmark(owner, target)`, now private |
+| `specs.createFollow(pubkyId)` | `buildFollow(owner, followee)` |
+| `specs.createMute(pubkyId)` | `buildMute(owner, mutee)`, now private |
+| `specs.createFeed({ ..., domainTags, icon })` | `buildFeed(owner, { ..., domain_tags, icon })`, now private; `feedPaths(id).public` is where a published copy goes |
+| `specs.createLastRead()`, `lastReadUriBuilder` | removed: last-read and settings are app data, outside the social model |
+| `{ user, meta }`, `meta.id`, `meta.path`, `meta.url`, `user.toJson()` | `{ id, path, url, object, body }`: `body` is the bytes to PUT |
+| `PubkyAppUser.fromJson(json)` and the other `fromJson` | `decodeObject(url, bytes, kind)` |
+| `userUriBuilder(id)`, `postUriBuilder(id, postId)`, `followUriBuilder`, `muteUriBuilder`, `bookmarkUriBuilder`, `tagUriBuilder`, `feedUriBuilder` | `buildUri(owner, kind, id)`: `buildUri(owner, "user")`, `buildUri(owner, "post", postId)`, ... |
+| `fileUriBuilder(id, fileId)`, `blobUriBuilder(id, blobId)` | `buildUri(owner, "file", filename)`, the filename `{hash}.{ext}`, or the `url` of `buildFile` |
+| `baseUriBuilder(id)` | `listPrefix(owner, "public")` |
+| `parse_uri(uri)`, giving `{ user_id, resource, resource_id }` | `parseUri(uri)`, giving `{ owner, root, path, kind }` and the kind's `id` (and `filename` for a file) |
+| `PubkyAppPostKind.Short` and the other enums | the strings, `"note"`; `postKinds`, `feedReaches`, `feedLayouts`, `feedSorts` and `collectionLayouts` list them |
+| `getValidMimeTypes()` | `validMimeTypes` |
+| `getValidationLimits()`, `specs.validationLimits`, `pubky-app-specs/validationLimits` | `limits`. Renamed: `postShortContentMaxLength` is `postNoteContentMaxLength`, `postLongContentMaxLength` is `articleBodyMaxLength`, `userImageUrlMaxLength` is `imageUrlMaxLength`, `postAttachmentUrlMaxLength` is `referenceUriMaxLength`, and `maxBlobSizeBytes` is `maxFileSizeBytes`. Gone: `fileNameMinLength`, `fileNameMaxLength` and `fileSrcMaxLength` |
+| a thrown string | a `ValidationError` with a stable `code`, or an `ArgumentError` for a wrong JavaScript type |
+
+## Four ways to name a place
+
+Most first errors are one of these passed where another goes. Each has a branded type, so TypeScript refuses one passed for another before the code runs. A plain string is taken too, so an entry of a LIST goes straight in.
+
+- `parseOwner`, `parsePubkyUrl`, `parseOwnerPath` and `parsePostRef` check and brand a string where it enters, from a form or a LIST. `parsePubkyUrl(url, "post")` also checks the kind and types the result for it.
+- `isPubkyUrl` tests a URL without throwing.
+- `toPath(url)` and `toUrl(owner, path)` turn one spelling into the other.
+- `isOneOf(postKinds, kind)` narrows a string to the names of a table.
+
+| name | looks like | comes from | goes to |
+|---|---|---|---|
+| owner (`Owner`) | `8kkp...otto` | `session.info.publicKey.z32()` | the first argument of a builder |
+| URL (`PubkyUrl`) | `pubky://<owner>/pub/social/v1/posts/{postId}/{editId}.json` | `url` of a builder result, an entry of a LIST | `decodeObject`, `encodeObject`, `editPost`, `parseUri`, `toPath` |
+| path (`OwnerPath`) | `/pub/social/v1/posts/{postId}/{editId}.json` | `path` of a builder result, `toPath(url)` | the SDK's storage calls, every plan, `deletionPaths` |
+| reference (`PostRef`) | `pubky://<owner>/pub/social/v1/posts/{postId}` | `buildUri(author, "post", id)` | `parent`, `embed`, a tag, a bookmark, a collection item |
+
+A URL names one stored file. A reference names a thing: for a post it leaves out the version, and for a user it is the URL of the profile, `buildUri(owner, "user")`. A LIST prefix, `listPrefix(owner, "public")`, ends with `/` and names a directory, so it has a type of its own.
+
+## Text, slugs and feed ids
+
+`buildPost` takes a note, an article or a collection, told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`. `body` is a `Uint8Array` that `fetch`, `Blob` and the SDK take as it is; `new TextDecoder().decode(body)` shows the JSON.
+
+A builder trims display text and lowercases the ASCII letters of a tag label, and nothing more: `café` in NFC and in NFD are two labels with two ids. A reference is stored as written, so it must be canonical already: a pubky reference comes from `buildUri`, and a web URL starts with lowercase `http://` or `https://` and holds no whitespace. Absent and `null` mean the same in an input.
+
+A slug gives a version a readable leaf, `{editId}-{slug}.json`: 1 to 64 of a-z, 0-9 and `-`. It carries no identity, so a renamed slug is the next edit, and it is allowed under both roots.
+
+A feed's id is its filter (reach, layout, sort, content, tags, domain tags), so two feeds with one filter are one feed whatever their names.
+
+## Media
+
+Media is content addressed: its id is the hash of its bytes, and the declared type picks only the extension. A type the package does not map, an empty one included, gets `.bin`; the table is in [`reference.md`](reference.md#media-types). `buildFile` returns `{ id, path, url }`, with no `body`, since the bytes are yours to PUT.
+
+```js
+import { buildFile, buildPost, hashMedia } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
+
+const file = new File([new Uint8Array([137, 80, 78, 71])], "cat.png", { type: "image/png" });
+const bytes = new Uint8Array(await file.arrayBuffer());
+const media = buildFile(owner, { bytes, type: file.type });
+await session.storage.putBytes(media.path, bytes);
+
+const post = buildPost(owner, { content: "A photo", attachments: [{ uri: media.url, name: file.name, alt: "A cat" }] });
+await session.storage.putBytes(post.path, post.body);
+
+// A large file: hash it a chunk at a time, so the page keeps running, and pass the id
+const id = await hashMedia(file);
+console.log(buildFile(owner, { id, type: file.type }).url === media.url); // true
+```
+
+Hashing is plain JavaScript, far slower than a native hash, so give `hashMedia` anything over a few megabytes; `createMediaHasher()` is the same hash fed by hand, for a worker. A `Blob` that cannot stream, as jsdom's cannot, is read whole. With an `id` the package never sees the bytes, so check `file.size` against `limits.maxFileSizeBytes` yourself. A media id is 128 bits of BLAKE3, as in the crate.
+
+## Articles and collections
+
+The `content` of an article or a collection is itself JSON. Read and write it through the package, which spells it as the crate does.
+
+```js
+import { buildPost, decodeContent, editPost, encodeContent } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
+
+const article = buildPost(owner, { kind: "article", title: "Title", body: "Body" });
+const envelope = decodeContent(article.object); // { kind: "article", content: { title, body, cover_image } }, or null for a note
+if (envelope?.kind !== "article") throw new Error("not an article");
+const content = encodeContent({ ...envelope.content, title: "A better title" });
+const edited = editPost(owner, article.url, { ...article.object, content });
+console.log(edited.editId > article.editId); // true
+```
+
+`encodeContent` only spells the envelope; its rules run when the post reaches `editPost` or `encodeObject`. A post an indexer handed over can carry any content: `tryDecodeContent` returns the refusal instead of throwing it.
+
+## Editing an object
+
+To change a stored object, decode it, change it, and encode it.
+
+```js
+import { buildUser, decodeObject, encodeObject, toPath } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
+
+const { url, path, body } = buildUser(owner, { name: "Alice" });
+await session.storage.putBytes(path, body);
+
+const profile = decodeObject(url, await session.storage.getBytes(toPath(url)), "user");
+await session.storage.putBytes(toPath(url), encodeObject(url, { ...profile, status: "On holiday" }));
+```
+
+Pass `encodeObject` the `.object` with your changes, spread so `$unknown` stays on it. It also takes `{ kind, root? }` in place of a URL, for bytes that go somewhere the data model does not name. An edited feed filter moves the feed, since its id is the filter: write it at `buildUri(owner, "feed", feedId(feed))` and delete the old path. A feed is stored private. `feedPaths(id)` gives both of its addresses: to publish it, PUT the same bytes at `public`, and to unpublish, DELETE `public`; `deletionPaths` removes both copies.
+
+## Validating a form
+
+A builder throws at the first refusal. `validateUser`, `validatePost`, `validateFeed` and `validateTag` run the same rules, collect every issue, and mint nothing; `userSchema`, `postSchema`, `feedSchema` and `tagSchema` are the same validators as [Standard Schema](https://standardschema.dev) objects, for react-hook-form, TanStack Form, tRPC or Hono as they are.
+
+```js
+import { postSchema, validatePost } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
+
+const result = validatePost({ kind: "article", title: " ", body: "...", slug: "Not A Slug" }, owner);
+if (!result.success) for (const issue of result.issues) console.log(issue.path.join("."), issue.code, issue.message);
+// slug format slug must be 1 to 64 chars of a-z, 0-9 and -: Not A Slug
+// title blank Article title must contain non-whitespace characters
+
+const checked = postSchema["~standard"].validate({ content: "fine" });
+console.log(checked.issues === undefined ? checked.value : checked.issues);
+```
+
+Each issue has a `path` into the input, a `code` (`invalid_type` for a value of the wrong JavaScript shape, else the [error code](reference.md#error-codes) of the rule), the `message`, and a `limit` for a length or a count. `validatePost(input, owner)` also runs the rule that a private draft references only its owner's private objects.
+
+## Reading a timeline
+
+`decodeObject(url, bytes, kind)` refuses a URL that names another kind before it reads the bytes. Without the kind it returns `{ kind, object }`, or `{ kind: "file", bytes }` for media.
+
+```js
+import { buildPost, buildUri, editPost, idMicros, microsToDate, parseUri, tryDecodeObject } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, friendSession, publicStorage } = memoryHomeserver();
+
+// Someone posted, and edited once
+const first = buildPost(friend, { content: "Hello from the other side", embed: "javascript:alert(1)" });
+await friendSession.storage.putBytes(first.path, first.body);
+const second = editPost(friend, first.url, { ...first.object, content: "Hello again from the other side" });
+await friendSession.storage.putBytes(second.path, second.body);
+
+// LIST their public posts: one URL per version. A directory with nothing in it answers 404
+const listed = await publicStorage.list(`pubky://${friend}/pub/social/v1/posts/`).catch((e) => (e.data?.statusCode === 404 ? [] : Promise.reject(e)));
+
+// The head of each post is its version with the highest editId
+const heads = new Map();
+for (const url of listed) {
+  // Someone else's tree may hold any file name; one that is no canonical URL is skipped
+  let at;
+  try {
+    at = parseUri(url);
+  } catch {
+    continue;
+  }
+  if (at.kind === "post" && at.editId !== undefined && !(heads.get(at.id)?.editId > at.editId)) heads.set(at.id, { url, editId: at.editId });
+}
+
+// Render only the schemes you link to; anything else is text
+const linkable = (uri) => /^(pubky|https?):/.test(uri);
+for (const [id, { url }] of heads) {
+  const read = tryDecodeObject(url, await publicStorage.getBytes(url), "post");
+  if (!read.ok) continue; // a bad object of someone else's is skipped, read.error says why
+  const when = microsToDate(idMicros(id)).toISOString();
+  console.log(when, read.value.content, read.value.embed && (linkable(read.value.embed) ? read.value.embed : "(not a link)"));
+  console.log("reply to it with parent:", buildUri(friend, "post", id));
+}
+```
+
+The data model takes any scheme in an `embed`, a `parent`, a tag, a bookmark or a collection item, `javascript:` and `data:` included; which ones become a link is the renderer's call. `idMicros(id)` gives the time a post id or an edit id was minted, in microseconds, the unit of every stored timestamp; `microsToDate` and `dateToMicros` convert.
+
+## Posts: publish, unpublish and delete
+
+A LIST is recursive: listing `/pub/social/v1/posts/` returns every version file below it, a page of up to 1000 URLs at a time. A **plan** is a function that computes which files to copy and delete for a change of several files (publishing a draft, deleting a post) and performs no request itself; every path it takes or returns is owner-relative.
+
+A post's versions sit under the public root or the private one. `editPost(owner, headUrl, post)` writes the next version above the head, in the owner's own tree, under the head's root unless you pass `{ root }`; an edit of another user's head is refused.
+
+```js
+import { buildFile, buildPost, editPost, parseUri, planDelete, planPublish, planUnpublish } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner, session } = memoryHomeserver();
+
+const copy = async ({ from, to }) => session.storage.putBytes(to, await session.storage.getBytes(from));
+
+// A private draft with private media, and an edit of it
+const picture = new Uint8Array([1, 2, 3]);
+const media = buildFile(owner, { bytes: picture, type: "image/png", root: "private" });
+await session.storage.putBytes(media.path, picture);
+const draft = buildPost(owner, { content: "Draft", attachments: [{ uri: media.url }], root: "private", slug: "my-post" });
+await session.storage.putBytes(draft.path, draft.body);
+const edited = editPost(owner, draft.url, { ...draft.object, content: "Better draft" });
+await session.storage.putBytes(edited.path, edited.body);
+
+// Publish the head: its private media first, then the post, under the same leaf
+const at = parseUri(edited.url);
+const publish = planPublish(owner, { id: edited.id, editId: edited.editId, post: edited.object, slug: at.kind === "post" ? at.slug : null });
+for (const step of publish.copies) await copy(step);
+await session.storage.putBytes(publish.put.path, publish.put.body);
+
+// Unpublish: copy back what the private tree lacks, then delete the public versions
+const unpublish = planUnpublish({ id: edited.id, publicPaths: [publish.put.path], privateHead: edited.path });
+for (const step of unpublish.copies) await copy(step);
+for (const path of unpublish.deletes) await session.storage.delete(path);
+
+// Delete everywhere, in an order that never leaves a reader a dangling post
+const removal = planDelete(owner, {
+  id: edited.id,
+  copies: [draft, edited].map((v) => ({ root: "private", path: v.path })),
+  versions: [draft.object, edited.object],
+});
+for (const path of removal.deletes) await session.storage.delete(path);
+console.log(removal.mediaGcCandidates); // media the post referenced: delete it if nothing else does
+```
+
+`planPublish` keeps the slug the private version had, the `slug` of `parseUri(url)`, and respells private media references to public ones in the members that hold a reference (attachments and the cover), never inside the text. `planUnpublish` takes the paths of the public versions and of the newest private one, from a LIST. `planDelete` takes every stored version as `{ root, path }` and the versions it could read, whose media it returns as candidates to collect.
+
+## Deleting other objects
+
+`deletionPaths({ kind, id, listings? })` gives the paths to DELETE for one object, in order, its 0.x copy first:
+
+| kind | `id` | paths, in order | `listings` |
+|---|---|---|---|
+| `user` | `""` | `/pub/pubky.app/profile.json`, `/pub/social/v1/profile.json` | none |
+| `follow` | the followee's key | `/pub/pubky.app/follows/{key}`, `/pub/social/v1/follows/{key}.json` | none |
+| `mute` | the muted key | `/pub/pubky.app/mutes/{key}`, `/priv/social/v1/mutes/{key}.json` | none |
+| `bookmark` | the filename | `/priv/social/v1/bookmarks/{id}.json` | none |
+| `feed` | the hash id | `/pub/social/v1/feeds/{id}.json`, `/priv/social/v1/feeds/{id}.json` | none |
+| `post` | the post id | each listed 0.x copy, then each listed version oldest first, public before private; nothing for a post with no listings | the paths a LIST of `/pub/social/v1/posts/{id}/` and `/priv/social/v1/posts/{id}/` found, and `/pub/pubky.app/posts/{id}` when a GET finds it |
+| `file` | the hash | each 0.x File object, the 0.x blob, then each listed copy, public before private | the 1.x copies, and each 0.x File object with its `src` |
+| `tag` | the hash id | each listed 0.x tag, then `/pub/social/v1/tags/{id}.json` | each 0.x tag with its `uri` and `label`, and for a tag on a 0.x File object that object's `src` and `contentType` |
+
+For a post, prefer `planDelete` (above): it takes the same copies, orders them the same way, and also returns the media the post referenced. A bookmark and a feed delete their 1.x copies only: a 0.x bookmark id hashes a target that the migration respells and a 0.x feed id hashes the 0.x config, so the 1.x id cannot name the 0.x path. That copy stays readable under `/pub/pubky.app/`, and a later migration run does not copy it back (see [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator)). Every listing is checked, and one that is not a copy of the object is refused with a `ValidationError` naming it.
+
+```js
+import { buildFollow, deletionPaths } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { friend, owner, session } = memoryHomeserver();
+
+const follow = buildFollow(owner, friend);
+await session.storage.putBytes(follow.path, follow.body);
+// A path with nothing stored there deletes as a no-op
+for (const path of deletionPaths({ kind: "follow", id: friend })) await session.storage.delete(path);
+console.log(await session.storage.exists(follow.path)); // false
+```
+
+## The client
+
+`createSocialClient` covers `posts` (`create`, `head`, `edit`, `list`, `delete`), `profile` (`get`, `set`, `update`), `follows`, `mutes`, `tags`, `bookmarks` and `feeds` (`add`, `remove`, `list`; feeds also `publish` and `unpublish`), and `files` (`upload`, `get`). A stored object that does not decode comes back as a value with its error, never a throw. `tags.remove` also deletes the tag's 0.x copies, which it finds by reading the owner's 0.x tags, each once per client, so the first removal of a long-time user is slow. `posts.delete` answers the own media the post's versions referenced as `mediaGcCandidates` and leaves them: only the app knows whether something else still uses one.
+
+## Errors
+
+A value the data model refuses throws a `ValidationError`. A value of the wrong JavaScript type, or a member the input does not have, throws an `ArgumentError`, a `TypeError` naming the argument: a bug in the calling code, which TypeScript catches first. A string of the right type that the model refuses, such as an unknown kind or a path where a URL goes, is a `ValidationError`.
+
+```js
+import { ArgumentError, buildPost, buildUser, ValidationError } from "pubky-social-specs";
+import { memoryHomeserver } from "pubky-social-specs/testing";
+const { owner } = memoryHomeserver();
+
+try {
+  buildUser(owner, { name: "Al" });
+} catch (e) {
+  if (e instanceof ValidationError) console.log(e.code, e.field, e.limit); // length name 3
+}
+try {
+  // @ts-expect-error a number is the wrong type for content
+  buildPost(owner, { content: 42 });
+} catch (e) {
+  if (e instanceof ArgumentError) console.log(e.field); // input.content
+}
+```
+
+A `ValidationError` has `message`, the reference text starting with `Validation Error: ` (the package's own words after the same prefix where the reference has no rule, as for a lone surrogate); `reason`, the same text without the prefix; `code`, stable across releases where the text is not; `field`, the member or argument refused, absent when the whole object is; and `limit`, the bound a `size`, `length` or `count` refusal broke. `instanceof` holds across two installed copies of the package.
+
+The codes are listed under [Error codes](reference.md#error-codes) in the reference.
+
+## Testing your code
+
+The package is pure and synchronous, so tests call it for real. `setClock`, from `pubky-social-specs/testing`, fixes the clock in milliseconds, which fixes every id and `created_at`. With `node:test`, and the same with vitest or jest:
+
+```js
+import assert from "node:assert";
+import { test } from "node:test";
+import { buildFollow, decodeObject } from "pubky-social-specs";
+import { fakeOwner, setClock } from "pubky-social-specs/testing";
+
+test("a follow reads back", () => {
+  setClock(() => 1_790_000_000_000);
+  try {
+    const { url, body } = buildFollow(fakeOwner(1), fakeOwner(2));
+    assert.deepStrictEqual(decodeObject(url, body, "follow"), { created_at: 1_790_000_000_000_000 });
+  } finally {
+    setClock();
+  }
+});
+```
+
+`fakeOwner(n)` gives a well-formed key, the same for the same `n`, and `samplePost`, `sampleUser` and `sampleFeed` build a fixture from a partial input. Ids go up within one process, so two posts built in the same instant get different ids; `setClock` starts that guard over. Two copies of the package minting in the same millisecond rarely meet, and when they do the post ids are equal, so before PUTting a new post check that neither root holds a version of its id (the client does).
+
+## Tooling
+
+- A CommonJS file compiled with TypeScript `module: node16` cannot import an ES module; TypeScript 5.8 or later with `nodenext` can. An older compiler than 5.7 fails on the import with `has no exported member`, where it would otherwise read every byte type as `any`.
+- jest runs the package in ESM mode (`NODE_OPTIONS=--experimental-vm-modules` and `transform: {}`) or on Node 24.9 or later; vitest needs nothing. Under jsdom the bytes a builder returns are Node's `Uint8Array`, not the window's, so `expect.any(Uint8Array)` misses them: compare with `toEqual(new Uint8Array(...))` or check `ArrayBuffer.isView`.
+- `decodeObject` pulls in every model, about 20 kB gzipped; `buildUri` alone is about 3 kB and the whole entry about 29 kB (`npm run size`: esbuild, minified, gzipped).
+- The id guard and the clock belong to one copy of the package. A library that wraps this one should declare it a peer dependency, so a page holds one copy.
+
+## Rules and common mistakes
+
+1. **The package writes the bytes.** Never `JSON.stringify` an object yourself: unknown members have an order and numbers a spelling that only the package reproduces. Every builder returns `body`, and `encodeObject` gives the bytes of an object you edited.
+2. **Unknown members are carried along.** A newer client may store members this version does not know. They come back in `$unknown`, as text; leave it on the object and it is written back untouched. A spread, `structuredClone` and a JSON round trip keep it, and copying an object field by field drops it, with the other client's data. A name this version does not know in a feed's `content` or a collection's `layout` is kept as written too. Outside a production build `encodeObject` and `editPost` warn when an object read with unknown members is written without them.
+3. **Every argument is read once.** The package copies what you pass, own members only, before it reads it. A member that is neither known nor inside `$unknown` is an error, so a typo is never stored or ignored, and whatever `Object.prototype` holds never becomes a member.
+4. **Member names are the stored ones.** `created_at`, `cover_image`, `domain_tags`: the same names in an input, in a decoded object and on the wire. Every known member is present in a decoded object, `null` when it has no value, whether or not the bytes spell it. Integers are numbers, and `created_at` is microseconds since the epoch. A `created_at` set from `Date.now()` is milliseconds: `dateToMicros(Date.now())` gives microseconds, and outside a production build `encodeObject` warns.
+
+And the mistakes most first versions make:
+
+- An owner written as `pubky://<key>` is refused as a key of the wrong length, with `field: "owner"`. `parseOwner` reads the key out of such a URL.
+- A path passed where a URL goes is refused as `Not a canonical pubky URI`, with `code: "path"`: pass the `url` a builder returned, or the one a LIST gave.
+- The `url` a builder returned names one version of a post. As a reference it is refused (`must be versionless`): use `buildUri(author, "post", id)`.
+- A user is referenced by the URL of the profile, `buildUri(owner, "user")`: that is what a tag or a bookmark of a user points at, and what the migration respells a 0.x one to. The bare `pubky://<owner>` is another target, so a tag on it is not counted with the others, and `decodeObject` refuses it.
+- A private object, a bookmark, a mute, a feed or anything under `root: "private"`, is invisible to an indexer: a feature built on an indexer's view, such as a notification, never sees it.

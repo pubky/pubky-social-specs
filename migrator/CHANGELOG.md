@@ -4,6 +4,16 @@
 exactly that version of it. Its promises about the stored bytes are the data model's, in the
 `pubky-social-specs` changelog.
 
+## 1.0.0-rc.3
+
+### API
+
+- None since 1.0.0-rc.2.
+
+### Stored bytes
+
+- None since 1.0.0-rc.2.
+
 ## 1.0.0-rc.2
 
 ### Stored bytes

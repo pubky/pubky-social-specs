@@ -67,9 +67,9 @@ crate does, word for word, and `vectors.test.js` holds it to that.
   same series as that change:
 
   ```sh
-  cargo build --release --features surface --bin surface_oracle
+  cargo build --release --features __surface --bin surface_oracle
   cd pkg && node qa/score.mjs --record     # rewrites vectors/js/*.jsonl
-  cargo test --features surface --test surface_vectors
+  cargo test --features __surface --test surface_vectors
   node qa/data.mjs                         # when a constant moved
   ```
 

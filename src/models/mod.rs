@@ -113,6 +113,8 @@ pub mod deletion;
 pub mod feed;
 pub mod file;
 pub mod follow;
+// Frozen source: its doc comments are not edited, so their broken links are allowed here
+#[allow(rustdoc::broken_intra_doc_links)]
 pub mod legacy_v0;
 pub mod mute;
 pub mod post;

@@ -1,5 +1,5 @@
 //! Ids over a sequence of calls on one clock reading, through the surface oracle.
-#![cfg(feature = "surface")]
+#![cfg(feature = "__surface")]
 
 use pubky_social_specs::surface::{call, Arg, Env};
 

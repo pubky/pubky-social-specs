@@ -1,7 +1,7 @@
 # Data model specification
 
 > Legacy 0.x layout: the `pub/pubky.app` tree written by pubky-app-specs 0.x, up to 0.8.0 (commit
-> `3eebe18`). Kept for reading un-migrated data. The 1.x design is in `docs/rfc-v1-social-specs.md`.
+> `3eebe18`). Kept for reading un-migrated data. The 1.x data model is in [`SPEC.md`](../SPEC.md).
 
 ## Table of Contents
 

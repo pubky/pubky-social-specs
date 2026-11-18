@@ -69,7 +69,7 @@ const fresh = (...dirs) => dirs.forEach((dir) => rmSync(path.join(data, dir), { 
 const verify = (reports, out, list = [], ...flags) => {
   const run = spawnSync(
     "cargo",
-    ["run", "-q", "--features", "replay", "--bin", "replay_verify", "--", "--data", data, "--reports", path.join(data, reports), "--out", path.join(data, out), ...only(list), ...flags],
+    ["run", "-q", "--features", "__replay", "--bin", "replay_verify", "--", "--data", data, "--reports", path.join(data, reports), "--out", path.join(data, out), ...only(list), ...flags],
     { cwd: repo, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8", maxBuffer: 1 << 26 },
   );
   if (run.status !== 0 && run.status !== 1) throw new Error(`replay_verify exited ${run.status}`);

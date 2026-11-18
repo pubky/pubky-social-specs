@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn timestamp() -> i64 {
-    #[cfg(feature = "surface")]
+    #[cfg(feature = "__surface")]
     if let Some(now) = pinned::clock() {
         return now;
     }
@@ -28,7 +28,7 @@ pub fn timestamp() -> i64 {
 /// A clock and a mint guard a caller sets, so an answer of the surface depends on its request
 /// alone and can be recorded and replayed. Both belong to the thread that set them: another
 /// thread of the same process keeps the wall clock and the process's own guard.
-#[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "__surface", not(target_arch = "wasm32")))]
 pub(crate) mod pinned {
     use std::cell::Cell;
     use std::sync::atomic::{AtomicI64, Ordering};
@@ -64,7 +64,7 @@ pub(crate) mod pinned {
 
 /// The mint over the guard of this thread's pin when there is one, else the process's.
 fn minting<R>(mint: impl FnOnce(&AtomicI64) -> R) -> R {
-    #[cfg(all(feature = "surface", not(target_arch = "wasm32")))]
+    #[cfg(all(feature = "__surface", not(target_arch = "wasm32")))]
     if pinned::clock().is_some() {
         return pinned::with_guard(mint);
     }

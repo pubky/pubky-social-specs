@@ -84,7 +84,7 @@ pub trait HashId {
 
     /// Creates a unique identifier for a content-addressed homeserver path. The identity
     /// input is the model's own (for a tag, `uri` and `label` joined by a colon); the body
-    /// is [`hash_id_of`].
+    /// is `hash_id_of`.
     fn create_id(&self) -> String {
         hash_id_of(&self.get_id_data())
     }
