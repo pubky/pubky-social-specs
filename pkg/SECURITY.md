@@ -10,14 +10,19 @@ reproduce it. The migration is the separate package `pubky-social-migrator`, wit
 
 ## Supported versions
 
-The latest release of the current major line gets fixes. Before 1.0.0, that is the latest
-`1.0.0-alpha` release; older prereleases are not patched.
+The latest release of the current major line gets fixes. The prereleases of 1.0.0 are not
+patched.
 
 ## Verifying a release
 
-Releases are published from GitHub Actions with npm provenance, `dist` is built only in CI from a
-pinned toolchain, and a workflow rebuilds it from the tag and compares it with the published
-tarball. `npm audit signatures` checks the provenance of an installed copy.
+Releases are published from GitHub Actions with npm provenance, and `dist` is built only in CI
+from a pinned toolchain. The exception is every version before `1.0.0-rc.2`: those were published
+by hand, to register the package for trusted publishing, and carry no provenance.
+`npm audit signatures` checks the provenance of an installed copy.
+
+A workflow rebuilds `dist` from the tag and compares it with the published tarball. It does not
+run by itself after a release yet; [`RELEASING.md`](https://github.com/pubky/pubky-social-specs/blob/v1/RELEASING.md#after-the-tag) says why.
+For `1.0.0-rc.2` the same comparison was made by hand, and both packages matched.
 
 Each release runs the differential fuzz against the reference (`npm run score -- --fuzz N`, 0
 mismatches) and the hostile-input benchmark (`npm run hostile`, every shape linear and under its

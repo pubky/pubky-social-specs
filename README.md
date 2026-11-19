@@ -3,28 +3,28 @@
 [![crates.io](https://img.shields.io/crates/v/pubky-social-specs)](https://crates.io/crates/pubky-social-specs)
 [![docs.rs](https://img.shields.io/docsrs/pubky-social-specs)](https://docs.rs/pubky-social-specs)
 [![npm](https://img.shields.io/npm/v/pubky-social-specs)](https://www.npmjs.com/package/pubky-social-specs)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/pubky/pubky-social-specs/blob/v1/LICENSE)
 
-Rust types, builders, and validation for Pubky social data models. The builders trim text and fold tokens; reading an object back never rewrites it. Use this crate to build JSON that matches what [Pubky indexers](https://github.com/pubky/pubky-nexus) expect.
+Rust types, builders, and validation for the Pubky social data model: profiles, posts, tags, bookmarks, follows, mutes, feeds and media. Use this crate to build the exact JSON, ids and paths that [Pubky indexers](https://github.com/pubky/pubky-nexus) expect, and to check what you read back.
+
+This is the **1.x** data model. Objects live under `/pub/social/v1/`, readable by anyone, and `/priv/social/v1/`, readable by the owner and the apps the owner granted. It replaces the 0.x layout of [`pubky-app-specs`](https://crates.io/crates/pubky-app-specs), under `/pub/pubky.app/`.
+
+> **Stability:** within 1.x the stored models only grow. Every 1.x release reads what any earlier 1.x release wrote, derives every id the same way, and writes back the members a newer writer added untouched. A change that cannot be made that way goes to `social/v2`.
 
 ## Installation
 
-**Rust** ([crates.io](https://crates.io/crates/pubky-social-specs)):
-
 ```bash
-cargo add pubky-social-specs
+cargo add pubky-social-specs serde_json
 ```
 
-**JavaScript / TypeScript** ([npm](https://www.npmjs.com/package/pubky-social-specs)): see [`pkg/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/pkg/README.md). The package is a native TypeScript implementation of this crate's 1.x surface, held to it by the surface oracle (feature `surface`, see [`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/main/TESTING.md)), and loads no wasm.
+`serde_json` is for the examples below.
 
-**Migrating 0.x data** ([npm](https://www.npmjs.com/package/pubky-social-migrator)): see [`migrator/README.md`](https://github.com/pubky/pubky-social-specs/blob/main/migrator/README.md). The migration is its own npm package, released with the core at the same version; its transforms are this crate compiled to wasm.
-
-## Rust quick start
+## Quick start
 
 ```rust
 use pubky_social_specs::{
     traits::{HasPath, Validatable},
-    PubkySocialUser,
+    PubkySocialUser, PUB_CTX,
 };
 use serde_json::to_vec;
 
@@ -33,62 +33,58 @@ let user = PubkySocialUser::new("Alice".into(), None, None, None, None);
 let path = PubkySocialUser::create_path(); // /pub/social/v1/profile.json
 let json = to_vec(&user).unwrap();
 
-// Parse and validate JSON from storage
-let profile = PubkySocialUser::try_from(&json, "", &PUB_CTX).unwrap();
+// Parse and validate JSON from storage. Fully qualified, since the name clashes with
+// std's `TryFrom`; "" is the id from the path, which a profile does not have.
+let profile = <PubkySocialUser as Validatable>::try_from(&json, "", &PUB_CTX).unwrap();
 ```
 
-For a full homeserver flow, see [`examples/create_user.rs`](https://github.com/pubky/pubky-social-specs/blob/main/examples/create_user.rs).
+For a full homeserver flow, see [`examples/create_user.rs`](https://github.com/pubky/pubky-social-specs/blob/v1/examples/create_user.rs).
 
 ## Why use this crate
 
-- **Validation consistency:** same validation rules as Pubky indexers, and the same canonical forms on the wire.
-- **Auto IDs and paths:** generates IDs, paths, and URLs according to Pubky standards.
-- **Single source of truth:** the Rust models drive native consumers, and the TypeScript npm package is held equal to them by recorded vectors and a differential fuzz.
-- **No silent rewrites:** builders canonicalize (an attachment name is trimmed there), and after that a value is stored as written and counted as written, so reading never repairs what a writer stored.
+- **Single source of truth:** the Rust models are the reference, and the [npm package](https://www.npmjs.com/package/pubky-social-specs) is held equal to them by recorded vectors and a differential fuzz.
+- **No silent rewrites:** builders trim text and fold tokens. After that a value is stored as written, and reading an object never repairs what a writer stored.
 
 ## Features
 
 | Feature    | Purpose                        |
 | ---------- | ------------------------------ |
 | `openapi`  | OpenAPI schemas via `utoipa`   |
-| `migrator` | The 0.x to v1 transforms       |
+| `migrator` | The 0.x to 1.x transforms      |
 
-```toml
-pubky-social-specs = { version = "1.0.0-rc.2", features = ["openapi"] }
+```bash
+cargo add pubky-social-specs --features openapi
 ```
 
-`migrator` adds the `migrate` module: functions that take one owner's `pub/pubky.app/` objects as bytes and return the `social/v1` objects to write, with references rewritten, media dereferenced through the 0.x File objects, content-addressed ids re-derived, and every output read back through the v1 reader before it is returned. An object that cannot migrate is skipped with a counted category, never repaired. Every transform works from the object the frozen 0.x reader stores for the path at its own id, and an object is skipped when the frozen 0.x reader refuses it; a skip carries what the refusing parser or reader said as its `note`. The functions are pure but for one clock: the 0.x reader bounds a TimestampId by the time, so an object refused for a future id on one run is accepted on a later run. Only a client that runs the migration needs it, so it is off by default for the crate; the npm package is built with it, since that package is what the browser migrator runs.
+`migrator` adds the `migrate` module: I/O-free functions that take one owner's `/pub/pubky.app/` objects as bytes and return the `social/v1` objects to write. Every output is read back through the 1.x reader before it is returned, and an object that cannot migrate is skipped with a counted reason, never repaired. Only a client that runs the migration needs it, so it is off by default; [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator) is that client, built from this crate to wasm.
 
 - **MSRV:** 1.89 (see `rust-version` in `Cargo.toml`)
 - **API docs:** [docs.rs/pubky-social-specs](https://docs.rs/pubky-social-specs)
 
 ## Models
 
-| Rust type           | Purpose                                  |
-| ------------------- | ---------------------------------------- |
-| `PubkySocialUser`      | User profile information                 |
-| `PubkySocialFile`      | Media bytes                              |
-| `PubkySocialPost`      | Posts, replies, embeds, and collections  |
-| `PubkySocialTag`       | Tags applied to Pubky URIs               |
-| `PubkySocialBookmark`  | Private bookmarks, target in the filename |
-| `PubkySocialFollow`    | Follow relationships                     |
-| `PubkySocialFeed`      | Feed configurations                      |
-| `PubkySocialMute`      | Muted users                              |
+| Rust type             | Stored at                                         | Purpose                                         |
+| --------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `PubkySocialUser`     | `/pub/social/v1/profile.json`                     | User profile                                    |
+| `PubkySocialPost`     | `/{pub\|priv}/social/v1/posts/{postId}/{editId}.json` | Notes, replies, articles and collections    |
+| `PubkySocialFile`     | `/{pub\|priv}/social/v1/files/{hash}.{ext}`       | Media bytes, content addressed                  |
+| `PubkySocialTag`      | `/pub/social/v1/tags/{tagId}.json`                | Tags applied to URIs                            |
+| `PubkySocialBookmark` | `/priv/social/v1/bookmarks/{filename}.json`       | Private bookmarks, target in the filename       |
+| `PubkySocialFollow`   | `/pub/social/v1/follows/{followee}.json`          | Follow relationships                            |
+| `PubkySocialMute`     | `/priv/social/v1/mutes/{mutee}.json`              | Muted users                                     |
+| `PubkySocialFeed`     | `/priv/social/v1/feeds/{feedId}.json`             | Feed configurations, published by a copy under `/pub/` |
 
-`PubkySocialPost` is `PostEnvelope<PubkySocialPostKind>`. The envelope carries what every post
-shares (parent, embed, attachments, lock, the preserved `extra` map, the byte cap, the id mint
-and the versioned `posts/{id}/{editId}.json` layout under a namespace); the `PostKind` type
-parameter carries one namespace's kind vocabulary and its per-kind content rules. An app that
-needs its own kinds instantiates the same envelope under its own namespace, with the same wire
-shape, and never touches the social kind set. Every refusal the npm package throws for the data model and every
-`Validatable` rejection starts with `Validation Error: `; a `PostKind::validate_content` returns
-its messages with that prefix already, the envelope hands them through unchanged.
+A post is a directory of versions: each edit writes a new `{editId}.json` (or `{editId}-{label}.json`), and a reference to the post names the directory, so it survives every edit. Posts and media live under either root, so a draft stays private until it is published. Compared with 0.x, the File object and its blob are one content-addressed file, and settings and last-read markers are no longer part of this library.
+
+`PubkySocialPost` is `PostEnvelope<PubkySocialPostKind>`. The envelope holds what every post shares (parent, embed, attachments, lock, the preserved unknown members, the id mint and the versioned layout), and the `PostKind` parameter holds one namespace's kinds and their content rules. An app that needs its own kinds instantiates the same envelope under its own namespace and never touches the social kind set.
+
+Every `Validatable` rejection starts with `Validation Error: `, and the npm package throws the same message for the same input.
 
 ## Reading 0.x data
 
-`legacy_v0` is the 0.x reader, frozen at the 0.8.0 pin. It carries that release's parser, read models and validation copied unchanged, so an object 0.x accepted or rejected keeps the same answer forever, and none of it is edited to match the 1.x rules. Hand its object enum a stored URI and the bytes and it answers what 0.8.0 answered.
+`legacy_v0` is the 0.x reader, frozen at the 0.8.0 pin: that release's parser, read models and validation, copied with the few differences its module documentation lists. Apart from those, an object 0.x accepted or rejected keeps the same answer forever: hand `legacy_v0::PubkyAppObject::from_uri` a stored URI and the bytes and it answers what 0.8.0 answered. The 0.x layout is described in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/v1/docs/SPEC_V0.md).
 
-`stable_id` keys a stored path the same under either epoch, so a migrated object indexes in place rather than twice:
+`stable_id` keys a stored path the same under either epoch, so a migrated object indexes in place rather than twice. Tags, bookmarks and feeds are the exception, see [Relationship to 0.x](https://github.com/pubky/pubky-social-specs/blob/v1/SPEC.md#relationship-to-0x):
 
 ```rust
 use pubky_social_specs::stable_id;
@@ -101,67 +97,11 @@ assert_eq!(
 
 ## Specification
 
-The 1.x design is in [`docs/rfc-v1-social-specs.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/rfc-v1-social-specs.md). The legacy 0.x layout is in [`docs/SPEC_V0.md`](https://github.com/pubky/pubky-social-specs/blob/main/docs/SPEC_V0.md), for reading un-migrated data.
+See the [data model specification](https://github.com/pubky/pubky-social-specs/blob/v1/SPEC.md) for the URI layout, examples, and validation rules.
 
-## Releasing
+## Contributing
 
-One tag publishes the crate and both npm packages, `pubky-social-specs` (`pkg/`) and `pubky-social-migrator` (`migrator/`). Bump `version` in `Cargo.toml`, `pkg/package.json` and `migrator/package.json`, and the migrator's dependency on `pubky-social-specs`, in the same commit (CI fails when any of them differ, and `Cargo.lock` and `package-lock.json` have to follow), with the subject `chore: <version>`. Merge it into `v1` or `main`, then tag that commit and push the tag:
-
-```bash
-git tag v1.0.0-rc.1 && git push origin v1.0.0-rc.1
-```
-
-The Release workflow runs every CI workflow again and refuses a tag that does not match both versions or that is not on `v1` or `main`. Then it publishes to crates.io and npm, the core before the migrator, and opens a GitHub release with both npm tarballs attached. A version with a `-` in it goes out under the npm `next` tag and is marked as a prerelease; any other version goes to `latest`. There are no registry tokens anywhere, both registries trust this workflow through GitHub OIDC.
-
-A prerelease tag like `v1.0.0-rc.1` needs nothing beyond this, it goes out under `next`. The stable `v1.0.0` tag moves `latest`, so it waits until the rollout is done: the indexer reads both epochs, the homeserver `/priv/` tier is verified, and the app has deployed its adoption. The workflow's CI and ancestry checks know none of that and nobody approves the run, so pushing the stable tag is the confirmation: check those first.
-
-The crates.io and npm jobs run in parallel. If npm fails after the crate already went out, open the run and use Re-run failed jobs, which picks up the tarballs uploaded earlier in the same run and skips a package already published at that version. Re-run all jobs would fail trying to publish the crate a second time.
-
-### Rehearsing
-
-In Actions, pick Release, then Run workflow on any branch or tag and leave `dry_run` checked. It runs all the checks and the build and uploads both npm tarballs as an artifact, but publishes nothing. GitHub offers Run workflow only once `release.yml` is on the default branch. Unchecking `dry_run` only publishes from a tag, on a branch the run fails.
-
-### One-time setup
-
-The repository has to be `pubky/pubky-social-specs` before anything else, so rename it first if it still has the old name. Until then the npm publish fails, because npm requires `repository.url` in each `package.json` to match the repository the workflow runs in.
-
-Then create an environment called `release` in the repository settings, and under Deployment branches and tags pick Selected with the tag rule `v*`. It has no required reviewers, so a `v*` tag publishes as soon as it is pushed. A repository ruleset limiting who can create `v*` tags belongs next to it. The registries accept any run of `release.yml` in the `release` environment whatever ref it started from, so these rules are what keep someone with write access from publishing a modified workflow off a branch.
-
-A trusted publisher can only be added to a package that already exists, on both registries, so the very first version of each goes out by hand from a clean checkout:
-
-```bash
-cargo publish --locked
-npm ci && (cd pkg && npm run build)
-(cd pkg && npm publish --access public --tag next)
-(cd migrator && npm publish --access public --tag next)
-```
-
-Do not push a `v` tag for that version, the workflow would try to publish it again. After the bootstrap, add the trusted publisher on each registry, and on npm to each of the two packages. On crates.io it lives under the crate's Settings, Trusted Publishing, GitHub. On npmjs.com it is the package's Settings page, Trusted Publisher, GitHub Actions. Both take the same values:
-
-| Field | Value |
-| --- | --- |
-| Owner / organization | `pubky` |
-| Repository | `pubky-social-specs` |
-| Workflow filename | `release.yml` |
-| Environment | `release` |
-
-On npmjs.com the same form has Allowed actions. `npm stage publish` is always allowed, and a trusted publisher created after September 3, 2026 allows only that by default. Enable `npm publish` there too, because the workflow publishes directly. With the default left in place the npm job fails, possibly after the crate already went out to crates.io.
-
-npm expires a trusted publisher that has not published anything within 48 hours of being created, and the job then fails with `ENEEDAUTH`. Add it right before the first tagged release; an expired one has to be deleted and created again.
-
-The hand-published first version takes npm's `latest` whatever `--tag` says, and the workflow moves `latest` only for a stable version. Until `v1.0.0`, point it at each prerelease by hand: `npm dist-tag add <package>@<version> latest`, for both packages.
-
-Both registries match on the repository name, and npm also checks it against `repository.url` in each `package.json`. Renaming the GitHub repository again later means updating both entries and that field.
-
-### Using a build that is not published yet
-
-A git dependency cannot give you the npm packages, because `dist/`, the compiled modules and the migrator's wasm, is build output and never committed. Build the tarballs instead:
-
-```bash
-npm ci && (cd pkg && npm run build && npm pack) && (cd migrator && npm pack)
-```
-
-and point the consuming project at them, for example `"pubky-social-specs": "file:../pubky-social-specs-1.0.0-rc.2.tgz"`, and the same for `pubky-social-migrator` when it migrates. A dry run of the Release workflow uploads the same tarballs as an artifact, if you would rather not build them yourself. The crate has no such problem: a Cargo git dependency builds from source.
+[`TESTING.md`](https://github.com/pubky/pubky-social-specs/blob/v1/TESTING.md) covers the test suites and the QA harnesses, and [`RELEASING.md`](https://github.com/pubky/pubky-social-specs/blob/v1/RELEASING.md) how a version is published.
 
 ## License
 

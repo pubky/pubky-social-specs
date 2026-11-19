@@ -1,6 +1,6 @@
 // The reference answers: requests piped to the native oracle, one JSON document per line.
 //
-//   cargo build --release --features surface --bin surface_oracle
+//   cargo build --release --features __surface --bin surface_oracle
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -13,7 +13,7 @@ const binary = process.env.SURFACE_ORACLE ?? ["release", "debug"].map((profile) 
 
 /** Answers `requests` in order. One process per batch: its stdin closes when the batch ends. */
 export function ask(requests) {
-  if (!binary) throw new Error("build the oracle first: cargo build --features surface --bin surface_oracle");
+  if (!binary) throw new Error("build the oracle first: cargo build --features __surface --bin surface_oracle");
   return new Promise((resolve, reject) => {
     const child = spawn(binary, { stdio: ["pipe", "pipe", "inherit"] });
     const chunks = [];

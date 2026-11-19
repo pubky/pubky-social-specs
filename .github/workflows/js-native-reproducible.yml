@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "The tag to rebuild, such as v1.0.0-alpha.6"
+        description: "The tag to rebuild, such as v1.0.0"
         required: true
 
 permissions:

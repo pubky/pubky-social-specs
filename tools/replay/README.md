@@ -54,13 +54,13 @@ node crawl.mjs --blob-budget-bytes 500000000
 # 4. The replica under fresh keys, from the repository root
 cd ../..
 export REPLAY_SALT=...                # keep it; the replica keys derive from it
-cargo run --features replay --bin replay_remap -- \
+cargo run --features __replay --bin replay_remap -- \
   --corpus tools/replay/data/corpus --out tools/replay/data --salt-env REPLAY_SALT
 ```
 
-The two Rust bins build behind the `replay` feature, which adds the key derivation to
+The two Rust bins build behind the `__replay` feature, which adds the key derivation to
 `migrator`; the package's `migrator` alone does not pull the crypto crate. Their tests run with
-`cargo nextest run --features replay -E 'binary(replay_verify) | binary(replay_remap)'`.
+`cargo nextest run --features __replay -E 'binary(replay_verify) | binary(replay_remap)'`.
 
 `crawl.mjs` takes `--users <file>`, `--out <dir>` (default `data`), `--only <pk>` (repeatable)
 and `--no-resume`. A rerun resumes from the manifest: a user whose tree was copied whole is not
@@ -150,7 +150,7 @@ node replay.mjs
 # Or step by step
 node seed.mjs                         # data/seed-report.json, data/seed-state.json
 node run.mjs                          # data/reports/<pk>.json, data/actual/<pk>.ndjson
-cd ../.. && cargo run --features replay --bin replay_verify -- --data tools/replay/data
+cd ../.. && cargo run --features __replay --bin replay_verify -- --data tools/replay/data
 
 # The numbers again, from the reports on disk
 node replay.mjs --from metrics --no-docker

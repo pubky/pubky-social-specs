@@ -21,6 +21,20 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
+## 1.0.0
+
+### API
+
+- None in this package since 1.0.0-rc.2. The package ships `docs/guide.md`: coming from
+  `pubky-app-specs`, and the parts of the data model the README leaves out.
+- The crate's Cargo features changed, which this package does not see: `surface` is now
+  `__surface` and `replay` is now `__replay`, both internal to the repository's tooling, and
+  `utoipa` is no longer a feature. `openapi` is unchanged and is the one to use.
+
+### Stored bytes
+
+- None since 1.0.0-rc.2.
+
 ## 1.0.0-rc.2
 
 ### Stored bytes

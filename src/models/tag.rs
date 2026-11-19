@@ -21,7 +21,7 @@ use utoipa::ToSchema;
 ///
 /// `/pub/social/v1/tags/FPB0AM9S93Q3M1GFY1KV09GMQM`
 ///
-/// Where tag_id is Crockford-base32(Blake3("{uri_tagged}:{label}")[:half])
+/// Where tag_id is `Crockford-base32(Blake3("{uri_tagged}:{label}")[:half])`
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PubkySocialTag {

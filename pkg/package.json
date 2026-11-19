@@ -1,6 +1,6 @@
 {
   "name": "pubky-social-specs",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "The Pubky social data model: builders, validation and URIs as plain synchronous functions",
   "license": "MIT",
   "type": "module",
@@ -52,6 +52,7 @@
     "example.js",
     "CHANGELOG.md",
     "SECURITY.md",
+    "docs/guide.md",
     "docs/reference.md"
   ],
   "scripts": {
@@ -101,7 +102,7 @@
     "url": "git+https://github.com/pubky/pubky-social-specs.git",
     "directory": "pkg"
   },
-  "homepage": "https://github.com/pubky/pubky-social-specs#readme",
+  "homepage": "https://github.com/pubky/pubky-social-specs/tree/v1/pkg#readme",
   "bugs": {
     "url": "https://github.com/pubky/pubky-social-specs/issues"
   },

@@ -7,7 +7,7 @@ how to run each again. Every command runs from the repository root unless it say
 
 | what | command | covers |
 |---|---|---|
-| Rust unit and integration tests | `cargo nextest run --features replay,surface` (or `cargo test` with the same features; `replay` adds the migrator and the two replay binaries, `surface` the oracle the npm package is checked against) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the replay tooling, and that the recorded answers under `vectors/js` are the ones the crate gives now |
+| Rust unit and integration tests | `cargo nextest run --features __replay,__surface` (or `cargo test` with the same features; `__replay` adds the migrator and the two replay binaries, `__surface` the oracle the npm package is checked against) | the models, the readers, the canonicalizers, the 0.x to 1.x transforms, the replay tooling, and that the recorded answers under `vectors/js` are the ones the crate gives now |
 | the wasm build | `cargo clippy --target wasm32-unknown-unknown --features migrator -- -D warnings` | the migrator, the one part of the npm packages that is this crate compiled to wasm, builds clean for its target; its behaviour is tested through the package |
 | the npm packages | `npm ci --ignore-scripts` at the root, then `cd pkg && npm run build && npm test` and `cd migrator && npm test` | the recorded vectors offline, the entry as a caller meets it (shapes, errors, the clock, unknown members), the edges the mutation pass found, properties, validators, the client over a fake session, the transforms over the semantic vectors, the migration engine over `MemoryPort`, the SDK adapter over a fake storage, the CLI, the data check, 25 runs of the model fuzz |
 | from the sources | `cd pkg && npm run test:src` (Node 22.18 or later; the migrator's run with `npm run coverage`) | the same suites with no build step: `qa/from-src.mjs` resolves `dist/*.js` to `src/*.ts` and Node strips the types |
@@ -16,7 +16,7 @@ how to run each again. Every command runs from the repository root unless it say
 | the tarballs | `npm pack` in `pkg` and in `migrator`, then `npx publint --strict <tgz>`, `npx attw <tgz> --profile esm-only`, the file list against each `api/files.txt` | what npm would serve, as a consumer resolves it |
 | runtimes | `cd pkg && node qa/smoke.mjs`, `deno run --allow-read --allow-env qa/smoke.mjs`, `bun qa/smoke.mjs`, `node qa/browser.mjs` (Chromium through Playwright) | the core, the testing subpath and a migration of one object over `MemoryPort`, in each |
 | Stryker | `npm run mutation` in `pkg` and in `migrator` (nightly) | mutants of `ids`, `clock`, `canonicalize`, `deletion`, `lifecycle`, and in the migrator of the engine's claims, each run against the suites; the floor is 96% |
-| the package against the crate | `cargo build --release --features surface --bin surface_oracle`, then `cd pkg && npm run score -- --fuzz 50000` | every operation of the entry, on the recorded vectors and on fresh seeded cases: the same bytes, ids, paths and messages as the crate (see below) |
+| the package against the crate | `cargo build --release --features __surface --bin surface_oracle`, then `cd pkg && npm run score -- --fuzz 50000` | every operation of the entry, on the recorded vectors and on fresh seeded cases: the same bytes, ids, paths and messages as the crate (see below) |
 | types, size, hostile arguments | `cd pkg && npm run types && npm run size && node --expose-gc qa/boundary.mjs` | the declarations as a consumer compiles them, what an import costs a bundle, and that no argument makes a call hang, leak or throw anything but a `ValidationError` or a `TypeError` |
 | live e2e | `cd migrator && npm run e2e` with a testnet homeserver up (see `.github/workflows/js-native.yml`, job `e2e`) | `pubky-social-migrate` against `synonymsoft/homeserver-testnet` |
 | lint and format | `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings` | |
@@ -33,7 +33,7 @@ what the frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.
 The npm package implements the 1.x surface natively in TypeScript, so nothing but a check keeps
 it equal to the crate. The check has one reference and three uses of it.
 
-The reference is the surface oracle: `src/surface.rs` behind the `surface` feature, and the
+The reference is the surface oracle: `src/surface.rs` behind the `__surface` feature, and the
 binary `surface_oracle` over it. It answers each operation of the package (`decode`,
 `createPost`, `planPublish`, ...) as the crate answers it, one JSON request per line in, one
 answer out. A request carries its own clock and its own mint guard, so an answer depends on the
@@ -98,7 +98,7 @@ on those too.
 
 `tools/replay/` migrates a crawled copy of production (JSON of every user, a sample of the blobs
 under a disk budget) on a local testnet homeserver under fresh keys, then verifies every user's
-1.x tree against an independent Rust oracle (`src/bin/replay_verify.rs`, behind the `replay`
+1.x tree against an independent Rust oracle (`src/bin/replay_verify.rs`, behind the `__replay`
 feature). `tools/replay/README.md` is the manual: privacy rules, the disk budget, the crawl, the
 remap, seed, run, verify, the browser path through Playwright, the browser replay workflow
 (`.github/workflows/replay.yml`, on demand from `v1`, nightly once the file is on the default

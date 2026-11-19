@@ -47,7 +47,7 @@ pub fn mute_uri_builder(author_id: String, mute_id: String) -> String {
     [PROTOCOL, &author_id, &mute_path].concat()
 }
 
-/// Builds a Bookmark URI of the form "pubky://<author_id>/priv/social/v1/bookmarks/<filename>.json".
+/// Builds a Bookmark URI of the form `pubky://<author_id>/priv/social/v1/bookmarks/<filename>.json`.
 /// The leaf is the filename the target derives, never a hash of the object.
 pub fn bookmark_uri_builder(author_id: String, filename: String) -> String {
     let bookmark_path = PubkySocialBookmark::create_path(&filename);
@@ -60,7 +60,7 @@ pub fn tag_uri_builder(author_id: String, tag_id: String) -> String {
     [PROTOCOL, &author_id, &tag_path].concat()
 }
 
-/// Builds a media URI of the form "pubky://<author_id>/pub/social/v1/files/<hash>.<ext>".
+/// Builds a media URI of the form `pubky://<author_id>/pub/social/v1/files/<hash>.<ext>`.
 /// Takes the full filename: an extension cannot be derived from an id.
 pub fn file_uri_builder(author_id: String, filename: String) -> String {
     let file_path = PubkySocialFile::create_path(&filename);
