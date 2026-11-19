@@ -39,9 +39,9 @@ again.
 - New: a resources feed's search `filters`, in `buildFeed`'s input (`NewFeedFilters`) and on the
   stored `FeedConfig` (`FeedFilters`, null for none), every value a string: `when`, `from`, `to`,
   `near`, `radius`, `place`, `category`, `host`, `key`, `remote`, `closed`, `ingredients`, `sort`,
-  `window`, `rows` and `exclude_types`. The README says what each one means. The builder sorts and
-  deduplicates the hosts, the ingredients and the excluded types, and stores no empty set. New
-  limits `feedFilterHostsMaxCount` (10), `feedFilterIngredientsMaxCount` (3),
+  `window`, `rows` and `exclude_types`. `docs/guide.md` says what each one means. The builder
+  sorts and deduplicates the hosts, the ingredients and the excluded types, and stores no empty
+  set. New limits `feedFilterHostsMaxCount` (10), `feedFilterIngredientsMaxCount` (3),
   `feedFilterIngredientMaxLength` (64), `feedFilterRadiusMaxKm` (200), `feedFilterPlaceMaxLength`
   (120), `feedFilterTextMaxBytes` (256) and `feedFilterExcludeTypesMaxCount` (50).
 - New refusals:
@@ -109,16 +109,16 @@ again.
   different feed. So a later release that adds a member or a value to `filters` makes deployed
   readers skip the feeds that use it. A read also refuses an empty set, filters on a post feed, and
   hosts, ingredients or excluded types not stored sorted and deduplicated.
-- Older readers: a 1.0.0-rc.1 reader refuses a resources feed, with or without `filters`, when it
-  reads the feed at its URL, because the id it derives has neither the `resources:` prefix nor the
-  filters segment. Such a reader, decoding the bytes without a URL, has no id to check. It reads the
-  post feed with the same six segments, keeping `target` and `filters` as unknown members, and
-  `feedId` points it at that post feed's path. Update indexers and clients before any client
-  writes a resources feed, and always decode a feed at its URL.
-- A feed written by 1.0.0-rc.1 that carried `target` or `filters` in its `feed` as an unknown
-  member is read by the new rules now: its id and its validity change. This is an exception to
-  the promise above that a release reads what an earlier release wrote and derives every id the
-  same way. Deliberate extensions belong under `ext`.
+- Older readers: a 1.0.0 reader, or an earlier one, refuses a resources feed, with or without
+  `filters`, when it reads the feed at its URL, because the id it derives has neither the
+  `resources:` prefix nor the filters segment. Such a reader, decoding the bytes without a URL,
+  has no id to check. It reads the post feed with the same six segments, keeping `target` and
+  `filters` as unknown members, and `feedId` points it at that post feed's path. Update indexers
+  and clients before any client writes a resources feed, and always decode a feed at its URL.
+- A feed written by 1.0.0 or earlier that carried `target` or `filters` in its `feed` as an
+  unknown member is read by the new rules now: its id and its validity change. This is an
+  exception to the promise above that a 1.x release reads what an earlier 1.x release wrote and
+  derives every id the same way. Deliberate extensions belong under `ext`.
 
 ## 1.0.0
 

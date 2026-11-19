@@ -243,7 +243,7 @@ The filter of a feed, which is its identity.
 
 ### FeedFilters
 
-The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for not set. Every member but `place` is in the feed's id. The members and their values are a closed set: a member or a value this version does not know rejects the feed, as an unknown reach does, so a later release that adds one makes deployed readers skip the feeds that use it. This is an exception to the forward-compatibility contract. A stored default (`radius: "10"`, `window: "7d"`) is a second feed with its own id. The README gives each member's meaning.
+The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for not set. Every member but `place` is in the feed's id. The members and their values are a closed set: a member or a value this version does not know rejects the feed, as an unknown reach does, so a later release that adds one makes deployed readers skip the feeds that use it. This is an exception to the forward-compatibility contract. A stored default (`radius: "10"`, `window: "7d"`) is a second feed with its own id. `docs/guide.md` gives each member's meaning.
 
 | member | type | null | meaning |
 |---|---|---|---|

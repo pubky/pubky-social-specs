@@ -56,7 +56,7 @@ export interface FeedConfig extends Extra {
  * an unknown member is kept and an unknown filter value degrades to no filter: a later release
  * that adds a member or a value here makes deployed readers skip the feeds that use it. Values are
  * kept as given but for the sorted lists, so a stored default (`radius: "10"`, `window: "7d"`) is
- * a second feed with its own id. The README gives each member's meaning.
+ * a second feed with its own id. `docs/guide.md` gives each member's meaning.
  */
 export interface FeedFilters extends Extra {
   /** A calendar window of start times from now, in the viewer's time zone: `today`, `weekend`, `week` (to the end of Sunday), `month` or `past` (up to now). Not with `from` or `to`. */

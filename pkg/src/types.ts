@@ -135,7 +135,7 @@ export interface Mute extends Open, Plain<graph.Edge> {}
  * set: a member or a value this version does not know rejects the feed, as an unknown reach does,
  * so a later release that adds one makes deployed readers skip the feeds that use it. This is an
  * exception to the forward-compatibility contract. A stored default (`radius: "10"`,
- * `window: "7d"`) is a second feed with its own id. The README gives each member's meaning.
+ * `window: "7d"`) is a second feed with its own id. `docs/guide.md` gives each member's meaning.
  */
 export interface FeedFilters extends Open, Plain<feeds.FeedFilters> {
   /** Always empty: a read refuses a member this version does not know. */

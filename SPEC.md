@@ -40,12 +40,14 @@ Rust crate, with the npm package of the same name held equal to it. The committe
 vectors under [`vectors/`](vectors/) are its executable form. Where this document and the crate
 disagree, the crate is right and this document has a bug.
 
-**Stability.** Within 1.x the stored models only grow. A path under `social/v1/` keeps its shape:
-it may gain optional members, and it never loses one, retypes one or changes what one means. Every
-1.x release reads what any earlier 1.x release wrote and derives every id the same way. A change
-that cannot be made that way (a re-pinned id function, a resource moving to another root, changed
-content semantics, a break in the path grammar) goes to a new epoch, `social/v2`, which is a
-separate subtree and never overwrites `social/v1`.
+**Stability.** Within 1.x the stored models only grow. A path under `social/v1/` keeps its shape: it
+may gain optional members, and it never loses one, retypes one or changes what one means. Every 1.x
+release reads what any earlier 1.x release wrote and derives every id the same way, with one
+exception: a feed written before `target` that already carried `target` or `filters` as an unknown
+member is read by their rules now (see [Feed](#feed)). A change that cannot be made that way (a
+re-pinned id function, a resource moving to another root, changed content semantics, a break in the
+path grammar) goes to a new epoch, `social/v2`, which is a separate subtree and never overwrites
+`social/v1`.
 
 ---
 
@@ -66,7 +68,8 @@ separate subtree and never overwrites `social/v1`.
 - **Versions**: a post is a directory of immutable version files. An edit writes a new version,
   and references to the post name the directory, so they survive every edit.
 - **Forward compatibility**: a reader ignores members it does not know and writes them back
-  untouched, so an older client never destroys a newer client's data.
+  untouched, so an older client never destroys a newer client's data. A resources feed's
+  `filters` is the one exception (see [Conventions](#conventions)).
 
 A user's tree at a glance:
 
@@ -101,7 +104,8 @@ These apply to every JSON object below.
   U+0085, U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F and U+3000. It is the
   Unicode 15.1 `White_Space` property and never follows a newer Unicode version. **Trim** removes
   these code points from both ends; nothing else. **Blank** means empty after a trim.
-- **ASCII control** means U+0000 to U+001F and U+007F.
+- **ASCII control** means U+0000 to U+001F and U+007F. **Control** means those and U+0080 to
+  U+009F, the Unicode `Cc` category.
 - **Writers canonicalize, readers never rewrite.** A writer trims display text and folds tags
   before it writes. A reader accepts the stored bytes as written or rejects the object; it never
   repairs a value, so the bytes on the homeserver and every id derived from them agree.
@@ -122,9 +126,13 @@ These apply to every JSON object below.
   validates no further than the integer range and the size cap above, and readers treat it as
   untrusted input.
 - **Unknown enum values.** Every enum is an open string. An unknown value in an object's primary
-  enum (`post.kind`, `feed.reach`, `feed.layout`, `feed.sort`) makes the object invalid, and a
-  reader skips it. An unknown value in a secondary enum (`feed.content`, `collection.layout`)
-  means "no constraint". Parsing never fails on an unknown value; it is kept as written.
+  enum (`post.kind`, `feed.reach`, `feed.layout`, `feed.sort`, `feed.target`) makes the object
+  invalid, and a reader skips it. An unknown value in a secondary enum (a post feed's
+  `feed.content`, `collection.layout`) means "no constraint". Parsing never fails on an unknown
+  value; it is kept as written.
+- **One closed set.** A resources feed's `filters` is the exception to both rules above: a member
+  or a value this version does not know makes the feed invalid, because a reader that ignored it
+  would list a different feed. See [Feed](#feed).
 
 ---
 
@@ -487,8 +495,9 @@ The target is spelled in the filename, so one LIST of the directory reads every 
 
 ### Feed
 
-**Description:** A saved feed: a filter over posts, with a name and an icon. Private by default;
-the owner publishes it by copying the same bytes under `/pub/`.
+**Description:** A saved feed: a filter over posts, or over external resources (the links people
+tag: songs, books, places, events), with a name and an icon. Private by default; the owner
+publishes it by copying the same bytes under `/pub/`.
 
 **URI:** `/priv/social/v1/feeds/{feedId}.json`, and `/pub/social/v1/feeds/{feedId}.json` when
 published.
@@ -505,20 +514,75 @@ published.
 | **Field**     | **Type**        | **No value** | **Validation Rules**                                                                    |
 | ------------- | --------------- | ------------ | --------------------------------------------------------------------------------------- |
 | `tags`        | Array of String | `null`       | The labels a post must carry: 1 to 5 [tag labels](#tag), folded, deduplicated and sorted by code point. `null` is no tag filter; an empty array is invalid. |
-| `domain_tags` | Array of String | omitted      | The domain labels a post's links must carry, with the rules of `tags`.                 |
+| `domain_tags` | Array of String | omitted      | The domain labels a post's links must carry, with the rules of `tags`. A resources feed has none. |
 | `reach`       | String          | (required)   | `following`, `followers`, `friends`, `all`, `wot` or `me`.                              |
 | `layout`      | String          | (required)   | `columns`, `wide`, `visual`, `list` or `cards`.                                         |
 | `sort`        | String          | (required)   | `recent` or `popularity`.                                                               |
-| `content`     | String          | `null`       | The one post kind shown. `null`, or a kind the reader does not know, shows every kind.  |
+| `content`     | String          | `null`       | A post feed: the one post kind shown. `null`, or a kind the reader does not know, shows every kind. A resources feed: its schema.org types, see below; `null` shows every type. |
+| `target`      | String          | omitted      | What the feed lists: `posts` or `resources`. Absent is `posts`, and writers omit it for posts. |
+| `filters`     | Object          | omitted      | A resources feed's search filters, see below. Never on a post feed, and never empty.    |
+
+**Resources feed**
+
+A feed whose `target` is `resources` lists external resources instead of posts.
+
+- `content` is up to 10 schema.org type names joined by `,` with no spaces
+  (`MusicAlbum,MusicRecording`), deduplicated and sorted by code point. A name is 1 to 64
+  characters: an ASCII capital letter or digit, then ASCII letters and digits. Each name stands for
+  that type and its subtypes, as the indexer reads them. Only the spelling is checked: which types
+  exist is the indexer's business, so a type schema.org adds later needs no new release.
+- `filters` holds the feed's search. Every value is a string; a list is comma-separated with no
+  space around a comma.
+
+| **Member**      | **Value**                                                     | **Meaning**                                                                                           |
+| --------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `when`          | `today`, `weekend`, `week`, `month` or `past`                  | Resources whose start falls in that calendar window from now. Not with `from` or `to`.               |
+| `from`, `to`    | A calendar day `YYYY-MM-DD` that exists, years 1000 to 9999    | Resources whose start falls between the start of `from` and the end of `to`; either alone leaves the other side open. `from` is not after `to`. |
+| `near`          | `lat,lon`, latitude within ±90 and longitude within ±180: an optional `-`, no leading zero, at most 5 decimals with no trailing zero, no `-0` | Within `radius` km of the point. |
+| `radius`        | An integer from 1 to 200, no leading zero                      | Kilometres around `near`, 10 when absent. Only with `near`.                                           |
+| `place`         | Text of 1 to 120 code points, trimmed, no control character    | The display name of the `near` point. Outside the id. Only with `near`.                               |
+| `category`      | Text of 1 to 256 bytes, trimmed, no control character, no `,`, not starting with `/` | Resources of this category; by convention an OpenStreetMap `key/value` (`amenity/cafe`). |
+| `host`          | 1 to 10 hosts, deduplicated and sorted by code point. A host is at least two lowercase DNS labels, at most 253 characters | Resources with a link on any of these hosts. |
+| `key`           | `{namespace}:{value}`, the namespace one of `mbid`, `wikidata`, `isrc`, `upc`, `gtin`, `isbn`, `imdb`, `podcast`, `osm`, `doi`; the value 1 to 256 bytes, no control character, no `,`, no space | Resources carrying this identifier (`isbn:9780140328721`). |
+| `remote`        | `yes` or `no`                                                  | Job postings that can (`yes`) or cannot (`no`) be done remotely.                                     |
+| `closed`        | `yes`                                                          | Also job postings past their closing date.                                                            |
+| `ingredients`   | 1 to 3 items, deduplicated and sorted by code point. An item is 1 to 64 code points, trimmed, no control character, no ASCII capital | Recipes with every one of these ingredients. |
+| `sort`          | `trending`, `upcoming` or `nearest`                            | The order, in place of the feed's own `sort`: most referenced in `window` first, soonest start first, or closest to `near` first. `nearest` only with `near`. |
+| `window`        | `24h`, `7d` or `30d`                                           | The window `trending` counts references in, `7d` when absent. Only with `sort` `trending`.            |
+| `rows`          | `links`                                                        | One row per link instead of one row per resource.                                                    |
+| `exclude_types` | 1 to 50 schema.org type names, spelled as in `content`, deduplicated and sorted by code point | Leaves out resources of these types or their subtypes, and resources with no type. |
+
+- Days and windows are in the viewer's time zone. `when` is a calendar window from now: `today`
+  to the end of today, `week` to the end of Sunday (weeks run Monday to Sunday), `month` to the end
+  of the month, `weekend` from Saturday's start (or now, once it is the weekend) to the end of
+  Sunday, `past` up to now.
+- With no `when`, `from` or `to`, a feed whose `content` is `Event` or a subtype of it lists from
+  now on, and so does `sort` `upcoming`; any other feed has no time window.
+- Every value but the three lists (`host`, `ingredients`, `exclude_types`) is stored as given, so a
+  stored default (`radius` `10`, `window` `7d`) is a second feed with its own id. Writers leave the
+  defaults out, lowercase the ingredients and round `near` to 5 decimals in its shortest spelling
+  (`47.37`, never `47.370000000000005`).
 
 **Validation Notes:**
 
-- `{feedId}` is the [hash id](#identifiers) of the config, written as six segments joined by `:`:
-  `{reach}:{layout}:{sort}:{content}:{tags}:{domain_tags}`, where a list is its labels joined by
-  `,` and an absent value is the empty string. `name`, `icon` and `created_at` are outside the
-  id, so two feeds with one filter are one feed, and renaming a feed does not move it.
+- A post feed's `{feedId}` is the [hash id](#identifiers) of the config, written as six segments
+  joined by `:`: `{reach}:{layout}:{sort}:{content}:{tags}:{domain_tags}`, where a list is its
+  labels joined by `,` and an absent value is the empty string. `name`, `icon` and `created_at` are
+  outside the id, so two feeds with one filter are one feed, and renaming a feed does not move it.
+- A resources feed's id input starts with `resources:`, then the six segments. With `filters` it
+  has a seventh segment after one more `:`: the filters as one JSON object with no whitespace, the
+  members set in the order of the table above, `place` left out, each value a JSON string with
+  only `"` and `\` escaped. A post feed, and a stored `"target":"posts"`, has no prefix, so every
+  post feed keeps its id. A new `place` alone does not move the feed.
 - A reader recomputes the id from the stored config, keeping the spelling of any value it does
   not know, and rejects a feed whose path does not match.
+- A reader rejects a resources feed with `domain_tags`, a `content` that is not a stored type
+  list, `filters` that are empty or hold a member or a value this version does not know, or a list
+  in `filters` that is not deduplicated and sorted. It rejects `filters` on a post feed.
+- A reader from before `target` (1.0.0 and earlier) derives the six-segment id for a resources
+  feed, so it rejects the feed at its URL and skips it. Update indexers and clients before any
+  client writes a resources feed. A feed written before `target` that carried `target` or
+  `filters` as an unknown member is read by these rules now, so its id and its validity change.
 
 **Example**
 
@@ -543,6 +607,36 @@ published.
 }
 ```
 
+A resources feed of concerts this week within 25 km of Zürich, at
+`/priv/social/v1/feeds/CVXP7BH66XK2326M27YEXPKVYM.json`, the hash id of
+`resources:all:columns:recent:MusicEvent,MusicRecording:music::{"when":"week","near":"47.37,8.54","radius":"25","host":"open.spotify.com,www.deezer.com","sort":"upcoming"}`
+
+```json
+{
+  "feed": {
+    "tags": [
+      "music"
+    ],
+    "reach": "all",
+    "layout": "columns",
+    "sort": "recent",
+    "content": "MusicEvent,MusicRecording",
+    "target": "resources",
+    "filters": {
+      "when": "week",
+      "near": "47.37,8.54",
+      "radius": "25",
+      "place": "Zürich",
+      "host": "open.spotify.com,www.deezer.com",
+      "sort": "upcoming"
+    }
+  },
+  "name": "Concerts",
+  "icon": "music",
+  "created_at": 1727740800000000
+}
+```
+
 ---
 
 ## Identifiers
@@ -564,11 +658,12 @@ bits taken most significant first, with zero padding bits at the end and no padd
 | **Object** | **Input**                                                          |
 | ---------- | ------------------------------------------------------------------ |
 | Tag        | `{uri}:{label}`, the stored values, as UTF-8                       |
-| Feed       | the six-segment config string, as UTF-8                            |
+| Feed       | the config string (six segments, more for a resources feed), as UTF-8 |
 | Media      | the file's bytes                                                   |
 | Bookmark (overflow form) | the target, as UTF-8                                  |
 
-No id hashes serialized JSON, so member order and whitespace never change an id.
+No id hashes the stored JSON, so member order and whitespace never change an id. A resources
+feed's filters segment is JSON written in one fixed form, whatever the stored order.
 
 **Minting timestamp ids.** A writer mints a post id from its clock. Ids minted by one writer
 strictly increase, even within one clock tick, so two posts never share a path. Copying,

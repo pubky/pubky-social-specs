@@ -44,7 +44,7 @@ request alone and a recorded request replays to the same answer.
   them, and the scoreboard fails when the package does not. Regenerate with
   `cd pkg && node qa/score.mjs --record` after a deliberate change of behaviour. A
   `<family>-<name>.jsonl` file is a set kept from an earlier recording and replayed by both
-  sides, never rewritten: `feed-1.0.0-rc.1.jsonl` is the feed family as 1.0.0-rc.1 recorded it,
+  sides, never rewritten: `feed-1.0.0.jsonl` is the feed family as 1.0.0 recorded it,
   and every byte, refusal and id it recorded still holds.
 - **Differential fuzz** (`pkg/qa/score.mjs`): seeded generators (`pkg/qa/gen.mjs`) make fresh
   requests per family, the oracle answers them, and the package has to answer the same: stored

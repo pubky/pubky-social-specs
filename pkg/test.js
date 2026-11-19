@@ -505,7 +505,7 @@ describe("pubky-social-specs", () => {
 
     it("a feed of external resources has its own id, and a post feed keeps the one it had", () => {
       assert.deepStrictEqual(feedTargets, ["posts", "resources"]);
-      // Ids 1.0.0-rc.1, which had no target, gave these filters; neither an absent target nor "posts" moves them
+      // Ids 1.0.0, which had no target, gave these filters; neither an absent target nor "posts" moves them
       const music = { name: "Music", icon: "music", reach: "all", layout: "columns", sort: "recent", tags: ["music"] };
       for (const [input, id] of [
         [music, "C7PHA9M1X90SH1H2X2YPGY9QW4"],
@@ -574,7 +574,7 @@ describe("pubky-social-specs", () => {
       assert.strictEqual(albumsAndSongs.id, "W08646R2D8VBVGZ6WMXV86AGQG");
       assert.strictEqual(albumsAndSongs.id, buildFeed(OTTO, { ...music, target: "resources", content: "MusicAlbum,MusicRecording" }).id);
       assert.deepStrictEqual(feedResourceTypes(albumsAndSongs.object.feed), ["MusicAlbum", "MusicRecording"]);
-      // A post feed naming "MusicRecording" keeps what 1.0.0-rc.1 gave it: an unknown post kind with its own id
+      // A post feed naming "MusicRecording" keeps what 1.0.0 gave it: an unknown post kind with its own id
       const songPosts = { ...posts.object, feed: { ...posts.object.feed, content: "MusicRecording" } };
       assert.strictEqual(feedResourceTypes(songPosts.feed), null);
       assert.strictEqual(feedId(songPosts), "Y62T3RNH68JPZF4C3WEYY66618");

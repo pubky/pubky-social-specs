@@ -1957,7 +1957,7 @@ mod tests {
     #[test]
     fn test_a_post_feed_keeps_the_id_it_had_before_target() {
         use PubkySocialPostKind as K;
-        // Ids as 1.0.0-rc.1, which had no target, derived them for these filters
+        // Ids as 1.0.0, which had no target, derived them for these filters
         for (config, id_data, id) in [
             (
                 (
@@ -2118,7 +2118,7 @@ mod tests {
         };
         assert_eq!(songs_posts.feed.resource_types(), None);
         let posts_id = songs_posts.derive_id().unwrap();
-        // blake3("all:columns:recent:MusicRecording:music:"): an unknown post kind, as 1.0.0-rc.1 had it
+        // blake3("all:columns:recent:MusicRecording:music:"): an unknown post kind, as 1.0.0 had it
         assert_eq!(posts_id, "Y62T3RNH68JPZF4C3WEYY66618");
         assert_ne!(songs_id, posts_id);
         assert_ne!(songs_id, every_resource.derive_id().unwrap());
