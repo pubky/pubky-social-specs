@@ -4,7 +4,8 @@
 //
 //   node qa/score.mjs [--fuzz 2000] [--seed 1] [--family text] [--stats] [--record]
 //
-// --record writes the vectors (vectors/js/<family>.jsonl) from the oracle instead of scoring.
+// --record writes the vectors (vectors/js/<family>.jsonl) from the oracle instead of scoring. A
+// file <family>-<name>.jsonl is a set kept from an earlier recording: it is replayed, never rewritten.
 
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -59,13 +60,16 @@ for (const family of Object.keys(families)) {
     console.log(`${family}: recorded ${asked.length}`);
     continue;
   }
-  const rows = fs.existsSync(file)
-    ? fs
-        .readFileSync(file, "utf8")
+  const kept = fs.existsSync(vectorsDir) ? fs.readdirSync(vectorsDir).filter((name) => name.startsWith(`${family}-`) && name.endsWith(".jsonl")) : [];
+  const rows = [file, ...kept.sort().map((name) => `${vectorsDir}${name}`)]
+    .filter((path) => fs.existsSync(path))
+    .flatMap((path) =>
+      fs
+        .readFileSync(path, "utf8")
         .split("\n")
         .filter(Boolean)
-        .map((line) => JSON.parse(line))
-    : [];
+        .map((line) => JSON.parse(line)),
+    );
   const vectors = differing(
     rows.map((row) => row.q),
     rows.map((row) => row.a),

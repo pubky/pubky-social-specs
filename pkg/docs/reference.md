@@ -23,8 +23,17 @@ the value here. A length counts Unicode code points, not UTF-16 units and not by
 | `collectionItemsMaxCount` | 100 | items | The most items in a collection. |
 | `collectionNameMaxLength` | 100 | code points | The longest collection name. |
 | `collectionNameMinLength` | 1 | code points | The shortest collection name. |
+| `feedFilterExcludeTypesMaxCount` | 50 | items | The most schema.org types in a resources feed's `filters.exclude_types`. |
+| `feedFilterHostsMaxCount` | 10 | items | The most hosts in a resources feed's `filters.host`. |
+| `feedFilterIngredientMaxLength` | 64 | code points | The longest ingredient in a resources feed's `filters.ingredients`. |
+| `feedFilterIngredientsMaxCount` | 3 | items | The most ingredients in a resources feed's `filters.ingredients`. |
+| `feedFilterPlaceMaxLength` | 120 | code points | The longest `filters.place` of a resources feed, the name of its point. |
+| `feedFilterRadiusMaxKm` | 200 | km | The largest `filters.radius` of a resources feed. |
+| `feedFilterTextMaxBytes` | 256 | bytes | The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`. |
 | `feedIconMaxLength` | 50 | code points | The longest feed icon name. |
 | `feedNameMaxLength` | 100 | code points | The longest feed name. |
+| `feedResourceTypeMaxLength` | 64 | code points | The longest schema.org type name in a resources feed's `content` or `filters.exclude_types`. |
+| `feedResourceTypesMaxCount` | 10 | items | The most schema.org types in a resources feed's `content`. |
 | `feedTagsMaxCount` | 5 | items | The most labels in a feed's `tags`, and in its `domain_tags`. |
 | `imageUrlMaxLength` | 300 | code points | The longest profile `image` and article or collection `cover_image`. |
 | `maxFileSizeBytes` | 104857600 | bytes | The largest media file, 100 MiB. |
@@ -225,10 +234,36 @@ The filter of a feed, which is its identity.
 | `reach` | `"following" \| "followers" \| "friends" \| "all" \| "wot" \| "me"` |  | Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. |
 | `layout` | `"list" \| "visual" \| "columns" \| "wide" \| "cards"` |  | How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. |
 | `sort` | `"recent" \| "popularity"` |  | The order of the posts, one of `feedSorts`: `recent` or `popularity`. |
-| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; null for every kind. |
+| `target` | `"posts" \| "resources"` | yes | What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of schema.org types or none, and no `domain_tags`. |
+| `filters` | `FeedFilters` | yes | A resources feed's search filters (`FeedFilters`); null for none, and always on a post feed. Every member but `place` is in the id. |
+| `content` | `PostKind` | yes | The one post kind shown, one of `postKinds`, or a newer writer's name kept as written; on a `resources` feed up to 10 schema.org type names, comma-separated, deduplicated and sorted by code point (`MusicAlbum,MusicRecording`). Null for every kind. |
 | `tags` | `string[]` | yes | The tag labels a post must carry: at most 5, folded, deduplicated and sorted by code point; null for no tag filter. |
 | `domain_tags` | `string[]` | yes | The domain labels a post's links must carry, with the rules of `tags`; null for no domain filter. |
 | `$unknown` (optional) | `string` |  | The members a newer writer added, as the text they were read with. Carry it along. |
+
+### FeedFilters
+
+The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for not set. Every member but `place` is in the feed's id. The members and their values are a closed set: a member or a value this version does not know rejects the feed, as an unknown reach does, so a later release that adds one makes deployed readers skip the feeds that use it. This is an exception to the forward-compatibility contract. A stored default (`radius: "10"`, `window: "7d"`) is a second feed with its own id. `docs/guide.md` gives each member's meaning.
+
+| member | type | null | meaning |
+|---|---|---|---|
+| `when` | `string` | yes | A calendar window of start times from now, in the viewer's time zone: `today`, `weekend`, `week` (to the end of Sunday), `month` or `past` (up to now). Not with `from` or `to`. |
+| `from` | `string` | yes | The first day of a window of days, `YYYY-MM-DD`, from its start in the viewer's time zone. |
+| `to` | `string` | yes | The last day of a window of days, `YYYY-MM-DD`, to its end (the whole day included); not before `from`. |
+| `near` | `string` | yes | Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero (`47.37,8.54`). |
+| `radius` | `string` | yes | The distance around `near` in whole kilometres, 1 to 200; 10 km without. Only with `near`. |
+| `place` | `string` | yes | The name of the place `near` is, as shown: trimmed, at most 120 code points. Outside the id, so a new name renames the feed. |
+| `category` | `string` | yes | One category, by convention an OpenStreetMap `key/value` (`amenity/cafe`), trimmed, at most 256 bytes. |
+| `host` | `string` | yes | Services, any of them: the links' hosts in lower case, comma-separated, at most 10, deduplicated and sorted by code point (`open.spotify.com,www.deezer.com`). One host is a list of one. |
+| `key` | `string` | yes | One identifier the resources carry, `<namespace>:<value>` (`isbn:9780140328721`), the value at most 256 bytes. |
+| `remote` | `string` | yes | Job postings that may (`yes`) or may not (`no`) be done remotely. |
+| `closed` | `string` | yes | `yes`: also job postings past their closing date. |
+| `ingredients` | `string` | yes | Recipes with every one of these ingredients: comma-separated, at most 3 of at most 64 code points each, with no ASCII capital letter (lowercase them first: `Äpfel` and `äpfel` are two feeds), deduplicated and sorted by code point. |
+| `sort` | `string` | yes | An order in place of the feed's own `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). |
+| `window` | `string` | yes | The window `trending` counts references in: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. |
+| `rows` | `string` | yes | `links`: every link as a row, where the feed otherwise lists one row per thing. |
+| `exclude_types` | `string` | yes | Schema.org types the feed leaves out, each with its subtypes: comma-separated type names, at most 50, deduplicated and sorted by code point (`Article,Event`). A resource with no type yet is not listed either. |
+| `$unknown` (optional) | `string` |  | Always empty: a read refuses a member this version does not know. |
 
 ## Error codes
 
@@ -238,14 +273,14 @@ rule does not.
 | code | the rule |
 |---|---|
 | `json` | the bytes, or an envelope inside them, are not JSON of the stored shape |
-| `size` | an object or a file is over its byte cap, `limit` in bytes |
+| `size` | an object or a file is over its byte cap, or text over a cap in bytes (a resources feed's `filters.category`, the value of `filters.key`), `limit` in bytes |
 | `length` | text is outside its bounds, `limit` the bound it broke, in code points |
 | `count` | a list has more items than `limit` |
 | `blank` | text, a list or a file is empty or whitespace only |
-| `format` | text is not spelled the one way the model accepts (a key, an id, a tag, a slug) |
+| `format` | text is not spelled the one way the model accepts (a key, an id, a tag, a slug), or a number held as text is out of its range (a resources feed's `filters.radius`, no `limit`) |
 | `id` | an id does not match its object, or its time is out of bounds |
 | `reference` | a URI in a reference position is refused |
-| `unknown_name` | a kind, reach, layout or sort this version does not know |
+| `unknown_name` | a kind, reach, layout, sort, target or root this version does not know, or a member of a resources feed's `filters` this version does not know |
 | `unsafe_integer` | an integer a JS number cannot hold exactly |
 | `path` | a URL or path names no object of the kind asked for |
 | `conflict` | members or arguments that cannot go together |

@@ -34,8 +34,17 @@ const LIMIT_DOCS = {
   collectionItemsMaxCount: "The most items in a collection",
   collectionNameMaxLength: "The longest collection name",
   collectionNameMinLength: "The shortest collection name",
+  feedFilterExcludeTypesMaxCount: "The most schema.org types in a resources feed's `filters.exclude_types`",
+  feedFilterHostsMaxCount: "The most hosts in a resources feed's `filters.host`",
+  feedFilterIngredientMaxLength: "The longest ingredient in a resources feed's `filters.ingredients`",
+  feedFilterIngredientsMaxCount: "The most ingredients in a resources feed's `filters.ingredients`",
+  feedFilterPlaceMaxLength: "The longest `filters.place` of a resources feed, the name of its point",
+  feedFilterRadiusMaxKm: "The largest `filters.radius` of a resources feed",
+  feedFilterTextMaxBytes: "The most UTF-8 bytes of a resources feed's `filters.category` and of the value of its `filters.key`",
   feedIconMaxLength: "The longest feed icon name",
   feedNameMaxLength: "The longest feed name",
+  feedResourceTypeMaxLength: "The longest schema.org type name in a resources feed's `content` or `filters.exclude_types`",
+  feedResourceTypesMaxCount: "The most schema.org types in a resources feed's `content`",
   feedTagsMaxCount: "The most labels in a feed's `tags`, and in its `domain_tags`",
   imageUrlMaxLength: "The longest profile `image` and article or collection `cover_image`",
   maxFileSizeBytes: "The largest media file, 100 MiB",
@@ -57,7 +66,7 @@ const LIMIT_DOCS = {
   userNameMinLength: "The shortest profile name",
   userStatusMaxLength: "The longest profile status",
 };
-const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : null);
+const unitOf = (name) => (name.endsWith("Bytes") ? "bytes" : name.endsWith("Count") ? "items" : name.endsWith("Length") ? "code points" : name.endsWith("Km") ? "km" : null);
 const undocumented = Object.keys(data.limits).filter((name) => !Object.hasOwn(LIMIT_DOCS, name));
 if (undocumented.length > 0) {
   console.error(`limits with no line in qa/data.mjs LIMIT_DOCS: ${undocumented.join(", ")}`);

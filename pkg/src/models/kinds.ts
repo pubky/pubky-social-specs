@@ -46,6 +46,16 @@ export const feedLayouts = Object.freeze(["columns", "wide", "visual", "list", "
  */
 export const feedSorts = Object.freeze(["recent", "popularity"] as const);
 /**
+ * What a feed lists: `posts`, the default, stored as no member, and `resources`, the external links people tag.
+ *
+ * @example
+ * ```ts
+ * import { feedTargets } from "pubky-social-specs";
+ * console.log(feedTargets.join(", "));
+ * ```
+ */
+export const feedTargets = Object.freeze(["posts", "resources"] as const);
+/**
  * How a creator would show a collection: `grid`, `list` and `visual`. A reader may choose its own.
  *
  * @example
@@ -64,6 +74,9 @@ export type KnownFeedReach = (typeof feedReaches)[number];
 export type KnownFeedLayout = (typeof feedLayouts)[number];
 /** A feed sort this version knows. */
 export type KnownFeedSort = (typeof feedSorts)[number];
+/** A feed target this version knows. */
+export type KnownFeedTarget = (typeof feedTargets)[number];
+
 /** A collection layout this version knows. */
 export type KnownCollectionLayout = (typeof collectionLayouts)[number];
 /** A name of the set, or one a newer writer used, kept with its spelling. */
@@ -76,6 +89,16 @@ export type FeedReach = OrNewer<KnownFeedReach>;
 export type FeedLayout = OrNewer<KnownFeedLayout>;
 /** A feed sort as the model holds it before its rules run; a stored feed holds a known one. */
 export type FeedSort = OrNewer<KnownFeedSort>;
+/**
+ * A feed target as the model holds it before its rules run; a stored feed holds a known one. The
+ * target changes what a feed lists, so it is in the feed's id, and one this version does not know
+ * rejects the feed, as an unknown reach does. A reader older than the member derives another id
+ * for a resources feed, refuses it at its URL and skips it, as it skips a feed with an unknown
+ * primary enum: an exception to the forward-compatibility contract, under which a newer member
+ * never breaks an older reader. No reach is ever spelled like a target, since a target's name goes
+ * in front of an id input that otherwise starts with the reach.
+ */
+export type FeedTarget = OrNewer<KnownFeedTarget>;
 /** A collection layout as a read can hold it: a known one, or a newer writer's name kept as written. */
 export type CollectionLayout = OrNewer<KnownCollectionLayout>;
 
@@ -85,6 +108,7 @@ export const postKind: Codec<PostKind> = string;
 export const feedReach: Codec<FeedReach> = string;
 export const feedLayout: Codec<FeedLayout> = string;
 export const feedSort: Codec<FeedSort> = string;
+export const feedTarget: Codec<FeedTarget> = string;
 export const collectionLayout: Codec<CollectionLayout> = string;
 
 /** Whether `name` is one of `names`, not one a newer writer used. */

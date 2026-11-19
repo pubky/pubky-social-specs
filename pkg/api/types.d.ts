@@ -1,6 +1,6 @@
 import type * as feeds from "./models/feed.js";
 import type * as graph from "./models/graph.js";
-import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind } from "./models/kinds.js";
+import type { KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownFeedTarget, KnownPostKind } from "./models/kinds.js";
 import type * as posts from "./models/post.js";
 import type * as users from "./models/user.js";
 import type { validMimeTypes } from "./data.js";
@@ -109,14 +109,30 @@ export interface Follow extends Open, Plain<graph.Edge> {
 /** A mute, private, stored at `/priv/social/v1/mutes/{mutee}.json`: the path holds the muted key. */
 export interface Mute extends Open, Plain<graph.Edge> {
 }
+/**
+ * The search filters of a resources feed (`FeedConfig.filters`), every value a string and null for
+ * not set. Every member but `place` is in the feed's id. The members and their values are a closed
+ * set: a member or a value this version does not know rejects the feed, as an unknown reach does,
+ * so a later release that adds one makes deployed readers skip the feeds that use it. This is an
+ * exception to the forward-compatibility contract. A stored default (`radius: "10"`,
+ * `window: "7d"`) is a second feed with its own id. `docs/guide.md` gives each member's meaning.
+ */
+export interface FeedFilters extends Open, Plain<feeds.FeedFilters> {
+    /** Always empty: a read refuses a member this version does not know. */
+    $unknown?: string;
+}
 /** The filter of a feed, which is its identity. */
-export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort"> {
+export interface FeedConfig extends Open, Omit<Plain<feeds.FeedConfig>, "reach" | "layout" | "sort" | "target" | "filters"> {
     /** Whose posts the feed shows, one of `feedReaches`: `all`, the owner's `following` or `followers`, mutual `friends`, the `wot` (web of trust) or `me`. */
     reach: KnownFeedReach;
     /** How the client lays the feed out, one of `feedLayouts`: `columns`, `wide`, `visual` (media first), `list` or `cards`. */
     layout: KnownFeedLayout;
     /** The order of the posts, one of `feedSorts`: `recent` or `popularity`. */
     sort: KnownFeedSort;
+    /** What the feed lists, one of `feedTargets`: null for posts, the default, which a writer never stores, or `resources`, the external links people tag, with a `content` of schema.org types or none, and no `domain_tags`. */
+    target: KnownFeedTarget | null;
+    /** A resources feed's search filters (`FeedFilters`); null for none, and always on a post feed. Every member but `place` is in the id. */
+    filters: FeedFilters | null;
 }
 /** A saved feed, private, stored at `/priv/social/v1/feeds/{id}.json`; its published copy is the same leaf under `/pub/`. */
 export interface Feed extends Open, Omit<Plain<feeds.Feed>, "feed"> {
@@ -329,12 +345,55 @@ export interface NewFeed {
     layout: KnownFeedLayout;
     /** The order of the posts, one of `feedSorts`. */
     sort: KnownFeedSort;
-    /** The one post kind shown, one of `postKinds`; absent for every kind. */
-    content?: KnownPostKind | null;
+    /** The one post kind shown, one of `postKinds`; for `target: "resources"` up to 10 schema.org type names, comma-separated with no spaces (`MusicRecording,MusicAlbum`), stored deduplicated and sorted. Absent for every kind. */
+    content?: KnownPostKind | (string & {}) | null;
     /** At most 5 tag labels a post must carry, folded and sorted by the builder; absent for no tag filter, never empty. */
     tags?: string[] | null;
     /** At most 5 domain labels, with the rules of `tags`. */
     domain_tags?: string[] | null;
+    /** What the feed lists, one of `feedTargets`; absent or `posts` for posts, stored as no member. `resources` takes a `content` of schema.org types only and no `domain_tags`. */
+    target?: KnownFeedTarget | null;
+    /** A resources feed's search filters, every value a string (`NewFeedFilters`); absent, or none set, for none. The builder sorts and deduplicates the hosts, the ingredients and the excluded types. */
+    filters?: NewFeedFilters | null;
+}
+/**
+ * The search filters of a resources feed as `buildFeed` takes them (`FeedFilters` is what a decoded
+ * feed holds); absent for not set. Only spellings and combinations are checked: lowercase the
+ * ingredients and round `near` to 5 decimals first.
+ */
+export interface NewFeedFilters {
+    /** A calendar window of start times from now: `today`, `weekend`, `week`, `month` or `past`. Not with `from` or `to`. */
+    when?: string | null;
+    /** The first day of a window of days, `YYYY-MM-DD`. */
+    from?: string | null;
+    /** The last day of a window of days, `YYYY-MM-DD`, the whole day included; not before `from`. */
+    to?: string | null;
+    /** Around a point, `lat,lon` in degrees with at most 5 decimals and no trailing zero (`47.37,8.54`): round with `Math.round(x * 1e5) / 1e5`. */
+    near?: string | null;
+    /** The distance around `near` in whole kilometres, 1 to `feedFilterRadiusMaxKm`; 10 km without. Leave 10 out: a stored default is a second feed with its own id. */
+    radius?: string | null;
+    /** The name of the place `near` is, trimmed, at most `feedFilterPlaceMaxLength` code points. Outside the id: a new name renames the feed. */
+    place?: string | null;
+    /** One category, by convention an OpenStreetMap `key/value` (`amenity/cafe`). */
+    category?: string | null;
+    /** Services, any of them: up to `feedFilterHostsMaxCount` hosts in lower case, comma-separated (`open.spotify.com,www.deezer.com`). */
+    host?: string | null;
+    /** One identifier, `<namespace>:<value>` (`isbn:9780140328721`). */
+    key?: string | null;
+    /** Job postings that may (`yes`) or may not (`no`) be done remotely. */
+    remote?: string | null;
+    /** `yes`: also job postings past their closing date. */
+    closed?: string | null;
+    /** Recipes with every one of up to `feedFilterIngredientsMaxCount` ingredients, comma-separated, each with no ASCII capital letter (lowercase them first: `Äpfel` and `äpfel` are two feeds) and at most `feedFilterIngredientMaxLength` code points. */
+    ingredients?: string | null;
+    /** An order in place of the feed's `sort`, which stays in the id: `trending`, `upcoming` (by start, soonest first, from now on unless `when`, `from` or `to` set the window) or `nearest` (with `near`). */
+    sort?: string | null;
+    /** The window of `trending`: `24h`, `7d` or `30d`; `7d` without. Only with `sort` `trending`. Leave `7d` out: a stored default is a second feed with its own id. */
+    window?: string | null;
+    /** `links`: every link as a row instead of one row per thing. */
+    rows?: string | null;
+    /** Schema.org types to leave out, each with its subtypes: up to `feedFilterExcludeTypesMaxCount` type names, comma-separated with no spaces (`Event,Article`), stored deduplicated and sorted. A resource with no type is left out too. */
+    exclude_types?: string | null;
 }
 /** What `buildFile` takes: the bytes, or the id `hashMedia` gave for them, and the declared type. */
 export type NewFile = ({

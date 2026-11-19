@@ -43,8 +43,21 @@ export { ENGINE_CAPS, MIGRATION_CAPS } from "./caps.js";
 export { limits, validMimeTypes } from "./data.js";
 export { ArgumentError, ValidationError } from "./errors.js";
 export type { ErrorCode } from "./errors.js";
-export { collectionLayouts, feedLayouts, feedReaches, feedSorts, postKinds } from "./models/kinds.js";
-export type { CollectionLayout, FeedLayout, FeedReach, FeedSort, KnownCollectionLayout, KnownFeedLayout, KnownFeedReach, KnownFeedSort, KnownPostKind, PostKind } from "./models/kinds.js";
+export { collectionLayouts, feedLayouts, feedReaches, feedSorts, feedTargets, postKinds } from "./models/kinds.js";
+export type {
+  CollectionLayout,
+  FeedLayout,
+  FeedReach,
+  FeedSort,
+  FeedTarget,
+  KnownCollectionLayout,
+  KnownFeedLayout,
+  KnownFeedReach,
+  KnownFeedSort,
+  KnownFeedTarget,
+  KnownPostKind,
+  PostKind,
+} from "./models/kinds.js";
 export type * from "./types.js";
 export { feedSchema, postSchema, tagSchema, userSchema, validateFeed, validatePost, validateTag, validateUser } from "./validate.js";
 export type { Issue, StandardSchemaV1, Validation } from "./validate.js";
@@ -338,13 +351,25 @@ export function editPost(owner: T.Given<"Owner">, headUri: T.UrlArg<"post">, pos
 }
 
 /**
- * A feed at its private path. The id is derived from the filter alone (reach, layout, sort,
- * content, tags, domain tags), so two feeds with one filter are one feed whatever their names, and an
- * edited filter is a new path. `icon` is 1 to 50 of a-z, 0-9 and `-`.
+ * A feed at its private path. The id is derived from the filter alone (target, reach, layout,
+ * sort, content, tags, domain tags, and a resources feed's `filters` except `place`), so two
+ * feeds with one filter are one feed whatever their names, and an edited filter is a new path. A
+ * new `place` alone keeps the id: it renames the feed. `icon` is 1 to 50 of a-z, 0-9 and `-`.
  *
  * @throws `ValidationError` for a rule of the feed (`field` the member: `tags`, `icon`, `name`) or
- *  an unknown reach, layout, sort or content (`code: "unknown_name"`); `ArgumentError` for a member
- *  of the wrong type.
+ *  an unknown reach, layout, sort, target or post kind (`code: "unknown_name"`); on a resources
+ *  feed for a type list that is badly spelled (`format`), has a name longer than
+ *  `feedResourceTypeMaxLength` (`length`) or more than `feedResourceTypesMaxCount` types
+ *  (`count`), `field: "content"`; a resources feed with `domain_tags` (`conflict`,
+ *  `field: "domain_tags"`); for `filters`, filters on a post feed or members that cannot go
+ *  together (`conflict`), a member this version does not know (`unknown_name`), a badly spelled
+ *  value (`format`; a `radius` out of range too), a `place` longer than `feedFilterPlaceMaxLength`,
+ *  an ingredient longer than `feedFilterIngredientMaxLength` or an excluded type name longer than
+ *  `feedResourceTypeMaxLength` (`length`), a `category` or `key` value over
+ *  `feedFilterTextMaxBytes` (`size`), more than `feedFilterHostsMaxCount` hosts,
+ *  `feedFilterIngredientsMaxCount` ingredients or `feedFilterExcludeTypesMaxCount` excluded types
+ *  (`count`), `field` the member (`filters.place`) or `filters`; `ArgumentError` for a member of
+ *  the wrong type.
  *
  * @example
  * ```ts
@@ -375,6 +400,23 @@ export function buildFeed(owner: T.Given<"Owner">, input: T.NewFeed): T.Built<T.
  */
 export function feedId(feed: T.Feed): string {
   return feeds.feedId(feeds.feed.codec.parse(snapshot(feed, "feed"), "feed"));
+}
+
+/**
+ * The schema.org types a resources feed lists, read from the `content` of a decoded or built feed:
+ * a resource is listed when its type is one of them or a subtype of one, as the indexer reads it.
+ * Null for every type, and for a feed of posts.
+ *
+ * @example
+ * ```ts
+ * import { buildFeed, feedResourceTypes } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const songs = buildFeed(owner, { name: "Songs", icon: "music", reach: "all", layout: "cards", sort: "recent", target: "resources", content: "MusicRecording,MusicAlbum" });
+ * console.log(feedResourceTypes(songs.object.feed)); // ["MusicAlbum", "MusicRecording"]
+ * ```
+ */
+export function feedResourceTypes(feed: Pick<T.FeedConfig, "target" | "content">): string[] | null {
+  return feed.target === "resources" && typeof feed.content === "string" ? feed.content.split(",") : null;
 }
 
 /**

@@ -1,6 +1,7 @@
-// The recorded vectors (vectors/js/<family>.jsonl): what the crate answered, replayed offline
-// against the package, one test per family. `qa/score.mjs` replays the same rows and adds the
-// fuzz against a live oracle.
+// The recorded vectors: what the crate answered, replayed offline against the package, one test
+// per file. `qa/score.mjs --record` rewrites vectors/js/<family>.jsonl; a kept
+// <family>-<name>.jsonl is replayed, never rewritten. `qa/score.mjs` replays the same rows and
+// adds the fuzz against a live oracle.
 
 import assert from "assert";
 import fs from "node:fs";
