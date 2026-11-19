@@ -118,8 +118,9 @@ These apply to every JSON object below.
   a client rewriting an object writes them back with their values (member order and escape
   spelling may change). An object that repeats a declared member is invalid.
   Deliberate extensions should nest under the reserved member `ext`, as
-  `"ext": {"badge": {...}}`; everything under `ext` is third-party data this specification never
-  validates, and readers treat it as untrusted input.
+  `"ext": {"badge": {...}}`; everything under `ext` is third-party data this specification
+  validates no further than the integer range and the size cap above, and readers treat it as
+  untrusted input.
 - **Unknown enum values.** Every enum is an open string. An unknown value in an object's primary
   enum (`post.kind`, `feed.reach`, `feed.layout`, `feed.sort`) makes the object invalid, and a
   reader skips it. An unknown value in a secondary enum (`feed.content`, `collection.layout`)
@@ -288,7 +289,7 @@ none of this: what a reader shows for a slot that is not there is the app's to d
 
 **Example**
 
-`/pub/social/v1/posts/0034GTJ9NFM00/0034GTJ9NFM00-on-pubky.json`
+`/pub/social/v1/posts/0034GZK7GD400/0034GZK7GD400-on-pubky.json`
 
 ```json
 {
@@ -767,7 +768,7 @@ confirms.
 | `/pub/pubky.app/bookmarks/{id}`, public   | `/priv/social/v1/bookmarks/{filename}.json`                |
 | `/pub/pubky.app/follows/{key}`            | `/pub/social/v1/follows/{key}.json`                        |
 | `/pub/pubky.app/mutes/{key}`, public      | `/priv/social/v1/mutes/{key}.json`                         |
-| `/pub/pubky.app/feeds/{id}`, public       | `/priv/social/v1/feeds/{id}.json`, published by copy       |
+| `/pub/pubky.app/feeds/{id}`, public       | `/priv/social/v1/feeds/{id}.json`, id from its config, published by copy |
 | `last_read`, `settings.json`              | removed (application data)                                 |
 
 **Stable id.** One object keeps one key across epochs and roots, so an indexer does not count a

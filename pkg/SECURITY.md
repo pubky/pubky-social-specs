@@ -10,8 +10,8 @@ reproduce it. The migration is the separate package `pubky-social-migrator`, wit
 
 ## Supported versions
 
-The latest release of the current major line gets fixes. Before 1.0.0, that is the latest
-`1.0.0-rc` release; older prereleases are not patched.
+The latest release of the current major line gets fixes. The prereleases of 1.0.0 are not
+patched.
 
 ## Verifying a release
 

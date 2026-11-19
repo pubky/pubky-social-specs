@@ -9,8 +9,6 @@ Rust types, builders, and validation for the Pubky social data model: profiles, 
 
 This is the **1.x** data model. Objects live under `/pub/social/v1/`, readable by anyone, and `/priv/social/v1/`, readable by the owner and the apps the owner granted. It replaces the 0.x layout of [`pubky-app-specs`](https://crates.io/crates/pubky-app-specs), under `/pub/pubky.app/`.
 
-> **Release status:** `1.0.0` is not published yet; current releases are release candidates.
->
 > **Stability:** within 1.x the stored models only grow. Every 1.x release reads what any earlier 1.x release wrote, derives every id the same way, and writes back the members a newer writer added untouched. A change that cannot be made that way goes to `social/v2`.
 
 ## Installation

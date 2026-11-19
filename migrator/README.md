@@ -44,7 +44,7 @@ console.log(report.status); // done: an empty 0.x tree migrates at once
 
 1. With `caps` given, checks that the session covers `ENGINE_CAPS` (exported by `pubky-social-specs`), and aborts with `CAPS_MISSING` otherwise. It never prompts.
 2. Checks that the homeserver has `/priv/`, and aborts with `PRIV_UNSUPPORTED` if not.
-3. Reads the flag `priv/social/v1/_migrated.json`, and returns `already_migrated` when it records the current `transformRev` (unless `rescan: true`).
+3. Reads the flag `priv/social/v1/_migrated.json`, and returns `already_migrated` when it records the current `transformRev` or a later one (unless `rescan: true`).
 4. Lists the 1.x tree, so whatever is already there, including edits made since an earlier run, is never written again.
 5. Walks the 0.x tree and copies each object through the transforms, with create-only writes.
 6. Writes the flag. A run that hit I/O errors writes none and ends `incomplete`, so the next run walks again.
