@@ -1,5 +1,5 @@
 // The port over a session of the pubky SDK, `@synonymdev/pubky` >=0.11 <1: the session
-// storage it calls has the same shape and answers from 0.11 to 0.14. The adapter works on the
+// storage it calls has the same shape and answers from 0.11 to 0.18. The adapter works on the
 // session it is given and declares the part it calls itself, so the host installs the SDK, the
 // engine never loads it, and these declarations compile without it. The package does not
 // declare it as a peer dependency, since a host on another SDK line would fail to install.

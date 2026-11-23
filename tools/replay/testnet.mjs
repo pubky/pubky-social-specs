@@ -19,7 +19,7 @@ export const HOST = process.env.PUBKY_TESTNET_HOST || "localhost";
 const ADMIN = `http://${HOST}:6288`;
 const ADMIN_PASSWORD = "replay";
 const PG = { name: "replay-pg", volume: "replay-pg", port: 55432 };
-const HS = { name: "replay-testnet", volume: "replay-hs", image: "synonymsoft/homeserver-testnet:v0.14.0" };
+const HS = { name: "replay-testnet", volume: "replay-hs", image: "synonymsoft/homeserver-testnet:v0.18.0" };
 
 /** The homeserver config, with the rate limits a case asks for appended. */
 export const config = (rateLimits = "") => `[general]

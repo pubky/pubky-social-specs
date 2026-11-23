@@ -59,7 +59,7 @@ describe("pubky-social-migrate arguments", () => {
   });
 
   it("takes the pubky SDK from 0.11 up to 1", () => {
-    for (const version of ["0.11.0", "0.11.3", "0.14.0", "0.14.1-rc.1", "0.99.0"]) assert.ok(sdkSupported(version), version);
+    for (const version of ["0.11.0", "0.11.3", "0.14.0", "0.14.1-rc.1", "0.18.0", "0.99.0"]) assert.ok(sdkSupported(version), version);
     for (const version of ["0.8.0", "0.10.9", "1.0.0", "0.x", "", undefined]) assert.ok(!sdkSupported(version), String(version));
   });
 

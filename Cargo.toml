@@ -2,7 +2,7 @@
 name = "pubky-social-specs"
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.89"
+rust-version = "1.91"
 description = "Pubky social data models with builders, validation, and URI helpers"
 readme = "README.md"
 homepage = "https://pubky.app"
@@ -71,7 +71,7 @@ js-sys = "0.3.77"
 wasm-bindgen-test = "0.3.68"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pubky = "0.10.0"
+pubky = "0.18.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { version = "1.52.3", features = ["full"] }

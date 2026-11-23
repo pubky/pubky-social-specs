@@ -133,7 +133,7 @@ of the 140 have an image at slot 0 and no reference to it.
 
 ## Seed, run and verify
 
-The replica runs on a pubky testnet (`synonymsoft/homeserver-testnet:v0.14.0`) in `persist`
+The replica runs on a pubky testnet (`synonymsoft/homeserver-testnet:v0.18.0`) in `persist`
 mode, so its file store sits on disk in the `replay-hs` Docker volume and survives a restart,
 with Postgres in `replay-pg`. The in-memory default would hold every blob in RAM. A restart
 loses the testnet's DHT and pkarr relay, and with them every user's record, so every start
