@@ -18,7 +18,7 @@ export interface SdkResponse {
     /** The whole body at once. */
     arrayBuffer(): Promise<ArrayBuffer>;
 }
-/** The part of a signed-in SDK `Session` the port calls, as 0.11 to 0.14 declare it. */
+/** The part of a signed-in SDK `Session` the port calls, as 0.11 to 0.18 declare it. */
 export interface SdkSession {
     /** Who the session belongs to: `info.publicKey.z32()` is the bare key. */
     info: {

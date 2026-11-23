@@ -138,7 +138,7 @@ const notFound = (url: string) => Object.assign(new Error(`404 Not Found: ${url}
 const later = <R>(answer: () => R): Promise<R> => Promise.resolve().then(answer);
 
 /**
- * An in-memory homeserver with the calls, arguments and answers of `@synonymdev/pubky` 0.14,
+ * An in-memory homeserver with the calls, arguments and answers of `@synonymdev/pubky` 0.18,
  * for tests and examples: a missing file or directory is a `RequestError` with
  * `data.statusCode` 404, and a LIST is recursive, a page of at most `limit` URLs (1000 by
  * default) sorted as strings, after `cursor`. Each call makes a new, empty store.

@@ -1,5 +1,5 @@
 // The pubky SDK as the client and the migration adapter meet it, over a map of URLs. The calls
-// and answers are the ones the `pubky.d.ts` of `@synonymdev/pubky` 0.11.0 and 0.14.0 declare: a
+// and answers are the ones the `pubky.d.ts` of `@synonymdev/pubky` 0.11.0, 0.14.0 and 0.18.0 declare: a
 // LIST of a directory with nothing under it, a GET or a DELETE of a missing file throw 404,
 // `exists` gives false.
 

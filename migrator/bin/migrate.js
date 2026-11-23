@@ -228,7 +228,7 @@ const main = async (argv, env, io = { stdin: process.stdin, stderr: process.stde
   try {
     version = createRequire(import.meta.url)("@synonymdev/pubky/package.json").version;
   } catch {
-    console.error("pubky-social-migrate needs the pubky SDK: npm install @synonymdev/pubky@^0.14");
+    console.error("pubky-social-migrate needs the pubky SDK: npm install @synonymdev/pubky@^0.18");
     return 1;
   }
   if (!sdkSupported(version)) {

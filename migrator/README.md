@@ -88,7 +88,7 @@ Or from a terminal, with a recovery file:
 
 ```bash
 chmod 600 ./account.pkarr
-npx -p pubky-social-migrator -p @synonymdev/pubky@^0.14 pubky-social-migrate --recovery ./account.pkarr
+npx -p pubky-social-migrator -p @synonymdev/pubky@^0.18 pubky-social-migrate --recovery ./account.pkarr
 ```
 
 The CLI asks for the passphrase with echo off and signs out when the run ends. `--dry-run` writes nothing, `--rescan` walks a finished tree again, `--json` prints the report as JSON, and `--testnet` points it at a local testnet. It exits 0 when done, 2 when it should run again, 3 when it aborted and 1 on a usage error.

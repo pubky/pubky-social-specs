@@ -58,7 +58,7 @@ cargo add pubky-social-specs --features openapi
 
 `migrator` adds the `migrate` module: I/O-free functions that take one owner's `/pub/pubky.app/` objects as bytes and return the `social/v1` objects to write. Every output is read back through the 1.x reader before it is returned, and an object that cannot migrate is skipped with a counted reason, never repaired. Only a client that runs the migration needs it, so it is off by default; [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator) is that client, built from this crate to wasm.
 
-- **MSRV:** 1.89 (see `rust-version` in `Cargo.toml`)
+- **MSRV:** 1.91 (see `rust-version` in `Cargo.toml`)
 - **API docs:** [docs.rs/pubky-social-specs](https://docs.rs/pubky-social-specs)
 
 ## Models

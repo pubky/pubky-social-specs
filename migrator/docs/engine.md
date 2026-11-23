@@ -123,7 +123,7 @@ docker run -d --name pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:18-a
 until docker exec pg pg_isready -U postgres; do sleep 1; done
 docker run -d --name testnet --network host \
   -e TEST_PUBKY_CONNECTION_STRING=postgres://postgres:postgres@localhost:5432/postgres \
-  synonymsoft/homeserver-testnet:v0.14.0
+  synonymsoft/homeserver-testnet:v0.18.0
 # ready once the pkarr relay serves the homeserver's record
 until curl -sf -o /dev/null http://localhost:15411/8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo; do sleep 1; done
 npm install && (cd pkg && npm run build) && cd migrator && npm run e2e

@@ -37,11 +37,11 @@ jobs:
         run: cargo nextest run --no-fail-fast --features __replay,__surface -E 'not test(recorded_answers_are_current)'
 
   msrv:
-    name: MSRV (1.89)
+    name: MSRV (1.91)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: dtolnay/rust-toolchain@1.91
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
