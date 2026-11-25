@@ -763,6 +763,38 @@ export const families = {
     const arm = { canonicalPubky: 0, canonicalWeb: 1, canonicalExternal: 2 }[op];
     return request(op, s(arm !== undefined && r.chance(0.7) ? uri(r, arm) : uri(r)));
   },
+  // The writer fold: mostly web links built from the parts it folds or keeps
+  fold: (r) => {
+    if (r.chance(0.2)) return request("foldWebTarget", s(uri(r)));
+    let out = [
+      r.pick(["https://", "http://", "HTTPS://", "HtTp://", "https:/", "ftp://", "https://"]),
+      r.pick(["", "", "", "u@", "u:p@", "@", "u@v@", "U:P@Example.COM@"]),
+      r.pick([
+        "example.com",
+        "Example.COM",
+        "www.Example.com",
+        "é.example",
+        "Bücher.example",
+        "xn--bcher-kva.example",
+        "[::1]",
+        "[2001:DB8::1]",
+        "[::1",
+        "[::1]x",
+        "192.168.0.1",
+        "",
+        "%45x.com",
+        "a b",
+        "EXAMPLE.com.",
+        "x\\y",
+        str(r, 4),
+      ]),
+      r.pick(["", "", "", ":", ":80", ":443", ":0443", ":080", ":8080", ":8x", ":65536", ":00", "::80"]),
+      r.pick(["", "", "/", "/A/b/", "/a/./b/../c", "?q=1", "?B=2&a=1", "#f", "/p?q#f", "/%7e%2F", "?#", "/a#b#c", "\\x", "/é", "/a@b", "?x=u@v", `/${str(r, 6)}`]),
+    ].join("");
+    if (r.chance(0.1)) out = r.pick([" ", "\t", "\u00a0", "\u200b"]) + out;
+    if (r.chance(0.1)) out += r.pick([" ", "\u3000", "\n"]);
+    return request("foldWebTarget", s(out));
+  },
   uri: (r) =>
     r.pick([
       () => request("parseUri", s(uri(r))),

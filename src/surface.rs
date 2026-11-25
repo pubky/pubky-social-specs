@@ -8,7 +8,8 @@
 //! the exact body of a PUT, and a JSON reader of the answer would respell a number.
 
 use crate::canonicalize::{
-    canonicalize_external_uri, canonicalize_pubky_uri, canonicalize_universal, canonicalize_web_uri,
+    canonicalize_external_uri, canonicalize_pubky_uri, canonicalize_universal,
+    canonicalize_web_uri, fold_web_target,
 };
 use crate::common::{
     ascii_fold, code_point_len, frozen_trim, json_error, pinned, validate_hash_id_format,
@@ -554,6 +555,7 @@ fn run(op: &str, a: &mut Args) -> Result<Value, String> {
         "canonicalWeb" => value(&canonicalize_web_uri(a.s()?).ok())?,
         "canonicalExternal" => value(&canonicalize_external_uri(a.s()?).ok())?,
         "canonicalUniversal" => value(&canonicalize_universal(a.s()?).ok())?,
+        "foldWebTarget" => value(&fold_web_target(a.s()?).ok())?,
         // Any JSON value read and written back, as an unknown member of an object is
         "json" => STANDARD
             .encode(serde_json::to_vec(&a.parsed::<Value>()?).map_err(|e| e.to_string())?)

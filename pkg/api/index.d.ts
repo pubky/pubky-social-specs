@@ -717,6 +717,32 @@ export declare function isPubkyUrl(value: unknown): value is T.PubkyUrl;
  */
 export declare function parseOwnerPath(value: string): T.OwnerPath;
 /**
+ * A web link in the spelling a writer stores as a tag or bookmark target: the scheme and the
+ * host to ASCII lowercase, a port of digits without leading zeros, no default port (80 for
+ * `http`, 443 for `https`), empty port, userinfo or fragment, and `/` for an empty path. The path
+ * and the query are kept as written, and so is what only a URL parser would rewrite (a non-ASCII
+ * host, percent-encoding, dot segments). Two links that differ only in these parts get one
+ * spelling, so one tag id.
+ *
+ * Optional: a reader never folds, and a target stored unfolded stays valid and its own target.
+ * An uppercase scheme is taken. The result passes the web rules as written and is at most one
+ * code point longer than the trimmed input (the `/` of an empty path), so a target at
+ * `limits.referenceUriMaxLength` can fold to one past it, which `buildTag` refuses.
+ *
+ * @throws `ValidationError` with `code: "reference"` and `field: "target"` for a string that
+ *  is no `http` or `https` reference the web rules accept; `ArgumentError` for an argument of the
+ *  wrong type.
+ *
+ * @example
+ * ```ts
+ * import { buildTag, foldWebTarget } from "pubky-social-specs";
+ * const owner = "8kkppkmiubfq4pxn6f73nqrhhhgkb5xyfprntc9si3np9ydbotto";
+ * const target = foldWebTarget("HTTPS://Example.COM:443/a?b=1#top");
+ * console.log(target, buildTag(owner, target, "rust").id);
+ * ```
+ */
+export declare function foldWebTarget(target: string): string;
+/**
  * A reference to a post as a `PostRef`, in its full `pubky://` spelling: versionless.
  *
  * @throws `ValidationError` with `code: "path"` for a string that is no versionless reference to a

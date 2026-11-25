@@ -56,7 +56,7 @@ A URL names one stored file. A reference names a thing: for a post it leaves out
 
 `buildPost` takes a note, an article or a collection, told apart by `kind`, and TypeScript refuses a member of another kind (a `title` on a note, a `parent` on a collection). It returns a `BuiltPost`, which adds the `editId` of the version; for a new post it equals `id`. `body` is a `Uint8Array` that `fetch`, `Blob` and the SDK take as it is; `new TextDecoder().decode(body)` shows the JSON.
 
-A builder trims display text and lowercases the ASCII letters of a tag label, and nothing more: `café` in NFC and in NFD are two labels with two ids. A reference is stored as written, so it must be canonical already: a pubky reference comes from `buildUri`, and a web URL starts with lowercase `http://` or `https://` and holds no whitespace. Absent and `null` mean the same in an input.
+A builder trims display text and lowercases the ASCII letters of a tag label, and nothing more: `café` in NFC and in NFD are two labels with two ids. A reference is stored as written, so it must be canonical already: a pubky reference comes from `buildUri`, and a web URL starts with lowercase `http://` or `https://` and holds no whitespace. `foldWebTarget` gives a web link the one spelling a tag or bookmark target should have (lowercase host, no default port, userinfo or fragment); it is optional, and a target stored without it stays valid. Absent and `null` mean the same in an input.
 
 A slug gives a version a readable leaf, `{editId}-{slug}.json`: 1 to 64 of a-z, 0-9 and `-`. It carries no identity, so a renamed slug is the next edit, and it is allowed under both roots.
 

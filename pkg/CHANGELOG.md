@@ -21,6 +21,22 @@ migration where stored data is affected. The migration flag (`priv/social/v1/_mi
 records `transform_rev`, so a release whose transforms write differently walks a migrated tree
 again.
 
+## Unreleased
+
+### API
+
+- `foldWebTarget(target)`: a web link in the spelling a writer stores as a tag or bookmark
+  target. The scheme and the host fold to ASCII lowercase; a port of digits loses its leading
+  zeros; a default port (80 for `http`, 443 for `https`), an empty port, userinfo and the
+  fragment are dropped; an empty path becomes `/`. The path and the query are kept as written.
+  The crate adds `fold_web_target`, the same rule; `vectors/web_target.json` pins it for both.
+  A target at the reference cap can fold one code point past it (the `/` of an empty path).
+  No builder calls it, and no reader or validation rule changes.
+
+### Stored bytes
+
+- None. A target stored unfolded stays valid and its own target, with its own id.
+
 ## 1.0.0
 
 ### API

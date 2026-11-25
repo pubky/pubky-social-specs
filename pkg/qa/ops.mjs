@@ -51,6 +51,15 @@ const ops = {
   canonicalWeb: plain(canon.canonicalWeb),
   canonicalExternal: plain(canon.canonicalExternal),
   canonicalUniversal: plain(canon.canonicalUniversal),
+  // The public entry, its refusal as the oracle's null
+  foldWebTarget(a) {
+    try {
+      return api.foldWebTarget(a.s);
+    } catch (e) {
+      if (e instanceof api.ValidationError && e.code === "reference") return null;
+      throw e;
+    }
+  },
   json: (a) => b64(text.utf8(writeJson(readJson(a.j)))),
   mimeToExt: plain(mimeToExt),
   stableKey: plain(legacy.stableKey),

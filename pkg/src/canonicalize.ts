@@ -33,6 +33,41 @@ export function canonicalWeb(raw: string): string | null {
   return host === "" ? null : s;
 }
 
+/**
+ * The writer fold of a web reference, or null for a value the web gate refuses, an uppercase
+ * scheme aside: scheme and host to ASCII lowercase, a port of digits without leading zeros, no
+ * default or empty port, no userinfo, no fragment, an empty path as `/`. The path and the query
+ * are kept as written.
+ */
+export function foldWeb(raw: string): string | null {
+  const s = frozenTrim(raw);
+  const lower = asciiFold(s.slice(0, 8));
+  const scheme = lower.startsWith("http://") ? "http" : lower.startsWith("https://") ? "https" : null;
+  if (scheme === null) return null;
+  const rest = s.slice(scheme.length + 3);
+  if (canonicalWeb(`${scheme}://${rest}`) === null) return null;
+  const end = rest.search(/[/?#]/);
+  const authority = end < 0 ? rest : rest.slice(0, end);
+  const tail = end < 0 ? "" : rest.slice(end);
+  const path = tail.includes("#") ? tail.slice(0, tail.indexOf("#")) : tail;
+  const { host, port } = splitHostPort(authority.slice(authority.lastIndexOf("@") + 1));
+  // A port of digits is a number: no leading zeros, and none at all when it is the default
+  const value = port === null ? "" : /^[0-9]+$/.test(port) ? port.replace(/^0+(?=.)/, "") : port;
+  const kept = value === "" || value === (scheme === "http" ? "80" : "443") ? "" : `:${value}`;
+  return `${scheme}://${asciiFold(host)}${kept}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+/** A bracketed IPv6 literal runs to its `]`, any other host to the first `:`. */
+function splitHostPort(hostPort: string): { host: string; port: string | null } {
+  if (hostPort.startsWith("[")) {
+    const close = hostPort.indexOf("]");
+    const after = close < 0 ? "" : hostPort.slice(close + 1);
+    return after.startsWith(":") ? { host: hostPort.slice(0, close + 1), port: after.slice(1) } : { host: hostPort, port: null };
+  }
+  const colon = hostPort.indexOf(":");
+  return colon < 0 ? { host: hostPort, port: null } : { host: hostPort.slice(0, colon), port: hostPort.slice(colon + 1) };
+}
+
 /** Any other scheme: the scheme folds, the rest is opaque. */
 export function canonicalExternal(raw: string): string | null {
   const s = frozenTrim(raw);

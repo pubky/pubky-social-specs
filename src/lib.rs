@@ -23,7 +23,7 @@ pub use constants::{
 // Re-export common utilities
 pub use canonicalize::{
     canonicalize_external_uri, canonicalize_pubky_uri, canonicalize_universal,
-    canonicalize_web_uri, validate_reference, AllowedSchemes,
+    canonicalize_web_uri, fold_web_target, validate_reference, AllowedSchemes,
 };
 pub use common::{
     ascii_fold, code_point_len, frozen_trim, is_frozen_whitespace, mint_timestamp_micros,

@@ -82,6 +82,86 @@ pub fn canonicalize_web_uri(raw: &str) -> Result<String, ()> {
     Ok(s.to_string())
 }
 
+/// The writer fold for a web reference, applied before it is stored as a tag or bookmark
+/// target: one spelling for links that differ only in the parts below. The scheme and the host
+/// fold to ASCII lowercase; a port of digits loses its leading zeros; a default port (80 for
+/// `http`, 443 for `https`), an empty port, the userinfo and the fragment are dropped; an empty
+/// path becomes `/`. The path and the query are kept byte for byte, and so is anything that
+/// needs more than these rules to read (a non-ASCII host, a port that is not digits,
+/// percent-encoding, dot segments).
+///
+/// Takes what the web gate takes, plus an uppercase scheme, and returns a value the web gate
+/// accepts unchanged. Idempotent. The output is at most one code point longer than the trimmed
+/// input (the `/` of an empty path), so a target at the reference cap can fold to one past it.
+/// Validation never calls it: a stored target is valid as written, folded or not.
+#[allow(clippy::result_unit_err)]
+pub fn fold_web_target(raw: &str) -> Result<String, ()> {
+    let s = frozen_trim(raw);
+    let (scheme, rest) = if s
+        .get(..7)
+        .is_some_and(|p| p.eq_ignore_ascii_case("http://"))
+    {
+        ("http", &s[7..])
+    } else if s
+        .get(..8)
+        .is_some_and(|p| p.eq_ignore_ascii_case("https://"))
+    {
+        ("https", &s[8..])
+    } else {
+        return Err(());
+    };
+    // The gate first, on the lowercased scheme: whitespace, controls and an empty host refuse
+    canonicalize_web_uri(&[scheme, "://", rest].concat())?;
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (authority, tail) = rest.split_at(end);
+    // The fragment is not part of the link
+    let tail = &tail[..tail.find('#').unwrap_or(tail.len())];
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    let (host, port) = split_host_port(host_port);
+    let default = if scheme == "http" { "80" } else { "443" };
+    let mut out = [scheme, "://", &ascii_fold(host)].concat();
+    if let Some(port) = port {
+        // A port of digits is a number: written without leading zeros, and not at all when it
+        // is the scheme's default
+        let digits = !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit());
+        let port = match port.trim_start_matches('0') {
+            "" if digits => "0",
+            value if digits => value,
+            _ => port,
+        };
+        if !port.is_empty() && port != default {
+            out.push(':');
+            out.push_str(port);
+        }
+    }
+    if !tail.starts_with('/') {
+        out.push('/');
+    }
+    out.push_str(tail);
+    Ok(out)
+}
+
+/// Host and port of an authority past its userinfo: a bracketed IPv6 literal runs to its `]`,
+/// any other host to the first `:`. A literal followed by anything but a port stays whole.
+fn split_host_port(host_port: &str) -> (&str, Option<&str>) {
+    if host_port.starts_with('[') {
+        return match host_port.find(']') {
+            Some(i) => match &host_port[i + 1..] {
+                "" => (host_port, None),
+                after => match after.strip_prefix(':') {
+                    Some(port) => (&host_port[..=i], Some(port)),
+                    None => (host_port, None),
+                },
+            },
+            None => (host_port, None),
+        };
+    }
+    match host_port.split_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (host_port, None),
+    }
+}
+
 /// The universal tier's third arm: any scheme-shaped URI that is not pubky, http or https
 /// (nostr, geo, ipfs, magnet, did). The scheme folds to lowercase; the rest is opaque, an
 /// identifier rather than a location this crate resolves.
