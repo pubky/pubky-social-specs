@@ -1,0 +1,400 @@
+{"q":{"op":"foldWebTarget","args":[{"s":"https://#:443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@:0443/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@192.168.0.1:65536/é "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:65536/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://U:P@Example.COM@[::1]x:443 "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x:443/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@192.168.0.1:080/cz8c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:80/cz8c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]x?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u:p@EXAMPLE.com.::80/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com.::80/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"Pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/priv/Social/v2/settＡtings/x.json\r"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky:p7ahma6e668xmqnssa1nqefffxxfnnhmj4b6kst3f5bi6npwo7hm//social/v1/files/V9XMHRX15QTQ5JYZKGB2V9H3PR.jpg"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://Bücher.example:65536/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example:65536/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[2001:DB8::1]:00/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]:0/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://example.com:8080/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:8080/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://?:443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@EXAMPLE.com.:080?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com.:80/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]x:8080?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x:8080/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@192.168.0.1 "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@EXAMPLE.com.:00?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com.:0/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@%45x.com:8x?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%45x.com:8x/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://?:/p?q=1#f\r"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http:///\r"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"did:aa\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/www.Example.com:65536?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp:///é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@é.example/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://a b:443/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"IPFS: ​"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https:/u@é.example::80/C0\ra"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@Example.COM:/A/b/　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@%45x.com:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://%45x.com:0/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@Bücher.example:00/é\ny"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" %"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@é.example:0443/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/:80#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@a b:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://Bücher.example:/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://ZBc/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://Bücher.example:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://U:P@Example.COM@192.168.0.1:8080/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:8080/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@example.com:80/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​http://U:P@Example.COM@192.168.0.1\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@z ::80/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@[::1]:8080\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://%45x.com:/#..\u0000 B9"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://Bücher.example:8080?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:8080/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"IPFS:﻿0bbz  Z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@x\\y:8x?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@xn--bcher-kva.example:65536/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example:65536/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@é.example:/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://é.example/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/U:P@Example.COM@c1:80/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"B _İ x-yc0a"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://U:P@Example.COM@x\\y:443/%7e%2F "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://x\\y:443/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@[2001:DB8::1]/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[2001:db8::1]/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@192.168.0.1:65536/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​https:/%45x.com:8x?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@[::1]:080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://a b:8080?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@Bücher.example:0443\\x "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example:0443\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1:0443/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1:0443/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://Bücher.example:8x?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:8x/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@a b/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"geo:{b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://[::1]:65536?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]:65536/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://example.com::80/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com::80/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@8X[-:?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://8x[-/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@1:443\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://1:443\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://example.com/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@:80/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@Example.COM:0443/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:443/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/X𐐀::443/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@Z:443?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://z/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://Bücher.example?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://Bücher.example:80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1:00/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://U:P@Example.COM@[2001:DB8::1]/a@b "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[2001:db8::1]/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://192.168.0.1:80/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:80/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://192.168.0.1?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"cＡB😀Zb"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@Bücher.example\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]:8080/A"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]:8080/A"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]x\\x\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://EXAMPLE.com.?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com./?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"did:00　\u0000A"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@example.com:080/Z~Ａ8B"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/Z~Ａ8B"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://. /A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/[::1]:0443/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" HTTPS://U:P@Example.COM@c\f z\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@[::1::80?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1::80/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/xn--bcher-kva.example::80?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"magnet:8bxB1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"a\t#XzX1Y9XZ} "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https:/@x\\y:443/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​HTTPS://u@v@:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://%45x.com::80?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​http://U:P@Example.COM@é.example:0443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://Example.COM/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@[::1:0443\\x "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:0443\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@[::1?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://Example.COM:80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://x\\y/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@[::1:"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/Bücher.example/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/a b/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"geo:\u000b-z}#? Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://xn--bcher-kva.example/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://U:P@Example.COM@Bücher.example:443/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:443/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@x\\y:0443/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@[::1]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://%45x.com:443/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%45x.com/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://192.168.0.1:0443?# "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://192.168.0.1:443/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@192.168.0.1:65536/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:65536/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" http://u@v@:8080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/pub/social/v//C \u001fA"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/:443/​A"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" http://U:P@Example.COM@www.Example.com:8080?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com:8080/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"Pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo:80/pub/social/V1/blobs/FWTC25P2MHMBNJSDVJW10VAGY0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://[::1]x:65536?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x:65536/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@www.Example.com:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://U:P@Example.COM@[2001:DB8::1]?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[2001:db8::1]/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://EXAMPLE.com.:/é "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com./é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://?é.example/p?q=1#f﻿"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u:p@192.168.0.1:080/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:80/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://192.168.0.1:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​http://a b/,~XyzZ"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@x\\y:?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@[::1]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@a b:/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@192.168.0.1:080/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://192.168.0.1/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"nostr:y1\u0000a Z\""}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@192.168.0.1:80\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]:080/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]:80/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@%45x.com/..9"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://www.Example.com:65536?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky:/u:p@8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewopublic/social/v1/posts/0035PQ4WA8KD8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://192.168.0.1:0443#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://192.168.0.1:443/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@example.com:00/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\u001f ZCbZ08"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]x/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@v@::80//\r8　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@example.com:65536/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:65536/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/www.Example.com:65536?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo:80pub/pubky.app/profile.json/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"X1\u0000Zxb a8X8 -Ａ0\\8Yx.."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@192.168.0.1/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@Example.COM:8x/a@b　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:8x/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://[2001:DB8::1]:80/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]:80/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://Example.COM/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://u@v@[::1]::80/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]::80/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"did: }"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://a b:443/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@xn--bcher-kva.example/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://:443?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://:00\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://[::1:080?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@v@www.Example.com:　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://www.Example.com/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://%45x.com:00/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://%45x.com:0/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ab.[9bX﻿@xXＡ?8y c\u0000z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://www.Example.com:8080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com:8080/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]x?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@Example.COM:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@www.Example.com:443/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[2001:DB8::1]?x=u@v　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@v@xn--bcher-kva.example?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u:p@%45x.com/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://%45x.com/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"1a:bcc@"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@xn--bcher-kva.example:080?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@v@Example.COM:\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@192.168.0.1:00/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://é.example"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://é.example/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@%45x.com/y YB%"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@%45x.com:443/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]:0443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]:443/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/%45x.com/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@[/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@Bücher.example/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://:0443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@v@[2001:DB8::1]/byxb0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]/byxb0"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://:65536/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"B[ 8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@Example.COM:65536/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:65536/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubkyx:İc "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@a b:00/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://c:00?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://c:0/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://U:P@Example.COM@EXAMPLE.com."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com./"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@example.com:8080#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:8080/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://x\\y:080/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y:80/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u@v@Bücher.example/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"y,"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://..x{:80\\x\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://..x{:80\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://yX.0#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://yx.0/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@é.example:8080"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://é.example:8080/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]:0443/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@Example.COM:65536?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:65536/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky:/9q34by8b8hh4zmk8fwgddz71bwgjfskeaw33yumxntuat13qz7yf/pub/social/v/yc/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/@[::1:65536/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@:65536#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@x\\y:080"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://Bücher.example:8080?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@x\\y:/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"nostr:aZbYb9"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://::80#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@[2001:DB8::1]:443/ :,Y1z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https:/u@/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@192.168.0.1:443/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]:65536/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]:65536/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@[::1]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" HTTPS://Example.COM::80?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com::80/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u:p@ 99:8080?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@[::1:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://U:P@Example.COM@é.example:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://é.example:0/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@x\\y:0443"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@:/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[2001:DB8::1]:8x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]:8x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://[::1:80\\x　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1:80\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@[::1]x::80/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x::80/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@%45x.com:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@Bücher.example:443#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:443/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://U:P@Example.COM@a b/Zyb　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@%45x.com/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%45x.com/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://www.Example.com:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​https:/a b/é "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky:8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/pub/social/x/tags/lC.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://Example.COM:8080/a/./b/../c "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:8080/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://Bücher.example:65536"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:65536/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://Example.COM:00/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:0/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://www.Example.com::80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com::80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://U:P@Example.COM@[2001:DB8::1]::80\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]::80\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"did:B 8-X@"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" HtTp://u:p@xn--bcher-kva.example:65536?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://xn--bcher-kva.example:65536/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@[2001:DB8::1]:/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://%45x.com:65536/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://%45x.com:65536/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u@v@x\\y:8x/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y:8x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@é.example?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://é.example/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@xn--bcher-kva.example::80/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example::80/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@example.com:0443?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com:443/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@[::1:8x?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u:p@EXAMPLE.com.:65536?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://#:/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@a b/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://u@v@xn--bcher-kva.example:80/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example:80/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://Bücher.example:8x?# "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example:8x/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://%45x.com:8080"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/example.com:8080"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://pxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jypub/social/v2/files/AHSNK68THB7SB00W5PTGYXV154.exe"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:00/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":".Z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"nostr:?zé"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@[2001:DB8::1]:65536"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@Bücher.example::80\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example::80\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://[2001:DB8::1]:080/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://a b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://8PINXXGQS41N4AIDIDENW5APQP1URFMZDZTR8JT4ABRKDN435EWO/public//pubky.app/profile.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/pub/other.app/v/tags/_x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]:00/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]:0/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/@www.Example.com:8080/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u:p@ x:65536/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://u:p@8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewopriv/social/v01/p,cial/v01/profile.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u:p@192.168.0.1::80/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1::80/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u:p@www.Example.com/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://:443?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\tftp://U:P@Example.COM@a b:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"nostr:Xz"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://\u000bx\"z/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo//other.app/v01/posts/0035Q6YM8W1T8/0035QZPT4QG00.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@xn--bcher-kva.example::80/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example::80/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://www.Example.com:8x/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com:8x/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u:p@Example.COM:?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@v@%45x.com:80/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://@[2001:DB8::1]:?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u:p@:8x/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@é.example:80?# "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://é.example:80/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@Y 　:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@:8x?x=u@v\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@a b?q=1\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@zb:65536/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://EXAMPLE.com.:080　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com.:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]:8080"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]:8080/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u:p@Bücher.example:#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://x\\y/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://%45x.com:8x?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@8\\:65536/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://8\\:65536/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://U:P@Example.COM@www.Example.com:8080/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com:8080/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@Bücher.example:0443\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@a b/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@Bücher.example/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://bücher.example/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u:p@Example.COM:080?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@[::1]x:8080\\x　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x:8080\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://x\\y:080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://x\\y/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@v@é.example:80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://é.example:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://x\\y?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://x\\y/?"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://[::1]::80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]::80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@example.com/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://#example.com:8080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://Example.COM:8080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:8080/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@192.168.0.1:65536"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/@[::1]x:00?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubky8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://é.example:?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://é.example/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://EXAMPLE.com.::80/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com.::80/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https:/U:P@Example.COM@www.Example.com:8x?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u:p@[::1?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"pubkypxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jypublic/other.app/v01/posts/0035QP6K1EEY8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://a b:80/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://U:P@Example.COM@[::1:443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@v@example.com"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"IPFS:ax988Z"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"PUBKY://u:p@8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo/pub/social/v2/settings/x.json"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@B  _\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://[::1]:00?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@%45x.com:65536/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://%45x.com:65536/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@192.168.0.1::80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1::80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@x\\y:"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@:0443?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@EXAMPLE.com."}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTP://a b/\n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://a b/p?q#f "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://xn--bcher-kva.example:080/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example:80/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\tHTTPS://U:P@Example.COM@[::1]:00/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]:0/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://a b:443?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@xn--bcher-kva.example/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://xn--bcher-kva.example:443?#"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@xn--bcher-kva.example:65536?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example:65536/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://@a b:/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@[::1]::80"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\npubkypxnu33x7jtpx9ar1ytsi4yxbp6a5o36gwhffs8zoxmbuptici1jy/priv/other.app/v2/mutes/xrm1xerfnxkyt4bye6gaiw98zqf8r46utxpxiwn3oq9bocnx1n"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://:443"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://xn--bcher-kva.example:8x?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example:8x/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u@Bücher.example/0"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/0"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@[2001:DB8::1]:00?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[2001:db8::1]:0/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@[::1]x:65536\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x:65536\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/Bücher.example"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://u:p@﻿/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://﻿/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://{ca8::80/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://{ca8::80/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://xn--bcher-kva.example:?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://xn--bcher-kva.example/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@x\\y:443/a#b#c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTP://é.example/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://é.example/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"Z éyC\\A𐐀b\u001fＡ0Xz180"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@%45x.com::80/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%45x.com::80/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@Example.COM:8x/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:8x/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u@v@Bücher.example/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://%45x.com#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%45x.com/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://%45x.com:8080/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://@[::1/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://[::1:443/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:443/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"geo:9Y1x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTP://u:p@:80/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u:p@example.com:80/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/U:P@Example.COM@EXAMPLE.com.:80/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://[::1]x:080?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x:080/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://[::1]x/%7e%2F"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x/%7e%2F"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://:0443?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://#a b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u@[::1]x:65536/a/./b/../c"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x:65536/a/./b/../c"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@www.Example.com:8080/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://www.example.com:8080/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttp://[::1]x?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@ C\u001f:/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u:p@192.168.0.1:80/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":" https://u:p@:8x/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://a b/𐐀İİ\t_a"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@192.168.0.1/p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://192.168.0.1/p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@192.168.0.1:443/a#b#c "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/a"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u:p@192.168.0.1:?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/x\\y:00"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://Example.COM:00\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com:00\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@[2001:DB8::1]:443?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[2001:db8::1]:443/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://[::1]x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@az:00\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://az:00\\x/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://u@a b\\x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://www.Example.com#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u:p@a b:/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"Pubky://8pinxxgqs41n4aididenw5apqp1urfmzdztr8jt4abrkdn435ewo:80priv//social/v1/posts/0035PQR7GAFN8"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://Bücher.example:443?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"IPFS:_/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"http://u@v@Example.COM:/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://example.com/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@%9:65536/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://%9:65536/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"​https://[::1]?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://@192.168.0.1:080/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://192.168.0.1:80/a@b"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://U:P@Example.COM@Z😀𐐀A:080/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://z😀𐐀a:80/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://@[::1]x:0443?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"http://[::1]x:0443/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@v@[::1:/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@v@[::1]:8x"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/U:P@Example.COM@[::1]/A/b/ "}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\tftp://U:P@Example.COM@example.com:80/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://u@www.Example.com:8x/a@b"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@xn--bcher-kva.example:443/A/b/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://xn--bcher-kva.example/A/b/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@Bücher.example:0443"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://bücher.example/"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"ftp://EXAMPLE.com.:0443/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HtTp://u@v@a b:0443/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps:/u@:8080/　"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://[::1:65536?x=u@v"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1:65536/?x=u@v"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://@www.Example.com:?q=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://www.example.com/?q=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"\thttps://u@EXAMPLE.com./p?q#f"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com./p?q"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https:/u@xn--bcher-kva.example/"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":null}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://u@EXAMPLE.com.:8080/é"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://example.com.:8080/é"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"HTTPS://é.example:080?B=2&a=1"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://é.example:80/?B=2&a=1"}}
+{"q":{"op":"foldWebTarget","args":[{"s":"https://U:P@Example.COM@[::1]:0443"}],"now":1790000000000000,"last":0},"a":{"last":0,"ok":"https://[::1]/"}}

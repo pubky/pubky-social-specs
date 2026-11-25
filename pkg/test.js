@@ -86,6 +86,7 @@ describe("pubky-social-specs", () => {
           "feedPaths",
           "feedReaches",
           "feedSorts",
+          "foldWebTarget",
           "hashMedia",
           "idMicros",
           "isPubkyUrl",

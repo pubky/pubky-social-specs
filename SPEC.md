@@ -615,6 +615,15 @@ Then, for every reference:
    user is invalid in any object.
 4. **Versionless posts.** A pubky reference to a post names `posts/{postId}`, never a version.
 
+**Web targets.** A writer should fold a web tag or bookmark target before it stores it: the
+scheme and the host to ASCII lowercase, a port of digits without leading zeros, no default port
+(80 for `http`, 443 for `https`), no empty port, no userinfo, no fragment, and `/` for an empty
+path. The path and the query stay as written. `fold_web_target` (`foldWebTarget` in the npm
+package) is this fold, and [`vectors/web_target.json`](vectors/web_target.json) pins it. The
+added `/` can take a target at the length cap one code point past it. It is a writer rule only:
+validation does not require it, a reader never rewrites a stored target, and a target an earlier
+writer stored unfolded stays valid and a different target, with its own id.
+
 A user is referenced by the URL of their profile, `pubky://<owner>/pub/social/v1/profile.json`.
 The bare `pubky://<owner>` is also valid but is a different target, so writers use the profile
 URL.

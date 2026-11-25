@@ -28,6 +28,11 @@ The semantic vectors (`vectors/semantic/v0_to_v1.json`) are shared by the Rust t
 transforms ships with a vector row, and both sides read the same file. The 0.x inputs in it are
 what the frozen 0.x reader stores, pinned by the test in `tests/migrate_vectors.rs`.
 
+The web target vectors (`vectors/web_target.json`) are shared the same way, by
+`tests/web_target_vectors.rs` and `pkg/vectors.test.js`: each input with the spelling
+`fold_web_target` gives it, and the inputs it refuses. The `fold` family of the recorded vectors
+fuzzes the same function against the oracle.
+
 ## The package against the crate
 
 The npm package implements the 1.x surface natively in TypeScript, so nothing but a check keeps
