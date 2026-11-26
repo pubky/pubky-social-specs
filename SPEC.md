@@ -185,11 +185,11 @@ For `kind = collection`, `parent`, `embed`, and `post.attachments` must be unset
 
 **URI:** `/pub/pubky.app/tags/:tag_id`
 
-| **Field**    | **Type** | **Description**             | **Validation Rules**                                     |
-| ------------ | -------- | --------------------------- | -------------------------------------------------------- |
-| `uri`        | String   | URI of the tagged object.   | Required. Must be a valid URI.                           |
-| `label`      | String   | Label for the tag.          | Required. Trimmed, lowercase. Max length: 20 characters. |
-| `created_at` | Integer  | Unix timestamp of creation. | Required.                                                |
+| **Field**    | **Type** | **Description**             | **Validation Rules**                                        |
+| ------------ | -------- | --------------------------- | ----------------------------------------------------------- |
+| `uri`        | String   | URI of the tagged object.   | Required. Must be a valid URI. Max length: 1024 characters. |
+| `label`      | String   | Label for the tag.          | Required. Trimmed, lowercase. Max length: 20 characters.    |
+| `created_at` | Integer  | Unix timestamp of creation. | Required.                                                   |
 
 **Validation Notes:**
 

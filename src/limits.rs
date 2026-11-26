@@ -31,6 +31,10 @@ pub struct ValidationLimits {
     pub tag_label_max_length: usize,
     /// Disallowed characters, including common whitespace.
     pub tag_invalid_chars: &'static [char],
+    /// Maximum tag URI length in characters, counted on the sanitized URI.
+    ///
+    /// The cap the 1.x tag adopts for its target, so a tag that passes here also migrates.
+    pub tag_uri_max_length: usize,
     /// Minimum username length in characters.
     pub user_name_min_length: usize,
     /// Maximum username length in characters.
@@ -92,6 +96,7 @@ pub const VALIDATION_LIMITS: ValidationLimits = ValidationLimits {
     tag_label_min_length: 1,
     tag_label_max_length: 20,
     tag_invalid_chars: &[',', ':', ' ', '\t', '\n', '\r'],
+    tag_uri_max_length: 1024,
     user_name_min_length: 3,
     user_name_max_length: 50,
     user_bio_max_length: 160,
