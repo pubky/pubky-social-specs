@@ -170,8 +170,17 @@ impl Validatable for PubkyAppTag {
 
         // Validate URI format
         Url::parse(&self.uri)
-            .map(|_| ())
-            .map_err(|_| format!("Validation Error: Invalid URI format: {}", self.uri))
+            .map_err(|_| format!("Validation Error: Invalid URI format: {}", self.uri))?;
+
+        // Validate URI length. The message leaves the URI out: it can be any size.
+        if self.uri.chars().count() > VALIDATION_LIMITS.tag_uri_max_length {
+            return Err(format!(
+                "Validation Error: Tag URI exceeds maximum length of {} characters",
+                VALIDATION_LIMITS.tag_uri_max_length
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -464,5 +473,34 @@ mod tests {
             "Should accept {} emoji characters as tag",
             VALIDATION_LIMITS.tag_label_max_length
         );
+    }
+
+    #[test]
+    fn test_uri_max_length() {
+        let max = VALIDATION_LIMITS.tag_uri_max_length;
+        let base = "https://example.com/";
+        let at_max = format!("{base}{}", "a".repeat(max - base.len()));
+        assert_eq!(at_max.chars().count(), max);
+
+        let tag = PubkyAppTag::new(at_max.clone(), "cool".to_string());
+        assert!(tag.validate(None).is_ok(), "a URI at the cap is accepted");
+
+        let tag = PubkyAppTag::new(format!("{at_max}a"), "cool".to_string());
+        assert_eq!(
+            tag.validate(None).unwrap_err(),
+            format!("Validation Error: Tag URI exceeds maximum length of {max} characters")
+        );
+    }
+
+    #[test]
+    fn test_uri_length_is_counted_after_sanitization() {
+        let max = VALIDATION_LIMITS.tag_uri_max_length;
+        // Each `é` is one character as written and six (`%C3%A9`) once sanitized.
+        let uri = format!("https://example.com/{}", "é".repeat(max / 2));
+        assert!(uri.chars().count() < max);
+
+        let tag = PubkyAppTag::new(uri, "cool".to_string());
+        assert!(tag.uri.chars().count() > max);
+        assert!(tag.validate(None).is_err());
     }
 }
