@@ -49,12 +49,15 @@ For a full homeserver flow, see [`examples/create_user.rs`](https://github.com/p
 
 | Feature    | Purpose                        |
 | ---------- | ------------------------------ |
+| `sdk`      | Key conversions on `PubkyId` through the `pubky` crate (on by default, native only) |
 | `openapi`  | OpenAPI schemas via `utoipa`   |
 | `migrator` | The 0.x to 1.x transforms      |
 
 ```bash
 cargo add pubky-social-specs --features openapi
 ```
+
+`sdk` gives `PubkyId::to_public_key` and `PubkyId::from` a `pubky::PublicKey` or `pubky::Keypair`. A reader that only parses and validates objects can build without it, and without the Pubky client crate: `cargo add pubky-social-specs --no-default-features`.
 
 `migrator` adds the `migrate` module: I/O-free functions that take one owner's `/pub/pubky.app/` objects as bytes and return the `social/v1` objects to write. Every output is read back through the 1.x reader before it is returned, and an object that cannot migrate is skipped with a counted reason, never repaired. Only a client that runs the migration needs it, so it is off by default; [`pubky-social-migrator`](https://www.npmjs.com/package/pubky-social-migrator) is that client, built from this crate to wasm.
 
